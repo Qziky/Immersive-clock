@@ -1,0 +1,360 @@
+/* 实时噪音状态监测组件样式 */
+.noiseMonitor {
+  margin-top: 0.75rem;
+  text-align: left;
+}
+
+.statusContainer {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+.textBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 0rem;
+}
+
+.statusText {
+  font-family: var(--font-ui);
+  font-size: 1.4rem;
+  line-height: 1.5;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+  transition: all 0.3s ease;
+  user-select: none;
+  display: inline-block;
+  padding: 0.4rem 0.7rem;
+  border-radius: var(--border-radius-sm);
+}
+
+.statusSubtext {
+  font-family: var(--font-ui);
+  font-size: 0.9rem;
+  line-height: 1.1;
+  color: rgba(255, 255, 255, 0.75);
+  padding: 0 0.7rem;
+  margin-top: 0;
+  /* 紧贴状态文本 */
+}
+
+/* 安静状态 */
+.statusText.quiet {
+  color: var(--text-color);
+}
+
+/* 吵闹状态 */
+.statusText.noisy {
+  color: #ff4757;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+/* 错误状态 */
+.statusText.error {
+  color: #ff6b6b;
+  opacity: 0.8;
+}
+
+.statusText.error:hover {
+  opacity: 1;
+  background: rgba(255, 107, 107, 0.1);
+}
+
+/* 初始化状态 */
+.statusText.initializing {
+  color: rgba(255, 255, 255, 0.6);
+  cursor: default;
+  animation: fadeInOut 2s ease-in-out infinite;
+}
+
+/* 校准状态 */
+.statusText.calibrating {
+  color: #ffa502;
+  cursor: not-allowed;
+  /* 校准中不可点击 */
+  animation: pulse 1s ease-in-out infinite;
+}
+
+/* 脉冲动画（吵闹状态） */
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 0.7;
+    transform: scale(1.05);
+  }
+}
+
+/* 淡入淡出动画（初始化状态） */
+@keyframes fadeInOut {
+  0%,
+  100% {
+    opacity: 0.6;
+  }
+
+  50% {
+    opacity: 1;
+  }
+}
+
+/* 呼吸灯效果 */
+.breathingLight {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  transition: transform 0.2s ease;
+}
+
+.breathingLight:hover:not(.calibrating):not(.initializing) {
+  transform: scale(1.2);
+}
+
+/* 安静状态呼吸灯 */
+.breathingLight.quiet {
+  background-color: #2ed573;
+  animation: breatheQuiet 4s ease-in-out infinite;
+  cursor: pointer;
+}
+
+/* 吵闹状态呼吸灯 */
+.breathingLight.noisy {
+  background-color: #ff4757;
+  animation: breatheNoisy 2.5s ease-in-out infinite;
+  cursor: pointer;
+}
+
+/* 错误状态呼吸灯 */
+.breathingLight.error {
+  background-color: #ff6b6b;
+  animation: breatheError 3s ease-in-out infinite;
+  cursor: pointer;
+}
+
+/* 初始化状态呼吸灯 */
+.breathingLight.initializing {
+  background-color: rgba(255, 255, 255, 0.6);
+  animation: breatheInitializing 3.5s ease-in-out infinite;
+  cursor: default;
+}
+
+/* 校准状态呼吸灯 */
+.breathingLight.calibrating {
+  background-color: #ffa502;
+  animation: breatheCalibrating 2s ease-in-out infinite;
+  cursor: not-allowed;
+}
+
+/* 安静状态呼吸动画 */
+@keyframes breatheQuiet {
+  0%,
+  100% {
+    opacity: 0.5;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 0.8;
+    transform: scale(1.1);
+  }
+}
+
+/* 吵闹状态呼吸动画 */
+@keyframes breatheNoisy {
+  0%,
+  100% {
+    opacity: 0.6;
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(255, 71, 87, 0.3);
+  }
+
+  50% {
+    opacity: 0.9;
+    transform: scale(1.15);
+    box-shadow: 0 0 0 2px rgba(255, 71, 87, 0);
+  }
+}
+
+/* 错误状态呼吸动画 */
+@keyframes breatheError {
+  0%,
+  100% {
+    opacity: 0.5;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 0.75;
+    transform: scale(1.05);
+  }
+}
+
+/* 初始化状态呼吸动画 */
+@keyframes breatheInitializing {
+  0%,
+  100% {
+    opacity: 0.4;
+    transform: scale(0.9);
+  }
+
+  50% {
+    opacity: 0.6;
+    transform: scale(1.05);
+  }
+}
+
+/* 校准状态呼吸动画 */
+@keyframes breatheCalibrating {
+  0%,
+  100% {
+    opacity: 0.5;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 0.8;
+    transform: scale(1.1);
+  }
+}
+
+/* 说明：以下为响应式与交互可用性相关样式 */
+@media (max-width: 768px) {
+  .noiseMonitor {
+    position: relative;
+    z-index: 1001;
+    /* 确保在其他元素之上 */
+  }
+
+  .statusContainer {
+    min-height: 48px;
+    /* 增加最小点击区域 */
+    align-items: center;
+    gap: 0.6rem;
+  }
+
+  .statusText {
+    font-size: 1.3rem;
+    padding: 0.7rem 0.9rem;
+    /* 增加点击区域 */
+    min-height: 40px;
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    /* 确保显示可点击状态 */
+  }
+
+  .breathingLight {
+    width: 12px;
+    height: 12px;
+  }
+
+  /* 移动端：通过更大点击区域提升可用性 */
+}
+
+@media (max-width: 480px) {
+  .noiseMonitor {
+    position: relative;
+    z-index: 1002;
+    /* 更高的层级 */
+    margin-top: 0.5rem;
+  }
+
+  .statusContainer {
+    min-height: 52px;
+    /* 更大的点击区域 */
+    gap: 0.8rem;
+  }
+
+  .statusText {
+    font-size: 1.2rem;
+    padding: 0.9rem 1.2rem;
+    /* 更大的点击区域 */
+    min-height: 44px;
+    border-radius: 8px;
+    /* 移除移动端背景，保持与桌面端一致 */
+    cursor: pointer;
+  }
+
+  .breathingLight {
+    width: 16px;
+    height: 16px;
+    /* 增大呼吸灯以便点击 */
+    padding: 8px;
+    /* 增加点击区域 */
+    margin: -8px;
+    /* 抵消padding的视觉影响 */
+  }
+
+  /* 移动端（超小屏）：进一步扩大点击与可视区域 */
+}
+
+/* 竖屏显示优化 */
+@media (orientation: portrait) and (max-width: 768px) {
+  .noiseMonitor {
+    margin-top: 0.8rem;
+  }
+
+  .statusContainer {
+    min-height: 50px;
+    gap: 0.7rem;
+  }
+
+  .statusText {
+    font-size: 1.4rem;
+    padding: 0.8rem 1rem;
+    min-height: 42px;
+    font-weight: 500;
+  }
+
+  .breathingLight {
+    width: 14px;
+    height: 14px;
+  }
+}
+
+@media (orientation: portrait) and (max-width: 480px) {
+  .statusText {
+    font-size: 1.3rem;
+    padding: 0.9rem 1.1rem;
+    min-height: 46px;
+  }
+
+  .breathingLight {
+    width: 17px;
+    height: 17px;
+  }
+}
+
+/* 高对比度模式支持 */
+@media (prefers-contrast: high) {
+  .statusText.noisy {
+    color: #ff0000;
+    font-weight: 600;
+  }
+
+  .statusText.error {
+    color: #ff0000;
+    font-weight: 600;
+  }
+}
+
+/* 减少动画模式支持 */
+@media (prefers-reduced-motion: reduce) {
+  .statusText.noisy {
+    animation: none;
+  }
+
+  .statusText.initializing {
+    animation: none;
+    opacity: 0.8;
+  }
+
+  .statusText {
+    transition: none;
+  }
+}

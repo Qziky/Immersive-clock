@@ -1,0 +1,146 @@
+.note {
+  font-size: 0.85rem;
+  opacity: 0.8;
+  margin-bottom: 10px;
+}
+
+.customForm {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.customRow {
+  flex-wrap: wrap;
+}
+
+.customError {
+  color: #ff6b6b;
+  font-size: 0.9rem;
+  opacity: 0.95;
+}
+
+.customDetails {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.customSummary {
+  cursor: pointer;
+  user-select: none;
+  font-size: 0.9rem;
+  font-weight: 600;
+  opacity: 0.9;
+}
+
+.customSummary::-webkit-details-marker {
+  display: none;
+}
+
+.customSummary::before {
+  content: "▶";
+  display: inline-block;
+  width: 14px;
+  margin-right: 6px;
+  opacity: 0.8;
+  transform: translateY(-1px);
+}
+
+.customDetails[open] > .customSummary::before {
+  content: "▼";
+}
+
+.customBody {
+  margin-top: 10px;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.headerRow {
+  display: grid;
+  grid-template-columns: 1fr 72px 1.4fr 120px;
+  gap: 10px;
+  align-items: center;
+  padding: 0 10px;
+  font-size: 0.8rem;
+  opacity: 0.8;
+}
+
+.dataRow {
+  display: grid;
+  grid-template-columns: 1fr 72px 1.4fr 120px;
+  gap: 10px;
+  align-items: center;
+  padding: 10px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.colName {
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.colScore {
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+.colTime {
+  font-size: 0.85rem;
+  opacity: 0.85;
+}
+
+.colAction {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.empty {
+  font-size: 0.9rem;
+  opacity: 0.8;
+}
+
+@media (max-width: 768px) {
+  .headerRow {
+    display: none;
+  }
+
+  .dataRow {
+    grid-template-columns: 1fr auto;
+    grid-template-areas:
+      "name score"
+      "time time"
+      "action action";
+  }
+
+  .colName {
+    grid-area: name;
+  }
+
+  .colScore {
+    grid-area: score;
+    text-align: right;
+  }
+
+  .colTime {
+    grid-area: time;
+  }
+
+  .colAction {
+    grid-area: action;
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 480px) {
+  .dataRow {
+    padding: 8px;
+  }
+}

@@ -1,0 +1,589 @@
+/* SettingsPanel 特定样式 - 模态框样式已移至统一的Modal组件 */
+
+/* 设置容器和分组布局 */
+.settingsModal {
+  background: #0b0c0e;
+}
+
+.settingsApp {
+  background: #0b0c0e;
+  color: #eaecf0;
+  display: grid;
+  grid-template-rows: 72px minmax(0, 1fr);
+  height: 100%;
+  min-height: 0;
+}
+
+.topNav {
+  align-items: center;
+  border-bottom: 1px solid #2a2e35;
+  background: #0a0b0d;
+  display: flex;
+  justify-content: space-between;
+  min-width: 0;
+  padding: 0 28px;
+}
+
+.topNavList {
+  align-items: stretch;
+  display: flex;
+  gap: 18px;
+  height: 100%;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.topNavList::-webkit-scrollbar {
+  display: none;
+}
+
+.topNavItem,
+.topNavItemActive {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  color: #8e9098;
+  cursor: pointer;
+  display: inline-flex;
+  flex: 0 0 auto;
+  gap: 10px;
+  font: inherit;
+  font-size: 15px;
+  min-width: 0;
+  padding: 0 10px;
+  position: relative;
+}
+
+.topNavItem:hover {
+  color: #d9dde5;
+}
+
+.topNavItemActive {
+  border-bottom-color: #6fe7cf;
+  color: #6fe7cf;
+}
+
+.topNavText {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.topNavText span {
+  font-weight: 650;
+  line-height: 1.15;
+}
+
+.topNavText small {
+  color: #626872;
+  font-size: 11px;
+  line-height: 1.15;
+  white-space: nowrap;
+}
+
+.topNavItemActive .topNavText small {
+  color: rgba(111, 231, 207, 0.68);
+}
+
+.settingsWorkspace {
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr);
+  min-height: 0;
+}
+
+.sideNav {
+  align-content: start;
+  border-right: 1px solid #2a2e35;
+  display: grid;
+  gap: 18px;
+  min-width: 0;
+  padding: 24px 20px 24px 28px;
+}
+
+.sideNavHeader {
+  border-bottom: 1px solid #2a2e35;
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  padding: 0 6px 16px;
+}
+
+.sideNavHeader strong {
+  color: #eaecf0;
+  font-size: 14px;
+  line-height: 1.25;
+}
+
+.sideNavHeader span {
+  color: #8e9098;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.sideNavList {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+
+.sideNavItem,
+.sideNavItemActive {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-left: 3px solid transparent;
+  border-radius: 8px;
+  color: #8e9098;
+  cursor: pointer;
+  display: flex;
+  gap: 12px;
+  font: inherit;
+  font-size: 17px;
+  min-height: 56px;
+  min-width: 0;
+  padding: 0 18px;
+  text-align: left;
+}
+
+.sideNavItem:hover {
+  background: #111317;
+  color: #d9dde5;
+}
+
+.sideNavItemActive {
+  background: #171a20;
+  border-left-color: #6fe7cf;
+  color: #6fe7cf;
+}
+
+.contentPane {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  min-height: 0;
+  min-width: 0;
+}
+
+.contentHeader {
+  align-items: center;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.025), rgba(255, 255, 255, 0)),
+    #0b0c0e;
+  border-bottom: 1px solid #2a2e35;
+  color: #8e9098;
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  min-height: 82px;
+  min-width: 0;
+  padding: 14px 28px;
+}
+
+.contentHeaderText {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.contentHeader h2 {
+  color: #eaecf0;
+  font-size: 24px;
+  letter-spacing: 0;
+  line-height: 1.15;
+  margin: 0;
+}
+
+.contentEyebrow {
+  color: #6fe7cf;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0;
+  margin: 0;
+}
+
+.contentDescription {
+  color: #8e9098;
+  font-size: 13px;
+  line-height: 1.45;
+  margin: 0;
+}
+
+.contentPill {
+  justify-self: end;
+  max-width: 100%;
+  width: max-content;
+}
+
+.contentBody {
+  align-content: start;
+  display: grid;
+  gap: 16px;
+  min-height: 0;
+  overflow: auto;
+  padding: 20px 28px 28px;
+  scrollbar-gutter: stable;
+}
+
+.contentBody > div {
+  align-content: start;
+  display: grid;
+  gap: 16px;
+  max-width: 980px;
+  min-width: 0;
+  width: 100%;
+}
+
+.contentBody section {
+  background: #111317;
+}
+
+.contentBody section > header {
+  align-items: center;
+}
+
+.contentBody section > header + div {
+  gap: 12px;
+}
+
+.contentBody section p {
+  margin: 0;
+}
+
+.contentBody section label {
+  min-width: 0;
+}
+
+.contentBody section input[type="color"] {
+  flex: 0 0 auto;
+}
+
+.actionBar {
+  align-items: center;
+  background: rgba(11, 12, 14, 0.98);
+  border-top: 1px solid #2a2e35;
+  box-shadow: 0 -14px 28px rgba(0, 0, 0, 0.22);
+  display: flex;
+  justify-content: space-between;
+  min-width: 0;
+  padding: 14px 28px;
+}
+
+.backgroundPreview {
+  aspect-ratio: 16 / 9;
+  background: #0f1115;
+  border: 1px solid #2a2e35;
+  border-radius: 8px;
+  display: block;
+  max-height: 260px;
+  object-fit: cover;
+  width: 100%;
+}
+
+.draggableSetting {
+  cursor: grab;
+}
+
+.draggableSetting[aria-grabbed="true"] {
+  background: #13161b;
+  border-color: rgba(111, 231, 207, 0.58);
+}
+
+.hiddenInput {
+  clip-path: inset(50%);
+  height: 1px;
+  opacity: 0;
+  overflow: hidden;
+  pointer-events: none;
+  position: absolute;
+  width: 1px;
+}
+
+.debugRecordList {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.debugRecord {
+  background: #0f1115;
+  border: 1px solid #2a2e35;
+  border-radius: 8px;
+  color: #eaecf0;
+  min-width: 0;
+  padding: 10px 12px;
+}
+
+.debugRecordSummary {
+  color: #d9dde5;
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.debugRecordBody {
+  color: #8e9098;
+  display: grid;
+  gap: 8px;
+  font-size: 12px;
+  line-height: 1.5;
+  margin-top: 10px;
+  min-width: 0;
+}
+
+.debugStack {
+  background: #0b0c0e;
+  border: 1px solid #2a2e35;
+  border-radius: 8px;
+  color: #c9ced8;
+  font-family: var(--ui-font-number);
+  font-size: 12px;
+  line-height: 1.45;
+  margin: 0;
+  max-height: 260px;
+  min-width: 0;
+  overflow: auto;
+  padding: 10px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+@media (max-width: 1279px) and (min-width: 960px) {
+  .settingsWorkspace {
+    grid-template-columns: 236px minmax(0, 1fr);
+  }
+
+  .sideNav {
+    padding: 22px 14px 22px 18px;
+  }
+
+  .sideNavList {
+    gap: 10px;
+  }
+
+  .sideNavItem,
+  .sideNavItemActive {
+    font-size: 16px;
+    min-height: 52px;
+    padding: 0 14px;
+  }
+
+  .contentBody {
+    padding: 22px 24px;
+  }
+}
+
+@media (max-width: 959px) and (min-width: 701px) {
+  .settingsWorkspace {
+    grid-template-columns: 88px minmax(0, 1fr);
+  }
+
+  .sideNav {
+    gap: 12px;
+    justify-items: center;
+    padding: 22px 14px;
+  }
+
+  .sideNavHeader {
+    display: none;
+  }
+
+  .sideNavList {
+    display: grid;
+    gap: 12px;
+    justify-items: center;
+  }
+
+  .sideNavItem,
+  .sideNavItemActive {
+    border-left: 0;
+    border-radius: 8px;
+    display: inline-flex;
+    height: 50px;
+    justify-content: center;
+    min-height: 50px;
+    padding: 0;
+    width: 50px;
+  }
+
+  .sideNavItemActive {
+    border: 1px solid rgba(47, 236, 198, 0.58);
+  }
+
+  .sideNavItem span,
+  .sideNavItemActive span {
+    display: none;
+  }
+
+  .contentBody {
+    padding: 22px 24px;
+  }
+}
+
+@media (max-width: 700px) {
+  .settingsApp {
+    grid-template-rows: 68px minmax(0, 1fr);
+  }
+
+  .topNav {
+    padding: 0 16px;
+  }
+
+  .topNavList {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    width: 100%;
+  }
+
+  .topNavItem,
+  .topNavItemActive {
+    flex: 0 0 auto;
+    font-size: 14px;
+    justify-content: center;
+    min-height: 100%;
+    min-width: 112px;
+    overflow: hidden;
+    padding: 0 8px;
+  }
+
+  .topNavText small {
+    display: none;
+  }
+
+  .topNavText span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .settingsWorkspace {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  .sideNav {
+    border-bottom: 1px solid #2a2e35;
+    border-right: 0;
+    display: block;
+    padding: 10px 16px;
+  }
+
+  .sideNavHeader {
+    display: none;
+  }
+
+  .sideNavList {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .sideNavList::-webkit-scrollbar {
+    display: none;
+  }
+
+  .sideNavItem,
+  .sideNavItemActive {
+    border-left: 0;
+    flex: 0 0 auto;
+    font-size: 14px;
+    gap: 7px;
+    justify-content: center;
+    min-height: 42px;
+    min-width: 104px;
+    overflow: hidden;
+    padding: 0 10px;
+  }
+
+  .sideNavItemActive {
+    border: 1px solid rgba(47, 236, 198, 0.58);
+  }
+
+  .sideNavItem span,
+  .sideNavItemActive span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .contentPane {
+    grid-template-rows: auto minmax(0, 1fr) auto;
+  }
+
+  .contentHeader {
+    align-items: flex-start;
+    display: grid;
+    gap: 10px;
+    min-height: 0;
+    padding: 14px 16px;
+  }
+
+  .contentPill {
+    justify-self: start;
+  }
+
+  .contentBody {
+    padding: 14px 16px 18px;
+  }
+
+  .actionBar {
+    padding: 12px 16px;
+  }
+}
+
+@media (max-width: 520px) {
+  .topNav {
+    padding: 0 12px;
+  }
+
+  .topNavItem,
+  .topNavItemActive {
+    gap: 6px;
+    padding: 0 2px;
+  }
+
+  .topNavItem svg,
+  .topNavItemActive svg {
+    height: 20px;
+    width: 20px;
+  }
+
+  .sideNav {
+    padding: 10px 12px;
+  }
+
+  .sideNavItem,
+  .sideNavItemActive {
+    gap: 6px;
+    min-height: 44px;
+    min-width: 96px;
+    padding: 0 10px;
+  }
+
+  .sideNavItem svg,
+  .sideNavItemActive svg {
+    height: 20px;
+    width: 20px;
+  }
+
+  .contentHeader {
+    padding: 0 16px;
+  }
+
+  .contentHeader h2 {
+    font-size: 20px;
+  }
+
+  .actionBar {
+    gap: 12px;
+  }
+
+  .actionBar > * {
+    flex: 1 1 0;
+  }
+}

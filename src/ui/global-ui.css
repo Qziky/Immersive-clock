@@ -1,0 +1,40 @@
+@import "./tokens.css";
+
+[data-ui-root] {
+  background: var(--ui-color-bg);
+  color: var(--ui-color-text);
+  font-family: var(--ui-font-sans);
+  font-size: var(--ui-font-size-md);
+  letter-spacing: 0;
+}
+
+[data-ui-root] *,
+[data-ui-root] *::before,
+[data-ui-root] *::after {
+  box-sizing: border-box;
+}
+
+[data-ui-root] ::selection {
+  background: rgba(47, 236, 198, 0.24);
+  color: var(--ui-color-text);
+}
+
+[data-ui-root] button,
+[data-ui-root] input,
+[data-ui-root] select,
+[data-ui-root] textarea {
+  font: inherit;
+}
+
+[data-ui-root] button:focus-visible,
+[data-ui-root] input:focus-visible,
+[data-ui-root] select:focus-visible,
+[data-ui-root] textarea:focus-visible,
+[data-ui-root] [tabindex]:focus-visible {
+  outline: none;
+  box-shadow: var(--ui-focus-ring);
+}
+
+[data-ui-root] svg {
+  flex: 0 0 auto;
+}

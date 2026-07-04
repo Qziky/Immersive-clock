@@ -1,0 +1,91 @@
+.hiddenInput {
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+  position: absolute;
+  width: 1px;
+}
+
+.loadingIcon {
+  animation: spin 1s linear infinite;
+  display: inline-flex;
+}
+
+.channelList {
+  display: grid;
+  gap: var(--ui-space-3);
+  min-width: 0;
+}
+
+.categorySettings,
+.editorSection {
+  border-top: 1px solid var(--ui-color-border);
+  display: grid;
+  gap: var(--ui-space-3);
+  margin-top: var(--ui-space-2);
+  min-width: 0;
+  padding-top: var(--ui-space-3);
+}
+
+.editorHeader {
+  align-items: center;
+  display: flex;
+  gap: var(--ui-space-3);
+  justify-content: space-between;
+  min-width: 0;
+}
+
+.editorTitle {
+  color: var(--ui-color-text);
+  font-size: var(--ui-font-size-sm);
+  font-weight: 650;
+  line-height: 1.35;
+  margin: 0;
+}
+
+.quoteActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ui-space-2);
+  justify-content: flex-end;
+  min-width: 0;
+}
+
+.quoteTextarea {
+  min-height: 170px;
+  width: 100%;
+}
+
+.importInfo {
+  background: var(--ui-color-bg-muted);
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-md);
+  color: var(--ui-color-text-muted);
+  font-size: var(--ui-font-size-xs);
+  line-height: 1.45;
+  min-width: 0;
+  padding: 10px 12px;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 760px) {
+  .editorHeader {
+    align-items: stretch;
+    display: grid;
+  }
+
+  .quoteActions {
+    justify-content: flex-start;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .loadingIcon {
+    animation: none;
+  }
+}

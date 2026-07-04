@@ -1,0 +1,240 @@
+/* 时钟页面组件样式 */
+
+.clockPage {
+  height: 100vh;
+  width: 100vw;
+  background: var(--background-color);
+  color: var(--text-color);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+  cursor: default;
+  outline: none;
+  /* 禁用移动端触摸高亮 */
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  -khtml-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
+.clockPage:focus {
+  outline: none;
+}
+
+.timeDisplay {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-lg);
+  position: relative;
+  z-index: 1;
+}
+
+/* 响应式适配 */
+@media (max-width: 768px) {
+  .timeDisplay {
+    padding: var(--spacing-md);
+  }
+}
+
+@media (max-width: 480px) {
+  .timeDisplay {
+    padding: var(--spacing-sm);
+  }
+}
+
+@media (max-height: 600px) {
+  .timeDisplay {
+    padding: var(--spacing-md) var(--spacing-lg);
+  }
+}
+
+/* 让页面占满视口 */
+.clockPage {
+  min-height: 100vh;
+  min-width: 100vw;
+}
+
+/* 文本选择禁用已在上方 .clockPage 主规则中处理 */
+
+/* 模式切换的平滑过渡 */
+.timeDisplay {
+  transition: all var(--transition-normal);
+}
+
+/* 背景渐变以提升视觉效果 */
+.clockPage::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: radial-gradient(
+    ellipse at center,
+    rgba(255, 255, 255, 0.02) 0%,
+    rgba(255, 255, 255, 0.01) 50%,
+    transparent 100%
+  );
+  pointer-events: none;
+  z-index: 0;
+}
+
+.bottomChrome {
+  --bottom-chrome-color: rgba(218, 222, 230, 0.54);
+  --bottom-chrome-hover: rgba(246, 247, 250, 0.84);
+  --bottom-chrome-font-size: 0.72rem;
+
+  align-items: center;
+  bottom: 0;
+  box-sizing: border-box;
+  color: var(--bottom-chrome-color);
+  display: flex;
+  font-family: var(--font-ui);
+  font-size: var(--bottom-chrome-font-size);
+  gap: 16px;
+  height: 18px;
+  justify-content: flex-end;
+  left: 0;
+  line-height: 1;
+  min-width: 0;
+  padding: 0 8px 0 2px;
+  pointer-events: none;
+  position: fixed;
+  right: 0;
+  z-index: 999;
+}
+
+.bottomTools {
+  align-items: center;
+  display: inline-flex;
+  flex: 0 0 auto;
+  gap: 8px;
+  height: 100%;
+  margin-right: auto;
+  min-width: 0;
+  pointer-events: auto;
+}
+
+/* 指引按钮 */
+.tourButton {
+  align-items: center;
+  background: transparent;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  display: inline-flex;
+  font: inherit;
+  font-weight: 500;
+  height: 100%;
+  justify-content: center;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  min-width: 0;
+  padding: 0;
+  pointer-events: auto;
+  transition:
+    color 0.18s ease,
+    opacity 0.18s ease,
+    transform 0.18s ease;
+  width: 18px;
+  z-index: 1;
+}
+
+.tourButton:hover {
+  color: var(--bottom-chrome-hover);
+  transform: translateY(-1px);
+}
+
+.tourButton:focus-visible {
+  color: var(--bottom-chrome-hover);
+  outline: none;
+}
+
+.tourButton:active {
+  transform: translateY(0);
+}
+
+@media (max-width: 768px) {
+  .bottomChrome {
+    --bottom-chrome-font-size: 0.7rem;
+
+    gap: 12px;
+    height: 18px;
+  }
+
+  .bottomTools {
+    gap: 6px;
+  }
+}
+
+@media (max-width: 480px) {
+  .bottomChrome {
+    --bottom-chrome-font-size: 0.68rem;
+
+    gap: 10px;
+    height: 18px;
+  }
+
+  .tourButton {
+    letter-spacing: 0;
+    width: 16px;
+  }
+}
+
+/* 无障碍适配优化 */
+@media (prefers-reduced-motion: reduce) {
+  .timeDisplay {
+    transition: none;
+  }
+
+  .tourButton {
+    transition: none;
+  }
+
+  .tourButton:hover,
+  .tourButton:active {
+    transform: none;
+  }
+}
+
+/* 高对比度模式支持 */
+@media (prefers-contrast: high) {
+  .clockPage {
+    background: #000000;
+    color: #ffffff;
+  }
+
+  .clockPage::before {
+    display: none;
+  }
+
+  .tourButton:hover {
+    color: #ffffff;
+  }
+}
+
+/* 打印样式 */
+@media print {
+  .clockPage {
+    background: white;
+    color: black;
+  }
+
+  .clockPage::before {
+    display: none;
+  }
+
+  .tourButton {
+    display: none;
+  }
+
+  .bottomChrome {
+    display: none;
+  }
+}

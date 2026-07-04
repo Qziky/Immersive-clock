@@ -1,0 +1,49 @@
+.importSummary {
+  display: grid;
+  gap: var(--ui-space-3);
+  min-width: 0;
+}
+
+.importErrors {
+  background: var(--ui-color-danger-soft);
+  border: 1px solid var(--ui-color-danger-border);
+  border-radius: var(--ui-radius-md);
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  padding: 10px 12px;
+}
+
+.importErrorItem {
+  color: var(--ui-color-text);
+  font-size: var(--ui-font-size-xs);
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.importErrorMore {
+  color: var(--ui-color-text-muted);
+  font-size: var(--ui-font-size-xs);
+  line-height: 1.35;
+}
+
+.importActions,
+.rowActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ui-space-2);
+  min-width: 0;
+}
+
+.scheduleList {
+  display: grid;
+  gap: var(--ui-space-3);
+  min-width: 0;
+}
+
+@media (max-width: 760px) {
+  .importActions,
+  .rowActions {
+    justify-content: flex-start;
+  }
+}

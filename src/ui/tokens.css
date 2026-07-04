@@ -1,0 +1,57 @@
+:root {
+  color-scheme: dark;
+
+  --ui-color-bg: #0b0c0e;
+  --ui-color-bg-raised: #111317;
+  --ui-color-bg-elevated: #1a1d22;
+  --ui-color-bg-muted: #15181d;
+  --ui-color-border: #2a2e35;
+  --ui-color-border-strong: #3a4048;
+  --ui-color-text: #eaecf0;
+  --ui-color-text-muted: #8e9098;
+  --ui-color-text-subtle: #686d76;
+  --ui-color-accent: #2fecc6;
+  --ui-color-accent-strong: #17c7ad;
+  --ui-color-accent-soft: rgba(47, 236, 198, 0.14);
+  --ui-color-accent-border: rgba(47, 236, 198, 0.58);
+  --ui-color-danger: #ef5f67;
+  --ui-color-danger-soft: rgba(239, 95, 103, 0.12);
+  --ui-color-danger-border: rgba(239, 95, 103, 0.54);
+  --ui-color-warning: #d7a541;
+  --ui-color-warning-soft: rgba(215, 165, 65, 0.12);
+  --ui-color-info: #63c4e8;
+  --ui-color-info-soft: rgba(99, 196, 232, 0.12);
+  --ui-color-success: #4fce8b;
+  --ui-color-success-soft: rgba(79, 206, 139, 0.12);
+
+  --ui-font-sans: "Inter", "Source Han Sans SC", "Microsoft YaHei", sans-serif;
+  --ui-font-number: "Roboto Mono", "DIN Alternate", "DIN Condensed", monospace;
+
+  --ui-font-size-xs: 11px;
+  --ui-font-size-sm: 12px;
+  --ui-font-size-md: 14px;
+  --ui-font-size-lg: 16px;
+  --ui-font-size-xl: 20px;
+  --ui-font-size-display: clamp(48px, 7vw, 80px);
+
+  --ui-space-1: 4px;
+  --ui-space-2: 8px;
+  --ui-space-3: 12px;
+  --ui-space-4: 16px;
+  --ui-space-5: 24px;
+  --ui-space-6: 32px;
+  --ui-space-7: 40px;
+  --ui-space-8: 48px;
+
+  --ui-radius-xs: 2px;
+  --ui-radius-sm: 4px;
+  --ui-radius-md: 6px;
+  --ui-radius-lg: 8px;
+
+  --ui-shadow-panel: 0 20px 80px rgba(0, 0, 0, 0.28);
+  --ui-shadow-control: 0 0 0 1px rgba(47, 236, 198, 0.08);
+  --ui-focus-ring: 0 0 0 2px rgba(47, 236, 198, 0.28);
+  --ui-transition-fast: 140ms ease;
+  --ui-transition-normal: 200ms ease;
+  --ui-z-modal: 2000;
+}

@@ -1,0 +1,224 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.chart {
+  width: 100%;
+  height: 160px;
+  display: block;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.03);
+  overflow: hidden;
+}
+
+.chart svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.axis {
+  stroke: rgba(255, 255, 255, 0.25);
+  stroke-width: 1;
+}
+
+.tick {
+  stroke: rgba(255, 255, 255, 0.3);
+  stroke-width: 1;
+}
+
+.tickLabel {
+  fill: var(--text-color, #ffffff);
+  opacity: 0.9;
+  font-size: 0.75rem;
+  font-family: var(--font-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif);
+}
+
+.gridLine {
+  stroke: rgba(255, 255, 255, 0.12);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+}
+
+.line {
+  fill: none;
+  stroke: #4cc9f0;
+  stroke-width: 2;
+  stroke-linecap: round;
+  shape-rendering: geometricPrecision;
+}
+
+.threshold {
+  stroke: #ff6b6b;
+  stroke-width: 1.5;
+  stroke-dasharray: 5 4;
+}
+
+.empty {
+  padding: 0.75rem;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.sourceNote {
+  margin-top: 0.4rem;
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.6);
+  font-family: var(--font-ui);
+}
+
+.statsGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.statItem {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 0.75rem;
+}
+
+.statLabel {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.9rem;
+}
+
+.statValue {
+  color: #ffffff;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.historyList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-height: 220px;
+  overflow: auto;
+}
+
+.historyItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 0.5rem 0.75rem;
+}
+
+.chartHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.4rem;
+  color: rgba(255, 255, 255, 0.85);
+  font-family: var(--font-ui);
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.historyTime {
+  color: rgba(255, 255, 255, 0.85);
+  font-family: var(--font-ui);
+}
+
+.historyBadge {
+  color: #ff4757;
+  font-weight: 600;
+}
+
+.segmentedRow {
+  margin-bottom: 0.5rem;
+}
+
+.sliceItem {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 0.75rem;
+}
+
+.sliceHeaderRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+  font-family: var(--font-ui);
+}
+
+.sliceTitle {
+  color: rgba(255, 255, 255, 0.95);
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.sliceTime {
+  color: rgba(255, 255, 255, 0.65);
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
+.sliceGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.6rem;
+}
+
+.sliceGridItem {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 0.6rem 0.65rem;
+}
+
+.sliceLabel {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.85rem;
+  margin-bottom: 0.2rem;
+}
+
+.sliceValue {
+  color: #ffffff;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.sliceFootnote {
+  margin-top: 0.55rem;
+  font-size: 0.78rem;
+  color: rgba(255, 255, 255, 0.6);
+  line-height: 1.35;
+  font-family: var(--font-ui);
+}
+
+@media (max-width: 768px) {
+  .statsGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .sliceGrid {
+    grid-template-columns: repeat(1, minmax(0, 1fr));
+  }
+
+  .sliceTime {
+    white-space: normal;
+  }
+
+  .chartHeader {
+    font-size: 0.85rem;
+  }
+
+  .chart {
+    height: 140px;
+  }
+
+  .sourceNote {
+    font-size: 0.75rem;
+  }
+}
