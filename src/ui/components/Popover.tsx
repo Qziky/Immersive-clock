@@ -3,7 +3,9 @@ import type { CSSProperties, ReactNode } from "react";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
+import type { UiMotionMode } from "../types";
 import { classNames } from "../utils/classNames";
+import { usePresence } from "../utils/usePresence";
 
 import styles from "./primitives.module.css";
 
@@ -13,6 +15,7 @@ export interface PopoverProps {
   ariaLabel: string;
   className?: string;
   width?: number | string;
+  motion?: UiMotionMode;
 }
 
 export interface MenuItem {
@@ -34,11 +37,19 @@ function formatWidth(width: number | string | undefined, fallback: number) {
   return width ?? fallback;
 }
 
-export function Popover({ trigger, children, ariaLabel, className, width }: PopoverProps) {
+export function Popover({
+  trigger,
+  children,
+  ariaLabel,
+  className,
+  width,
+  motion = "default",
+}: PopoverProps) {
   const id = useId();
   const triggerRef = useRef<HTMLButtonElement>(null);
   const [isOpen, setIsOpen] = useState(false);
   const [panelStyle, setPanelStyle] = useState<CSSProperties>();
+  const { isPresent, presenceState, shouldAnimate } = usePresence({ isOpen, motion });
 
   const updatePosition = useCallback(() => {
     const triggerNode = triggerRef.current;
@@ -47,7 +58,8 @@ export function Popover({ trigger, children, ariaLabel, className, width }: Popo
 
     const rect = triggerNode.getBoundingClientRect();
     const resolvedWidth = formatWidth(width, Math.max(240, rect.width));
-    const numericWidth = typeof resolvedWidth === "number" ? resolvedWidth : Math.max(240, rect.width);
+    const numericWidth =
+      typeof resolvedWidth === "number" ? resolvedWidth : Math.max(240, rect.width);
 
     setPanelStyle({
       left: Math.max(8, Math.min(rect.left, window.innerWidth - numericWidth - 8)),
@@ -88,18 +100,20 @@ export function Popover({ trigger, children, ariaLabel, className, width }: Popo
   }, [id, isOpen, updatePosition]);
 
   const panel =
-    isOpen && typeof document !== "undefined"
+    isPresent && typeof document !== "undefined"
       ? createPortal(
           <div
             className={classNames(styles.popoverPanel, className)}
+            data-ui-motion={shouldAnimate ? "default" : "none"}
             data-popover-panel={id}
+            data-ui-presence={presenceState}
             role="dialog"
             aria-label={ariaLabel}
             style={panelStyle}
           >
             {children}
           </div>,
-          document.body,
+          document.body
         )
       : null;
 

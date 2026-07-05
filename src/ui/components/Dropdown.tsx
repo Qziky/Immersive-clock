@@ -3,7 +3,9 @@ import type { CSSProperties, ReactNode } from "react";
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
+import type { UiMotionMode } from "../types";
 import { classNames } from "../utils/classNames";
+import { usePresence } from "../utils/usePresence";
 
 import styles from "./primitives.module.css";
 
@@ -41,6 +43,7 @@ export interface DropdownProps {
   variant?: "default" | "ghost";
   renderLabel?: (option: DropdownOption) => string;
   portalContainer?: HTMLElement | null;
+  motion?: UiMotionMode;
   className?: string;
   onChange?: (value: DropdownValue | DropdownValue[] | undefined) => void;
 }
@@ -78,6 +81,7 @@ export function Dropdown({
   width,
   renderLabel,
   portalContainer,
+  motion = "default",
   className,
   onChange,
 }: DropdownProps) {
@@ -87,6 +91,7 @@ export function Dropdown({
   const [query, setQuery] = useState("");
   const [internalValue, setInternalValue] = useState(defaultValue);
   const [menuStyle, setMenuStyle] = useState<CSSProperties>();
+  const { isPresent, presenceState, shouldAnimate } = usePresence({ isOpen, motion });
 
   const resolvedValue = value ?? internalValue;
   const selectedValues = useMemo(() => new Set(normalizeValue(resolvedValue)), [resolvedValue]);
@@ -115,7 +120,7 @@ export function Dropdown({
         options: group.options.filter(
           (option) =>
             option.label.toLowerCase().includes(normalizedQuery) ||
-            option.description?.toLowerCase().includes(normalizedQuery),
+            option.description?.toLowerCase().includes(normalizedQuery)
         ),
       }))
       .filter((group) => group.options.length > 0);
@@ -123,7 +128,7 @@ export function Dropdown({
 
   const flattenedOptions = useMemo(
     () => normalizedGroups.flatMap((group) => group.options),
-    [normalizedGroups],
+    [normalizedGroups]
   );
 
   const selectedLabels = flattenedOptions
@@ -163,10 +168,7 @@ export function Dropdown({
         return;
       }
 
-      if (
-        target instanceof Element &&
-        target.closest(`[data-dropdown-menu="${generatedId}"]`)
-      ) {
+      if (target instanceof Element && target.closest(`[data-dropdown-menu="${generatedId}"]`)) {
         return;
       }
 
@@ -230,11 +232,13 @@ export function Dropdown({
       : placeholder;
 
   const menu =
-    isOpen && typeof document !== "undefined"
+    isPresent && typeof document !== "undefined"
       ? createPortal(
           <div
             className={styles.dropdownMenu}
             data-dropdown-menu={generatedId}
+            data-ui-motion={shouldAnimate ? "default" : "none"}
+            data-ui-presence={presenceState}
             style={menuStyle}
           >
             {searchable && (
@@ -268,7 +272,7 @@ export function Dropdown({
                       <button
                         className={classNames(
                           styles.dropdownOption,
-                          selected && styles.dropdownOptionSelected,
+                          selected && styles.dropdownOptionSelected
                         )}
                         disabled={option.disabled}
                         key={String(option.value)}
@@ -292,7 +296,7 @@ export function Dropdown({
               ))}
             </div>
           </div>,
-          portalContainer ?? document.body,
+          portalContainer ?? document.body
         )
       : null;
 
@@ -317,7 +321,7 @@ export function Dropdown({
         className={classNames(
           styles.dropdownTrigger,
           error && styles.inputError,
-          !selectedLabels.length && styles.dropdownPlaceholder,
+          !selectedLabels.length && styles.dropdownPlaceholder
         )}
         disabled={disabled}
         style={width ? { width } : undefined}

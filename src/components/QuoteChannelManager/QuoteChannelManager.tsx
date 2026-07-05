@@ -15,7 +15,6 @@ import {
   FormSection,
   InfoPanel,
   Inline as FormButtonGroup,
-  Input as FormInput,
   RadioGroup as FormSegmented,
   SettingGrid,
   SettingItem,
@@ -353,10 +352,7 @@ export function QuoteChannelManager({
   }
 
   return (
-    <FormSection
-      title="语录渠道管理"
-      description="管理励志语录的来源、权重、分类和本地内容。"
-    >
+    <FormSection title="语录渠道管理" description="管理励志语录的来源、权重、分类和本地内容。">
       <InfoPanel tone="neutral">
         权重越高，被选中的概率越大；渠道启用状态会随设置保存一起写入本地配置。
       </InfoPanel>
@@ -395,164 +391,179 @@ export function QuoteChannelManager({
 
       <div className={styles.channelList}>
         {channels.map((channel) => (
-          <SettingItem
+          <article
             key={channel.id}
-            icon={<FileIcon size={18} />}
-            title={channel.name}
-            description={channel.onlineFetch ? "在线获取语录内容" : "使用本地语录内容"}
-            tone={channel.enabled ? "accent" : "neutral"}
-            control={
+            className={channel.enabled ? styles.channelCardActive : styles.channelCard}
+          >
+            <span className={styles.channelIcon} aria-hidden="true">
+              <FileIcon size={18} />
+            </span>
+
+            <div className={styles.channelSummary}>
+              <div className={styles.channelTitleBlock}>
+                <h4 className={styles.channelTitle}>{channel.name}</h4>
+                <p className={styles.channelDescription}>
+                  {channel.onlineFetch ? "在线获取语录内容" : "使用本地语录内容"}
+                </p>
+              </div>
+              <div className={styles.channelStatus}>
+                <StatusPill tone={channel.onlineFetch ? "info" : "neutral"}>
+                  {channel.onlineFetch ? "在线获取" : "本地数据"}
+                </StatusPill>
+                <StatusPill tone={channel.enabled ? "success" : "warning"}>
+                  {channel.enabled ? "已启用" : "已停用"}
+                </StatusPill>
+              </div>
+            </div>
+
+            <label className={styles.channelWeight}>
+              <span>权重</span>
+              <input
+                type="number"
+                value={channel.weight.toString()}
+                min={1}
+                max={9999}
+                onChange={(e) => handleUpdateWeight(channel.id, parseInt(e.target.value) || 1)}
+              />
+            </label>
+
+            <div className={styles.channelActions}>
+              {channel.onlineFetch && channel.hitokotoCategories && (
+                <FormButton
+                  onClick={() => handleToggleExpanded(channel.id)}
+                  variant="secondary"
+                  size="sm"
+                  title="分类设置"
+                  aria-label="分类设置"
+                  icon={<SettingsIcon size={16} />}
+                >
+                  分类
+                </FormButton>
+              )}
+
+              {!channel.onlineFetch && (
+                <FormButton
+                  onClick={() => handleToggleEditorExpanded(channel.id)}
+                  variant="secondary"
+                  size="sm"
+                  title="编辑语录"
+                  aria-label="编辑语录"
+                  icon={<EditIcon size={16} />}
+                >
+                  编辑
+                </FormButton>
+              )}
+            </div>
+
+            <div className={styles.channelSwitch}>
               <FormSwitch
                 checked={!!channel.enabled}
                 onCheckedChange={() => handleToggleChannel(channel.id)}
                 aria-label={channel.enabled ? "禁用语录渠道" : "启用语录渠道"}
               />
-            }
-          >
-            <FormButtonGroup align="left">
-              <StatusPill tone={channel.onlineFetch ? "info" : "neutral"}>
-                {channel.onlineFetch ? "在线获取" : "本地数据"}
-              </StatusPill>
-              <StatusPill tone={channel.enabled ? "success" : "warning"}>
-                {channel.enabled ? "已启用" : "已停用"}
-              </StatusPill>
-            </FormButtonGroup>
-
-            <SettingGrid columns={2}>
-              <FormInput
-                label="权重"
-                type="number"
-                value={channel.weight.toString()}
-                onChange={(e) => handleUpdateWeight(channel.id, parseInt(e.target.value) || 1)}
-                variant="number"
-                min={1}
-                max={9999}
-              />
-              <FormButtonGroup align="left">
-                {channel.onlineFetch && channel.hitokotoCategories && (
-                  <FormButton
-                    onClick={() => handleToggleExpanded(channel.id)}
-                    variant="secondary"
-                    size="sm"
-                    title="分类设置"
-                    aria-label="分类设置"
-                    icon={<SettingsIcon size={16} />}
-                  >
-                    分类
-                  </FormButton>
-                )}
-
-                {!channel.onlineFetch && (
-                  <FormButton
-                    onClick={() => handleToggleEditorExpanded(channel.id)}
-                    variant="secondary"
-                    size="sm"
-                    title="编辑语录"
-                    aria-label="编辑语录"
-                    icon={<EditIcon size={16} />}
-                  >
-                    编辑
-                  </FormButton>
-                )}
-              </FormButtonGroup>
-            </SettingGrid>
+            </div>
 
             {/* 一言分类设置 */}
             {expandedChannelId === channel.id &&
               channel.onlineFetch &&
               channel.hitokotoCategories && (
-                <div className={styles.categorySettings}>
-                  <InfoPanel tone="info" title="一言分类选择">
-                    已选择 {channel.hitokotoCategories.length} 个分类。未选择任何分类时将获取所有类型的一言。
-                  </InfoPanel>
-                  <SettingGrid columns="auto">
-                    {HITOKOTO_CATEGORY_LIST.map((category) => (
-                      <SettingItem
-                        key={category.key}
-                        title={category.name}
-                        description={category.key}
-                        control={
-                          <FormSwitch
-                            checked={channel.hitokotoCategories!.includes(category.key)}
-                            onCheckedChange={() => handleToggleCategory(channel.id, category.key)}
-                            aria-label={`${category.name}分类`}
-                          />
-                        }
-                      />
-                    ))}
-                  </SettingGrid>
+                <div className={styles.channelDetails}>
+                  <div className={styles.categorySettings}>
+                    <InfoPanel tone="info" title="一言分类选择">
+                      已选择 {channel.hitokotoCategories.length}{" "}
+                      个分类。未选择任何分类时将获取所有类型的一言。
+                    </InfoPanel>
+                    <SettingGrid columns="auto">
+                      {HITOKOTO_CATEGORY_LIST.map((category) => (
+                        <SettingItem
+                          key={category.key}
+                          title={category.name}
+                          description={category.key}
+                          control={
+                            <FormSwitch
+                              checked={channel.hitokotoCategories!.includes(category.key)}
+                              onCheckedChange={() => handleToggleCategory(channel.id, category.key)}
+                              aria-label={`${category.name}分类`}
+                            />
+                          }
+                        />
+                      ))}
+                    </SettingGrid>
+                  </div>
                 </div>
               )}
 
             {/* 本地语录编辑器 */}
             {expandedEditorChannelId === channel.id && !channel.onlineFetch && (
-              <div className={styles.editorSection}>
-                <div className={styles.editorHeader}>
-                  <h5 className={styles.editorTitle}>语录编辑器</h5>
-                  <div className={styles.quoteActions}>
-                    <FormSegmented
-                      value={channel.orderMode || "random"}
-                      onChange={(val) =>
-                        handleUpdateOrderMode(channel.id, val as "random" | "sequential")
-                      }
-                      options={[
-                        { value: "sequential", label: "顺序" },
-                        { value: "random", label: "随机" },
-                      ]}
-                    />
-                    <FormButton
-                      variant="secondary"
-                      size="sm"
-                      title="恢复默认（全部）"
-                      aria-label="恢复默认（全部）"
-                      icon={<ResetIcon size={16} />}
-                      disabled={!defaultQuotesMap[channel.id]}
-                      onClick={() => handleRestoreDefaultAll(channel.id)}
-                    />
-                    {channel.id.startsWith("custom-txt-") && (
+              <div className={styles.channelDetails}>
+                <div className={styles.editorSection}>
+                  <div className={styles.editorHeader}>
+                    <h5 className={styles.editorTitle}>语录编辑器</h5>
+                    <div className={styles.quoteActions}>
+                      <FormSegmented
+                        value={channel.orderMode || "random"}
+                        onChange={(val) =>
+                          handleUpdateOrderMode(channel.id, val as "random" | "sequential")
+                        }
+                        options={[
+                          { value: "sequential", label: "顺序" },
+                          { value: "random", label: "随机" },
+                        ]}
+                      />
                       <FormButton
-                        onClick={() => handleDeleteChannel(channel.id)}
-                        variant="danger"
+                        variant="secondary"
                         size="sm"
-                        title="删除语录源"
-                        aria-label="删除语录源"
-                        icon={<TrashIcon size={16} />}
-                      >
-                        删除
-                      </FormButton>
-                    )}
+                        title="恢复默认（全部）"
+                        aria-label="恢复默认（全部）"
+                        icon={<ResetIcon size={16} />}
+                        disabled={!defaultQuotesMap[channel.id]}
+                        onClick={() => handleRestoreDefaultAll(channel.id)}
+                      />
+                      {channel.id.startsWith("custom-txt-") && (
+                        <FormButton
+                          onClick={() => handleDeleteChannel(channel.id)}
+                          variant="danger"
+                          size="sm"
+                          title="删除语录源"
+                          aria-label="删除语录源"
+                          icon={<TrashIcon size={16} />}
+                        >
+                          删除
+                        </FormButton>
+                      )}
+                    </div>
                   </div>
+                  <FormTextarea
+                    label="语录文本（每行一个）"
+                    className={styles.quoteTextarea}
+                    value={
+                      editorDraftMap[channel.id] ??
+                      (Array.isArray(channel.quotes) ? channel.quotes.join("\n") : "")
+                    }
+                    onChange={(e) => handleUpdateQuotesFromTextarea(channel.id, e.target.value)}
+                    placeholder={
+                      "例如：\n保持专注，持续前进。\n小步快跑，积累成塔。\n接受不完美并继续优化。"
+                    }
+                    aria-label={`编辑 ${channel.name} 的语录文本，每行一个`}
+                    rows={10}
+                  />
+                  <div className={styles.importInfo}>
+                    当前条目：{Array.isArray(channel.quotes) ? channel.quotes.length : 0}
+                  </div>
+                  {editorError && (
+                    <InfoPanel tone="warning" role="alert">
+                      {editorError}
+                    </InfoPanel>
+                  )}
+                  {(!channel.quotes || channel.quotes.length === 0) && (
+                    <InfoPanel tone="warning">
+                      当前渠道暂无语录，可通过“导入TXT”或在上方文本框直接编写。
+                    </InfoPanel>
+                  )}
                 </div>
-                <FormTextarea
-                  label="语录文本（每行一个）"
-                  className={styles.quoteTextarea}
-                  value={
-                    editorDraftMap[channel.id] ??
-                    (Array.isArray(channel.quotes) ? channel.quotes.join("\n") : "")
-                  }
-                  onChange={(e) => handleUpdateQuotesFromTextarea(channel.id, e.target.value)}
-                  placeholder={
-                    "例如：\n保持专注，持续前进。\n小步快跑，积累成塔。\n接受不完美并继续优化。"
-                  }
-                  aria-label={`编辑 ${channel.name} 的语录文本，每行一个`}
-                  rows={10}
-                />
-                <div className={styles.importInfo}>
-                  当前条目：{Array.isArray(channel.quotes) ? channel.quotes.length : 0}
-                </div>
-                {editorError && (
-                  <InfoPanel tone="warning" role="alert">
-                    {editorError}
-                  </InfoPanel>
-                )}
-                {(!channel.quotes || channel.quotes.length === 0) && (
-                  <InfoPanel tone="warning">
-                    当前渠道暂无语录，可通过“导入TXT”或在上方文本框直接编写。
-                  </InfoPanel>
-                )}
               </div>
             )}
-          </SettingItem>
+          </article>
         ))}
       </div>
 

@@ -1,28 +1,32 @@
 /* 模式选择组件样式（极简设计） */
 
-.modeSelector {
+.modeSelector.modeSelector {
+  border-bottom: 0;
   display: flex;
   gap: 3rem;
+  overflow-x: visible;
 }
 
-.modeButton {
+.modeSelector .modeButton {
   display: flex;
   align-items: center;
   gap: 0.6rem;
   padding: 0.75rem 1.5rem;
   background: transparent;
   border: none;
+  border-radius: 0;
   color: rgba(255, 255, 255, 0.5);
   font-family: var(--font-ui);
   font-size: 1.1rem;
   font-weight: 400;
+  height: auto;
   cursor: pointer;
   transition: all 0.3s ease;
   position: relative;
   overflow: hidden;
 }
 
-.modeButton::after {
+.modeSelector .modeButton::after {
   content: "";
   position: absolute;
   bottom: 0;
@@ -34,26 +38,26 @@
   transform: translateX(-50%);
 }
 
-.modeButton:hover {
+.modeSelector .modeButton:hover {
   color: rgba(255, 255, 255, 0.8);
   transform: translateY(-1px);
 }
 
-.modeButton:focus-visible {
+.modeSelector .modeButton:focus-visible {
   outline: 1px solid rgba(255, 255, 255, 0.3);
   outline-offset: 2px;
 }
 
-.modeButton.active {
+.modeSelector .modeButton[aria-selected="true"] {
   color: #ffffff;
   font-weight: 500;
 }
 
-.modeButton.active::after {
+.modeSelector .modeButton[aria-selected="true"]::after {
   width: 80%;
 }
 
-.modeButton.active:hover {
+.modeSelector .modeButton[aria-selected="true"]:hover {
   color: #ffffff;
   transform: translateY(-1px);
 }
@@ -70,11 +74,11 @@
 
 /* 响应式适配 */
 @media (max-width: 1200px) {
-  .modeSelector {
+  .modeSelector.modeSelector {
     gap: 2rem;
   }
 
-  .modeButton {
+  .modeSelector .modeButton {
     font-size: 1rem;
     padding: 0.6rem 1.2rem;
   }
@@ -86,11 +90,11 @@
 }
 
 @media (max-width: 768px) {
-  .modeSelector {
+  .modeSelector.modeSelector {
     gap: 1.5rem;
   }
 
-  .modeButton {
+  .modeSelector .modeButton {
     font-size: 0.9rem;
     padding: 0.5rem 1rem;
   }
@@ -102,11 +106,11 @@
 }
 
 @media (max-width: 480px) {
-  .modeSelector {
+  .modeSelector.modeSelector {
     gap: 1rem;
   }
 
-  .modeButton {
+  .modeSelector .modeButton {
     flex-direction: column;
     gap: 0.25rem;
     font-size: 0.7rem;

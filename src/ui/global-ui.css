@@ -38,3 +38,25 @@
 [data-ui-root] svg {
   flex: 0 0 auto;
 }
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --ui-motion-duration-instant: 1ms;
+    --ui-motion-duration-fast: 1ms;
+    --ui-motion-duration-normal: 1ms;
+    --ui-motion-duration-slow: 1ms;
+    --ui-motion-duration-exit: 1ms;
+    --ui-motion-distance-xs: 0;
+    --ui-motion-distance-sm: 0;
+    --ui-motion-distance-md: 0;
+    --ui-motion-distance-lg: 0;
+    --ui-motion-press-scale: 1;
+  }
+
+  [data-ui-root],
+  [data-ui-root] *,
+  [data-ui-root] *::before,
+  [data-ui-root] *::after {
+    scroll-behavior: auto !important;
+  }
+}

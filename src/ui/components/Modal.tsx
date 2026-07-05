@@ -3,7 +3,9 @@ import type { ReactNode } from "react";
 import { useEffect } from "react";
 import { createPortal } from "react-dom";
 
+import type { UiMotionMode } from "../types";
 import { classNames } from "../utils/classNames";
+import { usePresence } from "../utils/usePresence";
 
 import styles from "./primitives.module.css";
 
@@ -22,6 +24,7 @@ export interface ModalProps {
   fullScreen?: boolean;
   compactBodyTop?: boolean;
   closeButtonDataTour?: string;
+  motion?: UiMotionMode;
   className?: string;
 }
 
@@ -48,8 +51,11 @@ export function Modal({
   fullScreen = false,
   compactBodyTop = false,
   closeButtonDataTour,
+  motion = "default",
   className,
 }: ModalProps) {
+  const { isPresent, presenceState, shouldAnimate } = usePresence({ isOpen, motion });
+
   useEffect(() => {
     if (!isOpen) return undefined;
 
@@ -63,22 +69,30 @@ export function Modal({
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [isOpen, onClose]);
 
-  if (!isOpen) return null;
+  if (!isPresent) return null;
 
   const resolvedWidth = maxWidth ?? width;
 
   return createPortal(
     <div
       className={classNames(styles.modalBackdrop, fullScreen && styles.modalBackdropFullscreen)}
+      data-ui-motion={shouldAnimate ? "default" : "none"}
+      data-ui-presence={presenceState}
       role="presentation"
       onMouseDown={() => {
-        if (closeOnBackdrop) {
+        if (isOpen && closeOnBackdrop) {
           onClose();
         }
       }}
     >
       <section
-        className={classNames(styles.modalPanel, fullScreen && styles.modalPanelFullscreen, className)}
+        className={classNames(
+          styles.modalPanel,
+          fullScreen && styles.modalPanelFullscreen,
+          className
+        )}
+        data-ui-motion={shouldAnimate ? "default" : "none"}
+        data-ui-presence={presenceState}
         role="dialog"
         aria-modal="true"
         aria-label={title}
@@ -112,6 +126,6 @@ export function Modal({
         {footer && <footer className={styles.modalFooter}>{footer}</footer>}
       </section>
     </div>,
-    document.body,
+    document.body
   );
 }

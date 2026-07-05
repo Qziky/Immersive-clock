@@ -1,6 +1,7 @@
 import { Settings as SettingsIcon } from "lucide-react";
 import React, { useState, useEffect, useCallback } from "react";
 
+import { IconButton } from "../../ui";
 
 import styles from "./SettingsButton.module.css";
 
@@ -75,7 +76,7 @@ export function SettingsButton({ onClick, isVisible = true }: SettingsButtonProp
   }, [handleUserActivity]);
 
   return (
-    <button
+    <IconButton
       id="tour-settings-btn"
       className={`${styles.settingsButton} ${isVisible ? styles.visible : styles.hidden} ${
         isFaded ? styles.faded : styles.normal
@@ -84,8 +85,7 @@ export function SettingsButton({ onClick, isVisible = true }: SettingsButtonProp
       onMouseEnter={resetFadeState}
       aria-label="打开设置"
       title="设置"
-    >
-      <SettingsIcon size={20} />
-    </button>
+      icon={<SettingsIcon size={20} aria-hidden="true" />}
+    />
   );
 }

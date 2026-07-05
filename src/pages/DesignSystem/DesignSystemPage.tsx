@@ -8,9 +8,9 @@ import {
   Search,
   Settings,
   SlidersHorizontal,
+  Sparkles,
   Volume2,
 } from "lucide-react";
-import type { ReactNode } from "react";
 import { useMemo, useState } from "react";
 
 import {
@@ -41,6 +41,7 @@ import {
   Tabs,
   Textarea,
   TimePicker,
+  Toast,
   Tooltip,
   VisuallyHidden,
   type TimePickerValue,
@@ -48,10 +49,18 @@ import {
 
 import styles from "./DesignSystemPage.module.css";
 
-type ComponentSection = "foundation" | "actions" | "forms" | "feedback" | "navigation" | "layout";
+type ComponentSection =
+  | "foundation"
+  | "motion"
+  | "actions"
+  | "forms"
+  | "feedback"
+  | "navigation"
+  | "layout";
 
 const navItems = [
   { value: "foundation", label: "设计基础" },
+  { value: "motion", label: "动效系统" },
   { value: "actions", label: "操作控件" },
   { value: "forms", label: "表单输入" },
   { value: "feedback", label: "浮层反馈" },
@@ -67,6 +76,13 @@ const swatches = [
   ["#8E9098", "弱文本"],
   ["#EAECF0", "主文本"],
   ["#2FECC6", "强调"],
+] as const;
+
+const motionTokens = [
+  ["fast", "140ms", "hover / focus"],
+  ["normal", "200ms", "浮层进入"],
+  ["slow", "240ms", "Toast / Modal"],
+  ["exit", "180ms", "关闭退出"],
 ] as const;
 
 const dropdownGroups = [
@@ -116,7 +132,7 @@ function DesignSystemPage() {
       { value: "display", label: "显示", icon: <Palette size={16} aria-hidden="true" /> },
       { value: "audio", label: "声音", icon: <Volume2 size={16} aria-hidden="true" /> },
     ],
-    [],
+    []
   );
 
   const scrollToSection = (section: ComponentSection) => {
@@ -205,6 +221,67 @@ function DesignSystemPage() {
           </Grid>
         </section>
 
+        <section className={styles.section} id="motion">
+          <SectionHeader title="动效系统" meta="motion tokens / presence / reduced motion" />
+          <Grid minColumnWidth={320}>
+            <Card className={styles.cardStack}>
+              <h3>Motion tokens</h3>
+              <div className={styles.motionTokenGrid}>
+                {motionTokens.map(([name, duration, usage]) => (
+                  <div className={styles.motionToken} key={name}>
+                    <strong>{duration}</strong>
+                    <span>{name}</span>
+                    <small>{usage}</small>
+                  </div>
+                ))}
+              </div>
+              <Inline>
+                <span className={styles.motionDot} />
+                <span className={styles.muted}>
+                  优先 opacity / transform，退出动画默认保留 180ms。
+                </span>
+              </Inline>
+            </Card>
+            <Card className={styles.cardStack}>
+              <h3>组件动效</h3>
+              <Inline>
+                <Popover
+                  ariaLabel="动效弹出层"
+                  trigger={
+                    <>
+                      <Sparkles size={14} aria-hidden="true" />
+                      <span>打开浮层</span>
+                    </>
+                  }
+                >
+                  <Stack gap="sm">
+                    <strong>Presence</strong>
+                    <span className={styles.muted}>关闭时延迟卸载，让退出动画完整播放。</span>
+                  </Stack>
+                </Popover>
+                <Button variant="primary" icon={<Sparkles size={14} />}>
+                  按压反馈
+                </Button>
+              </Inline>
+              <Toast
+                variant="info"
+                title="Toast 进入动画"
+                description="使用统一 duration、easing 和 reduced-motion 兜底。"
+              />
+            </Card>
+            <Card className={styles.cardStack}>
+              <h3>Reduced motion</h3>
+              <Alert variant="info">
+                系统偏好减少动态效果时，UI 动画会缩短或关闭，状态变化仍保留。
+              </Alert>
+              <Inline>
+                <Badge variant="neutral">motion=&quot;none&quot;</Badge>
+                <Badge variant="accent">prefers-reduced-motion</Badge>
+              </Inline>
+            </Card>
+          </Grid>
+        </section>
+
         <section className={styles.section} id="actions">
           <SectionHeader title="操作控件" meta="Button / IconButton / Switch / Slider / Stepper" />
           <Grid>
@@ -262,7 +339,10 @@ function DesignSystemPage() {
         <section className={styles.section} id="forms">
           <SectionHeader title="表单输入" meta="Field / Input / Select / Dropdown / Textarea" />
           <Grid minColumnWidth={360}>
-            <FormSection title="组合表单" description="用 Grid / Inline / Stack 组合字段，不再保留 FormRow。">
+            <FormSection
+              title="组合表单"
+              description="用 Grid / Inline / Stack 组合字段，不再保留 FormRow。"
+            >
               <Grid columns={2}>
                 <Input label="计划名称" placeholder="例如：夜间专注计划" />
                 <Select
@@ -276,7 +356,12 @@ function DesignSystemPage() {
                 />
               </Grid>
               <Grid columns={2}>
-                <Input label="搜索" type="search" prefix={<Search size={14} />} placeholder="组件名" />
+                <Input
+                  label="搜索"
+                  type="search"
+                  prefix={<Search size={14} />}
+                  placeholder="组件名"
+                />
                 <Input label="休息时长" type="number" suffix="min" defaultValue={5} min={1} />
               </Grid>
               <Grid columns={2}>
@@ -294,7 +379,10 @@ function DesignSystemPage() {
               </Inline>
             </FormSection>
 
-            <FormSection title="Dropdown" description="一个组件覆盖单选、多选、分组、搜索和禁用状态。">
+            <FormSection
+              title="Dropdown"
+              description="一个组件覆盖单选、多选、分组、搜索和禁用状态。"
+            >
               <Dropdown
                 label="分组单选"
                 value={dropdownValue}
@@ -312,7 +400,9 @@ function DesignSystemPage() {
                 value={multiDropdownValue}
                 groups={dropdownGroups}
                 searchable
-                onChange={(nextValue) => setMultiDropdownValue(Array.isArray(nextValue) ? nextValue : [])}
+                onChange={(nextValue) =>
+                  setMultiDropdownValue(Array.isArray(nextValue) ? nextValue : [])
+                }
               />
               <Input label="错误状态" defaultValue="错误示例" error="请检查输入内容" />
             </FormSection>
@@ -320,7 +410,10 @@ function DesignSystemPage() {
         </section>
 
         <section className={styles.section} id="feedback">
-          <SectionHeader title="浮层反馈" meta="Modal / Popover / Menu / Tooltip / Toast-like Alert" />
+          <SectionHeader
+            title="浮层反馈"
+            meta="Modal / Popover / Menu / Tooltip / Toast-like Alert"
+          />
           <Grid>
             <Card className={styles.cardStack}>
               <h3>Badge / Alert / Progress</h3>
@@ -408,7 +501,10 @@ function DesignSystemPage() {
         </section>
 
         <section className={styles.section} id="layout">
-          <SectionHeader title="布局工具" meta="Stack / Inline / Grid / FormSection / SettingsShell" />
+          <SectionHeader
+            title="布局工具"
+            meta="Stack / Inline / Grid / FormSection / SettingsShell"
+          />
           <Grid minColumnWidth={360}>
             <SettingsShell
               title="SettingsShell"
@@ -439,7 +535,9 @@ function DesignSystemPage() {
                   <KeyboardShortcut keys={["Esc"]} />
                   <KeyboardShortcut keys={["Shift", "Tab"]} />
                 </Inline>
-                <Alert variant="info">Portal 作为底层工具保留，由 Modal、Popover 等组件复用。</Alert>
+                <Alert variant="info">
+                  Portal 作为底层工具保留，由 Modal、Popover 等组件复用。
+                </Alert>
               </Stack>
             </Card>
           </Grid>

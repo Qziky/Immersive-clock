@@ -1,9 +1,11 @@
-import type { InputHTMLAttributes } from "react";
+import type { CSSProperties, InputHTMLAttributes } from "react";
 
 import styles from "./primitives.module.css";
 
-export interface SliderProps
-  extends Omit<InputHTMLAttributes<HTMLInputElement>, "type" | "value" | "onChange"> {
+export interface SliderProps extends Omit<
+  InputHTMLAttributes<HTMLInputElement>,
+  "type" | "value" | "onChange"
+> {
   value: number;
   min: number;
   max: number;
@@ -24,9 +26,17 @@ export function Slider({
   formatValue,
   showRange = true,
   rangeLabels,
+  style,
   ...props
 }: SliderProps) {
   const displayValue = formatValue ? formatValue(value) : String(value);
+  const sliderRange = max - min;
+  const sliderPercent =
+    sliderRange === 0 ? 0 : Math.min(100, Math.max(0, ((value - min) / sliderRange) * 100));
+  const sliderStyle: CSSProperties & Record<"--ui-slider-percent", string> = {
+    ...style,
+    "--ui-slider-percent": `${sliderPercent}%`,
+  };
 
   return (
     <div className={styles.sliderRoot}>
@@ -43,6 +53,7 @@ export function Slider({
         max={max}
         step={step}
         value={value}
+        style={sliderStyle}
         onChange={(event) => onChange(Number(event.target.value))}
         {...props}
       />

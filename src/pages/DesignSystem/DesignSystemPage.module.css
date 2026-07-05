@@ -171,6 +171,48 @@
   display: inline-block;
 }
 
+.motionTokenGrid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.motionToken {
+  background: #0f1115;
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-lg);
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  padding: 12px;
+}
+
+.motionToken strong {
+  color: var(--ui-color-text);
+  font-family: var(--ui-font-number);
+  font-size: 18px;
+  line-height: 1.1;
+}
+
+.motionToken span,
+.motionToken small {
+  color: var(--ui-color-text-muted);
+  font-size: var(--ui-font-size-xs);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.motionDot {
+  background: var(--ui-color-accent);
+  border-radius: 999px;
+  box-shadow: 0 0 0 6px var(--ui-color-accent-soft);
+  display: inline-flex;
+  height: 8px;
+  width: 8px;
+}
+
 @media (max-width: 1180px) {
   .page {
     grid-template-columns: 1fr;
@@ -208,6 +250,10 @@
   }
 
   .swatches {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .motionTokenGrid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }

@@ -1,9 +1,9 @@
+import { X } from "lucide-react";
 import React, { useEffect, useState, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 
 import type { MessagePopupType } from "../../types/messagePopup";
-import { Button as FormButton } from "../../ui";
-import { LightButton } from "../LightControls/LightControls";
+import { Button as FormButton, IconButton } from "../../ui";
 
 import styles from "./messagePopup.module.css";
 
@@ -128,14 +128,13 @@ export default function MessagePopup({
       aria-live="polite"
       aria-label={title}
     >
-      <LightButton
+      <IconButton
         className={styles.closeButton}
         aria-label="关闭"
         title="关闭"
         onClick={handleClose}
-      >
-        ×
-      </LightButton>
+        icon={<X size={13} aria-hidden="true" />}
+      />
 
       <div className={styles.content}>
         {icon && <div className={styles.icon}>{icon}</div>}

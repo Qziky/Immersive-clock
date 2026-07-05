@@ -13,7 +13,163 @@
 
 .channelList {
   display: grid;
-  gap: var(--ui-space-3);
+  gap: 10px;
+  min-width: 0;
+}
+
+.channelCard,
+.channelCardActive {
+  --quote-channel-tone: var(--ui-color-text-muted);
+  --quote-channel-soft: rgba(142, 144, 152, 0.1);
+  --quote-channel-border: var(--ui-color-border);
+  align-items: center;
+  background: #0f1115;
+  border: 1px solid var(--quote-channel-border);
+  border-radius: var(--ui-radius-lg);
+  display: grid;
+  gap: 12px;
+  grid-template-columns: 40px minmax(240px, 1fr) minmax(120px, 150px) auto 64px;
+  min-width: 0;
+  padding: 12px 16px;
+  transition:
+    background-color var(--ui-transition-fast),
+    border-color var(--ui-transition-fast);
+}
+
+.channelCardActive {
+  --quote-channel-tone: var(--ui-color-accent);
+  --quote-channel-soft: var(--ui-color-accent-soft);
+  --quote-channel-border: rgba(47, 236, 198, 0.24);
+}
+
+.channelCard:hover,
+.channelCardActive:hover,
+.channelCard:focus-within,
+.channelCardActive:focus-within {
+  background: var(--ui-color-bg-muted);
+  border-color: var(--ui-color-border-strong);
+}
+
+.channelCardActive:hover,
+.channelCardActive:focus-within {
+  border-color: var(--ui-color-accent-border);
+}
+
+.channelIcon {
+  align-items: center;
+  background: var(--quote-channel-soft);
+  border: 1px solid var(--quote-channel-border);
+  border-radius: var(--ui-radius-lg);
+  color: var(--quote-channel-tone);
+  display: inline-flex;
+  height: 40px;
+  justify-content: center;
+  width: 40px;
+}
+
+.channelSummary {
+  align-items: center;
+  display: flex;
+  gap: 14px;
+  min-width: 0;
+}
+
+.channelTitleBlock {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.channelTitle {
+  color: var(--ui-color-text);
+  font-size: var(--ui-font-size-md);
+  font-weight: 700;
+  line-height: 1.25;
+  margin: 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.channelDescription {
+  color: var(--ui-color-text-muted);
+  font-size: var(--ui-font-size-xs);
+  line-height: 1.35;
+  margin: 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.channelStatus {
+  align-items: center;
+  display: inline-flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.channelWeight {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.channelWeight span {
+  color: var(--ui-color-text);
+  font-size: var(--ui-font-size-xs);
+  font-weight: 650;
+  line-height: 1;
+}
+
+.channelWeight input {
+  background: #0b0c0e;
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-md);
+  color: var(--ui-color-text);
+  font-family: var(--ui-font-number);
+  font-size: 18px;
+  height: 38px;
+  min-width: 0;
+  padding: 0 12px;
+  text-align: center;
+  width: 100%;
+}
+
+.channelWeight input:hover {
+  border-color: var(--ui-color-border-strong);
+}
+
+.channelWeight input:focus-visible {
+  border-color: var(--ui-color-accent-border);
+  outline: none;
+  box-shadow: var(--ui-focus-ring);
+}
+
+.channelWeight input::-webkit-outer-spin-button,
+.channelWeight input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.channelActions {
+  align-items: center;
+  display: inline-flex;
+  justify-content: flex-start;
+  min-width: 104px;
+}
+
+.channelSwitch {
+  align-items: center;
+  display: inline-flex;
+  justify-content: flex-end;
+  min-width: 0;
+}
+
+.channelDetails {
+  grid-column: 1 / -1;
   min-width: 0;
 }
 
@@ -22,9 +178,8 @@
   border-top: 1px solid var(--ui-color-border);
   display: grid;
   gap: var(--ui-space-3);
-  margin-top: var(--ui-space-2);
   min-width: 0;
-  padding-top: var(--ui-space-3);
+  padding-top: 12px;
 }
 
 .editorHeader {
@@ -74,6 +229,34 @@
 }
 
 @media (max-width: 760px) {
+  .channelCard,
+  .channelCardActive {
+    align-items: start;
+    grid-template-columns: 40px minmax(0, 1fr) auto;
+  }
+
+  .channelSummary {
+    align-items: start;
+    display: grid;
+    gap: 8px;
+  }
+
+  .channelWeight {
+    grid-column: 2 / 3;
+    width: min(100%, 180px);
+  }
+
+  .channelActions {
+    grid-column: 2 / 3;
+    min-width: 0;
+  }
+
+  .channelSwitch {
+    grid-column: 3;
+    grid-row: 1;
+    padding-top: 2px;
+  }
+
   .editorHeader {
     align-items: stretch;
     display: grid;
@@ -81,6 +264,29 @@
 
   .quoteActions {
     justify-content: flex-start;
+  }
+}
+
+@media (max-width: 520px) {
+  .channelCard,
+  .channelCardActive {
+    grid-template-columns: 1fr auto;
+    padding: 12px;
+  }
+
+  .channelIcon {
+    display: none;
+  }
+
+  .channelSummary,
+  .channelWeight,
+  .channelActions {
+    grid-column: 1 / -1;
+  }
+
+  .channelSwitch {
+    grid-column: 2;
+    grid-row: 1;
   }
 }
 

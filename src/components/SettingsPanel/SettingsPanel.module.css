@@ -3,6 +3,16 @@
 /* 设置容器和分组布局 */
 .settingsModal {
   background: #0b0c0e;
+  transform-origin: left center;
+}
+
+.settingsModal[data-ui-motion="default"][data-ui-presence="entering"] {
+  animation: settingsSlideInFromLeft var(--ui-motion-duration-slow) var(--ui-motion-ease-emphasized)
+    both;
+}
+
+.settingsModal[data-ui-motion="default"][data-ui-presence="exiting"] {
+  animation: settingsSlideOutToLeft var(--ui-motion-duration-exit) var(--ui-motion-ease-exit) both;
 }
 
 .settingsApp {
@@ -167,9 +177,7 @@
 
 .contentHeader {
   align-items: center;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.025), rgba(255, 255, 255, 0)),
-    #0b0c0e;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.025), rgba(255, 255, 255, 0)), #0b0c0e;
   border-bottom: 1px solid #2a2e35;
   color: #8e9098;
   display: flex;
@@ -347,6 +355,30 @@
   padding: 10px;
   white-space: pre-wrap;
   word-break: break-word;
+}
+
+@keyframes settingsSlideInFromLeft {
+  from {
+    opacity: 0.96;
+    transform: translateX(-100%);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes settingsSlideOutToLeft {
+  from {
+    opacity: 1;
+    transform: translateX(0);
+  }
+
+  to {
+    opacity: 0.96;
+    transform: translateX(-100%);
+  }
 }
 
 @media (max-width: 1279px) and (min-width: 960px) {

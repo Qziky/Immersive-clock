@@ -69,12 +69,13 @@ describe("appReducer", () => {
   });
 
   describe("模式切换", () => {
-    it("SET_MODE 应该切换模式并隐藏 HUD", () => {
+    it("SET_MODE 应该切换模式并保留 HUD 可见状态", () => {
+      state.isHudVisible = true;
       const action: AppAction = { type: "SET_MODE", payload: "study" };
       const newState = appReducer(state, action);
 
       expect(newState.mode).toBe("study");
-      expect(newState.isHudVisible).toBe(false);
+      expect(newState.isHudVisible).toBe(true);
     });
   });
 

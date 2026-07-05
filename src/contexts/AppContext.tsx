@@ -102,8 +102,6 @@ function appReducer(state: AppState, action: AppAction): AppState {
       return {
         ...state,
         mode: action.payload,
-        // 切换模式时隐藏HUD
-        isHudVisible: false,
       };
 
     case "TOGGLE_HUD":

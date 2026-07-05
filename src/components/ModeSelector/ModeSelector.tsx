@@ -8,7 +8,7 @@ import React, { useCallback } from "react";
 
 import { useAppDispatch, useAppState } from "../../contexts/AppContext";
 import type { AppMode } from "../../types";
-import { LightButton } from "../LightControls/LightControls";
+import { Tabs } from "../../ui";
 
 import styles from "./ModeSelector.module.css";
 
@@ -69,29 +69,24 @@ export function ModeSelector({ onModeChange }: ModeSelectorProps) {
   ];
 
   return (
-    <div
-      className={styles.modeSelector}
-      role="tablist"
-      aria-label="选择时钟模式"
+    <Tabs<AppMode>
       id="tour-mode-selector"
-    >
-      {modes.map(({ key, label, icon: Icon, description }) => (
-        <LightButton
-          key={key}
-          id={key === "study" ? "mode-tab-study" : undefined}
-          className={`${styles.modeButton} ${mode === key ? styles.active : ""}`}
-          onClick={() => handleModeChange(key)}
-          role="tab"
-          aria-selected={mode === key}
-          aria-controls={`${key}-panel`}
-          aria-label={`${label} - ${description}`}
-          title={description}
-          active={mode === key}
-        >
-          <Icon className={styles.icon} size={20} aria-hidden={true} />
-          <span className={styles.label}>{label}</span>
-        </LightButton>
-      ))}
-    </div>
+      className={styles.modeSelector}
+      value={mode}
+      label="选择时钟模式"
+      variant="underlined"
+      scrollable={false}
+      onChange={handleModeChange}
+      items={modes.map(({ key, label, icon: Icon, description }) => ({
+        value: key,
+        id: key === "study" ? "mode-tab-study" : undefined,
+        className: styles.modeButton,
+        ariaControls: `${key}-panel`,
+        ariaLabel: `${label} - ${description}`,
+        title: description,
+        icon: <Icon className={styles.icon} size={20} aria-hidden={true} />,
+        label: <span className={styles.label}>{label}</span>,
+      }))}
+    />
   );
 }

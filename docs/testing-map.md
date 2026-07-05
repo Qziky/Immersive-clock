@@ -36,7 +36,8 @@
 - **通用**
   - 日志封装：[logger.test.ts](file:///d:/Desktop/Immersive-clock/src/utils/__tests__/logger.test.ts) → [logger.ts](file:///d:/Desktop/Immersive-clock/src/utils/logger.ts)
   - 时间格式化工具：[formatTime.test.ts](file:///d:/Desktop/Immersive-clock/src/utils/__tests__/formatTime.test.ts) → [formatTime.ts](file:///d:/Desktop/Immersive-clock/src/utils/formatTime.ts)
-  - Dropdown 工具函数：[dropdownUtils.test.ts](file:///d:/Desktop/Immersive-clock/src/components/Dropdown/__tests__/dropdownUtils.test.ts) → `src/components/Dropdown/*`
+  - UI Tabs 组件：[Tabs.test.tsx](file:///d:/Desktop/Immersive-clock/src/ui/components/__tests__/Tabs.test.tsx) → [Tabs.tsx](file:///d:/Desktop/Immersive-clock/src/ui/components/Tabs.tsx)
+  - UI 动效与浮层 presence：[motion.test.tsx](file:///d:/Desktop/Immersive-clock/src/ui/components/__tests__/motion.test.tsx) + [usePresence.test.tsx](file:///d:/Desktop/Immersive-clock/src/ui/utils/__tests__/usePresence.test.tsx) → [Modal.tsx](file:///d:/Desktop/Immersive-clock/src/ui/components/Modal.tsx) / [Dropdown.tsx](file:///d:/Desktop/Immersive-clock/src/ui/components/Dropdown.tsx) / [Popover.tsx](file:///d:/Desktop/Immersive-clock/src/ui/components/Popover.tsx) / [usePresence.ts](file:///d:/Desktop/Immersive-clock/src/ui/utils/usePresence.ts)
   - 新手指引（守卫/完成事件）：[tourGuards.test.ts](file:///d:/Desktop/Immersive-clock/src/utils/__tests__/tourGuards.test.ts) + [tourFocus.test.ts](file:///d:/Desktop/Immersive-clock/src/utils/__tests__/tourFocus.test.ts) → [tour.ts](file:///d:/Desktop/Immersive-clock/src/utils/tour.ts)
 
 ## Playwright（端到端测试）

@@ -1,5 +1,6 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import React from "react";
+import { MemoryRouter } from "react-router-dom";
 import { describe, it, expect, afterEach, vi } from "vitest";
 
 import { AppContextProvider } from "../../../contexts/AppContext";
@@ -67,9 +68,11 @@ describe("HUD 自动隐藏", () => {
     vi.useFakeTimers();
 
     render(
-      <AppContextProvider>
-        <ClockPage />
-      </AppContextProvider>
+      <MemoryRouter>
+        <AppContextProvider>
+          <ClockPage />
+        </AppContextProvider>
+      </MemoryRouter>
     );
 
     const main = screen.getByLabelText("时钟应用主界面");

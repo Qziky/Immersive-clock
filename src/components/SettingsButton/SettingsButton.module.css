@@ -2,6 +2,7 @@
   align-items: center;
   background: transparent;
   border: 0;
+  border-color: transparent;
   border-radius: 0;
   bottom: 30px;
   color: rgba(218, 222, 230, 0.68);
@@ -26,13 +27,18 @@
   stroke-width: 2;
 }
 
-.settingsButton:hover {
+.settingsButton:hover,
+.settingsButton:hover:not(:disabled) {
+  background: transparent;
+  border-color: transparent;
   color: rgba(246, 247, 250, 0.9);
   opacity: 1;
   transform: translateY(-1px) scale(1.04);
 }
 
 .settingsButton:focus-visible {
+  background: transparent;
+  border-color: transparent;
   color: rgba(246, 247, 250, 0.92);
   opacity: 1;
   outline: none;

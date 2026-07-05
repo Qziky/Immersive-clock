@@ -1,6 +1,11 @@
 import "./global-ui.css";
 
-export type { KeyboardShortcutProps, PortalProps, VisuallyHiddenProps } from "./components/Accessibility";
+export type { UiMotionMode } from "./types";
+export type {
+  KeyboardShortcutProps,
+  PortalProps,
+  VisuallyHiddenProps,
+} from "./components/Accessibility";
 export { KeyboardShortcut, Portal, VisuallyHidden } from "./components/Accessibility";
 export type { AlertProps, AlertVariant } from "./components/Alert";
 export { Alert } from "./components/Alert";

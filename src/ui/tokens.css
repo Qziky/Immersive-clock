@@ -51,7 +51,22 @@
   --ui-shadow-panel: 0 20px 80px rgba(0, 0, 0, 0.28);
   --ui-shadow-control: 0 0 0 1px rgba(47, 236, 198, 0.08);
   --ui-focus-ring: 0 0 0 2px rgba(47, 236, 198, 0.28);
-  --ui-transition-fast: 140ms ease;
-  --ui-transition-normal: 200ms ease;
+
+  --ui-motion-duration-instant: 80ms;
+  --ui-motion-duration-fast: 140ms;
+  --ui-motion-duration-normal: 200ms;
+  --ui-motion-duration-slow: 240ms;
+  --ui-motion-duration-exit: 180ms;
+  --ui-motion-ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ui-motion-ease-emphasized: cubic-bezier(0.16, 1, 0.3, 1);
+  --ui-motion-ease-exit: cubic-bezier(0.4, 0, 1, 1);
+  --ui-motion-distance-xs: 2px;
+  --ui-motion-distance-sm: 4px;
+  --ui-motion-distance-md: 8px;
+  --ui-motion-distance-lg: 12px;
+  --ui-motion-press-scale: 0.98;
+  --ui-transition-fast: var(--ui-motion-duration-fast) var(--ui-motion-ease-standard);
+  --ui-transition-normal: var(--ui-motion-duration-normal) var(--ui-motion-ease-standard);
+
   --ui-z-modal: 2000;
 }

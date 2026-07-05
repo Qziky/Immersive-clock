@@ -1,6 +1,7 @@
 import { AlertCircle, CheckCircle2, Info, TriangleAlert, X } from "lucide-react";
 import type { ReactNode } from "react";
 
+import type { UiMotionMode } from "../types";
 import { classNames } from "../utils/classNames";
 
 import styles from "./primitives.module.css";
@@ -13,6 +14,7 @@ export interface ToastProps {
   description?: ReactNode;
   action?: ReactNode;
   onClose?: () => void;
+  motion?: UiMotionMode;
   className?: string;
 }
 
@@ -36,10 +38,16 @@ export function Toast({
   description,
   action,
   onClose,
+  motion = "default",
   className,
 }: ToastProps) {
   return (
-    <div className={classNames(styles.toast, variantClassMap[variant], className)} role="status">
+    <div
+      className={classNames(styles.toast, variantClassMap[variant], className)}
+      data-ui-motion={motion}
+      data-ui-presence="entering"
+      role="status"
+    >
       <span className={styles.toastIcon}>{iconMap[variant]}</span>
       <span className={styles.toastContent}>
         <strong>{title}</strong>

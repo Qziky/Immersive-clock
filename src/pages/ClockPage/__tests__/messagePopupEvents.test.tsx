@@ -1,5 +1,6 @@
 import { act, render, screen } from "@testing-library/react";
 import React from "react";
+import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { AppContextProvider } from "../../../contexts/AppContext";
@@ -58,9 +59,11 @@ describe("消息弹窗事件关闭动画", () => {
   it("事件关闭时应先播放退出动画再移除弹窗", () => {
     vi.useFakeTimers();
     render(
-      <AppContextProvider>
-        <ClockPage />
-      </AppContextProvider>
+      <MemoryRouter>
+        <AppContextProvider>
+          <ClockPage />
+        </AppContextProvider>
+      </MemoryRouter>
     );
 
     act(() => {

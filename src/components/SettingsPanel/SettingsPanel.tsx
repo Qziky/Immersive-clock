@@ -31,13 +31,9 @@ import { broadcastSettingsEvent, SETTINGS_EVENTS } from "../../utils/settingsEve
 
 import AboutSettingsPanel, { type AboutSettingsSection } from "./sections/AboutSettingsPanel";
 import BasicSettingsPanel, { type BasicSettingsSection } from "./sections/BasicSettingsPanel";
-import ContentSettingsPanel, {
-  type ContentSettingsSection,
-} from "./sections/ContentSettingsPanel";
+import ContentSettingsPanel, { type ContentSettingsSection } from "./sections/ContentSettingsPanel";
 import StudySettingsPanel, { type StudySettingsSection } from "./sections/StudySettingsPanel";
-import WeatherSettingsPanel, {
-  type WeatherSettingsSection,
-} from "./sections/WeatherSettingsPanel";
+import WeatherSettingsPanel, { type WeatherSettingsSection } from "./sections/WeatherSettingsPanel";
 import styles from "./SettingsPanel.module.css";
 
 type SettingsPrimaryGroup = "workspace" | "appearance" | "environment" | "content" | "system";
@@ -404,8 +400,6 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
     contentRef.current?.scrollTo({ top: 0, behavior: "smooth" });
   }, [activePane, isOpen]);
 
-  if (!isOpen) return null;
-
   const activeGroupItem = getGroup(activeGroup);
   const activePaneItem = getPane(activePane);
   const visiblePaneItems = paneItems.filter((item) => item.group === activeGroup);
@@ -539,11 +533,7 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
                 <h2>{activePaneItem.label}</h2>
                 <p className={styles.contentDescription}>{activePaneItem.description}</p>
               </div>
-              <StatusPill
-                className={styles.contentPill}
-                tone="accent"
-                icon={activePaneItem.icon}
-              >
+              <StatusPill className={styles.contentPill} tone="accent" icon={activePaneItem.icon}>
                 {activeGroupItem.label}
               </StatusPill>
             </div>

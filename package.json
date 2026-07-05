@@ -38,7 +38,6 @@
     "marked": "^18.0.2",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
-    "react-feather": "^2.0.10",
     "react-router-dom": "^7.14.2",
     "read-excel-file": "^9.0.6"
   },
