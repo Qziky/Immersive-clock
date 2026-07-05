@@ -15,6 +15,7 @@ import NoiseHistoryModal from "../NoiseHistoryModal/NoiseHistoryModal";
 import NoiseMonitor from "../NoiseMonitor";
 import NoiseReportModal, { NoiseReportPeriod } from "../NoiseReportModal/NoiseReportModal";
 import StudyStatus from "../StudyStatus";
+import { Weather } from "../Weather";
 
 import styles from "./Study.module.css";
 
@@ -73,7 +74,6 @@ export function Study() {
 
   // 轮播：容器与尺寸测量
   const countdownRef = useRef<HTMLDivElement | null>(null);
-  const [countdownWidth, setCountdownWidth] = useState<number>(0);
   const [itemHeight, setItemHeight] = useState<number>(0);
   const [activeIndex, setActiveIndex] = useState<number>(0);
 
@@ -242,31 +242,21 @@ export function Study() {
     [study.display]
   );
 
-  /** 测量倒计时可视项尺寸（函数级注释：优先读取当前轮播项宽度，避免父容器在小屏断点下残留旧宽度导致语录宽度不同步） */
+  /** 测量倒计时可视项尺寸（函数级注释：读取轮播容器高度，保证切换时位移与单项高度一致） */
   const measureCountdown = useCallback(() => {
     const el = countdownRef.current;
     if (!el) {
-      setCountdownWidth(0);
       setItemHeight(0);
       return;
     }
-    const trackEl = el.firstElementChild as HTMLDivElement | null;
-    const activeItemEl =
-      trackEl && trackEl.children.length > 0
-        ? (trackEl.children[Math.min(activeIndex, trackEl.children.length - 1)] as HTMLElement)
-        : null;
-    const widthRect = activeItemEl?.getBoundingClientRect() ?? el.getBoundingClientRect();
     const containerRect = el.getBoundingClientRect();
-    const nextWidth = Math.round(widthRect.width);
     const nextHeight = Math.round(containerRect.height);
-    setCountdownWidth((prev) => (prev === nextWidth ? prev : nextWidth));
     setItemHeight((prev) => (prev === nextHeight ? prev : nextHeight));
-  }, [activeIndex]);
+  }, []);
 
   // 容器尺寸与宽度测量
   useEffect(() => {
     if (!display.showCountdown) {
-      setCountdownWidth(0);
       setItemHeight(0);
       return;
     }
@@ -378,7 +368,7 @@ export function Study() {
     setReportFromHistory(true); // 标记来源为历史记录
   }, []);
 
-  // 计算每个项的文案与天数（函数级注释：生成倒计时项的显示文本，其中高考事件强制包含年份并采用“距离YYYY高考仅xx天”的格式）
+  // 计算每个项的文案与天数（函数级注释：前缀与天数分离，便于窄容器下优先保留核心天数）
   const renderItem = (item: (typeof countdownItems)[number]) => {
     const days = item.kind === "gaokao" ? calcDaysToNextGaokao() : calcDaysToDate(item.targetDate);
     // 高考事件：优先从名称中解析年份，否则使用设置中的目标年份
@@ -416,49 +406,63 @@ export function Study() {
           padding: item.bgColor ? "0 8px" : undefined,
         }}
       >
-        距离{nameText}仅{" "}
+        <span className={styles.countdownPrefix}>距离{nameText}</span>
+        <span className={styles.countdownOnly}>仅</span>
         <span className={styles.days} style={{ color: digitCol }}>
           {days}
-        </span>{" "}
-        天
+        </span>
+        <span className={styles.countdownUnit}>天</span>
       </div>
     );
   };
 
   return (
     <div className={styles.container} style={containerStyle}>
-      {/* 左上角：状态栏与噪音监测（分别可隐藏） */}
-      {(display.showStatusBar || display.showNoiseMonitor) && (
-        <div className={styles.topLeft}>
-          {display.showStatusBar && <StudyStatus />}
-          {display.showNoiseMonitor && (
-            <NoiseMonitor
-              onBreathingLightClick={handleOpenHistory}
-              onStatusClick={handleOpenHistory}
-            />
-          )}
-        </div>
-      )}
-
-      {/* 右上角：倒计时与励志语录（分别可隐藏） */}
-      {(display.showCountdown || display.showQuote) && (
-        <div className={styles.topRight}>
-          {display.showCountdown && (
-            <div className={styles.countdownCarousel} ref={countdownRef} aria-live="polite">
-              <div
-                className={styles.carouselTrack}
-                style={{ transform: `translateY(-${activeIndex * (itemHeight || 0)}px)` }}
-              >
-                {countdownItems.map(renderItem)}
-              </div>
+      {/* 顶部：辅助信息贴近居中的状态栏 */}
+      {(display.showStatusBar ||
+        display.showNoiseMonitor ||
+        display.showCountdown ||
+        display.showQuote) && (
+        <div className={styles.topDock}>
+          {(display.showStatusBar || display.showNoiseMonitor) && (
+            <div className={styles.auxDock}>
+              {display.showStatusBar && (
+                <div className={styles.weatherDock}>
+                  <Weather />
+                </div>
+              )}
+              {display.showNoiseMonitor && (
+                <div className={styles.noiseDock}>
+                  <NoiseMonitor
+                    onBreathingLightClick={handleOpenHistory}
+                    onStatusClick={handleOpenHistory}
+                  />
+                </div>
+              )}
             </div>
           )}
-          {display.showQuote && (
-            <div
-              className={styles.quoteSection}
-              style={{ width: display.showCountdown ? countdownWidth || undefined : undefined }}
-            >
-              <MotivationalQuote />
+          {display.showStatusBar && (
+            <div className={styles.statusDock}>
+              <StudyStatus />
+            </div>
+          )}
+          {(display.showCountdown || display.showQuote) && (
+            <div className={styles.countdownDock}>
+              {display.showCountdown && (
+                <div className={styles.countdownCarousel} ref={countdownRef} aria-live="polite">
+                  <div
+                    className={styles.carouselTrack}
+                    style={{ transform: `translateY(-${activeIndex * (itemHeight || 0)}px)` }}
+                  >
+                    {countdownItems.map(renderItem)}
+                  </div>
+                </div>
+              )}
+              {display.showQuote && (
+                <div className={styles.quoteSection}>
+                  <MotivationalQuote />
+                </div>
+              )}
             </div>
           )}
         </div>

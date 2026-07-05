@@ -1,360 +1,313 @@
-/* 实时噪音状态监测组件样式 */
+/* 实时噪音状态：顶栏里的可点击环境指示 */
 .noiseMonitor {
-  margin-top: 0.75rem;
+  color: var(--study-ink, var(--text-color));
+  margin: 0;
+  max-width: min(100%, 12rem);
   text-align: left;
 }
 
 .statusContainer {
-  display: flex;
   align-items: center;
-  gap: 0.7rem;
+  background: var(--study-panel-bg, rgba(10, 16, 14, 0.22));
+  border: 1px solid var(--study-panel-border, rgba(238, 243, 234, 0.075));
+  border-radius: 8px;
+  display: inline-flex;
+  gap: 0.58rem;
+  justify-content: center;
+  min-height: 3.18rem;
+  padding: 0.56rem 0.72rem;
+  transition:
+    background 0.22s ease,
+    border-color 0.22s ease;
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+}
+
+.statusContainer:hover {
+  background: var(--study-panel-bg-hover, rgba(19, 29, 26, 0.38));
+  border-color: rgba(238, 243, 234, 0.12);
 }
 
 .textBlock {
   display: flex;
   flex-direction: column;
-  gap: 0rem;
+  gap: 0.1rem;
+  min-width: 0;
 }
 
 .statusText {
+  border-radius: 6px;
+  cursor: pointer;
+  display: inline-flex;
   font-family: var(--font-ui);
-  font-size: 1.4rem;
-  line-height: 1.5;
-  font-weight: 500;
-  letter-spacing: 0.5px;
-  transition: all 0.3s ease;
+  font-size: 0.92rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  line-height: 1.1;
+  padding: 0;
+  transition:
+    color 0.24s ease,
+    opacity 0.24s ease,
+    transform 0.24s ease;
   user-select: none;
-  display: inline-block;
-  padding: 0.4rem 0.7rem;
-  border-radius: var(--border-radius-sm);
+}
+
+.statusText:focus-visible {
+  box-shadow: 0 0 0 2px rgba(127, 216, 189, 0.24);
+  outline: none;
 }
 
 .statusSubtext {
+  color: var(--study-muted, rgba(255, 255, 255, 0.68));
   font-family: var(--font-ui);
-  font-size: 0.9rem;
-  line-height: 1.1;
-  color: rgba(255, 255, 255, 0.75);
-  padding: 0 0.7rem;
+  font-size: 0.7rem;
+  line-height: 1.12;
   margin-top: 0;
-  /* 紧贴状态文本 */
+  padding: 0;
+  white-space: nowrap;
 }
 
-/* 安静状态 */
 .statusText.quiet {
-  color: var(--text-color);
+  color: var(--study-ink, var(--text-color));
 }
 
-/* 吵闹状态 */
 .statusText.noisy {
-  color: #ff4757;
   animation: pulse 1.5s ease-in-out infinite;
+  color: #ff7a88;
 }
 
-/* 错误状态 */
 .statusText.error {
-  color: #ff6b6b;
-  opacity: 0.8;
+  color: #ff9b9b;
+  opacity: 0.76;
 }
 
 .statusText.error:hover {
   opacity: 1;
-  background: rgba(255, 107, 107, 0.1);
 }
 
-/* 初始化状态 */
 .statusText.initializing {
-  color: rgba(255, 255, 255, 0.6);
-  cursor: default;
   animation: fadeInOut 2s ease-in-out infinite;
+  color: var(--study-soft, rgba(255, 255, 255, 0.58));
+  cursor: default;
 }
 
-/* 校准状态 */
 .statusText.calibrating {
-  color: #ffa502;
-  cursor: not-allowed;
-  /* 校准中不可点击 */
   animation: pulse 1s ease-in-out infinite;
+  color: #f2c46d;
+  cursor: not-allowed;
 }
 
-/* 脉冲动画（吵闹状态） */
+.breathingLight {
+  border-radius: 50%;
+  flex: 0 0 auto;
+  height: 0.56rem;
+  transition:
+    box-shadow 0.24s ease,
+    transform 0.24s ease;
+  width: 0.56rem;
+}
+
+.breathingLight:hover:not(.calibrating):not(.initializing) {
+  transform: scale(1.18);
+}
+
+.breathingLight.quiet {
+  animation: breatheQuiet 4s ease-in-out infinite;
+  background-color: #7fd8bd;
+  cursor: pointer;
+}
+
+.breathingLight.noisy {
+  animation: breatheNoisy 2.3s ease-in-out infinite;
+  background-color: #ff7a88;
+  cursor: pointer;
+}
+
+.breathingLight.error {
+  animation: breatheError 3s ease-in-out infinite;
+  background-color: #ff9b9b;
+  cursor: pointer;
+}
+
+.breathingLight.initializing {
+  animation: breatheInitializing 3.5s ease-in-out infinite;
+  background-color: rgba(248, 247, 240, 0.54);
+  cursor: default;
+}
+
+.breathingLight.calibrating {
+  animation: breatheCalibrating 2s ease-in-out infinite;
+  background-color: #f2c46d;
+  cursor: not-allowed;
+}
+
 @keyframes pulse {
   0%,
   100% {
     opacity: 1;
-    transform: scale(1);
+    transform: translateY(0);
   }
 
   50% {
-    opacity: 0.7;
-    transform: scale(1.05);
+    opacity: 0.76;
+    transform: translateY(-1px);
   }
 }
 
-/* 淡入淡出动画（初始化状态） */
 @keyframes fadeInOut {
   0%,
   100% {
-    opacity: 0.6;
+    opacity: 0.58;
   }
 
   50% {
-    opacity: 1;
+    opacity: 0.92;
   }
 }
 
-/* 呼吸灯效果 */
-.breathingLight {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  flex-shrink: 0;
-  transition: transform 0.2s ease;
-}
-
-.breathingLight:hover:not(.calibrating):not(.initializing) {
-  transform: scale(1.2);
-}
-
-/* 安静状态呼吸灯 */
-.breathingLight.quiet {
-  background-color: #2ed573;
-  animation: breatheQuiet 4s ease-in-out infinite;
-  cursor: pointer;
-}
-
-/* 吵闹状态呼吸灯 */
-.breathingLight.noisy {
-  background-color: #ff4757;
-  animation: breatheNoisy 2.5s ease-in-out infinite;
-  cursor: pointer;
-}
-
-/* 错误状态呼吸灯 */
-.breathingLight.error {
-  background-color: #ff6b6b;
-  animation: breatheError 3s ease-in-out infinite;
-  cursor: pointer;
-}
-
-/* 初始化状态呼吸灯 */
-.breathingLight.initializing {
-  background-color: rgba(255, 255, 255, 0.6);
-  animation: breatheInitializing 3.5s ease-in-out infinite;
-  cursor: default;
-}
-
-/* 校准状态呼吸灯 */
-.breathingLight.calibrating {
-  background-color: #ffa502;
-  animation: breatheCalibrating 2s ease-in-out infinite;
-  cursor: not-allowed;
-}
-
-/* 安静状态呼吸动画 */
 @keyframes breatheQuiet {
   0%,
   100% {
-    opacity: 0.5;
+    box-shadow: 0 0 0 0 rgba(127, 216, 189, 0.18);
+    opacity: 0.62;
     transform: scale(1);
   }
 
   50% {
-    opacity: 0.8;
-    transform: scale(1.1);
+    box-shadow: 0 0 0 0.35rem rgba(127, 216, 189, 0);
+    opacity: 0.95;
+    transform: scale(1.08);
   }
 }
 
-/* 吵闹状态呼吸动画 */
 @keyframes breatheNoisy {
   0%,
   100% {
-    opacity: 0.6;
+    box-shadow: 0 0 0 0 rgba(255, 122, 136, 0.28);
+    opacity: 0.72;
     transform: scale(1);
-    box-shadow: 0 0 0 0 rgba(255, 71, 87, 0.3);
+  }
+
+  50% {
+    box-shadow: 0 0 0 0.45rem rgba(255, 122, 136, 0);
+    opacity: 1;
+    transform: scale(1.16);
+  }
+}
+
+@keyframes breatheError {
+  0%,
+  100% {
+    opacity: 0.62;
+    transform: scale(1);
   }
 
   50% {
     opacity: 0.9;
-    transform: scale(1.15);
-    box-shadow: 0 0 0 2px rgba(255, 71, 87, 0);
+    transform: scale(1.08);
   }
 }
 
-/* 错误状态呼吸动画 */
-@keyframes breatheError {
-  0%,
-  100% {
-    opacity: 0.5;
-    transform: scale(1);
-  }
-
-  50% {
-    opacity: 0.75;
-    transform: scale(1.05);
-  }
-}
-
-/* 初始化状态呼吸动画 */
 @keyframes breatheInitializing {
   0%,
   100% {
-    opacity: 0.4;
-    transform: scale(0.9);
+    opacity: 0.44;
+    transform: scale(0.92);
   }
 
   50% {
-    opacity: 0.6;
-    transform: scale(1.05);
+    opacity: 0.72;
+    transform: scale(1.04);
   }
 }
 
-/* 校准状态呼吸动画 */
 @keyframes breatheCalibrating {
   0%,
   100% {
-    opacity: 0.5;
+    opacity: 0.56;
     transform: scale(1);
   }
 
   50% {
-    opacity: 0.8;
+    opacity: 0.9;
     transform: scale(1.1);
   }
 }
 
-/* 说明：以下为响应式与交互可用性相关样式 */
 @media (max-width: 768px) {
   .noiseMonitor {
-    position: relative;
-    z-index: 1001;
-    /* 确保在其他元素之上 */
+    max-width: none;
+    width: 100%;
   }
 
   .statusContainer {
-    min-height: 48px;
-    /* 增加最小点击区域 */
-    align-items: center;
-    gap: 0.6rem;
+    justify-content: flex-start;
+    min-height: 2.9rem;
+    padding: 0.5rem 0.68rem;
+    width: 100%;
   }
 
   .statusText {
-    font-size: 1.3rem;
-    padding: 0.7rem 0.9rem;
-    /* 增加点击区域 */
-    min-height: 40px;
-    display: flex;
-    align-items: center;
-    cursor: pointer;
-    /* 确保显示可点击状态 */
+    font-size: 0.9rem;
+    min-height: 1.35rem;
   }
 
   .breathingLight {
-    width: 12px;
-    height: 12px;
+    height: 0.64rem;
+    width: 0.64rem;
   }
-
-  /* 移动端：通过更大点击区域提升可用性 */
 }
 
 @media (max-width: 480px) {
-  .noiseMonitor {
-    position: relative;
-    z-index: 1002;
-    /* 更高的层级 */
-    margin-top: 0.5rem;
-  }
-
   .statusContainer {
-    min-height: 52px;
-    /* 更大的点击区域 */
-    gap: 0.8rem;
+    gap: 0.64rem;
+    min-height: 2.85rem;
   }
 
   .statusText {
-    font-size: 1.2rem;
-    padding: 0.9rem 1.2rem;
-    /* 更大的点击区域 */
-    min-height: 44px;
-    border-radius: 8px;
-    /* 移除移动端背景，保持与桌面端一致 */
-    cursor: pointer;
+    font-size: 0.86rem;
+  }
+
+  .statusSubtext {
+    font-size: 0.66rem;
   }
 
   .breathingLight {
-    width: 16px;
-    height: 16px;
-    /* 增大呼吸灯以便点击 */
-    padding: 8px;
-    /* 增加点击区域 */
-    margin: -8px;
-    /* 抵消padding的视觉影响 */
-  }
-
-  /* 移动端（超小屏）：进一步扩大点击与可视区域 */
-}
-
-/* 竖屏显示优化 */
-@media (orientation: portrait) and (max-width: 768px) {
-  .noiseMonitor {
-    margin-top: 0.8rem;
-  }
-
-  .statusContainer {
-    min-height: 50px;
-    gap: 0.7rem;
-  }
-
-  .statusText {
-    font-size: 1.4rem;
-    padding: 0.8rem 1rem;
-    min-height: 42px;
-    font-weight: 500;
-  }
-
-  .breathingLight {
-    width: 14px;
-    height: 14px;
+    height: 0.68rem;
+    width: 0.68rem;
   }
 }
 
-@media (orientation: portrait) and (max-width: 480px) {
-  .statusText {
-    font-size: 1.3rem;
-    padding: 0.9rem 1.1rem;
-    min-height: 46px;
-  }
-
-  .breathingLight {
-    width: 17px;
-    height: 17px;
-  }
-}
-
-/* 高对比度模式支持 */
 @media (prefers-contrast: high) {
-  .statusText.noisy {
-    color: #ff0000;
-    font-weight: 600;
+  .statusContainer {
+    background: #000000;
+    border-color: #ffffff;
   }
 
+  .statusText.noisy,
   .statusText.error {
     color: #ff0000;
     font-weight: 600;
   }
 }
 
-/* 减少动画模式支持 */
 @media (prefers-reduced-motion: reduce) {
-  .statusText.noisy {
+  .statusContainer,
+  .statusText,
+  .statusText.noisy,
+  .statusText.initializing,
+  .breathingLight,
+  .breathingLight.quiet,
+  .breathingLight.noisy,
+  .breathingLight.error,
+  .breathingLight.initializing,
+  .breathingLight.calibrating {
     animation: none;
-  }
-
-  .statusText.initializing {
-    animation: none;
-    opacity: 0.8;
-  }
-
-  .statusText {
     transition: none;
+  }
+
+  .breathingLight:hover,
+  .statusText.noisy {
+    transform: none;
   }
 }

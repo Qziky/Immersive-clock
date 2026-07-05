@@ -1,166 +1,133 @@
-/* 天气组件样式 */
+/* 天气：独立的轻量信息 */
 .weather {
-  display: flex;
   align-items: center;
-  gap: 0;
-  padding: 0;
+  color: var(--study-muted, var(--text-color));
+  display: inline-flex;
+  gap: 0.26rem;
+  line-height: 1;
   margin: 0;
-  background: transparent;
-  border: none;
-  color: var(--text-color);
+  min-width: 0;
+  padding: 0;
 }
 
-/* 温度显示 */
 .temperature {
-  font-size: 1.2rem;
-  font-weight: 600;
-  color: var(--text-color);
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
-  margin: 0;
-  padding: 0;
+  color: var(--study-ink, var(--text-color));
   font-family: var(--font-main);
+  font-size: 1.08rem;
+  font-weight: 600;
+  line-height: 1;
+  margin: 0;
+  padding: 0;
 }
 
-/* 分割线 */
 .divider {
-  width: 2px;
-  height: 16px;
-  background: var(--text-color);
-  opacity: 0.3;
-  margin: 0 0.25rem;
+  background: currentColor;
+  height: 0.92rem;
+  margin: 0 0.03rem;
+  opacity: 0.22;
+  width: 1px;
 }
 
-/* 天气描述文字 */
 .weatherText {
-  font-size: 0.5rem;
-  font-weight: 400;
-  color: var(--text-color);
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
-  margin: 0;
-  padding: 0;
-  font-family: var(--font-ui);
-  opacity: 0.8;
   align-self: flex-end;
+  color: var(--study-muted, var(--text-color));
+  font-family: var(--font-ui);
+  font-size: 0.72rem;
+  font-weight: 500;
+  line-height: 1;
+  margin: 0;
+  opacity: 0.78;
+  padding: 0 0 0.03rem;
 }
 
-/* 天气图标容器 */
 .icon {
-  display: flex;
   align-items: center;
+  display: flex;
+  height: 1.18rem;
   justify-content: center;
-  width: 24px;
-  height: 24px;
   margin: 0;
   padding: 0;
+  width: 1.18rem;
 }
 
-/* 天气图标 */
 .weatherIcon {
-  width: 100%;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.18));
   height: 100%;
   object-fit: contain;
-  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3));
+  opacity: 0.82;
+  width: 100%;
 }
 
-/* 加载状态 */
-.loading {
-  display: flex;
+.loading,
+.error {
   align-items: center;
+  display: inline-flex;
+  height: 1.2rem;
   justify-content: center;
-  width: 60px;
-  height: 32px;
+  min-width: 2.2rem;
 }
 
 .loadingDot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--text-color);
-  opacity: 0.6;
   animation: pulse 1.5s ease-in-out infinite;
+  background: currentColor;
+  border-radius: 50%;
+  height: 0.32rem;
+  opacity: 0.62;
+  width: 0.32rem;
+}
+
+.errorIcon {
+  color: #ff8a8a;
+  font-size: 0.82rem;
+  opacity: 0.86;
 }
 
 @keyframes pulse {
   0%,
   100% {
-    opacity: 0.6;
+    opacity: 0.45;
     transform: scale(1);
   }
 
   50% {
-    opacity: 1;
-    transform: scale(1.2);
+    opacity: 0.95;
+    transform: scale(1.16);
   }
 }
 
-/* 错误状态 */
-.error {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 60px;
-  height: 32px;
-}
-
-.errorIcon {
-  font-size: 1rem;
-  color: #ff6b6b;
-  opacity: 0.8;
-}
-
-/* 响应式设计 */
 @media (max-width: 768px) {
-  .weather {
-    gap: 0;
-  }
-
   .temperature {
-    font-size: 1rem;
+    font-size: 1.02rem;
   }
 
   .divider {
-    height: 14px;
-  }
-
-  .weatherText {
-    font-size: 0.45rem;
-    align-self: flex-end;
+    height: 0.86rem;
   }
 
   .icon {
-    width: 20px;
-    height: 20px;
+    height: 1.1rem;
+    width: 1.1rem;
+  }
+
+  .weatherText {
+    font-size: 0.66rem;
   }
 }
 
-/* 竖屏模式优化 */
-@media (orientation: portrait) {
+@media (max-width: 480px) {
   .weather {
-    flex-direction: row;
-    gap: 0;
+    gap: 0.22rem;
   }
 
   .temperature {
-    font-size: 0.9rem;
-    line-height: 1;
-  }
-
-  .divider {
-    height: 12px;
+    font-size: 0.98rem;
   }
 
   .weatherText {
-    font-size: 0.4rem;
-    align-self: flex-end;
-  }
-
-  .icon {
-    width: 18px;
-    height: 18px;
+    font-size: 0.62rem;
   }
 }
 
-/* 减少动画偏好支持 */
 @media (prefers-reduced-motion: reduce) {
   .loadingDot {
     animation: none;

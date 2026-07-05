@@ -1,280 +1,473 @@
-/* 学习组件样式（绝对定位布局） */
+/* 自习主屏：低干扰中轴布局 */
 
 .study,
 .container {
-  width: 100%;
-  height: 100vh;
-  position: relative;
-  background: var(--background-color);
-  color: var(--text-color);
+  --study-ink: rgba(248, 247, 240, 0.94);
+  --study-muted: rgba(232, 233, 224, 0.62);
+  --study-soft: rgba(232, 233, 224, 0.42);
+  --study-panel-bg: rgba(10, 16, 14, 0.22);
+  --study-panel-bg-hover: rgba(19, 29, 26, 0.32);
+  --study-panel-border: rgba(238, 243, 234, 0.075);
+  --study-accent: #7fd8bd;
+  --study-accent-soft: rgba(127, 216, 189, 0.24);
+  --study-center-shift-y: 0px;
+  --study-shadow: 0 18px 54px rgba(0, 0, 0, 0.18);
+
+  align-items: center;
+  background-color: #0c1110;
+  color: var(--study-ink);
+  display: flex;
+  height: 100%;
+  isolation: isolate;
+  justify-content: center;
+  min-height: 100vh;
   overflow: hidden;
+  padding:
+    max(2.5rem, env(safe-area-inset-top))
+    clamp(1rem, 4vw, 4.5rem)
+    max(3.5rem, env(safe-area-inset-bottom))
+    clamp(1rem, 4vw, 4.5rem);
+  position: relative;
+  width: 100%;
 }
 
-/* 背景渐变覆层：与时钟页面保持一致的微弱中心高亮 */
-.container::before {
+.container::before,
+.container::after {
   content: "";
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: radial-gradient(
-    ellipse at center,
-    rgba(255, 255, 255, 0.02) 0%,
-    rgba(255, 255, 255, 0.01) 50%,
-    transparent 100%
-  );
+  inset: 0;
   pointer-events: none;
+  position: absolute;
+}
+
+.container::before {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.035) 0%, transparent 32%),
+    linear-gradient(115deg, rgba(76, 118, 104, 0.12) 0%, transparent 44%),
+    linear-gradient(245deg, rgba(185, 172, 127, 0.08) 0%, transparent 48%);
   z-index: 0;
 }
 
-/* 进度条下方左侧 - 天气和噪音监测 */
-.topLeft {
-  position: absolute;
-  top: 50px;
-  left: 10px;
-  margin: 0;
-  z-index: 10;
-  text-align: left;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  align-items: flex-start;
+.container::after {
+  background:
+    linear-gradient(90deg, rgba(0, 0, 0, 0.28), transparent 20%, transparent 80%, rgba(0, 0, 0, 0.22)),
+    linear-gradient(180deg, transparent 48%, rgba(0, 0, 0, 0.24) 100%);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.015);
+  z-index: 1;
 }
 
-/* 进度条下方右侧 - 高考倒计时和励志语录 */
-.topRight {
-  position: absolute;
-  top: 50px;
-  right: 20px;
-  margin: 0;
-  text-align: right;
-  z-index: 10;
-}
-
-/* 轮播容器：固定高度与隐藏溢出 */
-.countdownCarousel {
-  font-family: var(--font-ui);
-  font-size: clamp(1.2rem, 3vw, 1.8rem);
-  font-weight: 500;
-  display: inline-block;
-  height: 2.2em;
-  /* 固定高度，匹配单行文本高度 */
-  overflow: hidden;
-}
-
-/* 轮播轨道：按列排列，滚动切换 */
-.carouselTrack {
-  display: flex;
-  flex-direction: column;
-  transition: transform 300ms ease;
-  /* 滚动切换动画 */
-}
-
-/* 单项样式（继承原gaokaoCountdown样式） */
-.carouselItem {
-  color: var(--text-color);
-  margin-bottom: 0;
-  line-height: 2.2em;
-  /* 与容器高度一致，确保每项高度一致 */
-}
-
-.days {
-  color: var(--accent-color);
-  font-weight: 700;
-  font-size: 1.2em;
-  font-family: var(--font-main);
-}
-
-.quoteSection {
-  /* 让容器宽度由父级内容内联样式控制（Study.tsx 设置 width） */
-  width: auto;
-  font-size: clamp(0.9rem, 2vw, 1.1rem);
-  color: var(--secondary-color);
-  line-height: 1.4;
-  text-align: left !important;
-}
-
-/* 中央 - 时间显示 */
+.topDock,
 .centerTime {
   position: absolute;
-  top: 49%;
+  z-index: 2;
+}
+
+.topDock {
+  align-items: start;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  gap: 0.7rem;
+  left: clamp(1rem, 4vw, 4.5rem);
+  right: clamp(1rem, 4vw, 4.5rem);
+  top: max(1.25rem, calc(env(safe-area-inset-top) + 1rem));
+  width: auto;
+}
+
+.auxDock {
+  align-items: stretch;
+  display: flex;
+  gap: 0.7rem;
+  grid-column: 1;
+  justify-self: end;
+  min-width: 0;
+  pointer-events: auto;
+}
+
+.weatherDock {
+  align-items: center;
+  background: var(--study-panel-bg, rgba(10, 16, 14, 0.22));
+  border: 1px solid var(--study-panel-border, rgba(238, 243, 234, 0.075));
+  border-radius: 8px;
+  display: inline-flex;
+  justify-content: center;
+  min-height: 3.18rem;
+  padding: 0.55rem 0.72rem;
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+}
+
+.noiseDock {
+  display: flex;
+  min-width: 0;
+}
+
+.statusDock {
+  display: flex;
+  grid-column: 2;
+  justify-self: center;
+  min-width: 0;
+  pointer-events: auto;
+}
+
+.countdownDock {
+  align-items: flex-start;
+  display: flex;
+  flex-direction: column;
+  gap: 0.28rem;
+  grid-column: 3;
+  justify-content: flex-start;
+  justify-self: start;
+  max-width: min(28rem, 100%);
+  min-width: 0;
+  pointer-events: auto;
+  text-align: left;
+}
+
+.centerTime {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
   left: 50%;
-  transform: translate(-50%, -50%);
+  max-width: min(72rem, calc(100% - 2rem));
   text-align: center;
-  z-index: 5;
+  top: calc(50% - var(--study-center-shift-y));
+  transform: translate(-50%, -50%);
+  width: min(72rem, calc(100% - 2rem));
 }
 
 .currentTime {
+  color: var(--primary-color);
   font-family: var(--font-main);
   font-size: clamp(5rem, 15vw, 10rem);
   font-weight: 700;
-  color: var(--primary-color);
+  letter-spacing: 0;
   line-height: 1;
   margin-bottom: var(--spacing-md);
-  text-shadow: none;
-  transition: all var(--transition-normal);
+  text-shadow: 0 16px 58px rgba(0, 0, 0, 0.3);
+  transition:
+    color var(--transition-normal),
+    opacity var(--transition-normal);
 }
 
 .currentDate {
-  font-family: var(--font-ui);
-  font-size: clamp(1rem, 2.5vw, 1.6rem);
-  font-weight: 400;
   color: var(--secondary-color);
-  opacity: 0.8;
-  transition: all var(--transition-normal);
+  font-family: var(--font-ui);
+  font-size: clamp(0.98rem, 1.2vw, 1.2rem);
+  font-weight: 400;
+  letter-spacing: 0;
+  line-height: 1.35;
+  opacity: 0.72;
+  transition:
+    color var(--transition-normal),
+    opacity var(--transition-normal);
 }
 
-/* 响应式设计 - 与时钟界面保持一致 */
+.studyDetails {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  gap: 0.48rem;
+  margin-top: clamp(1rem, 2vh, 1.45rem);
+  max-width: min(36rem, 100%);
+  min-width: 0;
+  width: 100%;
+}
+
+.countdownCarousel {
+  background: var(--study-panel-bg, rgba(10, 16, 14, 0.22));
+  border: 1px solid var(--study-panel-border, rgba(238, 243, 234, 0.075));
+  border-radius: 8px;
+  color: var(--study-ink);
+  display: inline-block;
+  font-family: var(--font-ui);
+  font-size: clamp(0.92rem, 1.15vw, 1.12rem);
+  font-weight: 600;
+  height: 3.18rem;
+  line-height: 1;
+  max-width: min(100%, 36rem);
+  overflow: hidden;
+  padding: 0 0.72rem;
+  text-align: center;
+  width: fit-content;
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+}
+
+.carouselTrack {
+  display: flex;
+  flex-direction: column;
+  transition: transform 360ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.carouselItem {
+  align-items: center;
+  color: inherit;
+  display: flex;
+  gap: 0.26rem;
+  justify-content: center;
+  line-height: 1;
+  margin-bottom: 0;
+  min-height: 3.18rem;
+  overflow: visible;
+  white-space: nowrap;
+}
+
+.countdownPrefix,
+.countdownOnly,
+.countdownUnit {
+  flex: 0 0 auto;
+}
+
+.days {
+  color: var(--study-accent);
+  font-family: var(--font-main);
+  font-size: 1.12em;
+  font-weight: 700;
+  text-shadow: 0 0 20px var(--study-accent-soft);
+}
+
+.quoteSection {
+  color: var(--study-muted);
+  font-size: 0.95rem;
+  line-height: 1.55;
+  max-width: min(24rem, 100%);
+  min-width: 0;
+  opacity: 0.8;
+  text-align: left;
+  width: 100%;
+}
+
 @media (max-width: 1024px) {
-  .topLeft,
-  .topRight {
-    top: 45px;
-  }
-
-  .topLeft {
-    left: 4px;
-  }
-
-  .topRight {
-    right: 15px;
-  }
-
-  .countdownCarousel {
-    font-size: clamp(1rem, 2.5vw, 1.5rem);
-  }
-
-  .quoteSection {
-    /* 避免覆盖由 JS 设定的宽度，仅调整字号 */
-    font-size: clamp(0.8rem, 1.8vw, 1rem);
+  .topDock {
+    left: clamp(1rem, 3vw, 2rem);
+    right: clamp(1rem, 3vw, 2rem);
+    top: max(1.15rem, calc(env(safe-area-inset-top) + 0.9rem));
   }
 }
 
 @media (max-width: 768px) {
-  .topLeft,
-  .topRight {
-    top: 40px;
+  .container {
+    padding:
+      max(1.4rem, env(safe-area-inset-top))
+      clamp(0.9rem, 4vw, 1.5rem)
+      max(4.15rem, env(safe-area-inset-bottom))
+      clamp(0.9rem, 4vw, 1.5rem);
   }
 
-  .topLeft {
-    left: 6px;
+  .topDock {
+    gap: 0.5rem;
+    left: 0.8rem;
+    right: 0.8rem;
+    top: max(1rem, calc(env(safe-area-inset-top) + 0.8rem));
   }
 
-  .topRight {
-    right: 10px;
+  .auxDock {
+    gap: 0.5rem;
+  }
+
+  .statusDock {
+    width: min(21rem, 38vw);
+  }
+
+  .countdownDock {
+    max-width: min(16.5rem, 100%);
+  }
+
+  .weatherDock {
+    min-height: 2.9rem;
+    padding: 0.5rem 0.68rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .topDock {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.5rem;
+    left: 50%;
+    right: auto;
+    transform: translateX(-50%);
+    width: min(calc(100% - 2rem), 42rem);
+  }
+
+  .statusDock {
+    grid-column: 1 / -1;
+    justify-self: center;
+    max-width: none;
+    width: 100%;
+  }
+
+  .auxDock {
+    display: grid;
+    gap: 0.5rem;
+    grid-column: 1 / 3;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    justify-self: stretch;
+    order: 2;
+    width: 100%;
+  }
+
+  .statusDock {
+    order: 1;
+  }
+
+  .weatherDock {
+    justify-content: flex-start;
+    min-height: 2.9rem;
+    padding: 0.5rem 0.68rem;
+    width: 100%;
+  }
+
+  .noiseDock {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .countdownDock {
+    align-items: flex-start;
+    grid-column: 3;
+    justify-self: stretch;
+    max-width: none;
+    order: 3;
+    width: 100%;
+  }
+
+  .countdownCarousel {
+    width: 100%;
+  }
+}
+
+@media (max-width: 768px) {
+  .centerTime {
+    max-width: calc(100% - 1.5rem);
+    width: calc(100% - 1.5rem);
   }
 
   .currentTime {
     font-size: clamp(4rem, 18vw, 8rem);
   }
 
-  .currentDate {
-    font-size: clamp(0.9rem, 3vw, 1.3rem);
+  .studyDetails {
+    margin-top: clamp(0.8rem, 1.8vh, 1.1rem);
   }
 
   .countdownCarousel {
-    font-size: clamp(1.1rem, 2.8vw, 1.6rem);
-    margin-bottom: 0;
+    font-size: 1.04rem;
+    max-width: 100%;
+  }
+
+  .countdownPrefix {
+    display: none;
+  }
+
+  .carouselItem {
+    gap: 0.22rem;
   }
 
   .quoteSection {
-    /* 避免覆盖由 JS 设定的宽度，仅调整字号与行高 */
-    font-size: clamp(0.85rem, 2vw, 1.1rem);
-    line-height: 1.5;
+    font-size: 0.86rem;
+    max-width: min(20rem, 100%);
+  }
+}
+
+@media (max-width: 480px) {
+  .container {
+    padding:
+      max(1rem, env(safe-area-inset-top))
+      0.8rem
+      max(4rem, env(safe-area-inset-bottom))
+      0.8rem;
+  }
+
+  .topDock {
+    top: max(0.85rem, calc(env(safe-area-inset-top) + 0.7rem));
+  }
+
+  .weatherDock {
+    min-height: 2.85rem;
+  }
+
+  .currentDate {
+    font-size: 0.92rem;
+  }
+
+  .countdownCarousel {
+    font-size: 0.98rem;
+    padding: 0 0.62rem;
+  }
+
+  .quoteSection {
+    font-size: 0.78rem;
+    max-width: min(18rem, 100%);
   }
 }
 
 @media (max-height: 600px) {
+  .topDock {
+    top: max(1rem, calc(env(safe-area-inset-top) + 0.75rem));
+  }
+
   .currentTime {
     font-size: clamp(3rem, 12vh, 5rem);
     margin-bottom: var(--spacing-sm);
   }
 
-  .currentDate {
-    font-size: clamp(0.8rem, 2.5vh, 1rem);
+  .studyDetails {
+    gap: 0.32rem;
+    margin-top: 0.72rem;
   }
 
-  .topLeft,
-  .topRight {
-    top: 35px;
+  .currentDate {
+    font-size: clamp(0.82rem, 2.6vh, 1rem);
   }
 }
 
-@media (max-width: 480px) {
-  .topLeft,
-  .topRight {
-    top: 35px;
-  }
-
-  .topLeft {
-    left: 8px;
-  }
-
-  .topRight {
-    right: 8px;
-  }
-
+@media (max-width: 360px) {
   .countdownCarousel {
-    font-size: clamp(1rem, 2.5vw, 1.4rem);
-    margin-bottom: 0;
+    font-size: 0.92rem;
   }
 
   .quoteSection {
-    /* 避免覆盖由 JS 设定的宽度，仅调整字号与行高 */
-    font-size: clamp(0.8rem, 1.8vw, 1rem);
-    line-height: 1.5;
-  }
-
-  .days {
-    font-size: 1.2em;
+    font-size: 0.72rem;
   }
 }
 
-/* 高对比度模式支持：与时钟页面一致，禁用渐变并切换为纯黑白 */
 @media (prefers-contrast: high) {
   .container {
+    --study-panel-bg: #000000;
+    --study-panel-bg-hover: #000000;
+    --study-panel-border: #ffffff;
+
     background: #000000;
     color: #ffffff;
   }
 
-  .container::before {
+  .container::before,
+  .container::after {
     display: none;
+  }
+
+  .countdownCarousel {
+    background: #000000;
+    border-color: #ffffff;
   }
 }
 
-/* 打印样式：与时钟页面一致 */
+@media (prefers-reduced-motion: reduce) {
+  .carouselTrack,
+  .currentTime,
+  .currentDate {
+    transition: none;
+  }
+}
+
 @media print {
   .container {
     background: white;
     color: black;
   }
 
-  .container::before {
+  .container::before,
+  .container::after {
     display: none;
-  }
-}
-
-/* 竖屏显示优化 */
-@media (orientation: portrait) and (max-width: 768px) {
-  .countdownCarousel {
-    font-size: clamp(1.2rem, 3.2vw, 1.8rem);
-    margin-bottom: 0;
-  }
-
-  .quoteSection {
-    /* 避免覆盖由 JS 设定的宽度，仅调整字号与行高 */
-    font-size: clamp(0.8rem, 1.8vw, 1rem);
-    line-height: 1.5;
-  }
-}
-
-@media (orientation: portrait) and (max-width: 480px) {
-  .countdownCarousel {
-    font-size: clamp(1.1rem, 2.8vw, 1.6rem);
-    margin-bottom: 0;
-  }
-
-  .quoteSection {
-    font-size: clamp(0.75rem, 1.6vw, 0.9rem);
   }
 }

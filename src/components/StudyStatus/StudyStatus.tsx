@@ -5,7 +5,6 @@ import { logger } from "../../utils/logger";
 import { subscribeSettingsEvent, SETTINGS_EVENTS } from "../../utils/settingsEvents";
 import { readStudySchedule } from "../../utils/studyScheduleStorage";
 import { getAdjustedDate } from "../../utils/timeSync";
-import { Weather } from "../Weather";
 
 import styles from "./StudyStatus.module.css";
 
@@ -188,9 +187,6 @@ const StudyStatus: React.FC<StudyStatusProps> = () => {
     <div className={styles.studyStatus}>
       <div className={styles.statusRow}>
         <div className={styles.statusText}>{currentStatus.statusText}</div>
-        <div className={styles.weatherContainer}>
-          <Weather />
-        </div>
       </div>
       <div className={styles.progressContainer}>
         <div className={styles.progressBar}>
