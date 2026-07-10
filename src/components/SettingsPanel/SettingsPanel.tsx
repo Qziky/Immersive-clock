@@ -28,6 +28,7 @@ import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from
 
 import { useAppDispatch, useAppState } from "../../contexts/AppContext";
 import { Button, IconButton, Modal, useFeedback } from "../../ui";
+import { usePresence } from "../../ui/utils/usePresence";
 import { logger } from "../../utils/logger";
 import { broadcastSettingsEvent, SETTINGS_EVENTS } from "../../utils/settingsEvents";
 
@@ -359,6 +360,8 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
   const [activeGroup, setActiveGroup] = useState<SettingsPrimaryGroup>("workspace");
   const [expandedGroup, setExpandedGroup] = useState<SettingsPrimaryGroup | null>("workspace");
   const [compactMenuGroup, setCompactMenuGroup] = useState<SettingsPrimaryGroup | null>(null);
+  const [renderedCompactMenuGroup, setRenderedCompactMenuGroup] =
+    useState<SettingsPrimaryGroup>("workspace");
   const [activePane, setActivePane] = useState<SettingsPaneId>("startup");
   const [lastPaneByGroup, setLastPaneByGroup] =
     useState<Record<SettingsPrimaryGroup, SettingsPaneId>>(DEFAULT_PANES_BY_GROUP);
@@ -378,10 +381,18 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
 
   useLayoutEffect(() => {
     if (isOpen && !wasOpenRef.current) {
+      setTargetYear(study.targetYear);
+      setActiveGroup("workspace");
+      setExpandedGroup("workspace");
+      setCompactMenuGroup(null);
+      setRenderedCompactMenuGroup("workspace");
+      setActivePane("startup");
+      setLastPaneByGroup(DEFAULT_PANES_BY_GROUP);
+      setVisitedPanels(new Set(["basic"]));
       setDraftSession((current) => current + 1);
     }
     wasOpenRef.current = isOpen;
-  }, [isOpen]);
+  }, [isOpen, study.targetYear]);
 
   const registerBasicSave = useCallback((save: () => void) => {
     basicSaveRef.current = save;
@@ -430,24 +441,6 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
   }, [targetYear, dispatch, handleClose, notify, visitedPanels]);
 
   useEffect(() => {
-    if (isOpen) {
-      setTargetYear(study.targetYear);
-      setActiveGroup("workspace");
-      setExpandedGroup("workspace");
-      setCompactMenuGroup(null);
-      setActivePane("startup");
-      setLastPaneByGroup(DEFAULT_PANES_BY_GROUP);
-    } else {
-      setActiveGroup("workspace");
-      setExpandedGroup("workspace");
-      setCompactMenuGroup(null);
-      setActivePane("startup");
-      setLastPaneByGroup(DEFAULT_PANES_BY_GROUP);
-      setVisitedPanels(new Set(["basic"]));
-    }
-  }, [isOpen, study.targetYear]);
-
-  useEffect(() => {
     if (!isOpen) return;
     const panel = getPane(activePane).panel;
     setVisitedPanels((current) => {
@@ -491,11 +484,22 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
     setLastPaneByGroup((current) => ({ ...current, [group]: pane }));
   }, []);
 
+  const handleCompactMenuOpen = useCallback((group: SettingsPrimaryGroup) => {
+    setRenderedCompactMenuGroup(group);
+    setCompactMenuGroup(group);
+  }, []);
+
   const activeGroupItem = getGroup(activeGroup);
   const activePaneItem = getPane(activePane);
-  const compactMenuGroupItem = compactMenuGroup ? getGroup(compactMenuGroup) : null;
-  const compactMenuPaneItems = compactMenuGroup
-    ? paneItems.filter((item) => item.group === compactMenuGroup)
+  const compactMenuOpen = compactMenuGroup !== null;
+  const {
+    isPresent: compactMenuPresent,
+    presenceState: compactMenuPresenceState,
+    shouldAnimate: shouldAnimateCompactMenu,
+  } = usePresence({ isOpen: compactMenuOpen });
+  const compactMenuGroupItem = compactMenuPresent ? getGroup(renderedCompactMenuGroup) : null;
+  const compactMenuPaneItems = compactMenuPresent
+    ? paneItems.filter((item) => item.group === renderedCompactMenuGroup)
     : [];
   const basicSection: BasicSettingsSection =
     activePaneItem.panel === "basic" ? activePaneItem.section : "startup";
@@ -558,7 +562,13 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
                         aria-hidden="true"
                       />
                     </button>
-                    {expanded && (
+                    <div
+                      className={
+                        expanded ? styles.groupPanesRegionExpanded : styles.groupPanesRegion
+                      }
+                      aria-hidden={!expanded}
+                      inert={expanded ? undefined : true}
+                    >
                       <div className={styles.groupPanes} role="group" aria-label={group.label}>
                         {groupPanes.map((pane) => {
                           const paneActive = pane.value === activePane;
@@ -576,7 +586,7 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
                           );
                         })}
                       </div>
-                    )}
+                    </div>
                   </section>
                 );
               })}
@@ -614,7 +624,7 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
                     aria-expanded={expanded}
                     aria-controls={expanded ? "settings-compact-submenu" : undefined}
                     title={group.label}
-                    onClick={() => setCompactMenuGroup(group.value)}
+                    onClick={() => handleCompactMenuOpen(group.value)}
                   >
                     {group.icon}
                   </button>
@@ -626,10 +636,16 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
                 className={styles.compactMenu}
                 id="settings-compact-submenu"
                 aria-labelledby="settings-compact-menu-title"
+                aria-hidden={compactMenuOpen ? undefined : "true"}
+                data-ui-motion={shouldAnimateCompactMenu ? "default" : "none"}
+                data-ui-presence={compactMenuPresenceState}
+                inert={compactMenuOpen ? undefined : true}
                 style={
                   {
                     "--settings-compact-menu-top": `${
-                      10 + primaryGroups.findIndex((group) => group.value === compactMenuGroup) * 50
+                      10 +
+                      primaryGroups.findIndex((group) => group.value === renderedCompactMenuGroup) *
+                        50
                     }px`,
                   } as React.CSSProperties
                 }
@@ -668,6 +684,10 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
               className={styles.compactMenuScrim}
               type="button"
               aria-label="关闭设置子菜单"
+              aria-hidden={compactMenuOpen ? undefined : "true"}
+              data-ui-motion={shouldAnimateCompactMenu ? "default" : "none"}
+              data-ui-presence={compactMenuPresenceState}
+              inert={compactMenuOpen ? undefined : true}
               tabIndex={-1}
               onClick={() => setCompactMenuGroup(null)}
             />
@@ -675,9 +695,11 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
 
           <section className={styles.contentPane} aria-labelledby="settings-pane-title">
             <header className={styles.contentHeader}>
-              <span className={styles.contentGroupLabel}>{activeGroupItem.label}</span>
-              <h2 id="settings-pane-title">{activePaneItem.label}</h2>
-              <p className={styles.contentDescription}>{activePaneItem.description}</p>
+              <div key={activePane} className={styles.contentHeaderMotion}>
+                <span className={styles.contentGroupLabel}>{activeGroupItem.label}</span>
+                <h2 id="settings-pane-title">{activePaneItem.label}</h2>
+                <p className={styles.contentDescription}>{activePaneItem.description}</p>
+              </div>
             </header>
 
             <div ref={contentRef} className={styles.contentBody}>

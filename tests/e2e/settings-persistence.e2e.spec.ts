@@ -21,7 +21,12 @@ async function openStudySettings(page: Parameters<typeof showHud>[0]) {
   const dialog = page.getByRole("dialog", { name: "设置" });
   await expect(dialog).toBeVisible();
   await expect(dialog.getByRole("button", { name: "常用工作台" })).toBeVisible();
-  await expect(dialog.getByRole("button", { name: "启动页面" })).toBeVisible();
+  if ((page.viewportSize()?.width ?? 1280) <= 720) {
+    await expect(dialog.getByRole("navigation", { name: "设置紧凑导航" })).toBeVisible();
+    await expect(dialog.getByRole("heading", { name: "启动页面", level: 2 })).toBeVisible();
+  } else {
+    await expect(dialog.getByRole("button", { name: "启动页面" })).toBeVisible();
+  }
 
   return dialog;
 }
@@ -207,7 +212,7 @@ test("错误与调试：记录方式切换延迟到保存", async ({ page }) => 
 test.describe("移动端设置抽屉", () => {
   test.use({ viewport: { width: 390, height: 844 } });
 
-  test("全屏展示两级横向导航并将当前分组滚动入视口", async ({ page }) => {
+  test("全屏展示纵向紧凑导航并将当前分组滚动入视口", async ({ page }) => {
     await page.goto("/");
     const dialog = await openStudySettings(page);
 
@@ -220,7 +225,7 @@ test.describe("移动端设置抽屉", () => {
       })
       .toBe(true);
 
-    const groupRail = dialog.getByRole("navigation", { name: "设置一级分类" });
+    const groupRail = dialog.getByRole("navigation", { name: "设置紧凑导航" });
     await groupRail.getByRole("button", { name: "系统数据" }).click();
     await dialog.getByRole("button", { name: "错误与调试" }).click();
     await expect(dialog.getByRole("heading", { name: "错误与调试", level: 2 })).toBeVisible();

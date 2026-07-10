@@ -63,6 +63,7 @@
     --ui-motion-duration-fast: 1ms;
     --ui-motion-duration-normal: 1ms;
     --ui-motion-duration-slow: 1ms;
+    --ui-motion-duration-drawer: 1ms;
     --ui-motion-duration-exit: 1ms;
     --ui-motion-distance-xs: 0;
     --ui-motion-distance-sm: 0;

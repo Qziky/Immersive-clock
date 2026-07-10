@@ -10,6 +10,26 @@
   width: min(1180px, 82vw) !important;
 }
 
+.settingsModal[data-ui-motion="default"][data-ui-presence="entering"] .drawerHeader {
+  animation: settingsRevealFromLeft var(--ui-motion-duration-normal)
+    var(--ui-motion-ease-emphasized) 60ms backwards;
+}
+
+.settingsModal[data-ui-motion="default"][data-ui-presence="entering"] .sideNav,
+.settingsModal[data-ui-motion="default"][data-ui-presence="entering"] .compactNavigation {
+  animation: settingsRevealFromLeft var(--ui-motion-duration-normal)
+    var(--ui-motion-ease-emphasized) 90ms backwards;
+}
+
+.settingsModal[data-ui-motion="default"][data-ui-presence="entering"] .panelMount:not([hidden]) {
+  animation-delay: 120ms;
+}
+
+.settingsModal[data-ui-motion="default"][data-ui-presence="entering"] .actionBar {
+  animation: settingsReveal var(--ui-motion-duration-normal) var(--ui-motion-ease-emphasized) 150ms
+    backwards;
+}
+
 .settingsModal [data-ui-modal-body] {
   border: 0;
   display: flex;
@@ -102,6 +122,26 @@
   gap: 3px;
 }
 
+.groupPanesRegion,
+.groupPanesRegionExpanded {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(calc(var(--ui-motion-distance-sm) * -1));
+  transition:
+    grid-template-rows var(--ui-transition-normal),
+    opacity var(--ui-transition-fast),
+    transform var(--ui-transition-normal);
+}
+
+.groupPanesRegionExpanded {
+  grid-template-rows: 1fr;
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+
 .groupHeader,
 .groupHeaderActive {
   align-items: center;
@@ -176,6 +216,8 @@
 
 .groupPanes {
   gap: 2px;
+  min-height: 0;
+  overflow: hidden;
   padding: 2px 0 6px 26px;
 }
 
@@ -195,12 +237,18 @@
   min-width: 0;
   padding: 0 10px;
   text-align: left;
+  transition:
+    background-color var(--ui-transition-fast),
+    border-color var(--ui-transition-fast),
+    color var(--ui-transition-fast),
+    transform var(--ui-transition-fast);
 }
 
 .sideNavItem svg,
 .sideNavItemActive svg {
   flex: 0 0 auto;
   height: 17px;
+  transition: transform var(--ui-transition-fast);
   width: 17px;
 }
 
@@ -213,6 +261,10 @@
   background: rgba(47, 236, 198, 0.08);
   border-left-color: var(--ui-color-accent);
   color: var(--ui-color-accent);
+}
+
+.sideNavItemActive svg {
+  transform: translateX(var(--ui-motion-distance-xs));
 }
 
 .compactNavigation {
@@ -239,6 +291,15 @@
   gap: 4px;
   min-height: 94px;
   padding: 15px 26px;
+}
+
+.contentHeaderMotion {
+  align-content: center;
+  animation: settingsReveal var(--ui-motion-duration-normal) var(--ui-motion-ease-emphasized)
+    backwards;
+  display: grid;
+  gap: 4px;
+  min-height: 100%;
 }
 
 .contentGroupLabel {
@@ -278,6 +339,8 @@
 
 .panelMount {
   align-content: start;
+  animation: settingsReveal var(--ui-motion-duration-normal) var(--ui-motion-ease-emphasized)
+    backwards;
   display: grid;
   max-width: 960px;
   min-width: 0;
@@ -293,6 +356,36 @@
   display: grid;
   gap: var(--ui-space-4);
   min-width: 0;
+}
+
+.panelMount:not([hidden]) > div > :not([hidden]) {
+  animation: settingsReveal var(--ui-motion-duration-normal) var(--ui-motion-ease-emphasized) 140ms
+    backwards;
+}
+
+.panelMount:not([hidden]) > div > :not([hidden]) [data-ui-motion-item] {
+  animation: settingsItemReveal var(--ui-motion-duration-normal) var(--ui-motion-ease-emphasized)
+    200ms backwards;
+}
+
+.panelMount:not([hidden]) > div > :not([hidden]) [data-ui-motion-item]:nth-child(2) {
+  animation-delay: 224ms;
+}
+
+.panelMount:not([hidden]) > div > :not([hidden]) [data-ui-motion-item]:nth-child(3) {
+  animation-delay: 248ms;
+}
+
+.panelMount:not([hidden]) > div > :not([hidden]) [data-ui-motion-item]:nth-child(4) {
+  animation-delay: 272ms;
+}
+
+.panelMount:not([hidden]) > div > :not([hidden]) [data-ui-motion-item]:nth-child(5) {
+  animation-delay: 296ms;
+}
+
+.panelMount:not([hidden]) > div > :not([hidden]) [data-ui-motion-item]:nth-child(n + 6) {
+  animation-delay: 320ms;
 }
 
 .panelMount section {
@@ -388,7 +481,18 @@
     height: 44px;
     justify-content: center;
     padding: 0;
+    transition:
+      background-color var(--ui-transition-fast),
+      border-color var(--ui-transition-fast),
+      color var(--ui-transition-fast),
+      transform var(--ui-transition-fast);
     width: 44px;
+  }
+
+  .compactGroup:active,
+  .compactGroupActive:active,
+  .compactGroupOpen:active {
+    transform: scale(var(--ui-motion-press-scale));
   }
 
   .compactGroup:hover,
@@ -424,6 +528,15 @@
     z-index: 1;
   }
 
+  .compactMenuScrim[data-ui-motion="default"][data-ui-presence="entering"] {
+    animation: settingsScrimIn var(--ui-motion-duration-normal) var(--ui-motion-ease-standard) both;
+  }
+
+  .compactMenuScrim[data-ui-motion="default"][data-ui-presence="exiting"] {
+    animation: settingsScrimOut var(--ui-motion-duration-exit) var(--ui-motion-ease-exit) both;
+    pointer-events: none;
+  }
+
   .compactMenu {
     background: var(--ui-glass-surface-strong);
     border: 1px solid var(--ui-glass-border);
@@ -440,6 +553,16 @@
     top: var(--settings-compact-menu-top);
     width: 244px;
     z-index: 2;
+  }
+
+  .compactMenu[data-ui-motion="default"][data-ui-presence="entering"] {
+    animation: settingsCompactMenuIn var(--ui-motion-duration-normal)
+      var(--ui-motion-ease-emphasized) both;
+  }
+
+  .compactMenu[data-ui-motion="default"][data-ui-presence="exiting"] {
+    animation: settingsCompactMenuOut var(--ui-motion-duration-exit) var(--ui-motion-ease-exit) both;
+    pointer-events: none;
   }
 
   .compactMenuHeader {
@@ -487,7 +610,17 @@
     min-height: 44px;
     padding: 0 12px;
     text-align: left;
+    transition:
+      background-color var(--ui-transition-fast),
+      border-color var(--ui-transition-fast),
+      color var(--ui-transition-fast),
+      transform var(--ui-transition-fast);
     width: 100%;
+  }
+
+  .compactPaneItem:active,
+  .compactPaneItemActive:active {
+    transform: scale(var(--ui-motion-press-scale));
   }
 
   .compactPaneItem:hover {
@@ -557,8 +690,110 @@
   .groupHeader,
   .groupHeaderActive,
   .groupChevron,
-  .groupChevronActive {
+  .groupChevronActive,
+  .groupPanesRegion,
+  .groupPanesRegionExpanded,
+  .sideNavItem,
+  .sideNavItemActive,
+  .compactGroup,
+  .compactGroupActive,
+  .compactGroupOpen,
+  .compactPaneItem,
+  .compactPaneItemActive {
     transition: none;
+  }
+
+  .drawerHeader,
+  .sideNav,
+  .compactNavigation,
+  .contentHeaderMotion,
+  .panelMount,
+  .panelMount:not([hidden]) > div > :not([hidden]),
+  .panelMount:not([hidden]) > div > :not([hidden]) [data-ui-motion-item],
+  .actionBar,
+  .compactMenu,
+  .compactMenuScrim {
+    animation: none !important;
+  }
+}
+
+@keyframes settingsReveal {
+  from {
+    opacity: 0;
+    transform: translateY(var(--ui-motion-distance-md));
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes settingsRevealFromLeft {
+  from {
+    opacity: 0;
+    transform: translateX(calc(var(--ui-motion-distance-md) * -1));
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes settingsItemReveal {
+  from {
+    opacity: 0;
+    transform: translateY(var(--ui-motion-distance-sm));
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes settingsCompactMenuIn {
+  from {
+    opacity: 0;
+    transform: translateX(calc(var(--ui-motion-distance-md) * -1));
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes settingsCompactMenuOut {
+  from {
+    opacity: 1;
+    transform: translateX(0);
+  }
+
+  to {
+    opacity: 0;
+    transform: translateX(calc(var(--ui-motion-distance-sm) * -1));
+  }
+}
+
+@keyframes settingsScrimIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes settingsScrimOut {
+  from {
+    opacity: 1;
+  }
+
+  to {
+    opacity: 0;
   }
 }
 

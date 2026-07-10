@@ -29,6 +29,41 @@ function mockReducedMotion(matches: boolean) {
   });
 }
 
+function mockDynamicReducedMotion(initialMatches: boolean) {
+  const listeners = new Set<EventListenerOrEventListenerObject>();
+  const mediaQuery = {
+    matches: initialMatches,
+    media: "(prefers-reduced-motion: reduce)",
+    onchange: null,
+    addListener: () => {},
+    removeListener: () => {},
+    addEventListener: (_type: string, listener: EventListenerOrEventListenerObject) => {
+      listeners.add(listener);
+    },
+    removeEventListener: (_type: string, listener: EventListenerOrEventListenerObject) => {
+      listeners.delete(listener);
+    },
+    dispatchEvent: () => false,
+  } as MediaQueryList;
+
+  Object.defineProperty(window, "matchMedia", {
+    writable: true,
+    value: vi.fn().mockReturnValue(mediaQuery),
+  });
+
+  return (matches: boolean) => {
+    Object.defineProperty(mediaQuery, "matches", { configurable: true, value: matches });
+    const event = { matches, media: mediaQuery.media } as MediaQueryListEvent;
+    listeners.forEach((listener) => {
+      if (typeof listener === "function") {
+        listener(event);
+      } else {
+        listener.handleEvent(event);
+      }
+    });
+  };
+}
+
 function PresenceHarness({ isOpen, motion = "default" }: PresenceHarnessProps) {
   const presence = usePresence({ isOpen, motion, exitDuration: 180 });
 
@@ -106,5 +141,18 @@ describe("usePresence", () => {
     rerender(<PresenceHarness isOpen={false} />);
 
     expect(screen.getByTestId("presence")).toHaveAttribute("data-present", "false");
+  });
+
+  it("reacts to reduced motion preference changes at runtime", () => {
+    const setReducedMotion = mockDynamicReducedMotion(false);
+    render(<PresenceHarness isOpen />);
+
+    expect(screen.getByTestId("presence")).toHaveAttribute("data-animate", "true");
+
+    act(() => setReducedMotion(true));
+    expect(screen.getByTestId("presence")).toHaveAttribute("data-animate", "false");
+
+    act(() => setReducedMotion(false));
+    expect(screen.getByTestId("presence")).toHaveAttribute("data-animate", "true");
   });
 });

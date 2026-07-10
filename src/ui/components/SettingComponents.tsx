@@ -89,9 +89,10 @@ export function SettingItem({
         styles.settingItem,
         toneClassMap[tone],
         disabled && styles.settingItemDisabled,
-        className,
+        className
       )}
       aria-disabled={disabled || undefined}
+      data-ui-motion-item
       {...props}
     >
       {icon && (
@@ -119,7 +120,11 @@ export function MetricCard({
   ...props
 }: MetricCardProps) {
   return (
-    <div className={classNames(styles.metricCard, toneClassMap[tone], className)} {...props}>
+    <div
+      className={classNames(styles.metricCard, toneClassMap[tone], className)}
+      data-ui-motion-item
+      {...props}
+    >
       <span className={styles.metricCardHeader}>
         {icon && (
           <span className={styles.metricCardIcon} aria-hidden="true">
@@ -155,7 +160,11 @@ export function InfoPanel({
   ...props
 }: InfoPanelProps) {
   return (
-    <div className={classNames(styles.infoPanel, toneClassMap[tone], className)} {...props}>
+    <div
+      className={classNames(styles.infoPanel, toneClassMap[tone], className)}
+      data-ui-motion-item
+      {...props}
+    >
       {title && <strong className={styles.infoPanelTitle}>{title}</strong>}
       <div className={styles.infoPanelBody}>{children}</div>
     </div>

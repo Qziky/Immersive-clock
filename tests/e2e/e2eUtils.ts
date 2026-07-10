@@ -27,21 +27,25 @@ async function dismissTourOverlay(page: Page) {
   }
 
   try {
-    await page
-      .locator(".driver-overlay, .driver-popover, #driver-page-overlay")
-      .first()
-      .waitFor({ state: "hidden", timeout: 1000 });
+    await expect(page.locator(".driver-popover:visible, .driver-overlay:visible")).toHaveCount(0, {
+      timeout: 1000,
+    });
   } catch {
     try {
       await page.evaluate(() => {
         document
           .querySelectorAll(".driver-overlay, .driver-popover, #driver-page-overlay")
           .forEach((node) => node.remove());
-        window.dispatchEvent(new Event("tour:end"));
       });
     } catch {
       // ignore
     }
+  }
+
+  try {
+    await page.evaluate(() => window.dispatchEvent(new Event("tour:end")));
+  } catch {
+    // ignore
   }
 }
 
@@ -92,7 +96,7 @@ export async function dismissBlockingModals(page: Page) {
   await clickCloseIfVisible();
 
   try {
-    await systemAnnouncementDialog.waitFor({ state: "visible", timeout: 2500 });
+    await systemAnnouncementDialog.waitFor({ state: "visible", timeout: 3500 });
     await clickCloseIfVisible();
   } catch {
     // ignore

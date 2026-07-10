@@ -15,6 +15,25 @@
     transform var(--ui-transition-fast);
 }
 
+.badge,
+.input,
+.select,
+.textarea,
+.inputShell,
+.filePicker,
+.radioRowSegmented,
+.metricCard,
+.statusPill,
+.infoPanel {
+  transition:
+    background-color var(--ui-transition-fast),
+    border-color var(--ui-transition-fast),
+    box-shadow var(--ui-transition-fast),
+    color var(--ui-transition-fast),
+    opacity var(--ui-transition-fast),
+    transform var(--ui-transition-fast);
+}
+
 .button,
 .iconButton,
 .stepperButton,
@@ -243,6 +262,11 @@
   min-width: 0;
   padding: 0 10px;
   width: 100%;
+}
+
+.inputShell:focus-within {
+  border-color: var(--ui-color-accent-border);
+  box-shadow: var(--ui-focus-ring);
 }
 
 .inputAffix {
@@ -646,6 +670,7 @@
 }
 
 .formSection {
+  animation: uiReveal var(--ui-motion-duration-normal) var(--ui-motion-ease-emphasized) both;
   background: var(--ui-glass-surface-soft);
   border: 1px solid var(--ui-glass-border);
   border-radius: var(--ui-radius-lg);
@@ -778,7 +803,9 @@
   display: block;
   height: 18px;
   transform: translateX(0);
-  transition: transform var(--ui-transition-fast);
+  transition:
+    background-color var(--ui-transition-fast),
+    transform var(--ui-transition-fast);
   width: 18px;
 }
 
@@ -829,6 +856,14 @@
   border-radius: var(--ui-radius-sm);
 }
 
+.checkboxBox svg {
+  opacity: 0;
+  transform: scale(0.5);
+  transition:
+    opacity var(--ui-transition-fast),
+    transform var(--ui-transition-fast);
+}
+
 .radioDot {
   border-radius: 999px;
 }
@@ -838,16 +873,31 @@
   border-color: var(--ui-color-accent-strong);
 }
 
+.checkboxInput:checked + .checkboxBox svg {
+  opacity: 1;
+  transform: scale(1);
+}
+
 .radioInput:checked + .radioDot {
   border-color: var(--ui-color-accent);
 }
 
-.radioInput:checked + .radioDot::after {
+.radioDot::after {
   background: var(--ui-color-accent);
   border-radius: 999px;
   content: "";
   height: 8px;
+  opacity: 0;
+  transform: scale(0.4);
+  transition:
+    opacity var(--ui-transition-fast),
+    transform var(--ui-transition-fast);
   width: 8px;
+}
+
+.radioInput:checked + .radioDot::after {
+  opacity: 1;
+  transform: scale(1);
 }
 
 .checkboxInput:focus-visible + .checkboxBox,
@@ -896,6 +946,10 @@
   background: var(--ui-color-accent-soft);
   border-color: var(--ui-color-accent-border);
   color: var(--ui-color-accent);
+}
+
+.radioRowSegmented:active:not(.radioRowDisabled) {
+  transform: scale(var(--ui-motion-press-scale));
 }
 
 .radioRowDisabled {
@@ -1264,6 +1318,7 @@
   background: var(--ui-color-accent);
   border-radius: inherit;
   height: 100%;
+  transition: width var(--ui-transition-normal);
 }
 
 .alert {
@@ -1830,7 +1885,7 @@
 }
 
 .modalPanelLeft[data-ui-motion="default"][data-ui-presence="entering"] {
-  animation: uiDrawerIn var(--ui-motion-duration-slow) var(--ui-motion-ease-emphasized) both;
+  animation: uiDrawerIn var(--ui-motion-duration-drawer) var(--ui-motion-ease-emphasized) both;
 }
 
 .modalPanelLeft[data-ui-motion="default"][data-ui-presence="exiting"] {
@@ -2076,6 +2131,18 @@
   }
 }
 
+@keyframes uiReveal {
+  from {
+    opacity: 0;
+    transform: translateY(var(--ui-motion-distance-md));
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 @keyframes uiModalIn {
   from {
     opacity: 0;
@@ -2102,25 +2169,21 @@
 
 @keyframes uiDrawerIn {
   from {
-    opacity: 0;
-    transform: translateX(calc(var(--ui-motion-distance-lg) * -1));
+    transform: translate3d(-100%, 0, 0);
   }
 
   to {
-    opacity: 1;
-    transform: translateX(0);
+    transform: translate3d(0, 0, 0);
   }
 }
 
 @keyframes uiDrawerOut {
   from {
-    opacity: 1;
-    transform: translateX(0);
+    transform: translate3d(0, 0, 0);
   }
 
   to {
-    opacity: 0;
-    transform: translateX(calc(var(--ui-motion-distance-md) * -1));
+    transform: translate3d(-100%, 0, 0);
   }
 }
 
@@ -2151,6 +2214,13 @@
     animation: none;
     border-right-color: currentColor;
     opacity: 0.72;
+  }
+
+  .formSection,
+  .checkboxBox svg,
+  .radioDot::after {
+    animation: none;
+    transition: none;
   }
 
   .dropdownMenu[data-ui-motion="default"],

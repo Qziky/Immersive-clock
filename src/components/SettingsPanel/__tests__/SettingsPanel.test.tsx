@@ -1,6 +1,6 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { useEffect, useState } from "react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { AppContextProvider } from "../../../contexts/AppContext";
 import { FeedbackProvider } from "../../../ui";
@@ -112,18 +112,28 @@ function ReopenSettingsHarness() {
 }
 
 describe("SettingsPanel", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it("支持折叠并重新展开当前桌面导航分组", () => {
     renderSettings();
 
     const dialog = screen.getByRole("dialog", { name: "设置" });
     const navigation = within(within(dialog).getByRole("complementary", { name: "设置导航" }));
     const workspaceGroup = navigation.getByRole("button", { name: /常用工作台/ });
+    const workspacePanes = navigation.getByRole("group", { name: "常用工作台" });
+    const workspaceRegion = workspacePanes.parentElement as HTMLElement;
 
     expect(workspaceGroup).toHaveAttribute("aria-expanded", "true");
+    expect(workspaceRegion).toHaveAttribute("aria-hidden", "false");
+    expect(workspaceRegion).not.toHaveAttribute("inert");
     expect(navigation.getByRole("button", { name: "启动页面" })).toBeInTheDocument();
 
     fireEvent.click(workspaceGroup);
     expect(workspaceGroup).toHaveAttribute("aria-expanded", "false");
+    expect(workspaceRegion).toHaveAttribute("aria-hidden", "true");
+    expect(workspaceRegion).toHaveAttribute("inert");
     expect(navigation.queryByRole("button", { name: "启动页面" })).not.toBeInTheDocument();
     expect(within(dialog).getByRole("heading", { name: "启动页面" })).toBeInTheDocument();
 
@@ -161,6 +171,38 @@ describe("SettingsPanel", () => {
 
     expect(within(dialog).getByRole("heading", { name: "字体" })).toBeInTheDocument();
     expect(within(dialog).queryByRole("navigation", { name: "视觉外观子分类" })).toBeNull();
+  });
+
+  it("紧凑子菜单退出期间保留节点但立即停止交互", () => {
+    vi.useFakeTimers();
+    renderSettings();
+
+    const dialog = screen.getByRole("dialog", { name: "设置" });
+    const compactNavigation = within(dialog).getByRole("navigation", { name: "设置紧凑导航" });
+    fireEvent.click(
+      within(compactNavigation).getByRole("button", {
+        name: "视觉外观",
+      })
+    );
+
+    const submenu = within(dialog)
+      .getByRole("navigation", { name: "视觉外观子分类" })
+      .closest("section") as HTMLElement;
+    const scrim = within(dialog).getByRole("button", { name: "关闭设置子菜单" });
+    fireEvent.click(scrim);
+
+    expect(submenu).toHaveAttribute("aria-hidden", "true");
+    expect(submenu).toHaveAttribute("inert");
+
+    act(() => {
+      vi.advanceTimersByTime(179);
+    });
+    expect(submenu).toBeInTheDocument();
+
+    act(() => {
+      vi.advanceTimersByTime(1);
+    });
+    expect(submenu).not.toBeInTheDocument();
   });
 
   it("记住分组内最后子页并在跨分组切换时保留课程表草稿", () => {
@@ -233,5 +275,38 @@ describe("SettingsPanel", () => {
     navigation = within(within(dialog).getByRole("complementary", { name: "设置导航" }));
     fireEvent.click(navigation.getByRole("button", { name: /课程表/ }));
     expect(screen.getByLabelText("课程草稿")).toHaveValue("已保存课程");
+  });
+
+  it("退出动画期间保留当前分区并在结束后卸载", () => {
+    vi.useFakeTimers();
+    render(
+      <AppContextProvider>
+        <FeedbackProvider>
+          <ReopenSettingsHarness />
+        </FeedbackProvider>
+      </AppContextProvider>
+    );
+
+    const dialog = screen.getByRole("dialog", { name: "设置" });
+    const navigation = within(within(dialog).getByRole("complementary", { name: "设置导航" }));
+    fireEvent.click(navigation.getByRole("button", { name: /视觉外观/ }));
+    fireEvent.click(navigation.getByRole("button", { name: "字体" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "取消" }));
+
+    const exitingDialog = screen.getByRole("dialog", { hidden: true });
+    expect(exitingDialog).toHaveAttribute("data-ui-presence", "exiting");
+    expect(
+      within(exitingDialog).getByRole("heading", { name: "字体", hidden: true })
+    ).toBeVisible();
+
+    act(() => {
+      vi.advanceTimersByTime(179);
+    });
+    expect(exitingDialog).toBeInTheDocument();
+
+    act(() => {
+      vi.advanceTimersByTime(1);
+    });
+    expect(screen.queryByRole("dialog", { hidden: true })).toBeNull();
   });
 });

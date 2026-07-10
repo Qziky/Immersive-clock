@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 
 import type { UiMotionMode } from "../types";
 
@@ -17,13 +17,29 @@ export interface UsePresenceResult {
 }
 
 const DEFAULT_EXIT_DURATION = 180;
+const REDUCED_MOTION_QUERY = "(prefers-reduced-motion: reduce)";
 
-function prefersReducedMotion(): boolean {
+function getReducedMotionSnapshot(): boolean {
   if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
     return false;
   }
 
-  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  return window.matchMedia(REDUCED_MOTION_QUERY).matches;
+}
+
+function subscribeToReducedMotion(onStoreChange: () => void): () => void {
+  if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
+    return () => {};
+  }
+
+  const mediaQuery = window.matchMedia(REDUCED_MOTION_QUERY);
+  if (typeof mediaQuery.addEventListener === "function") {
+    mediaQuery.addEventListener("change", onStoreChange);
+    return () => mediaQuery.removeEventListener("change", onStoreChange);
+  }
+
+  mediaQuery.addListener(onStoreChange);
+  return () => mediaQuery.removeListener(onStoreChange);
 }
 
 export function usePresence({
@@ -31,7 +47,12 @@ export function usePresence({
   motion = "default",
   exitDuration = DEFAULT_EXIT_DURATION,
 }: UsePresenceOptions): UsePresenceResult {
-  const shouldAnimate = useMemo(() => motion !== "none" && !prefersReducedMotion(), [motion]);
+  const reducedMotion = useSyncExternalStore(
+    subscribeToReducedMotion,
+    getReducedMotionSnapshot,
+    () => false
+  );
+  const shouldAnimate = motion !== "none" && !reducedMotion;
   const [isPresentAfterExit, setIsPresentAfterExit] = useState(isOpen);
 
   useEffect(() => {

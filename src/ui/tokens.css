@@ -69,6 +69,7 @@
   --ui-motion-duration-fast: 140ms;
   --ui-motion-duration-normal: 200ms;
   --ui-motion-duration-slow: 240ms;
+  --ui-motion-duration-drawer: 280ms;
   --ui-motion-duration-exit: 180ms;
   --ui-motion-ease-standard: cubic-bezier(0.2, 0, 0, 1);
   --ui-motion-ease-emphasized: cubic-bezier(0.16, 1, 0.3, 1);
