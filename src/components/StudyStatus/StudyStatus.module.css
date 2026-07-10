@@ -1,7 +1,8 @@
 /* 自习状态：整个容器本身表达当前时段进度。 */
 .studyStatus {
   align-items: center;
-  background: rgba(232, 233, 224, 0.035);
+  background: rgba(232, 233, 224, 0.045);
+  border: 1px solid rgba(232, 233, 224, 0.055);
   border-radius: var(--ui-radius-sm, 4px);
   color: var(--study-text-primary, var(--study-ink, var(--text-color)));
   display: flex;
@@ -17,7 +18,7 @@
 }
 
 .progressFill {
-  background: linear-gradient(90deg, rgba(23, 199, 173, 0.14), rgba(47, 236, 198, 0.22));
+  background: linear-gradient(90deg, rgba(23, 199, 173, 0.12), rgba(47, 236, 198, 0.2));
   bottom: 0;
   left: 0;
   position: absolute;

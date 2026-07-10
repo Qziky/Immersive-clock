@@ -2,7 +2,7 @@
 
 /* 设置容器和分组布局 */
 .settingsModal {
-  background: #0b0c0e;
+  background: rgba(8, 10, 13, 0.22);
   transform-origin: left center;
 }
 
@@ -16,7 +16,9 @@
 }
 
 .settingsApp {
-  background: #0b0c0e;
+  background:
+    radial-gradient(circle at 82% 12%, rgba(47, 236, 198, 0.05), transparent 30%),
+    rgba(8, 10, 13, 0.08);
   color: #eaecf0;
   display: grid;
   grid-template-rows: 72px minmax(0, 1fr);
@@ -25,9 +27,11 @@
 }
 
 .topNav {
+  -webkit-backdrop-filter: blur(var(--ui-glass-blur)) saturate(var(--ui-glass-saturation));
   align-items: center;
-  border-bottom: 1px solid #2a2e35;
-  background: #0a0b0d;
+  backdrop-filter: blur(var(--ui-glass-blur)) saturate(var(--ui-glass-saturation));
+  border-bottom: 1px solid var(--ui-glass-border);
+  background: rgba(9, 11, 14, 0.42);
   display: flex;
   justify-content: space-between;
   min-width: 0;
@@ -104,8 +108,11 @@
 }
 
 .sideNav {
+  -webkit-backdrop-filter: blur(var(--ui-glass-blur)) saturate(var(--ui-glass-saturation));
   align-content: start;
-  border-right: 1px solid #2a2e35;
+  backdrop-filter: blur(var(--ui-glass-blur)) saturate(var(--ui-glass-saturation));
+  background: rgba(11, 13, 17, 0.34);
+  border-right: 1px solid var(--ui-glass-border);
   display: grid;
   gap: 18px;
   min-width: 0;
@@ -113,7 +120,7 @@
 }
 
 .sideNavHeader {
-  border-bottom: 1px solid #2a2e35;
+  border-bottom: 1px solid var(--ui-glass-border);
   display: grid;
   gap: 6px;
   min-width: 0;
@@ -158,17 +165,18 @@
 }
 
 .sideNavItem:hover {
-  background: #111317;
+  background: rgba(255, 255, 255, 0.055);
   color: #d9dde5;
 }
 
 .sideNavItemActive {
-  background: #171a20;
+  background: linear-gradient(90deg, rgba(47, 236, 198, 0.14), rgba(255, 255, 255, 0.035));
   border-left-color: #6fe7cf;
   color: #6fe7cf;
 }
 
 .contentPane {
+  background: rgba(8, 10, 13, 0.08);
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
   min-height: 0;
@@ -176,9 +184,11 @@
 }
 
 .contentHeader {
+  -webkit-backdrop-filter: blur(var(--ui-glass-blur-soft)) saturate(var(--ui-glass-saturation));
   align-items: center;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.025), rgba(255, 255, 255, 0)), #0b0c0e;
-  border-bottom: 1px solid #2a2e35;
+  backdrop-filter: blur(var(--ui-glass-blur-soft)) saturate(var(--ui-glass-saturation));
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(11, 13, 17, 0.26));
+  border-bottom: 1px solid var(--ui-glass-border);
   color: #8e9098;
   display: flex;
   justify-content: space-between;
@@ -225,6 +235,7 @@
 
 .contentBody {
   align-content: start;
+  background: rgba(8, 10, 13, 0.04);
   display: grid;
   gap: 16px;
   min-height: 0;
@@ -243,7 +254,10 @@
 }
 
 .contentBody section {
-  background: #111317;
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.04), transparent 34%), rgba(17, 20, 25, 0.46);
+  border-color: var(--ui-glass-border);
+  box-shadow: var(--ui-glass-highlight);
 }
 
 .contentBody section > header {
@@ -267,9 +281,11 @@
 }
 
 .actionBar {
+  -webkit-backdrop-filter: blur(var(--ui-glass-blur)) saturate(var(--ui-glass-saturation));
   align-items: center;
-  background: rgba(11, 12, 14, 0.98);
-  border-top: 1px solid #2a2e35;
+  backdrop-filter: blur(var(--ui-glass-blur)) saturate(var(--ui-glass-saturation));
+  background: rgba(9, 11, 14, 0.46);
+  border-top: 1px solid var(--ui-glass-border);
   box-shadow: 0 -14px 28px rgba(0, 0, 0, 0.22);
   display: flex;
   justify-content: space-between;
@@ -279,8 +295,8 @@
 
 .backgroundPreview {
   aspect-ratio: 16 / 9;
-  background: #0f1115;
-  border: 1px solid #2a2e35;
+  background: rgba(8, 10, 13, 0.66);
+  border: 1px solid var(--ui-glass-border);
   border-radius: 8px;
   display: block;
   max-height: 260px;
@@ -293,7 +309,7 @@
 }
 
 .draggableSetting[aria-grabbed="true"] {
-  background: #13161b;
+  background: rgba(47, 236, 198, 0.08);
   border-color: rgba(111, 231, 207, 0.58);
 }
 
@@ -314,8 +330,8 @@
 }
 
 .debugRecord {
-  background: #0f1115;
-  border: 1px solid #2a2e35;
+  background: rgba(8, 10, 13, 0.58);
+  border: 1px solid var(--ui-glass-border);
   border-radius: 8px;
   color: #eaecf0;
   min-width: 0;
@@ -341,8 +357,8 @@
 }
 
 .debugStack {
-  background: #0b0c0e;
-  border: 1px solid #2a2e35;
+  background: rgba(5, 7, 10, 0.68);
+  border: 1px solid var(--ui-glass-border);
   border-radius: 8px;
   color: #c9ced8;
   font-family: var(--ui-font-number);
@@ -378,6 +394,32 @@
   to {
     opacity: 0.96;
     transform: translateX(-100%);
+  }
+}
+
+@supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  .settingsModal,
+  .settingsApp,
+  .topNav,
+  .sideNav,
+  .contentPane,
+  .contentHeader,
+  .actionBar {
+    background: #0b0c0e;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .settingsModal,
+  .settingsApp,
+  .topNav,
+  .sideNav,
+  .contentPane,
+  .contentHeader,
+  .actionBar {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    background: #0b0c0e;
   }
 }
 

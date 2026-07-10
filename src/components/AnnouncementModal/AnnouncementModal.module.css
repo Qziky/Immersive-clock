@@ -1,16 +1,17 @@
 .announcementModal {
-  background: #111317;
-  border-color: #2a2e35;
-  box-shadow: 0 24px 96px rgba(0, 0, 0, 0.42);
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.055), transparent 34%), var(--ui-glass-surface);
+  border-color: var(--ui-glass-border);
+  box-shadow: var(--ui-glass-highlight), var(--ui-glass-shadow);
   height: min(820px, calc(100vh - 24px));
   max-height: calc(100vh - 24px);
 }
 
 .announcementModal > header {
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0)),
-    #111317;
-  border-bottom: 1px solid #2a2e35;
+    linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0)),
+    rgba(11, 13, 17, 0.42);
+  border-bottom: 1px solid var(--ui-glass-border);
   min-height: 58px;
   padding: 14px 20px;
 }
@@ -30,7 +31,7 @@
 }
 
 .announcementModal > header button:hover {
-  background: #1a1d22;
+  background: rgba(255, 255, 255, 0.09);
   color: #eaecf0;
 }
 
@@ -44,14 +45,14 @@
 }
 
 .announcementModal > footer {
-  background: rgba(17, 19, 23, 0.98);
-  border-top: 1px solid #2a2e35;
+  background: rgba(11, 13, 17, 0.34);
+  border-top: 1px solid var(--ui-glass-border);
   box-shadow: 0 -14px 28px rgba(0, 0, 0, 0.22);
   padding: 11px 20px;
 }
 
 .container {
-  background: #111317;
+  background: transparent;
   color: #eaecf0;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
@@ -61,9 +62,9 @@
 
 .tabBar {
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.022), rgba(255, 255, 255, 0)),
-    #111317;
-  border-bottom: 1px solid #2a2e35;
+    linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0)),
+    rgba(11, 13, 17, 0.38);
+  border-bottom: 1px solid var(--ui-glass-border);
   min-width: 0;
   overflow: hidden;
   padding: 0 20px;
@@ -111,7 +112,7 @@
 
 .content {
   align-content: start;
-  background: #111317;
+  background: rgba(8, 10, 13, 0.1);
   display: grid;
   min-height: 0;
   overflow: auto;
@@ -127,8 +128,8 @@
 }
 
 .iframeContainer {
-  background: #0b0c0e;
-  border: 1px solid #2a2e35;
+  background: rgba(7, 9, 12, 0.72);
+  border: 1px solid var(--ui-glass-border);
   border-radius: 8px;
   display: flex;
   flex-direction: column;
@@ -178,8 +179,8 @@
 }
 
 .iframeFallback {
-  background: #0f1115;
-  border-top: 1px solid #2a2e35;
+  background: rgba(11, 13, 17, 0.76);
+  border-top: 1px solid var(--ui-glass-border);
   color: #8e9098;
   font-size: 12px;
   line-height: 1.45;
@@ -196,7 +197,7 @@
 .loading,
 .error {
   align-items: center;
-  background: #0f1115;
+  background: rgba(11, 13, 17, 0.58);
   color: #8e9098;
   display: grid;
   gap: 12px;
@@ -228,8 +229,8 @@
 
 .markdownContent {
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.015), rgba(255, 255, 255, 0)),
-    #111317;
+    linear-gradient(180deg, rgba(255, 255, 255, 0.025), rgba(255, 255, 255, 0)),
+    rgba(17, 19, 23, 0.34);
   border: 0;
   border-radius: 0;
   color: #d9dde5;
@@ -344,8 +345,8 @@
 }
 
 .markdownContent code {
-  background: #0b0c0e;
-  border: 1px solid #2a2e35;
+  background: rgba(5, 7, 10, 0.6);
+  border: 1px solid var(--ui-glass-border);
   border-radius: 4px;
   color: #eaecf0;
   font-family: var(--ui-font-number);
@@ -354,8 +355,8 @@
 }
 
 .markdownContent pre {
-  background: #0b0c0e;
-  border: 1px solid #2a2e35;
+  background: rgba(5, 7, 10, 0.68);
+  border: 1px solid var(--ui-glass-border);
   border-radius: 8px;
   color: #c9ced8;
   font-family: var(--ui-font-number);
@@ -381,8 +382,8 @@
 }
 
 .markdownContent img {
-  background: #0b0c0e;
-  border: 1px solid #2a2e35;
+  background: rgba(5, 7, 10, 0.58);
+  border: 1px solid var(--ui-glass-border);
   border-radius: 8px;
   display: block;
   height: auto;

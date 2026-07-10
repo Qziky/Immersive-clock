@@ -24,6 +24,19 @@
   --ui-color-success: #4fce8b;
   --ui-color-success-soft: rgba(79, 206, 139, 0.12);
 
+  --ui-glass-backdrop: rgba(3, 5, 8, 0.3);
+  --ui-glass-surface: rgba(17, 19, 23, 0.6);
+  --ui-glass-surface-strong: rgba(17, 19, 23, 0.74);
+  --ui-glass-surface-soft: rgba(21, 24, 29, 0.46);
+  --ui-glass-surface-subtle: rgba(11, 12, 14, 0.32);
+  --ui-glass-border: rgba(255, 255, 255, 0.13);
+  --ui-glass-border-strong: rgba(255, 255, 255, 0.2);
+  --ui-glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  --ui-glass-shadow: 0 24px 80px rgba(0, 0, 0, 0.48), 0 8px 24px rgba(0, 0, 0, 0.24);
+  --ui-glass-blur: 22px;
+  --ui-glass-blur-soft: 12px;
+  --ui-glass-saturation: 135%;
+
   --ui-font-sans: "Inter", "Source Han Sans SC", "Microsoft YaHei", sans-serif;
   --ui-font-number: "Roboto Mono", "DIN Alternate", "DIN Condensed", monospace;
 
@@ -48,7 +61,7 @@
   --ui-radius-md: 6px;
   --ui-radius-lg: 8px;
 
-  --ui-shadow-panel: 0 20px 80px rgba(0, 0, 0, 0.28);
+  --ui-shadow-panel: var(--ui-glass-shadow);
   --ui-shadow-control: 0 0 0 1px rgba(47, 236, 198, 0.08);
   --ui-focus-ring: 0 0 0 2px rgba(47, 236, 198, 0.28);
 

@@ -419,8 +419,10 @@
 }
 
 .dropdownMenu {
-  background: var(--ui-color-bg-elevated);
-  border: 1px solid var(--ui-color-border);
+  -webkit-backdrop-filter: blur(var(--ui-glass-blur-soft)) saturate(var(--ui-glass-saturation));
+  backdrop-filter: blur(var(--ui-glass-blur-soft)) saturate(var(--ui-glass-saturation));
+  background: var(--ui-glass-surface-strong);
+  border: 1px solid var(--ui-glass-border);
   border-radius: var(--ui-radius-lg);
   box-shadow: var(--ui-shadow-panel);
   display: grid;
@@ -565,8 +567,10 @@
 }
 
 .popoverPanel {
-  background: var(--ui-color-bg-elevated);
-  border: 1px solid var(--ui-color-border);
+  -webkit-backdrop-filter: blur(var(--ui-glass-blur-soft)) saturate(var(--ui-glass-saturation));
+  backdrop-filter: blur(var(--ui-glass-blur-soft)) saturate(var(--ui-glass-saturation));
+  background: var(--ui-glass-surface-strong);
+  border: 1px solid var(--ui-glass-border);
   border-radius: var(--ui-radius-lg);
   box-shadow: var(--ui-shadow-panel);
   min-width: 240px;
@@ -643,8 +647,8 @@
 .formSection {
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.018), rgba(255, 255, 255, 0)),
-    var(--ui-color-bg-raised);
-  border: 1px solid var(--ui-color-border);
+    var(--ui-glass-surface-soft);
+  border: 1px solid var(--ui-glass-border);
   border-radius: var(--ui-radius-lg);
   display: grid;
   gap: var(--ui-space-4);
@@ -1723,8 +1727,10 @@
 }
 
 .modalBackdrop {
+  -webkit-backdrop-filter: blur(var(--ui-glass-blur-soft)) saturate(112%);
   align-items: center;
-  background: rgba(0, 0, 0, 0.58);
+  backdrop-filter: blur(var(--ui-glass-blur-soft)) saturate(112%);
+  background: var(--ui-glass-backdrop);
   display: flex;
   inset: 0;
   justify-content: center;
@@ -1747,10 +1753,13 @@
 }
 
 .modalPanel {
-  background: var(--ui-color-bg-raised);
-  border: 1px solid var(--ui-color-border);
+  -webkit-backdrop-filter: blur(var(--ui-glass-blur)) saturate(var(--ui-glass-saturation));
+  backdrop-filter: blur(var(--ui-glass-blur)) saturate(var(--ui-glass-saturation));
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.065), transparent 36%), var(--ui-glass-surface);
+  border: 1px solid var(--ui-glass-border);
   border-radius: var(--ui-radius-lg);
-  box-shadow: var(--ui-shadow-panel);
+  box-shadow: var(--ui-glass-highlight), var(--ui-shadow-panel);
   display: flex;
   flex-direction: column;
   max-height: min(720px, calc(100vh - 48px));
@@ -1797,6 +1806,7 @@
 .modalHeader,
 .modalFooter {
   align-items: center;
+  background: rgba(10, 12, 15, 0.16);
   display: flex;
   gap: var(--ui-space-3);
   justify-content: space-between;
@@ -1808,8 +1818,8 @@
 }
 
 .modalBody {
-  border-bottom: 1px solid var(--ui-color-border);
-  border-top: 1px solid var(--ui-color-border);
+  border-bottom: 1px solid var(--ui-glass-border);
+  border-top: 1px solid var(--ui-glass-border);
   overflow: auto;
   padding: var(--ui-space-4);
 }
@@ -1826,10 +1836,46 @@
 }
 
 .closeButton {
+  background: rgba(255, 255, 255, 0.035);
+  border-color: var(--ui-glass-border);
   color: var(--ui-color-text-muted);
   cursor: pointer;
   height: 28px;
   width: 28px;
+}
+
+.closeButton:hover {
+  background: rgba(255, 255, 255, 0.09);
+  border-color: var(--ui-glass-border-strong);
+  color: var(--ui-color-text);
+}
+
+@supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  .dropdownMenu,
+  .popoverPanel,
+  .modalPanel {
+    background: var(--ui-color-bg-raised);
+  }
+
+  .modalBackdrop {
+    background: rgba(0, 0, 0, 0.7);
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .dropdownMenu,
+  .popoverPanel,
+  .modalPanel {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    background: var(--ui-color-bg-raised);
+  }
+
+  .modalBackdrop {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    background: rgba(0, 0, 0, 0.72);
+  }
 }
 
 .settingsShell {

@@ -1,13 +1,19 @@
 .container {
+  -webkit-backdrop-filter: blur(var(--ui-glass-blur)) saturate(var(--ui-glass-saturation));
   position: fixed;
   left: 8px;
   bottom: 80px;
   z-index: var(--z-message-popup, 1200);
-  background: var(--hud-background, rgba(20, 20, 20, 0.95));
+  backdrop-filter: blur(var(--ui-glass-blur)) saturate(var(--ui-glass-saturation));
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.07), transparent 40%),
+    var(--ui-glass-surface, rgba(20, 22, 27, 0.64));
   color: var(--text-color, #ffffff);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--ui-glass-border, rgba(255, 255, 255, 0.13));
   border-radius: var(--border-radius-lg, 12px);
-  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.3);
+  box-shadow:
+    var(--ui-glass-highlight, inset 0 1px 0 rgba(255, 255, 255, 0.08)),
+    0 16px 40px rgba(0, 0, 0, 0.38);
   padding: 8px 10px;
   width: auto;
   max-width: 320px;
@@ -67,35 +73,35 @@
 .error {
   --message-popup-theme-color: #ff5252;
   border-left: 3px solid var(--message-popup-theme-color);
-  background: linear-gradient(to right, rgba(255, 82, 82, 0.08), rgba(20, 20, 20, 0.95));
+  background: linear-gradient(to right, rgba(255, 82, 82, 0.16), rgba(20, 22, 27, 0.64));
 }
 
 /* 天气预警：强调黄色语义色与左侧色条 */
 .weatherAlert {
   --message-popup-theme-color: var(--color-warning, #f5a524);
   border-left: 3px solid var(--message-popup-theme-color);
-  background: linear-gradient(to right, rgba(245, 165, 36, 0.08), rgba(20, 20, 20, 0.95));
+  background: linear-gradient(to right, rgba(245, 165, 36, 0.16), rgba(20, 22, 27, 0.64));
 }
 
 /* 天气预报/降雨提醒：默认白色主题 */
 .weatherForecast {
   --message-popup-theme-color: #ffffff;
   border-left: 3px solid var(--message-popup-theme-color);
-  background: linear-gradient(to right, rgba(255, 255, 255, 0.08), rgba(20, 20, 20, 0.95));
+  background: linear-gradient(to right, rgba(255, 255, 255, 0.14), rgba(20, 22, 27, 0.64));
 }
 
 /* 降温提醒：绿色语义 */
 .coolingReminder {
   --message-popup-theme-color: var(--color-success, #22c55e);
   border-left: 3px solid var(--message-popup-theme-color);
-  background: linear-gradient(to right, rgba(34, 197, 94, 0.08), rgba(20, 20, 20, 0.95));
+  background: linear-gradient(to right, rgba(34, 197, 94, 0.16), rgba(20, 22, 27, 0.64));
 }
 
 /* 系统更新：蓝色语义 */
 .systemUpdate {
   --message-popup-theme-color: var(--color-primary, #3b82f6);
   border-left: 3px solid var(--message-popup-theme-color);
-  background: linear-gradient(to right, rgba(59, 130, 246, 0.08), rgba(20, 20, 20, 0.95));
+  background: linear-gradient(to right, rgba(59, 130, 246, 0.16), rgba(20, 22, 27, 0.64));
 }
 
 @supports (background: color-mix(in srgb, white 10%, transparent)) {
@@ -107,7 +113,7 @@
     background: linear-gradient(
       to right,
       color-mix(in srgb, var(--message-popup-theme-color) 12%, transparent),
-      rgba(20, 20, 20, 0.95)
+      rgba(20, 22, 27, 0.64)
     );
   }
 }
@@ -174,4 +180,18 @@
   display: flex;
   gap: 8px;
   justify-content: flex-end;
+}
+
+@supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  .container {
+    background: rgba(20, 22, 27, 0.97);
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .container {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    background: rgba(20, 22, 27, 0.98);
+  }
 }
