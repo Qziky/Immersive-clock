@@ -249,6 +249,12 @@
 
 /* 高对比度模式支持 */
 @media (prefers-contrast: high) {
+  .timeDisplay,
+  .timeDisplay * {
+    color: #ffffff !important;
+    text-shadow: none !important;
+  }
+
   .clockPage {
     background: #000000;
     color: #ffffff;

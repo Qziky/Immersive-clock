@@ -4,6 +4,7 @@ import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { AppContextProvider } from "../../../contexts/AppContext";
+import { AppearanceProvider } from "../../../contexts/AppearanceContext";
 import { FeedbackProvider } from "../../../ui";
 import { ClockPage } from "../ClockPage";
 
@@ -63,9 +64,11 @@ describe("消息事件通知适配", () => {
     render(
       <MemoryRouter>
         <AppContextProvider>
-          <FeedbackProvider>
-            <ClockPage />
-          </FeedbackProvider>
+          <AppearanceProvider>
+            <FeedbackProvider>
+              <ClockPage />
+            </FeedbackProvider>
+          </AppearanceProvider>
         </AppContextProvider>
       </MemoryRouter>
     );
@@ -108,9 +111,11 @@ describe("消息事件通知适配", () => {
     render(
       <MemoryRouter>
         <AppContextProvider>
-          <FeedbackProvider>
-            <ClockPage />
-          </FeedbackProvider>
+          <AppearanceProvider>
+            <FeedbackProvider>
+              <ClockPage />
+            </FeedbackProvider>
+          </AppearanceProvider>
         </AppContextProvider>
       </MemoryRouter>
     );
@@ -138,9 +143,11 @@ describe("消息事件通知适配", () => {
     render(
       <MemoryRouter>
         <AppContextProvider>
-          <FeedbackProvider>
-            <ClockPage />
-          </FeedbackProvider>
+          <AppearanceProvider>
+            <FeedbackProvider>
+              <ClockPage />
+            </FeedbackProvider>
+          </AppearanceProvider>
         </AppContextProvider>
       </MemoryRouter>
     );

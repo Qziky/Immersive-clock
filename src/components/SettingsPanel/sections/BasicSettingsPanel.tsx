@@ -5,13 +5,8 @@ import {
   Clock3,
   Eye,
   FileText,
-  Image as ImageIcon,
-  Monitor,
-  Palette,
   RotateCw,
   TimerReset,
-  Type,
-  Upload,
   Wifi,
 } from "lucide-react";
 import React, { useEffect, useMemo, useState } from "react";
@@ -20,11 +15,9 @@ import { useAppDispatch, useAppState } from "../../../contexts/AppContext";
 import { AppMode, CountdownItem } from "../../../types";
 import {
   Button as FormButton,
-  Dropdown,
   FormSection,
   InfoPanel,
   Inline as FormButtonGroup,
-  Input as FormFilePicker,
   Input as FormInput,
   MetricCard,
   RadioGroup as FormSegmented,
@@ -33,7 +26,6 @@ import {
   Slider as FormSlider,
   StatusPill,
   Switch as FormSwitch,
-  useFeedback,
 } from "../../../ui";
 import {
   getAppSettings,
@@ -41,23 +33,8 @@ import {
   updateStudySettings,
   updateTimeSyncSettings,
 } from "../../../utils/appSettings";
-import { logger } from "../../../utils/logger";
 import { resolveStartupMode } from "../../../utils/startupMode";
-import {
-  readNormalBackground,
-  readStudyBackground,
-  saveNormalBackground,
-  saveStudyBackground,
-  type StudyBackgroundSettings,
-  type StudyBackgroundType,
-} from "../../../utils/studyBackgroundStorage";
-import {
-  ImportedFontMeta,
-  importFontFile,
-  loadImportedFonts,
-} from "../../../utils/studyFontStorage";
 import { ScheduleEditor } from "../../ScheduleSettings/ScheduleSettings";
-import styles from "../SettingsPanel.module.css";
 
 import { CountdownManagerPanel } from "./CountdownManagerPanel";
 
@@ -73,41 +50,12 @@ export interface BasicSettingsPanelProps {
   section?: BasicSettingsSection;
 }
 
-export type BasicSettingsSection =
-  | "startup"
-  | "display"
-  | "countdown"
-  | "colors"
-  | "fonts"
-  | "background"
-  | "timeSync"
-  | "schedule";
-
-type BackgroundScope = "normal" | "study";
-
-interface BackgroundDraft {
-  type: StudyBackgroundType;
-  color: string;
-  alpha: number;
-  image: string | null;
-  imageFileName: string;
-}
-
-function createBackgroundDraft(settings: StudyBackgroundSettings): BackgroundDraft {
-  return {
-    type: settings.type,
-    color: settings.color ?? "#121212",
-    alpha: settings.colorAlpha ?? 1,
-    image: settings.imageDataUrl ?? null,
-    imageFileName: "",
-  };
-}
+export type BasicSettingsSection = "startup" | "display" | "countdown" | "timeSync" | "schedule";
 
 /**
  * 基础设置分段组件
  * - 倒计时类型与目标年份/自定义事件设置
  * - 自习组件显示开关（时间始终显示）
- * - 背景设置
  * - 课表设置入口
  */
 export const BasicSettingsPanel: React.FC<BasicSettingsPanelProps> = ({
@@ -116,9 +64,8 @@ export const BasicSettingsPanel: React.FC<BasicSettingsPanelProps> = ({
   onRegisterSave,
   section,
 }) => {
-  const { mode, study } = useAppState();
+  const { study } = useAppState();
   const dispatch = useAppDispatch();
-  const { notify } = useFeedback();
 
   const [startupMode, setStartupMode] = useState<AppMode>("clock");
 
@@ -128,21 +75,10 @@ export const BasicSettingsPanel: React.FC<BasicSettingsPanelProps> = ({
   // 倒计时设置草稿（保留兼容字段）
   const [draftCustomName, setDraftCustomName] = useState<string>(study.customName ?? "");
   const [draftCustomDate, setDraftCustomDate] = useState<string>(study.customDate ?? "");
-  const [singleBgColor, setSingleBgColor] = useState<string>("");
-  const [singleTextColor, setSingleTextColor] = useState<string>("");
-  // 新增：轮播间隔（秒）与倒计时数字颜色（全局覆盖）
+  // 多事件轮播间隔（秒）
   const [carouselIntervalSec, setCarouselIntervalSec] = useState<number>(
     study.carouselIntervalSec ?? 6
   );
-  const [digitColor, setDigitColor] = useState<string>(study.digitColor ?? "");
-  const [timeColorMode, setTimeColorMode] = useState<"default" | "custom">(
-    study.timeColor ? "custom" : "default"
-  );
-  const [timeColor, setTimeColor] = useState<string>(study.timeColor ?? "#ffffff");
-  const [dateColorMode, setDateColorMode] = useState<"default" | "custom">(
-    study.dateColor ? "custom" : "default"
-  );
-  const [dateColor, setDateColor] = useState<string>(study.dateColor ?? "#bbbbbb");
 
   // 自习组件显示草稿（时间始终显示，不提供开关）
   const defaultDisplay = useMemo(
@@ -160,48 +96,9 @@ export const BasicSettingsPanel: React.FC<BasicSettingsPanelProps> = ({
     ...(study.display || defaultDisplay),
   });
 
-  // 普通页面与自习页面分别维护背景草稿，打开设置时优先编辑当前页面。
-  const [backgroundScope, setBackgroundScope] = useState<BackgroundScope>(
-    mode === "study" ? "study" : "normal"
-  );
-  const [normalBackgroundDraft, setNormalBackgroundDraft] = useState<BackgroundDraft>(() =>
-    createBackgroundDraft(readNormalBackground())
-  );
-  const [studyBackgroundDraft, setStudyBackgroundDraft] = useState<BackgroundDraft>(() =>
-    createBackgroundDraft(readStudyBackground())
-  );
-  const activeBackgroundDraft =
-    backgroundScope === "normal" ? normalBackgroundDraft : studyBackgroundDraft;
-  const updateActiveBackgroundDraft = (updates: Partial<BackgroundDraft>) => {
-    const updateDraft = (current: BackgroundDraft) => ({ ...current, ...updates });
-    if (backgroundScope === "normal") {
-      setNormalBackgroundDraft(updateDraft);
-    } else {
-      setStudyBackgroundDraft(updateDraft);
-    }
-  };
-
   // 子分区保存注册
   const countdownSaveRef = React.useRef<() => void>(() => {});
   const scheduleSaveRef = React.useRef<() => void>(() => {});
-
-  // 单事件颜色透明度草稿
-  const [singleBgOpacity, setSingleBgOpacity] = useState<number>(0);
-  const [singleTextOpacity, setSingleTextOpacity] = useState<number>(1);
-  // 全局数字透明度草稿
-  const [digitOpacity, setDigitOpacity] = useState<number>(1);
-  const [countdownStyleMode, setCountdownStyleMode] = useState<"default" | "custom">("default");
-  // 字体设置草稿（来源分段：默认 / 自定义字体）
-  const [numericFontMode, setNumericFontMode] = useState<"default" | "custom">("default");
-  const [textFontMode, setTextFontMode] = useState<"default" | "custom">("default");
-  const [importedFonts, setImportedFonts] = useState<ImportedFontMeta[]>([]);
-  const [numericFontSelected, setNumericFontSelected] = useState<string>("");
-  const [textFontSelected, setTextFontSelected] = useState<string>("");
-  const [fontFile, setFontFile] = useState<File | null>(null);
-  const [fontAlias, setFontAlias] = useState<string>("");
-  const [systemFonts, setSystemFonts] = useState<{ label: string; value: string }[]>([]);
-  const [systemFontSupported, setSystemFontSupported] = useState<boolean>(false);
-  const [loadingSystemFonts, setLoadingSystemFonts] = useState<boolean>(false);
 
   const isDesktop = useMemo(() => {
     if (typeof window === "undefined") return false;
@@ -285,57 +182,21 @@ export const BasicSettingsPanel: React.FC<BasicSettingsPanelProps> = ({
     };
   }, []);
 
-  // 独立加载字体列表
-  useEffect(() => {
-    loadImportedFonts().then(setImportedFonts);
-  }, []);
-
-  /**
-   * 探测当前环境是否支持本地字体读取（函数级注释：检查浏览器是否提供 queryLocalFonts 接口，用于后续系统字体列表的读取）
-   */
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const anyWindow = window as unknown as { queryLocalFonts?: () => Promise<unknown[]> };
-    setSystemFontSupported(typeof anyWindow.queryLocalFonts === "function");
-  }, []);
-
   useEffect(() => {
     // 同步草稿为当前应用状态（打开面板或刷新时）
 
     setDraftCustomName(study.customName ?? "");
     setDraftCustomDate(study.customDate ?? "");
     setDraftDisplay({ ...(study.display || defaultDisplay), showTime: true });
-    // 背景设置
-    setNormalBackgroundDraft(createBackgroundDraft(readNormalBackground()));
-    setStudyBackgroundDraft(createBackgroundDraft(readStudyBackground()));
 
-    const nextDigitColor = study.digitColor ?? "";
-    setDigitColor(nextDigitColor);
-
-    // 根据现有 countdownItems 推断模式，并填充单项颜色
+    // 根据现有 countdownItems 推断模式。
     const items = study.countdownItems || [];
-    let nextSingleBgColor = "";
-    let nextSingleTextColor = "";
-    let nextSingleBgOpacity = 0;
-    let nextSingleTextOpacity = 1;
     if (Array.isArray(items) && items.length > 1) {
       setCountdownMode("multi");
-      setSingleBgColor(nextSingleBgColor);
-      setSingleTextColor(nextSingleTextColor);
-      setSingleBgOpacity(nextSingleBgOpacity);
-      setSingleTextOpacity(nextSingleTextOpacity);
     } else if (Array.isArray(items) && items.length === 1) {
       const it = items[0];
       if (it.kind === "gaokao") {
         setCountdownMode("gaokao");
-        nextSingleBgColor = it.bgColor || "";
-        nextSingleTextColor = it.textColor || "";
-        nextSingleBgOpacity = typeof it.bgOpacity === "number" ? it.bgOpacity : 0;
-        nextSingleTextOpacity = typeof it.textOpacity === "number" ? it.textOpacity : 1;
-        setSingleBgColor(nextSingleBgColor);
-        setSingleTextColor(nextSingleTextColor);
-        setSingleBgOpacity(nextSingleBgOpacity);
-        setSingleTextOpacity(nextSingleTextOpacity);
         // 名称可编辑但不需要日期
         setDraftCustomName(it.name || "");
         setDraftCustomDate("");
@@ -343,54 +204,11 @@ export const BasicSettingsPanel: React.FC<BasicSettingsPanelProps> = ({
         setCountdownMode("single");
         setDraftCustomName(it.name || study.customName || "");
         setDraftCustomDate(it.targetDate || study.customDate || "");
-        nextSingleBgColor = it.bgColor || "";
-        nextSingleTextColor = it.textColor || "";
-        nextSingleBgOpacity = typeof it.bgOpacity === "number" ? it.bgOpacity : 0;
-        nextSingleTextOpacity = typeof it.textOpacity === "number" ? it.textOpacity : 1;
-        setSingleBgColor(nextSingleBgColor);
-        setSingleTextColor(nextSingleTextColor);
-        setSingleBgOpacity(nextSingleBgOpacity);
-        setSingleTextOpacity(nextSingleTextOpacity);
       }
     } else {
       // 兼容旧逻辑：无 items 时用 countdownType 决定模式
       setCountdownMode((study.countdownType ?? "gaokao") === "gaokao" ? "gaokao" : "single");
-      setSingleBgColor(nextSingleBgColor);
-      setSingleTextColor(nextSingleTextColor);
-      setSingleBgOpacity(nextSingleBgOpacity);
-      setSingleTextOpacity(nextSingleTextOpacity);
     }
-    const nextDigitOpacity = typeof study.digitOpacity === "number" ? study.digitOpacity : 1;
-    setDigitOpacity(nextDigitOpacity);
-    const hasCountdownCustomStyle =
-      nextDigitColor.trim().length > 0 ||
-      nextDigitOpacity !== 1 ||
-      nextSingleBgColor.trim().length > 0 ||
-      nextSingleTextColor.trim().length > 0 ||
-      nextSingleBgOpacity !== 0 ||
-      nextSingleTextOpacity !== 1;
-    setCountdownStyleMode(hasCountdownCustomStyle ? "custom" : "default");
-    setTimeColorMode(study.timeColor ? "custom" : "default");
-    setTimeColor(study.timeColor ?? "#ffffff");
-    setDateColorMode(study.dateColor ? "custom" : "default");
-    setDateColor(study.dateColor ?? "#bbbbbb");
-    // 初始化字体来源分段（函数级注释：根据当前状态决定使用默认或自定义字体，并填充自定义内容）
-    const initMode = (
-      current: string | undefined
-    ): { mode: "default" | "custom"; custom: string } => {
-      if (!current || current.trim().length === 0) return { mode: "default", custom: "" };
-      return { mode: "custom", custom: current };
-    };
-    const nf = initMode(study.numericFontFamily);
-    const tf = initMode(study.textFontFamily);
-    setNumericFontMode(nf.mode);
-    setTextFontMode(tf.mode);
-
-    // 异步加载字体列表
-    loadImportedFonts().then(setImportedFonts);
-
-    setNumericFontSelected(nf.custom);
-    setTextFontSelected(tf.custom);
   }, [
     study.countdownType,
     study.customName,
@@ -398,12 +216,6 @@ export const BasicSettingsPanel: React.FC<BasicSettingsPanelProps> = ({
     study.display,
     defaultDisplay,
     study.countdownItems,
-    study.digitColor,
-    study.digitOpacity,
-    study.timeColor,
-    study.dateColor,
-    study.numericFontFamily,
-    study.textFontFamily,
   ]);
 
   // 注册保存动作：统一在父组件保存时派发
@@ -425,50 +237,10 @@ export const BasicSettingsPanel: React.FC<BasicSettingsPanelProps> = ({
 
       // 保存组件显示设置（强制时间显示）
       dispatch({ type: "SET_STUDY_DISPLAY", payload: { ...draftDisplay, showTime: true } });
-      // 保存轮播间隔与数字颜色（多事件不再统一修改数字颜色）
+      // 保存轮播间隔；样式由 AppearanceProvider 统一管理。
       if (countdownMode === "multi") {
         dispatch({ type: "SET_CAROUSEL_INTERVAL", payload: carouselIntervalSec });
-      } else {
-        dispatch({
-          type: "SET_COUNTDOWN_DIGIT_COLOR",
-          payload: countdownStyleMode === "custom" ? digitColor || undefined : undefined,
-        });
-        dispatch({
-          type: "SET_COUNTDOWN_DIGIT_OPACITY",
-          payload: countdownStyleMode === "custom" ? digitOpacity : 1,
-        });
       }
-      dispatch({
-        type: "SET_STUDY_TIME_COLOR",
-        payload: timeColorMode === "custom" ? timeColor : undefined,
-      });
-      dispatch({
-        type: "SET_STUDY_DATE_COLOR",
-        payload: dateColorMode === "custom" ? dateColor : undefined,
-      });
-      // 保存背景设置
-      saveNormalBackground({
-        type: normalBackgroundDraft.type,
-        color: normalBackgroundDraft.type === "color" ? normalBackgroundDraft.color : undefined,
-        colorAlpha:
-          normalBackgroundDraft.type === "color" ? normalBackgroundDraft.alpha : undefined,
-        imageDataUrl:
-          normalBackgroundDraft.type === "image"
-            ? (normalBackgroundDraft.image ?? undefined)
-            : undefined,
-      });
-      saveStudyBackground({
-        type: studyBackgroundDraft.type,
-        color: studyBackgroundDraft.type === "color" ? studyBackgroundDraft.color : undefined,
-        colorAlpha: studyBackgroundDraft.type === "color" ? studyBackgroundDraft.alpha : undefined,
-        imageDataUrl:
-          studyBackgroundDraft.type === "image"
-            ? (studyBackgroundDraft.image ?? undefined)
-            : undefined,
-      });
-      // 分别通知普通页面与自习页面刷新背景。
-      window.dispatchEvent(new CustomEvent("normal-background-updated"));
-      window.dispatchEvent(new CustomEvent("study-background-updated"));
 
       // 保存倒计时项目
       if (countdownMode === "gaokao") {
@@ -477,10 +249,6 @@ export const BasicSettingsPanel: React.FC<BasicSettingsPanelProps> = ({
             id: "gaokao-default",
             kind: "gaokao",
             name: "高考倒计时",
-            bgColor: countdownStyleMode === "custom" ? singleBgColor || undefined : undefined,
-            bgOpacity: countdownStyleMode === "custom" ? singleBgOpacity : 0,
-            textColor: countdownStyleMode === "custom" ? singleTextColor || undefined : undefined,
-            textOpacity: countdownStyleMode === "custom" ? singleTextOpacity : 1,
             order: 0,
           },
         ];
@@ -492,10 +260,6 @@ export const BasicSettingsPanel: React.FC<BasicSettingsPanelProps> = ({
             kind: "custom",
             name: (draftCustomName && draftCustomName.trim()) || "自定义事件",
             targetDate: (draftCustomDate && draftCustomDate.trim()) || "",
-            bgColor: countdownStyleMode === "custom" ? singleBgColor || undefined : undefined,
-            bgOpacity: countdownStyleMode === "custom" ? singleBgOpacity : 0,
-            textColor: countdownStyleMode === "custom" ? singleTextColor || undefined : undefined,
-            textOpacity: countdownStyleMode === "custom" ? singleTextOpacity : 1,
             order: 0,
           },
         ];
@@ -508,17 +272,6 @@ export const BasicSettingsPanel: React.FC<BasicSettingsPanelProps> = ({
       try {
         updateStudySettings({ countdownMode });
       } catch {}
-
-      // 保存字体设置（函数级注释：根据选择与自定义输入计算最终的 font-family 并派发到全局状态）
-      const resolveFont = (mode: "default" | "custom", selected: string): string | undefined => {
-        if (mode === "default") return undefined;
-        const v = selected.trim();
-        return v.length > 0 ? v : undefined;
-      };
-      const nextNumeric = resolveFont(numericFontMode, numericFontSelected);
-      const nextText = resolveFont(textFontMode, textFontSelected);
-      dispatch({ type: "SET_STUDY_NUMERIC_FONT", payload: nextNumeric });
-      dispatch({ type: "SET_STUDY_TEXT_FONT", payload: nextText });
 
       updateGeneralSettings({ startup: { initialMode: startupMode } });
 
@@ -546,24 +299,7 @@ export const BasicSettingsPanel: React.FC<BasicSettingsPanelProps> = ({
     draftCustomDate,
     draftDisplay,
     carouselIntervalSec,
-    digitColor,
-    digitOpacity,
-    countdownStyleMode,
-    timeColorMode,
-    timeColor,
-    dateColorMode,
-    dateColor,
-    normalBackgroundDraft,
-    studyBackgroundDraft,
-    singleBgColor,
-    singleTextColor,
-    singleBgOpacity,
-    singleTextOpacity,
     dispatch,
-    numericFontMode,
-    numericFontSelected,
-    textFontMode,
-    textFontSelected,
     startupMode,
     timeSyncEnabled,
     timeSyncProvider,
@@ -575,217 +311,6 @@ export const BasicSettingsPanel: React.FC<BasicSettingsPanelProps> = ({
     timeSyncAutoEnabled,
     timeSyncAutoIntervalMin,
   ]);
-
-  /** 构建字体选择列表（函数级注释：合并已导入字体与内置字体，供下拉选择使用） */
-  const builtInNumericFonts = useMemo(
-    () => [
-      { label: "Roboto Mono", value: "'Roboto Mono', monospace" },
-      { label: "JetBrains Mono", value: "'JetBrains Mono', monospace" },
-      { label: "Source Code Pro", value: "'Source Code Pro', monospace" },
-      { label: "SFMono-Regular", value: "'SFMono-Regular', monospace" },
-      { label: "Consolas", value: "Consolas, monospace" },
-      { label: "Menlo", value: "Menlo, monospace" },
-      { label: "Cascadia Mono", value: "'Cascadia Mono', monospace" },
-    ],
-    []
-  );
-  const builtInTextFonts = useMemo(
-    () => [
-      { label: "Inter", value: "'Inter', sans-serif" },
-      { label: "Segoe UI", value: "'Segoe UI', sans-serif" },
-      { label: "Microsoft YaHei", value: "'Microsoft YaHei', sans-serif" },
-      { label: "PingFang SC", value: "'PingFang SC', sans-serif" },
-      { label: "Noto Sans SC", value: "'Noto Sans SC', sans-serif" },
-      { label: "Noto Serif SC", value: "'Noto Serif SC', serif" },
-      { label: "Helvetica Neue", value: "'Helvetica Neue', sans-serif" },
-      { label: "Arial", value: "Arial, sans-serif" },
-      { label: "system-ui", value: "system-ui, sans-serif" },
-    ],
-    []
-  );
-
-  /** 导入字体文件（函数级注释：读取所选字体文件为DataURL并保存为指定家族名） */
-  const handleImportFont = async () => {
-    if (!fontFile) {
-      notify({
-        variant: "warning",
-        title: "请选择字体文件",
-        description: "支持 TTF、OTF、WOFF 和 WOFF2。",
-      });
-      return;
-    }
-    const family =
-      (fontAlias && fontAlias.trim()) || fontFile.name.replace(/\.(ttf|otf|woff2?|)$/i, "");
-    try {
-      await importFontFile(fontFile, family);
-      const fonts = await loadImportedFonts();
-      setImportedFonts(fonts);
-      notify({ variant: "success", title: "字体导入成功", description: family });
-      setFontFile(null);
-      setFontAlias("");
-    } catch (error: unknown) {
-      const message =
-        error instanceof Error ? error.message : typeof error === "string" ? error : "未知错误";
-      notify({ variant: "danger", title: "字体导入失败", description: message });
-    }
-  };
-
-  /**
-   * 读取系统已安装字体列表（函数级注释：通过浏览器的 queryLocalFonts 接口请求本机字体家族名，并转换为下拉选项供选择）
-   */
-  const handleLoadSystemFonts = async () => {
-    if (typeof window === "undefined") {
-      notify({
-        variant: "warning",
-        title: "无法读取系统字体",
-        description: "当前环境不支持此能力。",
-      });
-      return;
-    }
-    const anyWindow = window as unknown as {
-      queryLocalFonts?: () => Promise<
-        {
-          family?: string;
-        }[]
-      >;
-    };
-    if (typeof anyWindow.queryLocalFonts !== "function") {
-      notify({
-        variant: "warning",
-        title: "浏览器不支持读取系统字体",
-        description: "请使用导入字体或手动输入字体名称。",
-      });
-      return;
-    }
-    try {
-      setLoadingSystemFonts(true);
-      const fonts = await anyWindow.queryLocalFonts();
-      const seen = new Set<string>();
-      const options: { label: string; value: string }[] = [];
-      for (const f of fonts) {
-        const rawFamily = typeof f?.family === "string" ? f.family.trim() : "";
-        if (!rawFamily || seen.has(rawFamily)) continue;
-        seen.add(rawFamily);
-        const safeFamily = rawFamily.replace(/"/g, '\\"');
-        options.push({
-          label: rawFamily,
-          value: `"${safeFamily}"`,
-        });
-      }
-      options.sort((a, b) => a.label.localeCompare(b.label, "zh-Hans-CN"));
-      setSystemFonts(options);
-      if (options.length === 0) {
-        notify({
-          variant: "warning",
-          title: "未读取到可用字体",
-          description: "请检查浏览器权限设置。",
-        });
-      } else {
-        notify({
-          variant: "success",
-          title: "系统字体已载入",
-          description: `共 ${options.length} 个，可在下拉列表中选择。`,
-        });
-      }
-    } catch (error: unknown) {
-      logger.error("读取系统字体失败:", error);
-      const message =
-        error instanceof Error ? error.message : typeof error === "string" ? error : "未知错误";
-      notify({ variant: "danger", title: "读取系统字体失败", description: message });
-    } finally {
-      setLoadingSystemFonts(false);
-    }
-  };
-
-  const renderCountdownStyleControls = () => (
-    <SettingGrid columns={2}>
-      <SettingItem
-        icon={<Palette size={18} />}
-        title="背景色"
-        description="为倒计时块设置独立背景颜色。"
-      >
-        <FormInput
-          label="选择颜色"
-          type="color"
-          value={singleBgColor || "#121212"}
-          onChange={(e) => setSingleBgColor(e.target.value)}
-        />
-      </SettingItem>
-      <SettingItem
-        icon={<Palette size={18} />}
-        title="背景透明度"
-        description="控制背景覆盖强度，0% 表示透明。"
-        tone="info"
-      >
-        <FormSlider
-          label="透明度"
-          min={0}
-          max={1}
-          step={0.01}
-          value={singleBgOpacity}
-          onChange={(v) => setSingleBgOpacity(v)}
-          formatValue={(v) => `${Math.round(v * 100)}%`}
-        />
-      </SettingItem>
-      <SettingItem
-        icon={<Type size={18} />}
-        title="文字色"
-        description="用于倒计时名称和说明文字。"
-      >
-        <FormInput
-          label="选择颜色"
-          type="color"
-          value={singleTextColor || "#E0E0E0"}
-          onChange={(e) => setSingleTextColor(e.target.value)}
-        />
-      </SettingItem>
-      <SettingItem
-        icon={<Type size={18} />}
-        title="文字透明度"
-        description="降低文字存在感或保持清晰可读。"
-        tone="info"
-      >
-        <FormSlider
-          label="透明度"
-          min={0}
-          max={1}
-          step={0.01}
-          value={singleTextOpacity}
-          onChange={(v) => setSingleTextOpacity(v)}
-          formatValue={(v) => `${Math.round(v * 100)}%`}
-        />
-      </SettingItem>
-      <SettingItem
-        icon={<TimerReset size={18} />}
-        title="数字颜色"
-        description="用于天数和时间数字。"
-        tone="accent"
-      >
-        <FormInput
-          label="选择颜色"
-          type="color"
-          value={digitColor || "#2FECC6"}
-          onChange={(e) => setDigitColor(e.target.value)}
-        />
-      </SettingItem>
-      <SettingItem
-        icon={<TimerReset size={18} />}
-        title="数字透明度"
-        description="控制倒计时数字的显示强度。"
-        tone="accent"
-      >
-        <FormSlider
-          label="透明度"
-          min={0}
-          max={1}
-          step={0.01}
-          value={digitOpacity}
-          onChange={(v) => setDigitOpacity(v)}
-          formatValue={(v) => `${Math.round(v * 100)}%`}
-        />
-      </SettingItem>
-    </SettingGrid>
-  );
 
   const timeSyncProviderLabel =
     timeSyncProvider === "httpDate"
@@ -830,7 +355,7 @@ export const BasicSettingsPanel: React.FC<BasicSettingsPanelProps> = ({
       <FormSection
         title="倒计时设置"
         variant="plain"
-        description="配置自习页面的倒计时来源、轮播和局部样式。"
+        description="配置自习页面的倒计时来源、目标和轮播顺序。"
         hidden={isSectionHidden("countdown")}
       >
         <SettingItem
@@ -875,44 +400,26 @@ export const BasicSettingsPanel: React.FC<BasicSettingsPanelProps> = ({
             <InfoPanel tone="neutral" title="自动目标">
               使用高考日期（6月7日）自动计算，目标年份保存后即时应用到倒计时。
             </InfoPanel>
-            <SettingGrid columns={2}>
-              <SettingItem
-                icon={<CalendarClock size={18} />}
-                title="目标年份"
-                description="用于计算下一次高考倒计时。"
-              >
-                <FormInput
-                  label="年份"
-                  type="number"
-                  variant="number"
-                  value={String(targetYear)}
-                  onChange={(e) => {
-                    const v = parseInt(e.target.value, 10);
-                    if (!Number.isNaN(v)) onTargetYearChange?.(v);
-                  }}
-                  min={1900}
-                  max={2100}
-                  step={1}
-                  placeholder="例如 2026"
-                />
-              </SettingItem>
-              <SettingItem
-                icon={<Palette size={18} />}
-                title="样式模式"
-                description="默认跟随主题，自定义可覆盖颜色与透明度。"
-                tone="accent"
-              >
-                <FormSegmented
-                  value={countdownStyleMode}
-                  options={[
-                    { label: "默认", value: "default" },
-                    { label: "自定义", value: "custom" },
-                  ]}
-                  onChange={(v) => setCountdownStyleMode(v as "default" | "custom")}
-                />
-              </SettingItem>
-            </SettingGrid>
-            {countdownStyleMode === "custom" && renderCountdownStyleControls()}
+            <SettingItem
+              icon={<CalendarClock size={18} />}
+              title="目标年份"
+              description="用于计算下一次高考倒计时。"
+            >
+              <FormInput
+                label="年份"
+                type="number"
+                variant="number"
+                value={String(targetYear)}
+                onChange={(e) => {
+                  const v = parseInt(e.target.value, 10);
+                  if (!Number.isNaN(v)) onTargetYearChange?.(v);
+                }}
+                min={1900}
+                max={2100}
+                step={1}
+                placeholder="例如 2026"
+              />
+            </SettingItem>
           </>
         )}
 
@@ -944,23 +451,7 @@ export const BasicSettingsPanel: React.FC<BasicSettingsPanelProps> = ({
                   onChange={(e) => setDraftCustomDate(e.target.value)}
                 />
               </SettingItem>
-              <SettingItem
-                icon={<Palette size={18} />}
-                title="样式模式"
-                description="默认跟随主题，自定义可覆盖颜色与透明度。"
-                tone="accent"
-              >
-                <FormSegmented
-                  value={countdownStyleMode}
-                  options={[
-                    { label: "默认", value: "default" },
-                    { label: "自定义", value: "custom" },
-                  ]}
-                  onChange={(v) => setCountdownStyleMode(v as "default" | "custom")}
-                />
-              </SettingItem>
             </SettingGrid>
-            {countdownStyleMode === "custom" && renderCountdownStyleControls()}
           </>
         )}
 
@@ -1052,347 +543,6 @@ export const BasicSettingsPanel: React.FC<BasicSettingsPanelProps> = ({
             }
           />
         </SettingGrid>
-      </FormSection>
-
-      <FormSection
-        title="时间与日期颜色"
-        variant="plain"
-        description="为自习页面中央时间与日期单独设置颜色，默认跟随主题。"
-        hidden={isSectionHidden("colors")}
-      >
-        <SettingGrid columns={2}>
-          <SettingItem icon={<Palette size={18} />} title="时间颜色" tone="accent">
-            <FormSegmented
-              value={timeColorMode}
-              options={[
-                { label: "默认", value: "default" },
-                { label: "自定义", value: "custom" },
-              ]}
-              onChange={(v) => setTimeColorMode(v as "default" | "custom")}
-            />
-            {timeColorMode === "custom" && (
-              <FormInput
-                label="选择颜色"
-                type="color"
-                value={timeColor || "#ffffff"}
-                onChange={(e) => setTimeColor(e.target.value)}
-              />
-            )}
-          </SettingItem>
-          <SettingItem icon={<CalendarDays size={18} />} title="日期颜色" tone="info">
-            <FormSegmented
-              value={dateColorMode}
-              options={[
-                { label: "默认", value: "default" },
-                { label: "自定义", value: "custom" },
-              ]}
-              onChange={(v) => setDateColorMode(v as "default" | "custom")}
-            />
-            {dateColorMode === "custom" && (
-              <FormInput
-                label="选择颜色"
-                type="color"
-                value={dateColor || "#bbbbbb"}
-                onChange={(e) => setDateColor(e.target.value)}
-              />
-            )}
-          </SettingItem>
-        </SettingGrid>
-      </FormSection>
-
-      <FormSection
-        title="字体设置"
-        variant="plain"
-        description="分别控制数字与普通文本字体，保存后应用到自习页面。"
-        hidden={isSectionHidden("fonts")}
-      >
-        <SettingGrid columns={2}>
-          <SettingItem
-            icon={<Type size={18} />}
-            title="数字字体"
-            description="用于时间、倒计时数字等高识别度内容。"
-            tone="accent"
-          >
-            <FormSegmented
-              value={numericFontMode}
-              options={[
-                { label: "默认", value: "default" },
-                { label: "自定义字体", value: "custom" },
-              ]}
-              onChange={(v) => setNumericFontMode(v as "default" | "custom")}
-            />
-            {numericFontMode === "custom" && (
-              <Dropdown
-                label="选择字体"
-                placeholder="请选择数字字体"
-                value={numericFontSelected}
-                onChange={(v) => setNumericFontSelected((v as string) || "")}
-                searchable
-                groups={[
-                  {
-                    label: "已导入",
-                    options:
-                      importedFonts.length > 0
-                        ? importedFonts.map((f) => ({ label: f.family, value: f.family }))
-                        : [{ label: "暂无已导入字体", value: "__none__", disabled: true }],
-                  },
-                  {
-                    label: "系统字体（实验性）",
-                    options:
-                      systemFonts.length > 0
-                        ? systemFonts
-                        : [
-                            systemFontSupported
-                              ? {
-                                  label: loadingSystemFonts
-                                    ? "正在读取系统字体..."
-                                    : "点击“读取系统字体”按钮后刷新此列表",
-                                  value: "__sys_hint__",
-                                  disabled: true,
-                                }
-                              : {
-                                  label: "当前浏览器不支持系统字体读取",
-                                  value: "__sys_hint__",
-                                  disabled: true,
-                                },
-                          ],
-                  },
-                  {
-                    label: "内置",
-                    options: builtInNumericFonts,
-                  },
-                ]}
-              />
-            )}
-          </SettingItem>
-
-          <SettingItem
-            icon={<FileText size={18} />}
-            title="文本字体"
-            description="用于日期、语录、状态文字等普通文本。"
-            tone="info"
-          >
-            <FormSegmented
-              value={textFontMode}
-              options={[
-                { label: "默认", value: "default" },
-                { label: "自定义字体", value: "custom" },
-              ]}
-              onChange={(v) => setTextFontMode(v as "default" | "custom")}
-            />
-            {textFontMode === "custom" && (
-              <Dropdown
-                label="选择字体"
-                placeholder="请选择文本字体"
-                value={textFontSelected}
-                onChange={(v) => setTextFontSelected((v as string) || "")}
-                searchable
-                groups={[
-                  {
-                    label: "已导入",
-                    options:
-                      importedFonts.length > 0
-                        ? importedFonts.map((f) => ({ label: f.family, value: f.family }))
-                        : [{ label: "暂无已导入字体", value: "__none__", disabled: true }],
-                  },
-                  {
-                    label: "系统字体（实验性）",
-                    options:
-                      systemFonts.length > 0
-                        ? systemFonts
-                        : [
-                            systemFontSupported
-                              ? {
-                                  label: loadingSystemFonts
-                                    ? "正在读取系统字体..."
-                                    : "点击“读取系统字体”按钮后刷新此列表",
-                                  value: "__sys_hint__",
-                                  disabled: true,
-                                }
-                              : {
-                                  label: "当前浏览器不支持系统字体读取",
-                                  value: "__sys_hint__",
-                                  disabled: true,
-                                },
-                          ],
-                  },
-                  {
-                    label: "内置",
-                    options: builtInTextFonts,
-                  },
-                ]}
-              />
-            )}
-          </SettingItem>
-        </SettingGrid>
-
-        {(numericFontMode === "custom" || textFontMode === "custom") && (
-          <SettingItem
-            icon={<Upload size={18} />}
-            title="导入与系统字体"
-            description="导入本地字体文件，或在支持的浏览器中读取系统字体列表。"
-            tone="neutral"
-          >
-            <SettingGrid columns={2}>
-              <FormInput
-                label="字体别名"
-                type="text"
-                value={fontAlias}
-                onChange={(e) => setFontAlias(e.target.value)}
-                placeholder='例如："JetBrains Mono"'
-              />
-              <FormFilePicker
-                label="字体文件"
-                accept=".ttf,.otf,.woff,.woff2"
-                fileName={fontFile?.name}
-                placeholder="未选择字体文件"
-                buttonText="选择字体文件"
-                onFileChange={(file) => setFontFile(file)}
-              />
-            </SettingGrid>
-            <FormButtonGroup align="left">
-              <FormButton variant="secondary" onClick={handleImportFont}>
-                导入字体文件
-              </FormButton>
-              <FormButton
-                variant="secondary"
-                onClick={handleLoadSystemFonts}
-                disabled={!systemFontSupported || loadingSystemFonts}
-              >
-                {loadingSystemFonts ? "正在读取系统字体..." : "读取系统字体"}
-              </FormButton>
-            </FormButtonGroup>
-            <InfoPanel tone={systemFontSupported ? "info" : "warning"}>
-              系统字体读取基于浏览器 Local Font Access 接口，仅部分 Chromium
-              浏览器在安全上下文中支持。
-            </InfoPanel>
-          </SettingItem>
-        )}
-      </FormSection>
-
-      {/* 背景设置 */}
-      <FormSection
-        title="背景设置"
-        variant="plain"
-        description="普通页面与自习页面可分别保存背景预设、纯色或本地图片。"
-        hidden={isSectionHidden("background")}
-      >
-        <SettingItem
-          icon={<Monitor size={18} />}
-          title="应用页面"
-          description="普通页面包含时钟、倒计时和秒表。"
-        >
-          <FormSegmented
-            value={backgroundScope}
-            options={[
-              { label: "普通页面", value: "normal" },
-              { label: "自习页面", value: "study" },
-            ]}
-            onChange={setBackgroundScope}
-          />
-        </SettingItem>
-
-        <SettingItem
-          icon={<ImageIcon size={18} />}
-          title="背景来源"
-          description={"自习氛围使用统一的深色渐变与边缘暗化，并作为全局默认背景。"}
-          tone="accent"
-        >
-          <FormSegmented
-            value={activeBackgroundDraft.type}
-            options={[
-              { label: "自习氛围", value: "default" },
-              { label: "纯黑", value: "black" },
-              { label: "深灰", value: "dark" },
-              { label: "自定义纯色", value: "color" },
-              { label: "自定义图片", value: "image" },
-            ]}
-            onChange={(type) => updateActiveBackgroundDraft({ type })}
-          />
-        </SettingItem>
-
-        {activeBackgroundDraft.type === "color" && (
-          <SettingGrid columns={2}>
-            <SettingItem
-              icon={<Palette size={18} />}
-              title="背景颜色"
-              description="支持调色盘或十六进制颜色代码。"
-            >
-              <SettingGrid columns={2}>
-                <FormInput
-                  label="调色盘"
-                  type="color"
-                  value={activeBackgroundDraft.color}
-                  onChange={(event) => updateActiveBackgroundDraft({ color: event.target.value })}
-                />
-                <FormInput
-                  label="颜色代码"
-                  type="text"
-                  value={activeBackgroundDraft.color}
-                  onChange={(event) => updateActiveBackgroundDraft({ color: event.target.value })}
-                  placeholder="#121212"
-                />
-              </SettingGrid>
-            </SettingItem>
-            <SettingItem
-              icon={<Palette size={18} />}
-              title="背景透明度"
-              description="降低纯色背景的不透明度，让主体信息更轻。"
-              tone="info"
-            >
-              <FormSlider
-                label="透明度"
-                min={0}
-                max={1}
-                step={0.01}
-                value={activeBackgroundDraft.alpha}
-                onChange={(alpha) => updateActiveBackgroundDraft({ alpha })}
-                formatValue={(value) => `${Math.round(value * 100)}%`}
-              />
-            </SettingItem>
-          </SettingGrid>
-        )}
-
-        {activeBackgroundDraft.type === "image" && (
-          <SettingItem
-            icon={<ImageIcon size={18} />}
-            title="背景图片"
-            description={`选择本地图片作为${backgroundScope === "study" ? "自习" : "普通"}页面背景，保存后写入本地缓存。`}
-          >
-            <FormFilePicker
-              label="选择图片"
-              accept="image/*"
-              fileName={activeBackgroundDraft.imageFileName}
-              placeholder="未选择图片"
-              buttonText="选择图片"
-              onFileChange={(file) => {
-                if (!file) return;
-                updateActiveBackgroundDraft({ imageFileName: file.name });
-                const reader = new FileReader();
-                reader.onload = () =>
-                  updateActiveBackgroundDraft({ image: reader.result as string });
-                reader.readAsDataURL(file);
-              }}
-            />
-            {activeBackgroundDraft.image && (
-              <>
-                <img
-                  className={styles.backgroundPreview}
-                  src={activeBackgroundDraft.image}
-                  alt={`${backgroundScope === "study" ? "自习" : "普通"}页面背景预览`}
-                />
-                <FormButtonGroup align="left">
-                  <FormButton
-                    variant="secondary"
-                    onClick={() => updateActiveBackgroundDraft({ image: null, imageFileName: "" })}
-                  >
-                    移除图片
-                  </FormButton>
-                </FormButtonGroup>
-              </>
-            )}
-          </SettingItem>
-        )}
       </FormSection>
 
       <FormSection

@@ -7,15 +7,22 @@ import {
 } from "../constants/noise";
 import { DEFAULT_NOISE_REPORT_RETENTION_DAYS } from "../constants/noiseReport";
 import { QuoteSourceConfig, StudyDisplaySettings, CountdownItem, AppMode } from "../types";
+import type { AppearanceSettingsV2 } from "../types/appearance";
 import { DEFAULT_SCHEDULE, type StudyPeriod } from "../types/studySchedule";
 import { DeepPartial } from "../types/utilityTypes";
 
+import {
+  createDefaultAppearance,
+  migrateV1Appearance,
+  normalizeAppearance,
+} from "./appearanceModel";
 import { logger } from "./logger";
 import { StudyBackgroundType } from "./studyBackgroundStorage";
 
 export interface AppSettings {
   version: number;
   modifiedAt: number;
+  appearance: AppearanceSettingsV2;
 
   general: {
     startup: {
@@ -117,11 +124,19 @@ export interface AppSettings {
 }
 
 export const APP_SETTINGS_KEY = "AppSettings";
-const CURRENT_SETTINGS_VERSION = 1;
+export const CURRENT_SETTINGS_VERSION = 2;
+
+export class UnsupportedSettingsVersionError extends Error {
+  constructor(public readonly storedVersion: number) {
+    super(`设置文件版本 ${storedVersion} 高于当前支持版本 ${CURRENT_SETTINGS_VERSION}`);
+    this.name = "UnsupportedSettingsVersionError";
+  }
+}
 
 const DEFAULT_SETTINGS: AppSettings = {
   version: CURRENT_SETTINGS_VERSION,
   modifiedAt: Date.now(),
+  appearance: createDefaultAppearance(),
   general: {
     startup: {
       initialMode: "clock",
@@ -220,6 +235,10 @@ export function getAppSettings(): AppSettings {
       return DEFAULT_SETTINGS;
     }
     const parsed = JSON.parse(raw);
+    const storedVersion = typeof parsed.version === "number" ? parsed.version : 1;
+    if (storedVersion > CURRENT_SETTINGS_VERSION) {
+      throw new UnsupportedSettingsVersionError(storedVersion);
+    }
     const parsedStudy = parsed.study || {};
     const parsedAlerts = parsedStudy.alerts || {};
     const legacyMinutelyForecast =
@@ -269,9 +288,14 @@ export function getAppSettings(): AppSettings {
     // 可以在此添加简单的版本检查或结构校验逻辑
     // 目前先信任存储结构，如有新增字段则通过与默认配置合并补齐
     // 此处的深度合并逻辑做了简化处理
+    const appearance = parsed.appearance
+      ? normalizeAppearance(parsed.appearance)
+      : migrateV1Appearance(parsed);
     return {
       ...DEFAULT_SETTINGS,
       ...parsed,
+      version: CURRENT_SETTINGS_VERSION,
+      appearance,
       general: {
         ...DEFAULT_SETTINGS.general,
         ...parsed.general,
@@ -299,6 +323,7 @@ export function getAppSettings(): AppSettings {
       noiseControl: { ...DEFAULT_SETTINGS.noiseControl, ...parsed.noiseControl },
     };
   } catch (error) {
+    if (error instanceof UnsupportedSettingsVersionError) throw error;
     logger.error("Failed to load AppSettings", error);
     return DEFAULT_SETTINGS;
   }
@@ -408,10 +433,26 @@ export function updateAppSettings(
     if (updates.noiseControl) {
       nextSettings.noiseControl = { ...current.noiseControl, ...updates.noiseControl };
     }
+    if (updates.appearance) {
+      nextSettings.appearance = normalizeAppearance({
+        ...current.appearance,
+        ...updates.appearance,
+        global: { ...current.appearance.global, ...updates.appearance.global },
+        scenes: {
+          ...current.appearance.scenes,
+          ...updates.appearance.scenes,
+        },
+        instances: {
+          ...current.appearance.instances,
+          ...updates.appearance.instances,
+        },
+      });
+    }
 
     localStorage.setItem(APP_SETTINGS_KEY, JSON.stringify(nextSettings));
   } catch (error) {
     logger.error("Failed to save AppSettings", error);
+    throw error;
   }
 }
 
@@ -470,4 +511,61 @@ export function updateNoiseSettings(updates: DeepPartial<AppSettings["noiseContr
   updateAppSettings((current) => ({
     noiseControl: { ...current.noiseControl, ...updates },
   }));
+}
+
+export function replaceAppearanceSettings(appearance: AppearanceSettingsV2): void {
+  updateAppSettings({ appearance: normalizeAppearance(appearance) });
+}
+
+/** Persist the normalized v2 structure before legacy keys are removed. */
+export function migrateStoredAppSettings(): AppSettings {
+  const raw = localStorage.getItem(APP_SETTINGS_KEY);
+  if (!raw) {
+    resetAppSettings();
+    return getAppSettings();
+  }
+  const parsed = JSON.parse(raw) as Record<string, unknown>;
+  const storedVersion = typeof parsed.version === "number" ? parsed.version : 1;
+  if (storedVersion > CURRENT_SETTINGS_VERSION) {
+    throw new UnsupportedSettingsVersionError(storedVersion);
+  }
+  const legacySource = parsed as unknown as Parameters<typeof migrateV1Appearance>[0];
+  if (!parsed.appearance) {
+    const study = (legacySource.study ??= {});
+    const style = (study.style ??= {});
+    const digitColor = localStorage.getItem("study-digit-color");
+    const digitOpacity = Number(localStorage.getItem("study-digit-opacity"));
+    const numericFont = localStorage.getItem("study-numeric-font");
+    const textFont = localStorage.getItem("study-text-font");
+    if (!style.digitColor && digitColor) style.digitColor = digitColor;
+    if (style.digitOpacity === undefined && Number.isFinite(digitOpacity)) {
+      style.digitOpacity = digitOpacity;
+    }
+    if (!style.numericFontFamily && numericFont) style.numericFontFamily = numericFont;
+    if (!style.textFontFamily && textFont) style.textFontFamily = textFont;
+    if (!study.background) {
+      const type = localStorage.getItem("study-bg-type");
+      const color = localStorage.getItem("study-bg-color");
+      const colorAlpha = Number(localStorage.getItem("study-bg-color-alpha"));
+      const imageDataUrl = localStorage.getItem("study-bg-image");
+      if (type) {
+        study.background = {
+          type,
+          ...(color ? { color } : {}),
+          ...(Number.isFinite(colorAlpha) ? { colorAlpha } : {}),
+          ...(imageDataUrl ? { imageDataUrl } : {}),
+        };
+      }
+    }
+  }
+  const normalized = {
+    ...getAppSettings(),
+    appearance: parsed.appearance
+      ? normalizeAppearance(parsed.appearance)
+      : migrateV1Appearance(legacySource),
+  };
+  if (storedVersion < CURRENT_SETTINGS_VERSION || !parsed.appearance) {
+    localStorage.setItem(APP_SETTINGS_KEY, JSON.stringify(normalized));
+  }
+  return normalized;
 }

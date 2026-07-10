@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from "react";
 
+import { useComponentAppearance } from "../../contexts/AppearanceContext";
 import { DEFAULT_SCHEDULE, StudyPeriod } from "../../types/studySchedule";
 import { logger } from "../../utils/logger";
 import { subscribeSettingsEvent, SETTINGS_EVENTS } from "../../utils/settingsEvents";
@@ -25,6 +26,12 @@ interface StudyStatusProps {
  * 功能：显示当前自习状态和进度条
  */
 const StudyStatus: React.FC<StudyStatusProps> = () => {
+  const containerAppearance = useComponentAppearance("studyStatus", "surface", {
+    kind: "surface",
+  });
+  const labelAppearance = useComponentAppearance("studyStatus", "label");
+  const progressAppearance = useComponentAppearance("studyStatus", "progress");
+  const fillAppearance = useComponentAppearance("studyStatus", "fill", { kind: "surface" });
   const [schedule, setSchedule] = useState<StudyPeriod[]>(DEFAULT_SCHEDULE);
   const [currentStatus, setCurrentStatus] = useState<StudyStatusType>({
     isInClass: false,
@@ -189,16 +196,26 @@ const StudyStatus: React.FC<StudyStatusProps> = () => {
   return (
     <div
       className={styles.studyStatus}
+      style={containerAppearance}
       role="progressbar"
       aria-label={`${currentStatus.statusText}进度`}
       aria-valuemin={0}
       aria-valuemax={100}
       aria-valuenow={roundedProgress}
     >
-      <div className={styles.progressFill} style={{ width: `${currentStatus.progress}%` }} />
+      <div
+        className={styles.progressFill}
+        style={{ ...fillAppearance, width: `${currentStatus.progress}%` }}
+      />
       <div className={styles.statusRow}>
-        <div className={styles.statusText}>{currentStatus.statusText}</div>
-        {hasProgress && <span className={styles.progressMeta}>{roundedProgress}%</span>}
+        <div className={styles.statusText} style={labelAppearance}>
+          {currentStatus.statusText}
+        </div>
+        {hasProgress && (
+          <span className={styles.progressMeta} style={progressAppearance}>
+            {roundedProgress}%
+          </span>
+        )}
       </div>
     </div>
   );

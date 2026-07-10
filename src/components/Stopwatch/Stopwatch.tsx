@@ -2,6 +2,7 @@ import React, { useCallback } from "react";
 
 import { STOPWATCH_TICK_MS } from "../../constants/timer";
 import { useAppState, useAppDispatch } from "../../contexts/AppContext";
+import { useComponentAppearance } from "../../contexts/AppearanceContext";
 import { useAccumulatingTimer } from "../../hooks/useTimer";
 import { formatStopwatch } from "../../utils/formatTime";
 
@@ -33,25 +34,41 @@ export function Stopwatch() {
   const timeString = formatStopwatch(stopwatch.elapsedTime);
   const totalSeconds = Math.floor(stopwatch.elapsedTime / 1000);
   const isLongDuration = totalSeconds >= 3600; // 1小时以上
+  const appearanceState = stopwatch.isActive ? "running" : "paused";
+  const timeAppearance = useComponentAppearance("stopwatch", "time", {
+    state: appearanceState,
+  });
+  const statusAppearance = useComponentAppearance("stopwatch", "status", { state: "paused" });
+  const milestoneAppearance = useComponentAppearance("stopwatch", "milestone");
+  const containerAppearance = useComponentAppearance("stopwatch", "surface", { kind: "surface" });
 
   return (
-    <div className={styles.stopwatch}>
+    <div className={styles.stopwatch} style={containerAppearance}>
       <div
         className={`${styles.time} ${stopwatch.isActive ? styles.running : ""}`}
+        style={timeAppearance}
         aria-live="polite"
       >
         {stopwatch.elapsedTime === 0 ? (
-          <span className={styles.placeholder}>00:00:00</span>
+          <span className={styles.placeholder} style={timeAppearance}>
+            00:00:00
+          </span>
         ) : (
           timeString
         )}
       </div>
 
       {stopwatch.elapsedTime > 0 && !stopwatch.isActive && (
-        <div className={styles.status}>已暂停</div>
+        <div className={styles.status} style={statusAppearance}>
+          已暂停
+        </div>
       )}
 
-      {isLongDuration && <div className={styles.milestone}>🎉 已超过1小时！</div>}
+      {isLongDuration && (
+        <div className={styles.milestone} style={milestoneAppearance}>
+          🎉 已超过1小时！
+        </div>
+      )}
     </div>
   );
 }

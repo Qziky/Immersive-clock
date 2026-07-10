@@ -69,6 +69,82 @@ test("设置持久化：修改目标年份并保存", async ({ page }) => {
   expect(storedYearAfterReload).toBe(2029);
 });
 
+test("组件外观：实时预览、取消回滚并在保存后持久化", async ({ page }) => {
+  await page.goto("/");
+  let dialog = await openStudySettings(page);
+  await dialog.getByRole("button", { name: "视觉外观" }).click();
+  await dialog.getByRole("button", { name: "组件样式" }).click();
+  await dialog.getByRole("radio", { name: "时钟" }).check({ force: true });
+
+  await dialog.getByRole("button", { name: "选择子元素" }).click();
+  await page.getByRole("option", { name: "日期" }).click();
+  await expect(dialog.getByLabel("颜色代码")).toHaveValue("#bbbbbb");
+  await expect(dialog.getByText(/实际生效的内置或上级继承值/)).toBeVisible();
+  await dialog.getByRole("button", { name: "选择子元素" }).click();
+  await page.getByRole("option", { name: "主时间" }).click();
+
+  const colorCode = dialog.getByLabel("颜色代码");
+  await colorCode.fill("#ff3366");
+  const previewTime = page.locator('[data-appearance-content] [aria-label^="当前时间："]').first();
+  await expect(previewTime).toHaveCSS("color", "rgb(255, 51, 102)");
+
+  await dialog.getByRole("button", { name: "取消" }).click();
+  expect(
+    await page.evaluate(() => {
+      const raw = localStorage.getItem("AppSettings");
+      return raw ? JSON.parse(raw)?.appearance?.scenes?.clock?.components?.clock : null;
+    })
+  ).toBeFalsy();
+
+  await page.getByRole("button", { name: "打开设置" }).click();
+  dialog = page.getByRole("dialog", { name: "设置" });
+  await dialog.getByRole("button", { name: "视觉外观" }).click();
+  await dialog.getByRole("button", { name: "组件样式" }).click();
+  await dialog.getByRole("radio", { name: "时钟" }).check({ force: true });
+  await dialog.getByLabel("颜色代码").fill("#ff3366");
+  await dialog.getByRole("button", { name: "保存" }).click();
+
+  expect(
+    await page.evaluate(() => {
+      const raw = localStorage.getItem("AppSettings");
+      return raw
+        ? JSON.parse(raw)?.appearance?.scenes?.clock?.components?.clock?.slots?.time?.color
+        : null;
+    })
+  ).toBe("#ff3366");
+});
+
+test("组件外观：多事件倒计时可按实例保存覆盖", async ({ page }) => {
+  await page.goto("/");
+  let dialog = await openStudySettings(page);
+  await dialog.getByRole("button", { name: "倒计时", exact: true }).click();
+  await dialog.getByRole("radio", { name: "高考" }).check({ force: true });
+  await dialog.getByRole("button", { name: "保存" }).click();
+
+  await page.getByRole("button", { name: "打开设置" }).click();
+  dialog = page.getByRole("dialog", { name: "设置" });
+  await dialog.getByRole("button", { name: "视觉外观" }).click();
+  await dialog.getByRole("button", { name: "组件样式" }).click();
+  await dialog.getByRole("radio", { name: "自习" }).check({ force: true });
+  await dialog.getByRole("button", { name: /^事件倒计时/ }).click();
+  await dialog.getByRole("button", { name: "选择实例" }).click();
+  await page.getByRole("option", { name: "高考倒计时" }).click();
+  await dialog.getByRole("button", { name: "选择子元素" }).click();
+  await page.getByRole("option", { name: "天数" }).click();
+  await dialog.getByLabel("颜色代码").fill("#33cc88");
+  await dialog.getByRole("button", { name: "保存" }).click();
+
+  expect(
+    await page.evaluate(() => {
+      const raw = localStorage.getItem("AppSettings");
+      return raw
+        ? JSON.parse(raw)?.appearance?.instances?.studyCountdown?.["gaokao-default"]?.slots?.digit
+            ?.color
+        : null;
+    })
+  ).toBe("#33cc88");
+});
+
 /** 端到端用例：验证设置页一级/二级导航只展示当前任务域（函数级注释） */
 test("设置导航：一级分类切换后只显示当前二级分区", async ({ page }) => {
   await page.goto("/");
@@ -81,12 +157,13 @@ test("设置导航：一级分类切换后只显示当前二级分区", async ({
 
   await expect(dialog.getByRole("button", { name: "启动页面" })).toBeVisible();
   await expect(dialog.getByRole("button", { name: "自习显示" })).toBeVisible();
-  await expect(dialog.getByRole("button", { name: "时间颜色" })).toBeHidden();
+  await expect(dialog.getByRole("button", { name: "组件样式" })).toBeHidden();
 
   await dialog.getByRole("button", { name: "视觉外观" }).click();
-  await expect(dialog.getByRole("button", { name: "时间颜色" })).toBeVisible();
-  await expect(dialog.getByRole("button", { name: "字体", exact: true })).toBeVisible();
-  await expect(dialog.getByRole("button", { name: "背景", exact: true })).toBeVisible();
+  const settingsNavigation = dialog.getByRole("navigation", { name: "设置分组" });
+  await expect(settingsNavigation.getByRole("button", { name: "组件样式" })).toBeVisible();
+  await expect(settingsNavigation.getByRole("button", { name: "字体", exact: true })).toBeVisible();
+  await expect(settingsNavigation.getByRole("button", { name: "背景", exact: true })).toBeVisible();
   await expect(dialog.getByRole("button", { name: "启动页面" })).toBeHidden();
 
   await dialog.getByRole("button", { name: "环境提醒" }).click();
@@ -211,6 +288,34 @@ test("错误与调试：记录方式切换延迟到保存", async ({ page }) => 
 
 test.describe("移动端设置抽屉", () => {
   test.use({ viewport: { width: 390, height: 844 } });
+
+  test("组件列表自动换行且所有卡片完整显示", async ({ page }) => {
+    await page.goto("/");
+    const dialog = await openStudySettings(page);
+    await dialog.getByRole("button", { name: "视觉外观" }).click();
+    await dialog.getByRole("button", { name: "组件样式" }).click();
+
+    const componentList = dialog.getByRole("navigation", { name: "内容组件" });
+    await expect(componentList).toBeVisible();
+    expect(await componentList.getByRole("button").count()).toBe(7);
+
+    const layout = await componentList.evaluate((element) => {
+      const containerRect = element.getBoundingClientRect();
+      const buttons = Array.from(element.querySelectorAll<HTMLElement>("button"));
+      const rows = new Set(buttons.map((button) => Math.round(button.getBoundingClientRect().top)));
+      return {
+        fits:
+          element.scrollWidth <= element.clientWidth &&
+          buttons.every((button) => {
+            const rect = button.getBoundingClientRect();
+            return rect.left >= containerRect.left - 0.5 && rect.right <= containerRect.right + 0.5;
+          }),
+        rowCount: rows.size,
+      };
+    });
+    expect(layout.fits).toBe(true);
+    expect(layout.rowCount).toBeGreaterThan(1);
+  });
 
   test("全屏展示纵向紧凑导航并将当前分组滚动入视口", async ({ page }) => {
     await page.goto("/");

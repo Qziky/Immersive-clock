@@ -152,7 +152,7 @@
 
 .breathingLight.quiet::before {
   animation: breatheQuiet 4s ease-in-out infinite;
-  background-color: #7fd8bd;
+  background-color: var(--appearance-indicator-color, #7fd8bd);
 }
 
 .breathingLight.noisy {
@@ -161,7 +161,7 @@
 
 .breathingLight.noisy::before {
   animation: breatheNoisy 2.3s ease-in-out infinite;
-  background-color: #ff7a88;
+  background-color: var(--appearance-indicator-color, #ff7a88);
 }
 
 .breathingLight.error {
@@ -170,7 +170,7 @@
 
 .breathingLight.error::before {
   animation: breatheError 3s ease-in-out infinite;
-  background-color: #ff9b9b;
+  background-color: var(--appearance-indicator-color, #ff9b9b);
 }
 
 .breathingLight.initializing {
@@ -179,7 +179,7 @@
 
 .breathingLight.initializing::before {
   animation: breatheInitializing 3.5s ease-in-out infinite;
-  background-color: rgba(248, 247, 240, 0.54);
+  background-color: var(--appearance-indicator-color, rgba(248, 247, 240, 0.54));
 }
 
 .breathingLight.calibrating {
@@ -188,7 +188,7 @@
 
 .breathingLight.calibrating::before {
   animation: breatheCalibrating 2s ease-in-out infinite;
-  background-color: #f2c46d;
+  background-color: var(--appearance-indicator-color, #f2c46d);
 }
 
 @keyframes pulse {

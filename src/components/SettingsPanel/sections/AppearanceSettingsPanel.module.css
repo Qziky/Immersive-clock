@@ -1,0 +1,101 @@
+.panel {
+  display: grid;
+  gap: var(--ui-space-4);
+  min-width: 0;
+}
+
+.editorLayout {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(180px, 220px) minmax(0, 1fr);
+}
+
+.componentList {
+  align-content: start;
+  display: grid;
+  gap: 4px;
+}
+
+.component,
+.componentActive {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--ui-radius-md);
+  color: var(--ui-color-text-muted);
+  cursor: pointer;
+  display: grid;
+  gap: 3px;
+  min-height: 52px;
+  padding: 9px 11px;
+  text-align: left;
+  width: 100%;
+}
+
+.component:hover,
+.componentActive {
+  background: var(--ui-color-accent-soft);
+  border-color: rgba(47, 236, 198, 0.2);
+  color: var(--ui-color-text);
+}
+
+.component strong {
+  font-size: 13px;
+}
+
+.component span,
+.componentActive span {
+  color: var(--ui-color-text-subtle);
+  font-size: 11px;
+}
+
+.editor {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+}
+
+.colorFields {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: minmax(72px, 0.35fr) minmax(0, 1fr);
+}
+
+.fontList {
+  display: grid;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.fontRow {
+  align-items: center;
+  border-top: 1px solid var(--ui-glass-border);
+  display: flex;
+  justify-content: space-between;
+  min-height: 44px;
+  padding-top: 6px;
+}
+
+@media (max-width: 760px) {
+  .editorLayout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .componentList {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+    overflow: visible;
+  }
+
+  .component,
+  .componentActive {
+    min-width: 0;
+  }
+
+  .editorGrid {
+    --ui-setting-columns: minmax(0, 1fr) !important;
+  }
+
+  .colorFields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

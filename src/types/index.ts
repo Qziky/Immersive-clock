@@ -163,18 +163,6 @@ export interface StudyState {
   countdownItems?: CountdownItem[];
   /** 轮播间隔（秒，仅多事件模式下使用） */
   carouselIntervalSec?: number;
-  /** 倒计时数字颜色（全局应用到天数字） */
-  digitColor?: string;
-  /** 倒计时数字透明度（0-1） */
-  digitOpacity?: number;
-  /** 数字字体家族（覆盖自习页面的 --font-main） */
-  numericFontFamily?: string;
-  /** 文本字体家族（覆盖自习页面的 --font-ui） */
-  textFontFamily?: string;
-  /** 中央时间颜色（覆盖自习页面默认主题色） */
-  timeColor?: string;
-  /** 中央日期颜色（覆盖自习页面默认主题色） */
-  dateColor?: string;
   /** 天气预警弹窗开关 */
   weatherAlertEnabled?: boolean;
   /** 分钟级降水提醒弹窗开关 */
@@ -341,12 +329,6 @@ export type AppAction =
   | { type: "SET_STUDY_DISPLAY"; payload: StudyDisplaySettings }
   | { type: "SET_COUNTDOWN_ITEMS"; payload: CountdownItem[] }
   | { type: "SET_CAROUSEL_INTERVAL"; payload: number }
-  | { type: "SET_COUNTDOWN_DIGIT_COLOR"; payload: string | undefined }
-  | { type: "SET_COUNTDOWN_DIGIT_OPACITY"; payload: number | undefined }
-  | { type: "SET_STUDY_NUMERIC_FONT"; payload: string | undefined }
-  | { type: "SET_STUDY_TEXT_FONT"; payload: string | undefined }
-  | { type: "SET_STUDY_TIME_COLOR"; payload: string | undefined }
-  | { type: "SET_STUDY_DATE_COLOR"; payload: string | undefined }
   | { type: "SET_WEATHER_ALERT_ENABLED"; payload: boolean }
   | { type: "SET_MINUTELY_PRECIP_ENABLED"; payload: boolean }
   | { type: "SET_ERROR_POPUP_ENABLED"; payload: boolean }

@@ -3,10 +3,11 @@
  */
 
 const DB_NAME = "immersive-clock-db";
-const DB_VERSION = 1;
-const STORE_NAME = "custom-fonts";
+const DB_VERSION = 2;
+const FONT_STORE_NAME = "custom-fonts";
+const APPEARANCE_ASSET_STORE_NAME = "appearance-assets";
 
-interface IDBWrapper {
+export interface IDBWrapper {
   get<T>(key: string): Promise<T | undefined>;
   set<T>(key: string, value: T): Promise<void>;
   getAll<T>(): Promise<T[]>;
@@ -27,9 +28,11 @@ function openDB(): Promise<IDBDatabase> {
 
     request.onupgradeneeded = (event) => {
       const db = (event.target as IDBOpenDBRequest).result;
-      if (!db.objectStoreNames.contains(STORE_NAME)) {
-        db.createObjectStore(STORE_NAME, { keyPath: "id" });
-      }
+      [FONT_STORE_NAME, APPEARANCE_ASSET_STORE_NAME].forEach((storeName) => {
+        if (!db.objectStoreNames.contains(storeName)) {
+          db.createObjectStore(storeName, { keyPath: "id" });
+        }
+      });
     };
 
     request.onsuccess = (event) => {
@@ -44,59 +47,64 @@ function openDB(): Promise<IDBDatabase> {
   return dbPromise;
 }
 
-export const db: IDBWrapper = {
-  async get<T>(key: string): Promise<T | undefined> {
-    const database = await openDB();
-    return new Promise((resolve, reject) => {
-      const transaction = database.transaction(STORE_NAME, "readonly");
-      const store = transaction.objectStore(STORE_NAME);
-      const request = store.get(key);
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error);
-    });
-  },
+function createStore(storeName: string): IDBWrapper {
+  return {
+    async get<T>(key: string): Promise<T | undefined> {
+      const database = await openDB();
+      return new Promise((resolve, reject) => {
+        const transaction = database.transaction(storeName, "readonly");
+        const store = transaction.objectStore(storeName);
+        const request = store.get(key);
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      });
+    },
 
-  async set<T>(key: string, value: T): Promise<void> {
-    const database = await openDB();
-    return new Promise((resolve, reject) => {
-      const transaction = database.transaction(STORE_NAME, "readwrite");
-      const store = transaction.objectStore(STORE_NAME);
-      const request = store.put(value);
-      request.onsuccess = () => resolve();
-      request.onerror = () => reject(request.error);
-    });
-  },
+    async set<T>(key: string, value: T): Promise<void> {
+      const database = await openDB();
+      return new Promise((resolve, reject) => {
+        const transaction = database.transaction(storeName, "readwrite");
+        const store = transaction.objectStore(storeName);
+        const request = store.put(value);
+        request.onsuccess = () => resolve();
+        request.onerror = () => reject(request.error);
+      });
+    },
 
-  async getAll<T>(): Promise<T[]> {
-    const database = await openDB();
-    return new Promise((resolve, reject) => {
-      const transaction = database.transaction(STORE_NAME, "readonly");
-      const store = transaction.objectStore(STORE_NAME);
-      const request = store.getAll();
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error);
-    });
-  },
+    async getAll<T>(): Promise<T[]> {
+      const database = await openDB();
+      return new Promise((resolve, reject) => {
+        const transaction = database.transaction(storeName, "readonly");
+        const store = transaction.objectStore(storeName);
+        const request = store.getAll();
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      });
+    },
 
-  async del(key: string): Promise<void> {
-    const database = await openDB();
-    return new Promise((resolve, reject) => {
-      const transaction = database.transaction(STORE_NAME, "readwrite");
-      const store = transaction.objectStore(STORE_NAME);
-      const request = store.delete(key);
-      request.onsuccess = () => resolve();
-      request.onerror = () => reject(request.error);
-    });
-  },
+    async del(key: string): Promise<void> {
+      const database = await openDB();
+      return new Promise((resolve, reject) => {
+        const transaction = database.transaction(storeName, "readwrite");
+        const store = transaction.objectStore(storeName);
+        const request = store.delete(key);
+        request.onsuccess = () => resolve();
+        request.onerror = () => reject(request.error);
+      });
+    },
 
-  async clear(): Promise<void> {
-    const database = await openDB();
-    return new Promise((resolve, reject) => {
-      const transaction = database.transaction(STORE_NAME, "readwrite");
-      const store = transaction.objectStore(STORE_NAME);
-      const request = store.clear();
-      request.onsuccess = () => resolve();
-      request.onerror = () => reject(request.error);
-    });
-  },
-};
+    async clear(): Promise<void> {
+      const database = await openDB();
+      return new Promise((resolve, reject) => {
+        const transaction = database.transaction(storeName, "readwrite");
+        const store = transaction.objectStore(storeName);
+        const request = store.clear();
+        request.onsuccess = () => resolve();
+        request.onerror = () => reject(request.error);
+      });
+    },
+  };
+}
+
+export const db = createStore(FONT_STORE_NAME);
+export const appearanceAssetDb = createStore(APPEARANCE_ASSET_STORE_NAME);

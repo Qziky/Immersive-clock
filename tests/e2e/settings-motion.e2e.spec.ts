@@ -72,22 +72,24 @@ test.describe("设置动效", () => {
     ).toContain("settingsReveal");
 
     const backgroundSection = dialog
-      .getByRole("heading", { name: "背景设置" })
+      .getByRole("heading", { name: "页面背景" })
       .locator("xpath=ancestor::section[1]");
+    const animatedSection = backgroundSection.locator("..");
     const firstSetting = dialog
-      .getByText("应用页面", { exact: true })
+      .getByText("背景类型", { exact: true })
+      .first()
       .locator("xpath=ancestor::*[@data-ui-motion-item][1]");
     await expect(backgroundSection).toBeVisible();
     await expect(firstSetting).toBeVisible();
 
     const headerDelay = await readAnimationDelay(animatedHeader);
-    const sectionDelay = await readAnimationDelay(backgroundSection);
+    const sectionDelay = await readAnimationDelay(animatedSection);
     const itemDelay = await readAnimationDelay(firstSetting);
     expect(headerDelay).toBeLessThan(sectionDelay);
     expect(sectionDelay).toBeLessThan(itemDelay);
 
-    await dialog.getByRole("radio", { name: "自定义纯色" }).check({ force: true });
-    const colorCode = dialog.getByLabel("颜色代码");
+    await dialog.getByRole("radio", { name: "纯色", exact: true }).check({ force: true });
+    const colorCode = dialog.getByLabel("背景颜色");
     await expect(colorCode).toBeVisible();
     await colorCode.fill("#123456");
     await expect(colorCode).toHaveValue("#123456");

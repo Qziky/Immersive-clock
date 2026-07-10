@@ -43,12 +43,6 @@ function loadStudyState(): StudyState {
     display: study.display,
     countdownItems: study.countdownItems,
     carouselIntervalSec: study.carouselIntervalSec,
-    digitColor: study.style.digitColor,
-    digitOpacity: study.style.digitOpacity,
-    numericFontFamily: study.style.numericFontFamily,
-    textFontFamily: study.style.textFontFamily,
-    timeColor: study.style.timeColor,
-    dateColor: study.style.dateColor,
     weatherAlertEnabled: study.alerts.weatherAlert,
     minutelyPrecipEnabled: study.alerts.minutelyPrecip,
     errorPopupEnabled: study.alerts.errorPopup,
@@ -61,34 +55,36 @@ function loadStudyState(): StudyState {
 /**
  * 应用初始状态
  */
-const initialState: AppState = {
-  mode: getStartupModeFromSettings(),
-  isHudVisible: false,
-  countdown: {
-    initialTime: 0,
-    currentTime: 0,
-    isActive: false,
-  },
-  stopwatch: {
-    elapsedTime: 0,
-    isActive: false,
-  },
-  study: loadStudyState(),
-  quoteChannels: loadQuoteChannelState(),
-  quoteSettings: loadQuoteSettingsState(),
-  announcement: {
-    isVisible: false,
-    activeTab: "announcement",
-    dontShowAgain: false,
-    lastShownTime: 0,
-  },
-  isModalOpen: false,
-};
+function createInitialState(): AppState {
+  return {
+    mode: getStartupModeFromSettings(),
+    isHudVisible: false,
+    countdown: {
+      initialTime: 0,
+      currentTime: 0,
+      isActive: false,
+    },
+    stopwatch: {
+      elapsedTime: 0,
+      isActive: false,
+    },
+    study: loadStudyState(),
+    quoteChannels: loadQuoteChannelState(),
+    quoteSettings: loadQuoteSettingsState(),
+    announcement: {
+      isVisible: false,
+      activeTab: "announcement",
+      dontShowAgain: false,
+      lastShownTime: 0,
+    },
+    isModalOpen: false,
+  };
+}
 
 /**
  * 导出用于测试的默认状态
  */
-export const getInitialState = (): AppState => initialState;
+export const getInitialState = (): AppState => createInitialState();
 
 /**
  * 应用状态减速器
@@ -309,121 +305,6 @@ function appReducer(state: AppState, action: AppAction): AppState {
       return {
         ...state,
         study: intervalUpdatedStudy,
-      };
-
-    case "SET_COUNTDOWN_DIGIT_COLOR":
-      const digitColorUpdatedStudy = {
-        ...state.study,
-        digitColor: action.payload,
-      };
-      updateAppSettings((current) => ({
-        study: {
-          ...current.study,
-          style: {
-            ...current.study.style,
-            digitColor: action.payload,
-          },
-        },
-      }));
-      return {
-        ...state,
-        study: digitColorUpdatedStudy,
-      };
-
-    case "SET_COUNTDOWN_DIGIT_OPACITY":
-      const digitOpacityUpdatedStudy = {
-        ...state.study,
-        digitOpacity:
-          typeof action.payload === "number" ? Math.max(0, Math.min(1, action.payload)) : 1,
-      };
-      updateAppSettings((current) => ({
-        study: {
-          ...current.study,
-          style: {
-            ...current.study.style,
-            digitOpacity: digitOpacityUpdatedStudy.digitOpacity,
-          },
-        },
-      }));
-      return {
-        ...state,
-        study: digitOpacityUpdatedStudy,
-      };
-
-    case "SET_STUDY_NUMERIC_FONT":
-      const numericFontUpdatedStudy = {
-        ...state.study,
-        numericFontFamily: action.payload || undefined,
-      };
-      updateAppSettings((current) => ({
-        study: {
-          ...current.study,
-          style: {
-            ...current.study.style,
-            numericFontFamily: action.payload || undefined,
-          },
-        },
-      }));
-      return {
-        ...state,
-        study: numericFontUpdatedStudy,
-      };
-
-    case "SET_STUDY_TEXT_FONT":
-      const textFontUpdatedStudy = {
-        ...state.study,
-        textFontFamily: action.payload || undefined,
-      };
-      updateAppSettings((current) => ({
-        study: {
-          ...current.study,
-          style: {
-            ...current.study.style,
-            textFontFamily: action.payload || undefined,
-          },
-        },
-      }));
-      return {
-        ...state,
-        study: textFontUpdatedStudy,
-      };
-
-    case "SET_STUDY_TIME_COLOR":
-      const timeColorUpdatedStudy = {
-        ...state.study,
-        timeColor: action.payload || undefined,
-      };
-      updateAppSettings((current) => ({
-        study: {
-          ...current.study,
-          style: {
-            ...current.study.style,
-            timeColor: action.payload || undefined,
-          },
-        },
-      }));
-      return {
-        ...state,
-        study: timeColorUpdatedStudy,
-      };
-
-    case "SET_STUDY_DATE_COLOR":
-      const dateColorUpdatedStudy = {
-        ...state.study,
-        dateColor: action.payload || undefined,
-      };
-      updateAppSettings((current) => ({
-        study: {
-          ...current.study,
-          style: {
-            ...current.study.style,
-            dateColor: action.payload || undefined,
-          },
-        },
-      }));
-      return {
-        ...state,
-        study: dateColorUpdatedStudy,
       };
 
     case "SET_WEATHER_ALERT_ENABLED":
@@ -730,7 +611,7 @@ interface AppContextProviderProps {
  * @param children 子组件
  */
 export function AppContextProvider({ children }: AppContextProviderProps) {
-  const [state, dispatch] = useReducer(appReducer, initialState);
+  const [state, dispatch] = useReducer(appReducer, undefined, createInitialState);
 
   return (
     <AppStateContext.Provider value={state}>

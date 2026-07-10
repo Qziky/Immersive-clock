@@ -19,6 +19,9 @@
 
 - **设置/持久化**
   - AppSettings 深合并与局部更新：[appSettings.test.ts](file:///d:/Desktop/Immersive-clock/src/utils/__tests__/appSettings.test.ts) → [appSettings.ts](file:///d:/Desktop/Immersive-clock/src/utils/appSettings.ts)
+  - 外观默认值、继承优先级、v1 迁移、非法值规范化与 CSS 编译：`src/utils/__tests__/appearanceModel.test.ts` → `src/utils/appearanceModel.ts`
+  - 外观实时预览、取消回滚与单次持久化提交：`src/contexts/__tests__/AppearanceContext.test.tsx` → `src/contexts/AppearanceContext.tsx`
+  - 组件草稿、倒计时实例覆盖与刷新持久化：`tests/e2e/settings-persistence.e2e.spec.ts`
   - 启动初始化与通用 legacy 键清理：[storageInitializer.legacyCleanup.test.ts](file:///d:/Desktop/Immersive-clock/src/utils/__tests__/storageInitializer.legacyCleanup.test.ts) → [storageInitializer.ts](file:///d:/Desktop/Immersive-clock/src/utils/storageInitializer.ts)
   - 课程表时间解析、排序、重叠校验与智能新增：[studyScheduleValidation.test.ts](file:///d:/Desktop/Immersive-clock/src/utils/__tests__/studyScheduleValidation.test.ts) → [studyScheduleValidation.ts](file:///d:/Desktop/Immersive-clock/src/utils/studyScheduleValidation.ts)
   - legacy 课程表迁移、已保存课表保护与旧键清理：[storageInitializer.studyScheduleMigration.test.ts](file:///d:/Desktop/Immersive-clock/src/utils/__tests__/storageInitializer.studyScheduleMigration.test.ts) → [storageInitializer.ts](file:///d:/Desktop/Immersive-clock/src/utils/storageInitializer.ts)

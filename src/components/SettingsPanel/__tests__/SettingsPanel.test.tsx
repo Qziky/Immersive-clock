@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { AppContextProvider } from "../../../contexts/AppContext";
+import { AppearanceProvider } from "../../../contexts/AppearanceContext";
 import { FeedbackProvider } from "../../../ui";
 import { SettingsPanel } from "../SettingsPanel";
 
@@ -32,6 +33,12 @@ vi.mock("../sections/BasicSettingsPanel", () => ({
         />
       </div>
     );
+  },
+}));
+
+vi.mock("../sections/AppearanceSettingsPanel", () => ({
+  AppearanceSettingsPanel: function AppearanceSettingsPanelMock({ section }: { section: string }) {
+    return <div data-testid="appearance-panel" data-section={section} />;
   },
 }));
 
@@ -90,9 +97,11 @@ vi.mock("../sections/AboutSettingsPanel", () => ({
 function renderSettings(onClose = vi.fn()) {
   render(
     <AppContextProvider>
-      <FeedbackProvider>
-        <SettingsPanel isOpen onClose={onClose} />
-      </FeedbackProvider>
+      <AppearanceProvider>
+        <FeedbackProvider>
+          <SettingsPanel isOpen onClose={onClose} />
+        </FeedbackProvider>
+      </AppearanceProvider>
     </AppContextProvider>
   );
   return onClose;
@@ -223,7 +232,7 @@ describe("SettingsPanel", () => {
     expect(screen.getByLabelText("课程草稿")).toHaveValue("晚间自习");
 
     fireEvent.click(navigation.getByRole("button", { name: /视觉外观/ }));
-    expect(screen.getByTestId("basic-panel")).toHaveAttribute("data-section", "fonts");
+    expect(screen.getByTestId("appearance-panel")).toHaveAttribute("data-section", "fonts");
   });
 
   it("统一保存会提交所有已挂载设置面板", () => {
@@ -257,9 +266,11 @@ describe("SettingsPanel", () => {
   it("退出动画期间重新打开会重置基础设置和课程表草稿", () => {
     render(
       <AppContextProvider>
-        <FeedbackProvider>
-          <ReopenSettingsHarness />
-        </FeedbackProvider>
+        <AppearanceProvider>
+          <FeedbackProvider>
+            <ReopenSettingsHarness />
+          </FeedbackProvider>
+        </AppearanceProvider>
       </AppContextProvider>
     );
 
@@ -281,9 +292,11 @@ describe("SettingsPanel", () => {
     vi.useFakeTimers();
     render(
       <AppContextProvider>
-        <FeedbackProvider>
-          <ReopenSettingsHarness />
-        </FeedbackProvider>
+        <AppearanceProvider>
+          <FeedbackProvider>
+            <ReopenSettingsHarness />
+          </FeedbackProvider>
+        </AppearanceProvider>
       </AppContextProvider>
     );
 

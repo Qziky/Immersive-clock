@@ -3,6 +3,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import {
   APP_SETTINGS_KEY,
   getAppSettings,
+  migrateStoredAppSettings,
   updateTimeSyncSettings,
   updateStudySettings,
 } from "../appSettings";
@@ -195,5 +196,27 @@ describe("appSettings", () => {
     });
 
     expect(getAppSettings().general.background).toEqual({ type: "black" });
+  });
+
+  it("会把 v1 外观显式迁移并保留旧 standalone 样式键", () => {
+    localStorage.setItem(
+      APP_SETTINGS_KEY,
+      JSON.stringify({
+        version: 1,
+        general: { background: { type: "dark" } },
+        study: { background: { type: "black" }, style: {} },
+      })
+    );
+    localStorage.setItem("study-digit-color", "#12abef");
+    localStorage.setItem("study-digit-opacity", "0.45");
+
+    const migrated = migrateStoredAppSettings();
+
+    expect(migrated.version).toBe(2);
+    expect(migrated.appearance.scenes.study.components.studyCountdown?.slots?.digit).toEqual({
+      color: "#12abef",
+      opacity: 0.45,
+    });
+    expect(JSON.parse(localStorage.getItem(APP_SETTINGS_KEY) ?? "{}").version).toBe(2);
   });
 });

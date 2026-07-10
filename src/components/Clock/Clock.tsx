@@ -1,5 +1,6 @@
 import React, { useState, useCallback } from "react";
 
+import { useComponentAppearance } from "../../contexts/AppearanceContext";
 import { useTimer } from "../../hooks/useTimer";
 import { formatClock } from "../../utils/formatTime";
 import { getAdjustedDate } from "../../utils/timeSync";
@@ -30,13 +31,20 @@ export function Clock() {
     day: "numeric",
     weekday: "long",
   });
+  const timeAppearance = useComponentAppearance("clock", "time");
+  const dateAppearance = useComponentAppearance("clock", "date");
 
   return (
     <div className={styles.clock}>
-      <div className={styles.time} aria-live="polite" aria-label={`当前时间：${timeString}`}>
+      <div
+        className={styles.time}
+        style={timeAppearance}
+        aria-live="polite"
+        aria-label={`当前时间：${timeString}`}
+      >
         {timeString}
       </div>
-      <div className={styles.date} aria-label={`当前日期：${dateString}`}>
+      <div className={styles.date} style={dateAppearance} aria-label={`当前日期：${dateString}`}>
         {dateString}
       </div>
     </div>

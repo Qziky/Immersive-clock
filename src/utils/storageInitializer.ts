@@ -1,4 +1,9 @@
-import { getAppSettings, resetAppSettings, updateStudySettings } from "./appSettings";
+import {
+  getAppSettings,
+  migrateStoredAppSettings,
+  resetAppSettings,
+  updateStudySettings,
+} from "./appSettings";
 import { logger } from "./logger";
 
 const LEGACY_KEYS = [
@@ -117,6 +122,9 @@ export function initializeStorage() {
     logger.info("AppSettings not found. Creating default settings...");
     resetAppSettings();
   }
+
+  // Normalize and persist the versioned structure before removing legacy keys.
+  migrateStoredAppSettings();
 
   // 2. 迁移：旧课程表键 -> AppSettings（避免被 legacy 清理误删）
   if (!explicitScheduleExists) {

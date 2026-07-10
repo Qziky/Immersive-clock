@@ -28,7 +28,8 @@ import {
   Switch as FormSwitch,
   useFeedback,
 } from "../../../ui";
-import { APP_SETTINGS_KEY, getAppSettings } from "../../../utils/appSettings";
+import { clearAppearanceAssets } from "../../../utils/appearanceAssets";
+import { exportSettingsBundle, importSettingsBundle } from "../../../utils/appearanceSettings";
 import {
   clearErrorCenter,
   ErrorCenterMode,
@@ -117,11 +118,11 @@ const AboutSettingsPanel: React.FC<AboutSettingsPanelProps> = ({ onRegisterSave,
   /**
    * 导出设置
    */
-  const handleExportSettings = useCallback(() => {
+  const handleExportSettings = useCallback(async () => {
     try {
       setNotice("");
-      const settings = getAppSettings();
-      const blob = new Blob([JSON.stringify(settings, null, 2)], { type: "application/json" });
+      const bundle = await exportSettingsBundle();
+      const blob = new Blob([JSON.stringify(bundle, null, 2)], { type: "application/json" });
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
@@ -181,7 +182,7 @@ const AboutSettingsPanel: React.FC<AboutSettingsPanelProps> = ({ onRegisterSave,
           });
           if (!ok) return;
 
-          localStorage.setItem(APP_SETTINGS_KEY, JSON.stringify(importedSettings));
+          await importSettingsBundle(importedSettings);
           notify({
             variant: "success",
             title: "设置导入成功",
@@ -221,7 +222,7 @@ const AboutSettingsPanel: React.FC<AboutSettingsPanelProps> = ({ onRegisterSave,
     if (!ok) return;
     try {
       setNotice("");
-      // 直接清空 localStorage，覆盖项目内所有键
+      await clearAppearanceAssets();
       localStorage.clear();
       notify({
         variant: "success",

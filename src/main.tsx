@@ -5,9 +5,12 @@ import { BrowserRouter } from "react-router-dom";
 
 import { App } from "./App";
 import { AppContextProvider } from "./contexts/AppContext";
+import { AppearanceProvider } from "./contexts/AppearanceContext";
 import { FeedbackProvider } from "./ui";
+import { initializeAppearanceResources } from "./utils/appearanceSettings";
 import { getAppSettings } from "./utils/appSettings";
 import { initErrorCenterGlobalCapture, setErrorCenterMode } from "./utils/errorCenter";
+import { logger } from "./utils/logger";
 import { initializeStorage } from "./utils/storageInitializer";
 
 import "./styles/global.css";
@@ -28,44 +31,41 @@ function initAnalytics(): void {
   Clarity.init(clarityProjectId);
 }
 
-initAnalytics();
+async function bootstrap(): Promise<void> {
+  initAnalytics();
+  initializeStorage();
+  await initializeAppearanceResources();
+  setErrorCenterMode(getAppSettings().study.alerts.errorCenterMode);
+  initErrorCenterGlobalCapture();
 
-// 在应用启动前初始化本地存储
-initializeStorage();
-setErrorCenterMode(getAppSettings().study.alerts.errorCenterMode);
-initErrorCenterGlobalCapture();
+  const root = ReactDOM.createRoot(document.getElementById("root") as HTMLElement);
+  root.render(
+    <React.StrictMode>
+      <BrowserRouter>
+        <AppContextProvider>
+          <AppearanceProvider>
+            <FeedbackProvider>
+              <App />
+            </FeedbackProvider>
+          </AppearanceProvider>
+        </AppContextProvider>
+      </BrowserRouter>
+    </React.StrictMode>
+  );
+  window.setTimeout(() => {
+    const loadingScreen = document.getElementById("loading-screen");
+    if (loadingScreen) requestAnimationFrame(() => loadingScreen.remove());
+  }, 200);
+}
 
-/**
- * 应用程序入口点
- * 设置React根节点，包装应用程序的提供者和路由
- */
-const root = ReactDOM.createRoot(document.getElementById("root") as HTMLElement);
-
-root.render(
-  <React.StrictMode>
-    <BrowserRouter>
-      <AppContextProvider>
-        <FeedbackProvider>
-          <App />
-        </FeedbackProvider>
-      </AppContextProvider>
-    </BrowserRouter>
-  </React.StrictMode>
-);
-
-/**
- * 隐藏加载动画
- * 在React应用渲染完成后执行
- */
-setTimeout(() => {
+void bootstrap().catch((error) => {
+  logger.error("Application bootstrap failed", error);
   const loadingScreen = document.getElementById("loading-screen");
   if (loadingScreen) {
-    // 确保DOM完全渲染后再隐藏加载动画
-    requestAnimationFrame(() => {
-      loadingScreen.remove();
-    });
+    loadingScreen.textContent =
+      error instanceof Error ? `应用无法启动：${error.message}` : "应用无法启动，请刷新后重试。";
   }
-}, 200);
+});
 
 // 注册 Service Worker（仅在 Web 模式下）
 // @ts-ignore

@@ -26,6 +26,11 @@ Immersive Clock 是一个单页 React 应用，同时支持 Web/PWA 和 Electron
 3. reducer 更新内存状态；涉及持久化的设置同步写入本地存储。
 4. 页面容器和功能组件根据新状态重新渲染。
 
+组件外观由独立的 `AppearanceProvider` 管理。已保存配置与设置面板草稿分离，编辑期间由
+草稿驱动实时预览，保存时才一次性写入版本化的 `AppSettings.appearance`。外观解析按
+全局、页面、组件、状态和实例逐层覆盖；图片与字体二进制存入 IndexedDB，设置中只保留
+稳定资源 ID。
+
 倒计时和秒表的实时刷新尽量在组件或 hook 中局部处理，避免把高频 tick 全部压到全局
 reducer。时间同步由 `src/utils/timeSync.ts` 管理，主页面挂载后启动。
 

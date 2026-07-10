@@ -4,6 +4,7 @@ import { MemoryRouter } from "react-router-dom";
 import { describe, it, expect, afterEach, vi } from "vitest";
 
 import { AppContextProvider } from "../../../contexts/AppContext";
+import { AppearanceProvider } from "../../../contexts/AppearanceContext";
 import { FeedbackProvider } from "../../../ui";
 import { ClockPage } from "../ClockPage";
 
@@ -71,9 +72,11 @@ describe("HUD 自动隐藏", () => {
     render(
       <MemoryRouter>
         <AppContextProvider>
-          <FeedbackProvider>
-            <ClockPage />
-          </FeedbackProvider>
+          <AppearanceProvider>
+            <FeedbackProvider>
+              <ClockPage />
+            </FeedbackProvider>
+          </AppearanceProvider>
         </AppContextProvider>
       </MemoryRouter>
     );

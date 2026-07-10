@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 
 import { COUNTDOWN_REFRESH_MS } from "../../constants/timer";
 import { useAppState, useAppDispatch } from "../../contexts/AppContext";
+import { useComponentAppearance } from "../../contexts/AppearanceContext";
 import { useAudio } from "../../hooks/useAudio";
 import { useTimer } from "../../hooks/useTimer";
 import { formatTimer } from "../../utils/formatTime";
@@ -155,6 +156,14 @@ export function Countdown() {
   const timeString = formatTimer(displayTime);
   const isWarning = displayTime <= 10 && displayTime > 0;
   const isFinished = displayTime === 0 && countdown.initialTime > 0;
+  const appearanceState = isFinished ? "finished" : isWarning ? "warning" : undefined;
+  const timeAppearance = useComponentAppearance("countdown", "time", {
+    state: appearanceState,
+  });
+  const placeholderAppearance = useComponentAppearance("countdown", "placeholder");
+  const finishedAppearance = useComponentAppearance("countdown", "finishedMessage", {
+    state: "finished",
+  });
 
   return (
     <div className={styles.countdown}>
@@ -170,18 +179,22 @@ export function Countdown() {
         tabIndex={0}
         aria-label={`倒计时时间：${timeString}。双击或双触设置倒计时时间`}
         aria-live="polite"
-        style={{
-          touchAction: "manipulation",
-        }}
+        style={{ ...timeAppearance, touchAction: "manipulation" }}
       >
         {countdown.currentTime === 0 && countdown.initialTime === 0 ? (
-          <span className={styles.placeholder}>00:00:00</span>
+          <span className={styles.placeholder} style={placeholderAppearance}>
+            00:00:00
+          </span>
         ) : (
           timeString
         )}
       </div>
 
-      {isFinished && <div className={styles.finishedMessage}>时间到</div>}
+      {isFinished && (
+        <div className={styles.finishedMessage} style={finishedAppearance}>
+          时间到
+        </div>
+      )}
     </div>
   );
 }

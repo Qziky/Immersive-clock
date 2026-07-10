@@ -1,13 +1,13 @@
 import React, { useState, useCallback, useEffect, useRef, useMemo } from "react";
 
 import { useAppState } from "../../contexts/AppContext";
+import { useAppearance, useComponentAppearance } from "../../contexts/AppearanceContext";
 import { useTimer } from "../../hooks/useTimer";
 import { CountdownItem } from "../../types";
 import { DEFAULT_SCHEDULE, StudyPeriod } from "../../types/studySchedule";
+import { appearanceBackgroundToCss } from "../../utils/appearanceModel";
 import { formatClock } from "../../utils/formatTime";
 import { getAutoPopupSetting } from "../../utils/noiseReportSettings";
-import { readStudyBackground } from "../../utils/studyBackgroundStorage";
-import { ensureInjectedFonts } from "../../utils/studyFontStorage";
 import { readStudySchedule } from "../../utils/studyScheduleStorage";
 import { getAdjustedDate } from "../../utils/timeSync";
 import { MotivationalQuote } from "../MotivationalQuote";
@@ -19,46 +19,13 @@ import { Weather } from "../Weather";
 
 import styles from "./Study.module.css";
 
-// 颜色工具：#rrggbb/#rgb 转 rgba(r,g,b,a)
-function hexToRgba(hex: string, alpha: number = 1): string {
-  if (!hex) return hex;
-  const h = hex.trim();
-  const clampA = Math.max(0, Math.min(1, alpha));
-  const short = /^#([A-Fa-f0-9]{3})$/;
-  const long = /^#([A-Fa-f0-9]{6})$/;
-  if (short.test(h)) {
-    const m = h.match(short)!;
-    const r = parseInt(m[1][0] + m[1][0], 16);
-    const g = parseInt(m[1][1] + m[1][1], 16);
-    const b = parseInt(m[1][2] + m[1][2], 16);
-    return `rgba(${r}, ${g}, ${b}, ${clampA})`;
-  }
-  if (long.test(h)) {
-    const m = h.match(long)!;
-    const r = parseInt(m[1].slice(0, 2), 16);
-    const g = parseInt(m[1].slice(2, 4), 16);
-    const b = parseInt(m[1].slice(4, 6), 16);
-    return `rgba(${r}, ${g}, ${b}, ${clampA})`;
-  }
-  // 对 rgb(...) 直接加透明度
-  const rgb = /^rgb\s*\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*\)$/;
-  const rm = h.match(rgb);
-  if (rm) {
-    const r = Math.max(0, Math.min(255, parseInt(rm[1], 10)));
-    const g = Math.max(0, Math.min(255, parseInt(rm[2], 10)));
-    const b = Math.max(0, Math.min(255, parseInt(rm[3], 10)));
-    return `rgba(${r}, ${g}, ${b}, ${clampA})`;
-  }
-  // 若已是 rgba(...) 或其他格式，则原样返回
-  return h;
-}
-
 /**
  * 自习组件
  * 显示当前时间和倒计时轮播
  */
 export function Study() {
   const { study } = useAppState();
+  const { activeAppearance, getBackgroundImage, resolveStyle } = useAppearance();
   const [currentTime, setCurrentTime] = useState<Date>(getAdjustedDate());
   const [reportOpen, setReportOpen] = useState(false);
   const [reportPeriod, setReportPeriod] = useState<NoiseReportPeriod | null>(null);
@@ -68,9 +35,6 @@ export function Study() {
   // 记录当前课时是否已弹出过报告，以及是否被手动关闭以避免重复弹出
   const lastPopupPeriodIdRef = useRef<string | null>(null);
   const dismissedPeriodIdRef = useRef<string | null>(null);
-
-  // 背景设置
-  const [backgroundSettings, setBackgroundSettings] = useState(readStudyBackground());
 
   // 轮播：容器与尺寸测量
   const countdownRef = useRef<HTMLDivElement | null>(null);
@@ -91,25 +55,6 @@ export function Study() {
   useEffect(() => {
     updateTime();
   }, [updateTime]);
-
-  // 监听背景设置更新事件
-  useEffect(() => {
-    const handler = () => setBackgroundSettings(readStudyBackground());
-    window.addEventListener("study-background-updated", handler as EventListener);
-    return () => window.removeEventListener("study-background-updated", handler as EventListener);
-  }, []);
-
-  /**
-   * 注入已导入字体（函数级注释：组件挂载时确保本地导入的字体已通过 @font-face 注入到页面）
-   */
-  useEffect(() => {
-    ensureInjectedFonts().catch(console.error);
-    const onFontsUpdated = () => {
-      ensureInjectedFonts().catch(console.error);
-    };
-    window.addEventListener("study-fonts-updated", onFontsUpdated as EventListener);
-    return () => window.removeEventListener("study-fonts-updated", onFontsUpdated as EventListener);
-  }, []);
 
   // 自动在本节课结束前1分钟弹出统计报告（不自动关闭；若手动关闭则在该课时结束前不再弹出）
   useEffect(() => {
@@ -298,38 +243,12 @@ export function Study() {
     return () => clearInterval(timer);
   }, [countdownItems.length, study.carouselIntervalSec]);
 
-  // 背景样式
-  const backgroundStyle: React.CSSProperties = (() => {
-    const style: React.CSSProperties = {};
-    if (backgroundSettings?.type === "image" && backgroundSettings.imageDataUrl) {
-      style.backgroundImage = `url(${backgroundSettings.imageDataUrl})`;
-      style.backgroundSize = "cover";
-      style.backgroundPosition = "center";
-      style.backgroundRepeat = "no-repeat";
-    } else if (backgroundSettings?.type === "color" && backgroundSettings.color) {
-      style.backgroundImage = "none";
-      const a =
-        typeof backgroundSettings.colorAlpha === "number" ? backgroundSettings.colorAlpha : 1;
-      style.backgroundColor = hexToRgba(backgroundSettings.color, a);
-    }
-    return style;
-  })();
-
-  /** 构造容器样式（函数级注释：合并背景样式并按自习设置覆盖 CSS 字体变量，确保数字与文本分别使用对应的字体家族） */
-  type ContainerStyle = React.CSSProperties & {
-    ["--font-main"]?: string;
-    ["--font-ui"]?: string;
-  };
-  const containerStyle: ContainerStyle = (() => {
-    const style: ContainerStyle = { ...(backgroundStyle as React.CSSProperties) };
-    if (study.numericFontFamily && study.numericFontFamily.trim().length > 0) {
-      style["--font-main"] = study.numericFontFamily;
-    }
-    if (study.textFontFamily && study.textFontFamily.trim().length > 0) {
-      style["--font-ui"] = study.textFontFamily;
-    }
-    return style;
-  })();
+  const backgroundSettings = activeAppearance.scenes.study.background;
+  const containerStyle = appearanceBackgroundToCss(backgroundSettings, getBackgroundImage("study"));
+  const topDockAppearance = useComponentAppearance("studyTopDock", "surface");
+  const primaryTimeAppearance = useComponentAppearance("studyTime", "primary");
+  const secondsAppearance = useComponentAppearance("studyTime", "seconds");
+  const dateAppearance = useComponentAppearance("studyTime", "date");
 
   // 手动关闭报告：记录当前课时的关闭标记，避免在窗口内重复弹出
   const handleCloseReport = useCallback(() => {
@@ -383,37 +302,32 @@ export function Study() {
     } else {
       nameText = item.name && item.name.trim().length > 0 ? item.name!.trim() : "自定义事件";
     }
-    const textCol = item.textColor
-      ? hexToRgba(item.textColor, typeof item.textOpacity === "number" ? item.textOpacity : 1)
-      : undefined;
-    const bgCol = item.bgColor
-      ? hexToRgba(item.bgColor, typeof item.bgOpacity === "number" ? item.bgOpacity : 0)
-      : undefined;
-    const digitBaseColor = item.digitColor ?? study.digitColor;
-    const digitAlpha =
-      typeof item.digitOpacity === "number"
-        ? item.digitOpacity
-        : typeof study.digitOpacity === "number"
-          ? study.digitOpacity
-          : 1;
-    const digitCol = digitBaseColor ? hexToRgba(digitBaseColor, digitAlpha) : undefined;
+    const labelAppearance = resolveStyle("studyCountdown", "label", "text", {
+      instanceId: item.id,
+    });
+    const digitAppearance = resolveStyle("studyCountdown", "digit", "numeric", {
+      instanceId: item.id,
+    });
+    const unitAppearance = resolveStyle("studyCountdown", "unit", "text", {
+      instanceId: item.id,
+    });
+    const itemAppearance = resolveStyle("studyCountdown", "surface", "surface", {
+      instanceId: item.id,
+    });
     return (
-      <div
-        key={item.id}
-        className={styles.carouselItem}
-        style={{
-          color: textCol,
-          backgroundColor: bgCol,
-          borderRadius: item.bgColor ? 6 : undefined,
-          padding: item.bgColor ? "0 8px" : undefined,
-        }}
-      >
-        <span className={styles.countdownPrefix}>距离{nameText}</span>
-        <span className={styles.countdownOnly}>仅</span>
-        <span className={styles.days} style={{ color: digitCol }}>
+      <div key={item.id} className={styles.carouselItem} style={itemAppearance}>
+        <span className={styles.countdownPrefix} style={labelAppearance}>
+          距离{nameText}
+        </span>
+        <span className={styles.countdownOnly} style={labelAppearance}>
+          仅
+        </span>
+        <span className={styles.days} style={digitAppearance}>
           {days}
         </span>
-        <span className={styles.countdownUnit}>天</span>
+        <span className={styles.countdownUnit} style={unitAppearance}>
+          天
+        </span>
       </div>
     );
   };
@@ -426,7 +340,7 @@ export function Study() {
     >
       {/* 顶部：环境、课时与倒计时共用一条状态栏。 */}
       {(display.showStatusBar || display.showNoiseMonitor || display.showCountdown) && (
-        <div className={styles.topDock}>
+        <div className={styles.topDock} style={topDockAppearance}>
           {(display.showStatusBar || display.showNoiseMonitor) && (
             <div className={styles.auxDock}>
               {display.showStatusBar && (
@@ -466,19 +380,16 @@ export function Study() {
 
       {/* 居中：时间始终显示，日期可隐藏 */}
       <div className={styles.centerTime}>
-        <div
-          className={styles.currentTime}
-          style={study.timeColor ? { color: study.timeColor } : undefined}
-          aria-label={`当前时间：${timeString}`}
-        >
-          <span className={styles.timePrimary}>{primaryTime}</span>
-          <span className={styles.timeSeconds}>:{seconds}</span>
+        <div className={styles.currentTime} aria-label={`当前时间：${timeString}`}>
+          <span className={styles.timePrimary} style={primaryTimeAppearance}>
+            {primaryTime}
+          </span>
+          <span className={styles.timeSeconds} style={secondsAppearance}>
+            :{seconds}
+          </span>
         </div>
         {display.showDate && (
-          <div
-            className={styles.currentDate}
-            style={study.dateColor ? { color: study.dateColor } : undefined}
-          >
+          <div className={styles.currentDate} style={dateAppearance}>
             {dateString}
           </div>
         )}

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 
 import { useAppState, useAppDispatch } from "../../contexts/AppContext";
+import { useComponentAppearance } from "../../contexts/AppearanceContext";
 import { httpGetJson } from "../../services/httpClient";
 import { QuoteSourceConfig, HitokotoResponse } from "../../types";
 import { logger } from "../../utils/logger";
@@ -28,6 +29,8 @@ export function MotivationalQuote() {
   const fallbackSourcesRef = useRef<QuoteSourceConfig[] | null>(null);
   const [fallbackSourcesLoaded, setFallbackSourcesLoaded] = useState(false);
   const onlineQuotePoolRef = useRef<Record<string, string[]>>({});
+  const textAppearance = useComponentAppearance("studyQuote", "text");
+  const cursorAppearance = useComponentAppearance("studyQuote", "cursor");
 
   /**
    * 动态加载备用数据源
@@ -341,10 +344,14 @@ export function MotivationalQuote() {
       tabIndex={0}
       aria-label="励志语录，点击刷新"
     >
-      <div className={`${styles.quoteText} ${isTyping ? styles.typing : ""}`} aria-live="polite">
+      <div
+        className={`${styles.quoteText} ${isTyping ? styles.typing : ""}`}
+        style={textAppearance}
+        aria-live="polite"
+      >
         {isTyping ? displayText : currentQuote}
         {isTyping && (
-          <span className={styles.cursor} aria-hidden="true">
+          <span className={styles.cursor} style={cursorAppearance} aria-hidden="true">
             |
           </span>
         )}

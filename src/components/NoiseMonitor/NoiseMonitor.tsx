@@ -1,6 +1,7 @@
-import React, { useCallback, useEffect, useMemo, useRef } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, type CSSProperties } from "react";
 
 import { useAppState } from "../../contexts/AppContext";
+import { useComponentAppearance } from "../../contexts/AppearanceContext";
 import { useAudio } from "../../hooks/useAudio";
 import { useNoiseStream } from "../../hooks/useNoiseStream";
 import { pushErrorCenterRecord } from "../../utils/errorCenter";
@@ -21,6 +22,26 @@ const NoiseMonitor: React.FC<NoiseMonitorProps> = ({ onBreathingLightClick, onSt
   const { status, realtimeDisplayDb, maxLevelDb, showRealtimeDb, alertSoundEnabled, retry } =
     useNoiseStream();
   const { study } = useAppState();
+  const appearanceState =
+    status === "permission-denied" || status === "error"
+      ? "error"
+      : status === "initializing"
+        ? "calibrating"
+        : status;
+  const statusAppearance = useComponentAppearance("studyNoise", "status", {
+    state: appearanceState,
+  });
+  const subtextAppearance = useComponentAppearance("studyNoise", "subtext", {
+    state: appearanceState,
+  });
+  const indicatorAppearance = useComponentAppearance("studyNoise", "indicator", {
+    kind: "icon",
+    state: appearanceState,
+  });
+  const indicatorStyle = {
+    ...indicatorAppearance,
+    "--appearance-indicator-color": indicatorAppearance.color,
+  } as CSSProperties;
 
   const [playNoisyAlert] = useAudio("/ding-2.mp3");
   const playNoisyAlertRef = useRef<(() => void) | null>(playNoisyAlert);
@@ -184,6 +205,7 @@ const NoiseMonitor: React.FC<NoiseMonitorProps> = ({ onBreathingLightClick, onSt
         <button
           type="button"
           className={`${styles.breathingLight} ${statusClassName}`}
+          style={indicatorStyle}
           onClick={handleBreathingLightClick}
           title={breathingLightTooltip}
           aria-label={breathingLightTooltip}
@@ -192,13 +214,14 @@ const NoiseMonitor: React.FC<NoiseMonitorProps> = ({ onBreathingLightClick, onSt
         <div className={styles.textBlock}>
           <div
             className={`${styles.statusText} ${statusClassName}`}
+            style={statusAppearance}
             onClick={handleStatusTextClick}
             title={statusTextTooltip}
           >
             {statusText}
           </div>
           {showRealtimeDb && (status === "quiet" || status === "noisy") && (
-            <div className={styles.statusSubtext} aria-live="polite">
+            <div className={styles.statusSubtext} style={subtextAppearance} aria-live="polite">
               {realtimeDisplayDb.toFixed(0)} dB
             </div>
           )}

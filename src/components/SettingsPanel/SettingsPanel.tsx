@@ -27,12 +27,17 @@ import {
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 
 import { useAppDispatch, useAppState } from "../../contexts/AppContext";
+import { useAppearance } from "../../contexts/AppearanceContext";
 import { Button, IconButton, Modal, useFeedback } from "../../ui";
 import { usePresence } from "../../ui/utils/usePresence";
 import { logger } from "../../utils/logger";
 import { broadcastSettingsEvent, SETTINGS_EVENTS } from "../../utils/settingsEvents";
 
 import AboutSettingsPanel, { type AboutSettingsSection } from "./sections/AboutSettingsPanel";
+import {
+  AppearanceSettingsPanel,
+  type AppearanceSettingsSection,
+} from "./sections/AppearanceSettingsPanel";
 import BasicSettingsPanel, { type BasicSettingsSection } from "./sections/BasicSettingsPanel";
 import ContentSettingsPanel, { type ContentSettingsSection } from "./sections/ContentSettingsPanel";
 import StudySettingsPanel, { type StudySettingsSection } from "./sections/StudySettingsPanel";
@@ -71,6 +76,15 @@ type SettingsPane =
       icon: React.ReactNode;
       panel: "basic";
       section: BasicSettingsSection;
+    }
+  | {
+      value: SettingsPaneId;
+      group: "appearance";
+      label: string;
+      description: string;
+      icon: React.ReactNode;
+      panel: "appearance";
+      section: AppearanceSettingsSection;
     }
   | {
       value: SettingsPaneId;
@@ -198,28 +212,28 @@ const paneItems: SettingsPane[] = [
   {
     value: "colors",
     group: "appearance",
-    label: "时间颜色",
-    description: "调整中央时间和日期颜色。",
+    label: "组件样式",
+    description: "逐组件调整文字、颜色、表面与状态。",
     icon: <Brush size={20} aria-hidden="true" />,
-    panel: "basic",
-    section: "colors",
+    panel: "appearance",
+    section: "components",
   },
   {
     value: "fonts",
     group: "appearance",
     label: "字体",
-    description: "设置数字字体、文本字体和本地字体导入。",
+    description: "设置全局字体并管理本地导入字体。",
     icon: <Type size={20} aria-hidden="true" />,
-    panel: "basic",
+    panel: "appearance",
     section: "fonts",
   },
   {
     value: "background",
     group: "appearance",
     label: "背景",
-    description: "分别设置普通页面与自习页面的背景。",
+    description: "分别设置四个内容页面的背景。",
     icon: <ImageIcon size={20} aria-hidden="true" />,
-    panel: "basic",
+    panel: "appearance",
     section: "background",
   },
   {
@@ -356,6 +370,7 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
   const { study } = useAppState();
   const dispatch = useAppDispatch();
   const { notify } = useFeedback();
+  const { cancelAppearancePreview, commitAppearanceDraft } = useAppearance();
 
   const [activeGroup, setActiveGroup] = useState<SettingsPrimaryGroup>("workspace");
   const [expandedGroup, setExpandedGroup] = useState<SettingsPrimaryGroup | null>("workspace");
@@ -412,14 +427,16 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
 
   const handleClose = useCallback(() => {
     try {
+      cancelAppearancePreview();
       broadcastSettingsEvent(SETTINGS_EVENTS.SettingsPanelClosed);
     } finally {
       onClose();
     }
-  }, [onClose]);
+  }, [cancelAppearancePreview, onClose]);
 
   const handleSaveAll = useCallback(() => {
     try {
+      if (visitedPanels.has("appearance")) commitAppearanceDraft();
       basicSaveRef.current?.();
       if (visitedPanels.has("weather")) weatherSaveRef.current?.();
       if (visitedPanels.has("monitor")) monitorSaveRef.current?.();
@@ -438,7 +455,7 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
 
     broadcastSettingsEvent(SETTINGS_EVENTS.SettingsSaved, { targetYear });
     handleClose();
-  }, [targetYear, dispatch, handleClose, notify, visitedPanels]);
+  }, [targetYear, dispatch, handleClose, notify, visitedPanels, commitAppearanceDraft]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -511,6 +528,8 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
     activePaneItem.panel === "quotes" ? activePaneItem.section : "refresh";
   const aboutSection: AboutSettingsSection =
     activePaneItem.panel === "about" ? activePaneItem.section : "project";
+  const appearanceSection: AppearanceSettingsSection =
+    activePaneItem.panel === "appearance" ? activePaneItem.section : "components";
 
   return (
     <Modal
@@ -711,6 +730,14 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
                     targetYear={targetYear}
                     onTargetYearChange={setTargetYear}
                     onRegisterSave={registerBasicSave}
+                  />
+                </div>
+              )}
+              {visitedPanels.has("appearance") && (
+                <div className={styles.panelMount} hidden={activePaneItem.panel !== "appearance"}>
+                  <AppearanceSettingsPanel
+                    key={`appearance-${draftSession}`}
+                    section={appearanceSection}
                   />
                 </div>
               )}

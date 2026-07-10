@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 
 import { useAppState } from "../../contexts/AppContext";
+import { useComponentAppearance } from "../../contexts/AppearanceContext";
 import { buildLocationFlow } from "../../services/locationService";
 import {
   buildWeatherFlow,
@@ -185,6 +186,9 @@ export interface WeatherData {
  * 完全使用小米天气 + 高德反编码逻辑。
  */
 const Weather: React.FC = () => {
+  const temperatureAppearance = useComponentAppearance("studyWeather", "temperature");
+  const descriptionAppearance = useComponentAppearance("studyWeather", "description");
+  const iconAppearance = useComponentAppearance("studyWeather", "icon");
   const [weatherData, setWeatherData] = useState<WeatherData | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -1083,7 +1087,9 @@ const Weather: React.FC = () => {
 
   return (
     <div className={styles.weather} title={titleText}>
-      <div className={styles.temperature}>{displayTempText}</div>
+      <div className={styles.temperature} style={temperatureAppearance}>
+        {displayTempText}
+      </div>
       <div className={styles.divider}></div>
       <div className={styles.icon}>
         {displayIconCode ? (
@@ -1093,10 +1099,11 @@ const Weather: React.FC = () => {
             loading="lazy"
             decoding="async"
             className={styles.weatherIcon}
+            style={iconAppearance}
           />
         ) : null}
       </div>
-      <div className={styles.weatherText}>
+      <div className={styles.weatherText} style={descriptionAppearance}>
         {displayTextRaw === "--" ? "--" : getSimplifiedWeatherText(displayTextRaw)}
       </div>
     </div>

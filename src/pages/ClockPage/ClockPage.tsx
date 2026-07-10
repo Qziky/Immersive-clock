@@ -12,14 +12,12 @@ import { SettingsPanel } from "../../components/SettingsPanel";
 import { Stopwatch } from "../../components/Stopwatch/Stopwatch";
 import { Study } from "../../components/Study/Study";
 import { useAppState, useAppDispatch } from "../../contexts/AppContext";
+import { useAppearance } from "../../contexts/AppearanceContext";
 import type { AppMode } from "../../types";
 import type { MessagePopupOpenDetail, MessagePopupType } from "../../types/messagePopup";
 import { useFeedback, type ToastVariant } from "../../ui";
+import { appearanceBackgroundToCss } from "../../utils/appearanceModel";
 import { getModeFromPathname, MODE_ROUTE_PATHS } from "../../utils/modeRoutes";
-import {
-  readNormalBackground,
-  type StudyBackgroundSettings,
-} from "../../utils/studyBackgroundStorage";
 import { startTimeSyncManager } from "../../utils/timeSync";
 import { startTour, isTourActive } from "../../utils/tour";
 
@@ -48,45 +46,13 @@ function getPopupDuration(type: MessagePopupType): number {
   return 6000;
 }
 
-function hexToRgba(hex: string, alpha: number): string {
-  const normalized = hex.replace("#", "");
-  const value =
-    normalized.length === 3
-      ? normalized
-          .split("")
-          .map((character) => character + character)
-          .join("")
-      : normalized;
-  const red = parseInt(value.slice(0, 2), 16);
-  const green = parseInt(value.slice(2, 4), 16);
-  const blue = parseInt(value.slice(4, 6), 16);
-  return `rgba(${red}, ${green}, ${blue}, ${Math.max(0, Math.min(1, alpha))})`;
-}
-
-function getNormalBackgroundStyle(settings: StudyBackgroundSettings): React.CSSProperties {
-  if (settings.type === "image" && settings.imageDataUrl) {
-    return {
-      backgroundImage: `url(${settings.imageDataUrl})`,
-      backgroundPosition: "center",
-      backgroundRepeat: "no-repeat",
-      backgroundSize: "cover",
-    };
-  }
-  if (settings.type === "color" && settings.color) {
-    return {
-      backgroundImage: "none",
-      backgroundColor: hexToRgba(settings.color, settings.colorAlpha ?? 1),
-    };
-  }
-  return {};
-}
-
 /**
  * 时钟主页面组件
  * 根据当前模式显示相应的时钟组件，处理HUD显示逻辑
  */
 export function ClockPage() {
   const { mode, isModalOpen, study } = useAppState();
+  const { activeAppearance, previewScene, getBackgroundImage } = useAppearance();
   const dispatch = useAppDispatch();
   const { notify, dismiss } = useFeedback();
   const location = useLocation();
@@ -97,7 +63,12 @@ export function ClockPage() {
   const prevModeRef = useRef(mode);
   const [showSettings, setShowSettings] = useState(false);
   const [showAnnouncement, setShowAnnouncement] = useState(false);
-  const [normalBackground, setNormalBackground] = useState(readNormalBackground);
+  const displayMode = previewScene ?? mode;
+  const displayBackground = activeAppearance.scenes[displayMode].background;
+  const displayBackgroundStyle = appearanceBackgroundToCss(
+    displayBackground,
+    getBackgroundImage(displayMode)
+  );
 
   useEffect(() => {
     const routeMode = getModeFromPathname(location.pathname);
@@ -143,12 +114,6 @@ export function ClockPage() {
 
   useEffect(() => {
     return startTimeSyncManager();
-  }, []);
-
-  useEffect(() => {
-    const handleBackgroundUpdate = () => setNormalBackground(readNormalBackground());
-    window.addEventListener("normal-background-updated", handleBackgroundUpdate);
-    return () => window.removeEventListener("normal-background-updated", handleBackgroundUpdate);
   }, []);
 
   /**
@@ -309,7 +274,7 @@ export function ClockPage() {
    * 渲染当前模式的时钟组件
    */
   const renderTimeDisplay = () => {
-    switch (mode) {
+    switch (displayMode) {
       case "clock":
         return <Clock />;
       case "countdown":
@@ -409,17 +374,18 @@ export function ClockPage() {
   return (
     <main
       className={styles.clockPage}
-      data-background-type={mode === "study" ? undefined : normalBackground.type}
+      data-background-type={displayMode === "study" ? undefined : displayBackground.type}
       onClick={handlePageClick}
       onKeyDown={handleKeyDown}
-      style={mode === "study" ? undefined : getNormalBackgroundStyle(normalBackground)}
+      style={displayMode === "study" ? undefined : displayBackgroundStyle}
       tabIndex={0}
       aria-label="时钟应用主界面"
     >
       <div
-        className={`${styles.timeDisplay} ${mode === "study" ? styles.studyTimeDisplay : ""}`}
-        id={`${mode}-panel`}
+        className={`${styles.timeDisplay} ${displayMode === "study" ? styles.studyTimeDisplay : ""}`}
+        id={`${displayMode}-panel`}
         role="tabpanel"
+        data-appearance-content
         data-tour="clock-area"
       >
         {renderTimeDisplay()}
