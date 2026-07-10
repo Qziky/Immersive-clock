@@ -5,6 +5,7 @@ import { BrowserRouter } from "react-router-dom";
 
 import { App } from "./App";
 import { AppContextProvider } from "./contexts/AppContext";
+import { FeedbackProvider } from "./ui";
 import { getAppSettings } from "./utils/appSettings";
 import { initErrorCenterGlobalCapture, setErrorCenterMode } from "./utils/errorCenter";
 import { initializeStorage } from "./utils/storageInitializer";
@@ -44,7 +45,9 @@ root.render(
   <React.StrictMode>
     <BrowserRouter>
       <AppContextProvider>
-        <App />
+        <FeedbackProvider>
+          <App />
+        </FeedbackProvider>
       </AppContextProvider>
     </BrowserRouter>
   </React.StrictMode>

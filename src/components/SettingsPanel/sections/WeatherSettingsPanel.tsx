@@ -263,9 +263,10 @@ const WeatherSettingsPanel: React.FC<WeatherSettingsPanelProps> = ({ onRegisterS
     section ? section !== candidate : undefined;
 
   return (
-    <div id="weather-panel" role="tabpanel" aria-labelledby="weather">
+    <div id="weather-panel">
       <FormSection
         title="基本设置"
+        variant="plain"
         description="控制天气相关提醒是否在触发时弹出。"
         hidden={isSectionHidden("alerts")}
       >
@@ -325,7 +326,7 @@ const WeatherSettingsPanel: React.FC<WeatherSettingsPanelProps> = ({ onRegisterS
         </SettingGrid>
       </FormSection>
 
-      <FormSection title="刷新设置" hidden={isSectionHidden("location")}>
+      <FormSection title="刷新设置" variant="plain" hidden={isSectionHidden("location")}>
         <FormRow gap="sm" align="center">
           <FormSegmented
             label="自动刷新间隔"
@@ -340,7 +341,7 @@ const WeatherSettingsPanel: React.FC<WeatherSettingsPanelProps> = ({ onRegisterS
         </FormRow>
       </FormSection>
 
-      <FormSection title="地理位置" hidden={isSectionHidden("location")}>
+      <FormSection title="地理位置" variant="plain" hidden={isSectionHidden("location")}>
         <FormRow gap="sm" align="center">
           <FormSegmented
             label="定位方式"
@@ -429,6 +430,7 @@ const WeatherSettingsPanel: React.FC<WeatherSettingsPanelProps> = ({ onRegisterS
 
       <FormSection
         title="实时天气"
+        variant="plain"
         description={`观测时间：${now?.obsTime ? formatDateHM(now.obsTime) : "--"}；状态：${now?.text || "--"}`}
         hidden={isSectionHidden("live")}
       >

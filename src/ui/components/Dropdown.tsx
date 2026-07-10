@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 
 import type { UiMotionMode } from "../types";
 import { classNames } from "../utils/classNames";
+import { useOverlayLayer } from "../utils/overlayStack";
 import { usePresence } from "../utils/usePresence";
 
 import styles from "./primitives.module.css";
@@ -92,6 +93,7 @@ export function Dropdown({
   const [internalValue, setInternalValue] = useState(defaultValue);
   const [menuStyle, setMenuStyle] = useState<CSSProperties>();
   const { isPresent, presenceState, shouldAnimate } = usePresence({ isOpen, motion });
+  const { isTop, zIndex } = useOverlayLayer({ active: isOpen, type: "floating" });
 
   const resolvedValue = value ?? internalValue;
   const selectedValues = useMemo(() => new Set(normalizeValue(resolvedValue)), [resolvedValue]);
@@ -176,7 +178,8 @@ export function Dropdown({
     };
 
     const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
+      if (event.key === "Escape" && isTop()) {
+        event.preventDefault();
         setIsOpen(false);
       }
     };
@@ -192,7 +195,7 @@ export function Dropdown({
       window.removeEventListener("resize", updatePosition);
       window.removeEventListener("scroll", updatePosition, true);
     };
-  }, [generatedId, isOpen, updatePosition]);
+  }, [generatedId, isOpen, isTop, updatePosition]);
 
   const commitValue = (nextValue: DropdownValue | DropdownValue[] | undefined) => {
     if (value === undefined) {
@@ -238,8 +241,10 @@ export function Dropdown({
             className={styles.dropdownMenu}
             data-dropdown-menu={generatedId}
             data-ui-motion={shouldAnimate ? "default" : "none"}
+            data-ui-overlay-root
             data-ui-presence={presenceState}
-            style={menuStyle}
+            data-ui-scope
+            style={{ ...menuStyle, zIndex }}
           >
             {searchable && (
               <label className={styles.dropdownSearch}>

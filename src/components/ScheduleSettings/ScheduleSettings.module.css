@@ -1,3 +1,14 @@
+.editor {
+  display: grid;
+  gap: var(--ui-space-5);
+  min-width: 0;
+}
+
+.editorActions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
 .importSummary {
   display: grid;
   gap: var(--ui-space-3);
@@ -42,8 +53,20 @@
 }
 
 @media (max-width: 760px) {
+  .editor {
+    gap: var(--ui-space-4);
+  }
+
+  .editorActions {
+    justify-content: flex-start;
+  }
+
   .importActions,
   .rowActions {
     justify-content: flex-start;
+  }
+
+  .editor button {
+    min-height: 44px;
   }
 }

@@ -13,7 +13,12 @@ export interface PortalProps {
 export function Portal({ children, container }: PortalProps) {
   if (typeof document === "undefined") return null;
 
-  return createPortal(children, container ?? document.body);
+  return createPortal(
+    <div className={styles.portalScope} data-ui-overlay-root data-ui-scope>
+      {children}
+    </div>,
+    container ?? document.body
+  );
 }
 
 export type VisuallyHiddenProps = HTMLAttributes<HTMLSpanElement>;

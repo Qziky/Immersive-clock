@@ -1,9 +1,8 @@
-import { X } from "lucide-react";
 import React, { useEffect, useState, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 
 import type { MessagePopupType } from "../../types/messagePopup";
-import { Button as FormButton, IconButton } from "../../ui";
+import { Button as FormButton, Toast, type ToastVariant } from "../../ui";
 
 import styles from "./messagePopup.module.css";
 
@@ -34,20 +33,14 @@ interface MessagePopupProps {
   themeColor?: string;
 }
 
-/**
- * 可扩展的消息弹窗组件
- * - 默认支持通用消息类型（general）
- * - 预留扩展：weatherAlert、coolingReminder、systemUpdate 等类型
- * - 触发时自屏幕左下角平滑弹出，300ms ease-out
- * - 左上角关闭按钮（×）
- */
+/** 兼容旧调用的消息组件；全局事件通知由 FeedbackProvider 的 ToastViewport 承载。 */
 export default function MessagePopup({
   isOpen,
   onClose,
   type = "general",
   title = "消息提醒",
   message = "",
-  icon = null,
+  icon,
   actions = [],
   className = "",
   usePortal = true,
@@ -57,11 +50,17 @@ export default function MessagePopup({
   const [exiting, setExiting] = useState<boolean>(false);
   const closeTimerRef = useRef<number | null>(null);
   const autoCloseTimerRef = useRef<number | null>(null);
+  const autoCloseStartedAtRef = useRef(0);
+  const autoCloseRemainingRef = useRef(0);
+  const pauseReasonsRef = useRef(new Set<"focus" | "hover">());
+  const hasActions = actions.length > 0;
+  const autoCloseDuration =
+    type === "general" ? 4000 : type === "error" || type === "weatherAlert" ? 8000 : 6000;
 
   // 打开时挂载并进入动画；关闭时触发退出动画
   useEffect(() => {
     if (isOpen) {
-      if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
+      if (closeTimerRef.current !== null) clearTimeout(closeTimerRef.current);
       setMounted(true);
       setExiting(false);
     } else if (mounted) {
@@ -69,98 +68,119 @@ export default function MessagePopup({
       setExiting(true);
       closeTimerRef.current = window.setTimeout(() => {
         setMounted(false);
-      }, 300);
+      }, 180);
     }
     return () => {
-      if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
+      if (closeTimerRef.current !== null) clearTimeout(closeTimerRef.current);
     };
   }, [isOpen, mounted]);
 
   const handleClose = useCallback(() => {
     setExiting(true);
-    if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
-    if (autoCloseTimerRef.current) clearTimeout(autoCloseTimerRef.current);
+    if (closeTimerRef.current !== null) clearTimeout(closeTimerRef.current);
+    if (autoCloseTimerRef.current !== null) clearTimeout(autoCloseTimerRef.current);
+    autoCloseTimerRef.current = null;
     closeTimerRef.current = window.setTimeout(() => {
-      onClose && onClose();
-    }, 300);
+      onClose?.();
+    }, 180);
   }, [onClose]);
 
+  const startAutoClose = useCallback(() => {
+    if (!isOpen || !onClose || hasActions || pauseReasonsRef.current.size > 0) return;
+
+    if (autoCloseTimerRef.current !== null) {
+      clearTimeout(autoCloseTimerRef.current);
+    }
+    autoCloseStartedAtRef.current = performance.now();
+    autoCloseTimerRef.current = window.setTimeout(() => {
+      handleClose();
+    }, autoCloseRemainingRef.current);
+  }, [handleClose, hasActions, isOpen, onClose]);
+
   useEffect(() => {
-    if (autoCloseTimerRef.current) {
+    if (autoCloseTimerRef.current !== null) clearTimeout(autoCloseTimerRef.current);
+    autoCloseTimerRef.current = null;
+    autoCloseRemainingRef.current = autoCloseDuration;
+    pauseReasonsRef.current.clear();
+    startAutoClose();
+
+    return () => {
+      if (autoCloseTimerRef.current !== null) clearTimeout(autoCloseTimerRef.current);
+      autoCloseTimerRef.current = null;
+    };
+  }, [autoCloseDuration, startAutoClose]);
+
+  const pauseAutoClose = (reason: "focus" | "hover") => {
+    if (pauseReasonsRef.current.has(reason)) return;
+    pauseReasonsRef.current.add(reason);
+
+    if (autoCloseTimerRef.current !== null) {
+      autoCloseRemainingRef.current = Math.max(
+        0,
+        autoCloseRemainingRef.current - (performance.now() - autoCloseStartedAtRef.current)
+      );
       clearTimeout(autoCloseTimerRef.current);
       autoCloseTimerRef.current = null;
     }
-    if (!isOpen) return;
-    if (type !== "general") return;
-    if (!onClose) return;
-    if (Array.isArray(actions) && actions.length > 0) return;
-    autoCloseTimerRef.current = window.setTimeout(() => {
-      handleClose();
-    }, 4000);
-    return () => {
-      if (autoCloseTimerRef.current) clearTimeout(autoCloseTimerRef.current);
-    };
-  }, [actions, handleClose, isOpen, onClose, type]);
+  };
+
+  const resumeAutoClose = (reason: "focus" | "hover") => {
+    pauseReasonsRef.current.delete(reason);
+    if (pauseReasonsRef.current.size === 0) startAutoClose();
+  };
 
   if (!mounted) return null;
 
-  // 类型样式扩展点
-  const typeClass =
-    {
-      general: "",
-      error: styles.error,
-      weatherAlert: styles.weatherAlert,
-      weatherForecast: styles.weatherForecast,
-      coolingReminder: styles.coolingReminder,
-      systemUpdate: styles.systemUpdate,
-    }[type] || "";
+  const toastVariant: ToastVariant =
+    type === "error"
+      ? "danger"
+      : type === "weatherAlert"
+        ? "warning"
+        : type === "coolingReminder"
+          ? "success"
+          : "info";
 
-  const rootClass = `${styles.container} ${exiting ? styles.exit : styles.enter} ${typeClass} ${!usePortal ? styles.inline : ""} ${className}`;
-  const rootStyle = themeColor
-    ? ({ ["--message-popup-theme-color"]: themeColor } as React.CSSProperties)
-    : undefined;
-
+  const rootClass = `${styles.container} ${exiting ? styles.exit : styles.enter} ${!usePortal ? styles.inline : ""} ${className}`;
   const node = (
     <div
       className={rootClass}
-      style={rootStyle}
-      role="dialog"
-      aria-live="polite"
-      aria-label={title}
+      data-ui-scope
+      onMouseEnter={() => pauseAutoClose("hover")}
+      onMouseLeave={() => resumeAutoClose("hover")}
+      onFocusCapture={() => pauseAutoClose("focus")}
+      onBlurCapture={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget)) resumeAutoClose("focus");
+      }}
     >
-      <IconButton
-        className={styles.closeButton}
-        aria-label="关闭"
-        title="关闭"
-        onClick={handleClose}
-        icon={<X size={13} aria-hidden="true" />}
+      <Toast
+        className={styles.toast}
+        variant={toastVariant}
+        title={title}
+        description={message}
+        icon={icon}
+        accentColor={themeColor}
+        onClose={onClose ? handleClose : undefined}
+        motion="none"
+        action={
+          hasActions ? (
+            <div className={styles.actions}>
+              {actions.map((action) => (
+                <FormButton
+                  key={action.label}
+                  variant={action.variant ?? "secondary"}
+                  size={action.size ?? "sm"}
+                  icon={action.icon}
+                  loading={action.loading}
+                  onClick={action.onClick}
+                  type="button"
+                >
+                  {action.label}
+                </FormButton>
+              ))}
+            </div>
+          ) : undefined
+        }
       />
-
-      <div className={styles.content}>
-        {icon && <div className={styles.icon}>{icon}</div>}
-        <div className={styles.texts}>
-          {title && <div className={styles.title}>{title}</div>}
-          {message && <div className={styles.message}>{message}</div>}
-        </div>
-      </div>
-
-      {Array.isArray(actions) && actions.length > 0 && (
-        <div className={styles.actions}>
-          {actions.map((act, idx) => (
-            <FormButton
-              key={idx}
-              variant={act.variant ?? "secondary"}
-              size={act.size ?? "sm"}
-              icon={act.icon}
-              loading={act.loading}
-              onClick={act.onClick}
-              type="button"
-            >
-              {act.label}
-            </FormButton>
-          ))}
-        </div>
-      )}
     </div>
   );
 

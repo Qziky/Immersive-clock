@@ -1,10 +1,4 @@
-import {
-  AlertCircle,
-  Bell,
-  FileText,
-  MessageSquareText,
-  RefreshCw,
-} from "lucide-react";
+import { AlertCircle, Bell, FileText, MessageSquareText, RefreshCw } from "lucide-react";
 import { marked } from "marked";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 
@@ -215,11 +209,7 @@ const AnnouncementModal: React.FC<AnnouncementModalProps> = ({
           </div>
 
           <FormButtonGroup className={styles.footerActions}>
-            <FormButton
-              className={styles.confirmButton}
-              onClick={handleClose}
-              variant="primary"
-            >
+            <FormButton className={styles.confirmButton} onClick={handleClose} variant="primary">
               确定
             </FormButton>
           </FormButtonGroup>
@@ -232,6 +222,8 @@ const AnnouncementModal: React.FC<AnnouncementModalProps> = ({
             className={styles.tabs}
             items={ANNOUNCEMENT_TABS.map((tab) => ({
               key: tab.key,
+              id: `announcement-tab-${tab.key}`,
+              ariaControls: `announcement-panel-${tab.key}`,
               label: tab.title,
               icon: (
                 <span className={styles.tabIcon} aria-hidden="true">
@@ -249,7 +241,11 @@ const AnnouncementModal: React.FC<AnnouncementModalProps> = ({
         </div>
 
         <div
+          id={`announcement-panel-${activeTab}`}
           className={`${styles.content} ${activeTab === "feedback" ? styles.contentIframe : ""}`}
+          role="tabpanel"
+          aria-labelledby={`announcement-tab-${activeTab}`}
+          tabIndex={0}
         >
           {activeTab === "feedback" && currentTabConfig && "iframeSrc" in currentTabConfig ? (
             <div className={styles.iframeContainer}>
@@ -280,7 +276,7 @@ const AnnouncementModal: React.FC<AnnouncementModalProps> = ({
               <p>正在加载{currentTabConfig?.title}...</p>
             </div>
           ) : currentDocument?.error ? (
-            <div className={styles.error}>
+            <div className={styles.error} role="alert">
               <AlertCircle size={28} aria-hidden="true" />
               <p>加载失败：{currentDocument.error}</p>
               <FormButton

@@ -10,6 +10,7 @@ export interface FormSectionProps extends HTMLAttributes<HTMLElement> {
   description?: string;
   action?: ReactNode;
   children: ReactNode;
+  variant?: "soft" | "plain";
 }
 
 export function FormSection({
@@ -17,11 +18,19 @@ export function FormSection({
   description,
   action,
   children,
+  variant = "soft",
   className,
   ...props
 }: FormSectionProps) {
   return (
-    <section className={classNames(styles.formSection, className)} {...props}>
+    <section
+      className={classNames(
+        styles.formSection,
+        variant === "plain" && styles.formSectionPlain,
+        className
+      )}
+      {...props}
+    >
       <header className={styles.formSectionHeader}>
         <div>
           <h3 className={styles.formSectionTitle}>{title}</h3>

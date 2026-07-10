@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { KeyboardEvent, ReactNode } from "react";
 
 import { classNames } from "../utils/classNames";
 
@@ -65,6 +65,49 @@ export function Tabs<TValue extends string = string>({
   className,
 }: TabsProps<TValue>) {
   const resolvedValue = value ?? activeKey;
+  const firstEnabledItem = items.find((item) => !item.disabled);
+  const firstEnabledValue = (firstEnabledItem?.value ?? firstEnabledItem?.key) as
+    | TValue
+    | undefined;
+  const resolvedEnabledItem = items.find(
+    (item) => !item.disabled && (item.value ?? item.key) === resolvedValue
+  );
+  const tabStopValue = (resolvedEnabledItem?.value ??
+    resolvedEnabledItem?.key ??
+    firstEnabledValue) as TValue | undefined;
+
+  const moveFocus = (event: KeyboardEvent<HTMLButtonElement>, nextIndex: number) => {
+    const enabledItems = items.filter((item) => !item.disabled);
+    const nextItem = enabledItems[nextIndex];
+    const nextValue = (nextItem?.value ?? nextItem?.key) as TValue | undefined;
+    if (!nextValue) return;
+
+    event.preventDefault();
+    onChange(nextValue);
+
+    const tablist = event.currentTarget.closest<HTMLElement>("[role='tablist']");
+    const target = Array.from(tablist?.querySelectorAll<HTMLElement>("[role='tab']") ?? []).find(
+      (tab) => tab.dataset.uiTabValue === String(nextValue)
+    );
+    target?.focus({ preventScroll: true });
+    target?.scrollIntoView?.({ behavior: "smooth", block: "nearest", inline: "nearest" });
+  };
+
+  const handleKeyDown = (event: KeyboardEvent<HTMLButtonElement>, itemValue: TValue) => {
+    const enabledItems = items.filter((item) => !item.disabled);
+    const currentIndex = enabledItems.findIndex((item) => (item.value ?? item.key) === itemValue);
+    if (currentIndex < 0) return;
+
+    if (event.key === "ArrowRight") {
+      moveFocus(event, (currentIndex + 1) % enabledItems.length);
+    } else if (event.key === "ArrowLeft") {
+      moveFocus(event, (currentIndex - 1 + enabledItems.length) % enabledItems.length);
+    } else if (event.key === "Home") {
+      moveFocus(event, 0);
+    } else if (event.key === "End") {
+      moveFocus(event, enabledItems.length - 1);
+    }
+  };
 
   return (
     <div
@@ -78,10 +121,13 @@ export function Tabs<TValue extends string = string>({
       )}
       role="tablist"
       aria-label={label}
+      aria-orientation="horizontal"
     >
       {items.map((item) => {
         const itemValue = (item.value ?? item.key) as TValue;
         const active = itemValue === resolvedValue;
+        const isTabStop = itemValue === tabStopValue;
+
         return (
           <button
             key={String(itemValue)}
@@ -94,13 +140,16 @@ export function Tabs<TValue extends string = string>({
             )}
             type="button"
             role="tab"
-            id={item.id}
+            id={item.id ?? (id ? `${id}-tab-${itemValue}` : undefined)}
+            data-ui-tab-value={itemValue}
             aria-controls={item.ariaControls}
             aria-label={item.ariaLabel}
             aria-selected={active}
+            tabIndex={isTabStop && !item.disabled ? 0 : -1}
             title={item.title}
             disabled={item.disabled}
             onClick={() => onChange(itemValue)}
+            onKeyDown={(event) => handleKeyDown(event, itemValue)}
           >
             {item.icon}
             <span>{item.label}</span>

@@ -1,15 +1,15 @@
 :root {
   color-scheme: dark;
 
-  --ui-color-bg: #0b0c0e;
-  --ui-color-bg-raised: #111317;
-  --ui-color-bg-elevated: #1a1d22;
-  --ui-color-bg-muted: #15181d;
-  --ui-color-border: #2a2e35;
-  --ui-color-border-strong: #3a4048;
-  --ui-color-text: #eaecf0;
-  --ui-color-text-muted: #8e9098;
-  --ui-color-text-subtle: #686d76;
+  --ui-color-bg: #0c1110;
+  --ui-color-bg-raised: #111715;
+  --ui-color-bg-elevated: #18201d;
+  --ui-color-bg-muted: #141b18;
+  --ui-color-border: rgba(232, 233, 224, 0.13);
+  --ui-color-border-strong: rgba(232, 233, 224, 0.22);
+  --ui-color-text: #f0f1ec;
+  --ui-color-text-muted: #a3a8a1;
+  --ui-color-text-subtle: #7e857e;
   --ui-color-accent: #2fecc6;
   --ui-color-accent-strong: #17c7ad;
   --ui-color-accent-soft: rgba(47, 236, 198, 0.14);
@@ -24,14 +24,14 @@
   --ui-color-success: #4fce8b;
   --ui-color-success-soft: rgba(79, 206, 139, 0.12);
 
-  --ui-glass-backdrop: rgba(3, 5, 8, 0.3);
-  --ui-glass-surface: rgba(17, 19, 23, 0.6);
-  --ui-glass-surface-strong: rgba(17, 19, 23, 0.74);
-  --ui-glass-surface-soft: rgba(21, 24, 29, 0.46);
-  --ui-glass-surface-subtle: rgba(11, 12, 14, 0.32);
-  --ui-glass-border: rgba(255, 255, 255, 0.13);
-  --ui-glass-border-strong: rgba(255, 255, 255, 0.2);
-  --ui-glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  --ui-glass-backdrop: rgba(2, 5, 4, 0.5);
+  --ui-glass-surface: rgba(14, 19, 18, 0.76);
+  --ui-glass-surface-strong: rgba(14, 19, 18, 0.9);
+  --ui-glass-surface-soft: rgba(20, 27, 24, 0.5);
+  --ui-glass-surface-subtle: rgba(12, 17, 16, 0.38);
+  --ui-glass-border: rgba(232, 233, 224, 0.13);
+  --ui-glass-border-strong: rgba(232, 233, 224, 0.22);
+  --ui-glass-highlight: inset 0 1px 0 rgba(232, 233, 224, 0.07);
   --ui-glass-shadow: 0 24px 80px rgba(0, 0, 0, 0.48), 0 8px 24px rgba(0, 0, 0, 0.24);
   --ui-glass-blur: 22px;
   --ui-glass-blur-soft: 12px;
@@ -82,4 +82,6 @@
   --ui-transition-normal: var(--ui-motion-duration-normal) var(--ui-motion-ease-standard);
 
   --ui-z-modal: 2000;
+  --ui-z-floating: 3000;
+  --ui-z-toast: 10000;
 }

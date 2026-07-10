@@ -26,6 +26,7 @@ import {
   SettingItem,
   StatusPill,
   Switch as FormSwitch,
+  useFeedback,
 } from "../../../ui";
 import { APP_SETTINGS_KEY, getAppSettings } from "../../../utils/appSettings";
 import {
@@ -51,6 +52,7 @@ export type AboutSettingsSection = "project" | "data" | "debug";
 const AboutSettingsPanel: React.FC<AboutSettingsPanelProps> = ({ onRegisterSave, section }) => {
   const { study } = useAppState();
   const dispatch = useAppDispatch();
+  const { confirm, notify } = useFeedback();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [notice, setNotice] = useState<string>("");
   const [records, setRecords] = useState(() => getErrorCenterRecords().slice());
@@ -158,7 +160,7 @@ const AboutSettingsPanel: React.FC<AboutSettingsPanelProps> = ({ onRegisterSave,
       event.target.value = "";
 
       const reader = new FileReader();
-      reader.onload = (e) => {
+      reader.onload = async (e) => {
         try {
           setNotice("");
           const result = e.target?.result;
@@ -171,12 +173,22 @@ const AboutSettingsPanel: React.FC<AboutSettingsPanelProps> = ({ onRegisterSave,
             throw new Error("无效的设置文件格式");
           }
 
-          const ok = window.confirm("确定要导入该设置文件吗？这将覆盖当前的配置并刷新页面。");
+          const ok = await confirm({
+            title: "导入设置",
+            description: "当前配置将被文件内容覆盖，完成后页面会自动刷新。",
+            confirmLabel: "导入并刷新",
+            variant: "danger",
+          });
           if (!ok) return;
 
           localStorage.setItem(APP_SETTINGS_KEY, JSON.stringify(importedSettings));
-          alert("设置导入成功，页面将刷新。");
-          window.location.reload();
+          notify({
+            variant: "success",
+            title: "设置导入成功",
+            description: "页面即将刷新。",
+            duration: 1200,
+          });
+          window.setTimeout(() => window.location.reload(), 800);
         } catch (err) {
           setNotice(
             isErrorCenterActive ? "导入设置失败，已记录到“错误与调试”。" : "导入设置失败。"
@@ -191,7 +203,7 @@ const AboutSettingsPanel: React.FC<AboutSettingsPanelProps> = ({ onRegisterSave,
       };
       reader.readAsText(file);
     },
-    [isErrorCenterActive]
+    [confirm, isErrorCenterActive, notify]
   );
 
   /**
@@ -199,14 +211,23 @@ const AboutSettingsPanel: React.FC<AboutSettingsPanelProps> = ({ onRegisterSave,
    * - 提示确认，避免误操作
    * - 清理后不会自动刷新页面，用户可手动刷新生效
    */
-  const handleClearCaches = useCallback(() => {
-    const ok = window.confirm("确定要清除所有本地缓存吗？该操作将重置设置与本地数据。");
+  const handleClearCaches = useCallback(async () => {
+    const ok = await confirm({
+      title: "清除所有本地数据",
+      description: "设置、缓存和本地记录都将被删除，此操作无法撤销。",
+      confirmLabel: "清除数据",
+      variant: "danger",
+    });
     if (!ok) return;
     try {
       setNotice("");
       // 直接清空 localStorage，覆盖项目内所有键
       localStorage.clear();
-      alert("已清除所有缓存。建议刷新页面以确保设置重置。");
+      notify({
+        variant: "success",
+        title: "本地数据已清除",
+        description: "建议刷新页面以完成设置重置。",
+      });
     } catch (err) {
       setNotice(isErrorCenterActive ? "清除缓存失败，已记录到“错误与调试”。" : "清除缓存失败。");
       const msg = err instanceof Error ? err.message : String(err);
@@ -216,7 +237,7 @@ const AboutSettingsPanel: React.FC<AboutSettingsPanelProps> = ({ onRegisterSave,
         })
       );
     }
-  }, [isErrorCenterActive]);
+  }, [confirm, isErrorCenterActive, notify]);
 
   const handleClearErrorRecords = useCallback(() => {
     setNotice("");
@@ -268,9 +289,10 @@ const AboutSettingsPanel: React.FC<AboutSettingsPanelProps> = ({ onRegisterSave,
   }, [records]);
 
   return (
-    <div id="about-panel" role="tabpanel" aria-labelledby="about">
+    <div id="about-panel">
       <FormSection
         title="项目信息"
+        variant="plain"
         description="当前应用版本、授权信息与项目链接。"
         hidden={isSectionHidden("project")}
       >
@@ -292,7 +314,7 @@ const AboutSettingsPanel: React.FC<AboutSettingsPanelProps> = ({ onRegisterSave,
         </SettingGrid>
       </FormSection>
 
-      <FormSection title="使用声明" hidden={isSectionHidden("project")}>
+      <FormSection title="使用声明" variant="plain" hidden={isSectionHidden("project")}>
         <InfoPanel tone="warning" title="开源声明">
           本软件为开源软件，严禁倒卖商用。
         </InfoPanel>
@@ -300,6 +322,7 @@ const AboutSettingsPanel: React.FC<AboutSettingsPanelProps> = ({ onRegisterSave,
 
       <FormSection
         title="设置管理"
+        variant="plain"
         description="导出当前设置进行备份，或导入之前的设置文件。"
         hidden={isSectionHidden("data")}
       >
@@ -336,6 +359,7 @@ const AboutSettingsPanel: React.FC<AboutSettingsPanelProps> = ({ onRegisterSave,
 
       <FormSection
         title="缓存与重置"
+        variant="plain"
         description="用于处理本地缓存异常或配置污染。"
         hidden={isSectionHidden("data")}
       >
@@ -361,6 +385,7 @@ const AboutSettingsPanel: React.FC<AboutSettingsPanelProps> = ({ onRegisterSave,
 
       <FormSection
         title="错误与调试"
+        variant="plain"
         description="控制错误提示、记录方式与最近调试记录。"
         hidden={isSectionHidden("debug")}
       >
@@ -443,9 +468,7 @@ const AboutSettingsPanel: React.FC<AboutSettingsPanelProps> = ({ onRegisterSave,
               </FormButton>
             </FormButtonGroup>
 
-            {notice ? (
-              <InfoPanel tone="info">{notice}</InfoPanel>
-            ) : null}
+            {notice ? <InfoPanel tone="info">{notice}</InfoPanel> : null}
 
             <div className={styles.debugRecordList}>
               {filteredRecords.length === 0 ? (
@@ -459,9 +482,7 @@ const AboutSettingsPanel: React.FC<AboutSettingsPanelProps> = ({ onRegisterSave,
                     </summary>
                     <div className={styles.debugRecordBody}>
                       <p>{r.message || "--"}</p>
-                      {r.stack ? (
-                        <pre className={styles.debugStack}>{r.stack}</pre>
-                      ) : null}
+                      {r.stack ? <pre className={styles.debugStack}>{r.stack}</pre> : null}
                     </div>
                   </details>
                 ))

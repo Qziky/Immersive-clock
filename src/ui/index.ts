@@ -17,6 +17,8 @@ export type { CardProps } from "./components/Card";
 export { Card } from "./components/Card";
 export type { CheckboxProps } from "./components/Checkbox";
 export { Checkbox } from "./components/Checkbox";
+export type { ConfirmDialogProps } from "./components/ConfirmDialog";
+export { ConfirmDialog } from "./components/ConfirmDialog";
 export type {
   DropdownGroup,
   DropdownMode,
@@ -27,6 +29,8 @@ export type {
 export { Dropdown } from "./components/Dropdown";
 export type { FieldProps, FieldRenderProps } from "./components/Field";
 export { Field } from "./components/Field";
+export type { ConfirmOptions, FeedbackContextValue, NotifyOptions } from "./components/Feedback";
+export { FeedbackProvider, useFeedback } from "./components/Feedback";
 export type { FormSectionProps, TextareaProps } from "./components/FormComponents";
 export { FormSection, Textarea } from "./components/FormComponents";
 export type { IconButtonProps } from "./components/IconButton";
@@ -78,3 +82,9 @@ export type { TooltipProps } from "./components/Tooltip";
 export { Tooltip } from "./components/Tooltip";
 export type { ToastProps, ToastVariant } from "./components/Toast";
 export { Toast } from "./components/Toast";
+export type {
+  ToastDismissReason,
+  ToastMessage,
+  ToastViewportProps,
+} from "./components/ToastViewport";
+export { ToastViewport } from "./components/ToastViewport";

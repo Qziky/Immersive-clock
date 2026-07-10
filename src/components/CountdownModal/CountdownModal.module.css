@@ -1,145 +1,182 @@
-/* 倒计时模态框特定样式 */
-
-.timeInputs {
-  display: flex;
-  gap: var(--spacing-xl);
-  margin-bottom: var(--spacing-xl);
-  justify-content: center;
-  padding: var(--spacing-md) 0;
+.countdownModal {
+  max-height: min(680px, calc(100dvh - 32px));
 }
 
-.timeInput {
+.countdownModal [data-ui-modal-body] {
+  overscroll-behavior: contain;
+  padding: 0;
+}
+
+.content {
+  display: grid;
+  gap: 0;
+  min-width: 0;
+}
+
+.section {
+  border-bottom: 1px solid var(--ui-glass-border);
+  padding: 20px;
+}
+
+.section:last-child {
+  border-bottom: 0;
+}
+
+.timeInputs {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 0 auto;
+  max-width: 430px;
+  width: 100%;
+}
+
+.timeInput,
+.inputGroup {
+  align-items: center;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: var(--spacing-md);
+  min-width: 0;
 }
 
 .inputGroup {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--spacing-sm);
-  /* 移除边框和背景，更简洁 */
-  background: transparent;
-  padding: 0;
-  border: none;
+  gap: 8px;
+  width: 100%;
 }
 
-/* 数值和单位的包裹容器 */
 .valueWrapper {
-  display: flex;
   align-items: baseline;
+  display: flex;
+  gap: 5px;
   justify-content: center;
-  gap: var(--spacing-xs);
-  min-width: 100px; /* 确保有足够空间，避免按钮看起来没对齐 */
+  min-height: 64px;
+  min-width: 0;
+  width: 100%;
 }
 
 .timeValue {
-  font-family: var(--font-main);
-  font-size: 3.5rem;
-  font-weight: 700;
-  color: var(--primary-color);
-  text-align: right; /* 数字靠右，紧贴单位 */
-  padding: var(--spacing-xs) 0;
-  font-variant-numeric: tabular-nums; /* 等宽数字 */
+  color: var(--ui-color-text);
+  font-family: var(--ui-font-number);
+  font-size: 46px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 650;
+  letter-spacing: 0;
   line-height: 1;
-  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
 }
 
 .unit {
-  font-family: var(--font-ui);
-  font-size: 1rem;
+  color: var(--ui-color-text-muted);
+  font-size: var(--ui-font-size-sm);
   font-weight: 600;
-  color: var(--secondary-color);
-  opacity: 0.8;
-  transform: translateY(-2px); /* 微调对齐 */
 }
 
-/* 圆形调整按钮 */
 .adjustButton {
-  width: 36px !important; /* 强制覆盖默认按钮宽度 */
-  height: 36px !important;
-  border-radius: 50% !important;
+  border-radius: var(--ui-radius-md) !important;
+  height: 44px !important;
+  min-height: 44px !important;
+  min-width: 44px !important;
   padding: 0 !important;
-  display: flex !important;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s ease;
+  width: 44px !important;
 }
 
 .adjustButton:hover:not(:disabled) {
-  transform: scale(1.05);
-  background: rgba(255, 255, 255, 0.15);
+  background: var(--ui-glass-surface-soft);
 }
 
-/* 预设按钮网格布局 */
 .presetsGrid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: var(--spacing-md);
-  margin-top: var(--spacing-sm);
+  gap: 8px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .presetButton {
-  width: 100%;
   justify-content: center;
+  min-height: 40px;
+  min-width: 0;
+  padding-inline: 10px;
   text-align: center;
+  width: 100%;
 }
 
-/* 响应式调整 */
-@media (max-width: 768px) {
-  .timeInputs {
-    gap: var(--spacing-lg);
-  }
+.presetButton[aria-pressed="true"] {
+  background: var(--ui-color-bg-elevated);
+  border-color: rgba(47, 236, 198, 0.4);
+  color: var(--ui-color-accent);
+}
 
-  .timeValue {
-    font-size: 2.5rem;
-  }
+.presetButton[aria-pressed="true"]:hover:not(:disabled) {
+  background: var(--ui-color-bg-elevated);
+  border-color: var(--ui-color-accent-border);
+}
 
-  .valueWrapper {
-    min-width: 90px;
-  }
-
-  .unit {
-    font-size: 0.85rem;
-  }
-
-  .presetsGrid {
-    grid-template-columns: repeat(3, 1fr);
-  }
-
-  .adjustButton {
-    width: 32px !important;
-    height: 32px !important;
-  }
+.footerActions {
+  margin-left: auto;
 }
 
 @media (max-width: 480px) {
-  .timeInputs {
-    gap: var(--spacing-md);
+  .countdownModal {
+    max-height: calc(100dvh - 16px);
+    width: calc(100vw - 16px) !important;
   }
 
-  .timeValue {
-    font-size: 2rem;
+  .section {
+    padding: 16px 12px;
+  }
+
+  .timeInputs {
+    gap: 6px;
   }
 
   .valueWrapper {
-    min-width: 70px;
-  }
-
-  .presetsGrid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-@media (max-height: 600px) {
-  .timeInputs {
-    margin-bottom: var(--spacing-md);
-    padding: 0;
+    min-height: 50px;
   }
 
   .timeValue {
-    font-size: 2rem;
+    font-size: 34px;
+  }
+
+  .unit {
+    font-size: 11px;
+  }
+
+  .presetsGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .presetButton {
+    min-height: 44px;
+  }
+}
+
+@media (max-width: 340px), (max-height: 600px) {
+  .section {
+    padding-block: 8px;
+  }
+
+  .timeInputs {
+    gap: 4px;
+  }
+
+  .valueWrapper {
+    min-height: 42px;
+  }
+
+  .timeValue {
+    font-size: 28px;
+  }
+
+  .adjustButton {
+    height: 44px !important;
+    min-height: 44px !important;
+  }
+
+  .presetsGrid {
+    gap: 6px;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .adjustButton:hover:not(:disabled) {
+    background: var(--ui-color-bg-elevated);
   }
 }

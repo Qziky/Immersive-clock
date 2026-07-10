@@ -10,7 +10,7 @@ interface ConfettiPiece {
 }
 
 const createPieces = (count: number): ConfettiPiece[] => {
-  const palette = ["#03dac6", "#ffffff", "#bb86fc", "#cf6679", "#4dd0e1", "#ffd54f", "#81c784"];
+  const palette = ["#2fecc6", "#ffffff", "#bb86fc", "#cf6679", "#4dd0e1", "#ffd54f", "#81c784"];
 
   return Array.from({ length: count }).map((_, idx) => {
     // 使用整数和预计算减少运行时的随机计算量

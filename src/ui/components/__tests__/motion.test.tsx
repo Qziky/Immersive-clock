@@ -35,22 +35,22 @@ describe("UI motion presence", () => {
       </Modal>
     );
 
-    expect(screen.getByRole("dialog", { name: "动效弹窗" })).toHaveAttribute(
-      "data-ui-presence",
-      "exiting"
-    );
+    const exitingDialog = screen.getByRole("dialog", { hidden: true });
+    expect(exitingDialog).toHaveAttribute("data-ui-presence", "exiting");
+    expect(exitingDialog).toHaveAttribute("aria-hidden", "true");
+    expect(exitingDialog).toHaveAttribute("inert");
 
     act(() => {
       vi.advanceTimersByTime(179);
     });
 
-    expect(screen.getByRole("dialog", { name: "动效弹窗" })).toBeInTheDocument();
+    expect(exitingDialog).toBeInTheDocument();
 
     act(() => {
       vi.advanceTimersByTime(1);
     });
 
-    expect(screen.queryByRole("dialog", { name: "动效弹窗" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("dialog", { hidden: true })).not.toBeInTheDocument();
   });
 
   it("closes Dropdown with exit presence while keeping aria-expanded accurate", () => {

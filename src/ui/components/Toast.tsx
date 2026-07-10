@@ -1,5 +1,5 @@
 import { AlertCircle, CheckCircle2, Info, TriangleAlert, X } from "lucide-react";
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 
 import type { UiMotionMode } from "../types";
 import { classNames } from "../utils/classNames";
@@ -12,9 +12,12 @@ export interface ToastProps {
   variant?: ToastVariant;
   title: ReactNode;
   description?: ReactNode;
+  icon?: ReactNode;
+  accentColor?: string;
   action?: ReactNode;
   onClose?: () => void;
   motion?: UiMotionMode;
+  role?: "status" | "alert";
   className?: string;
 }
 
@@ -36,19 +39,34 @@ export function Toast({
   variant = "info",
   title,
   description,
+  icon,
+  accentColor,
   action,
   onClose,
   motion = "default",
+  role,
   className,
 }: ToastProps) {
+  const semanticRole = role ?? (variant === "danger" || variant === "warning" ? "alert" : "status");
+  const customAccentStyle = accentColor
+    ? ({ "--ui-toast-accent-color": accentColor } as CSSProperties)
+    : undefined;
+
   return (
     <div
-      className={classNames(styles.toast, variantClassMap[variant], className)}
+      className={classNames(
+        styles.toast,
+        variantClassMap[variant],
+        accentColor && styles.toastCustomAccent,
+        className
+      )}
       data-ui-motion={motion}
       data-ui-presence="entering"
-      role="status"
+      role={semanticRole}
+      aria-atomic="true"
+      style={customAccentStyle}
     >
-      <span className={styles.toastIcon}>{iconMap[variant]}</span>
+      <span className={styles.toastIcon}>{icon === undefined ? iconMap[variant] : icon}</span>
       <span className={styles.toastContent}>
         <strong>{title}</strong>
         {description && <span>{description}</span>}

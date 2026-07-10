@@ -37,8 +37,10 @@ export function QuoteChannelManager({
 }) {
   const state = useAppState();
   const dispatch = useAppDispatch();
-  const [channels, setChannels] = useState<QuoteSourceConfig[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [channels, setChannels] = useState<QuoteSourceConfig[]>(() => [
+    ...state.quoteChannels.channels,
+  ]);
+  const [isLoading, setIsLoading] = useState(true);
   const [expandedChannelId, setExpandedChannelId] = useState<string | null>(null);
   const [expandedEditorChannelId, setExpandedEditorChannelId] = useState<string | null>(null);
   const [defaultQuotesMap, setDefaultQuotesMap] = useState<Record<string, string[]>>({});
@@ -335,14 +337,18 @@ export function QuoteChannelManager({
 
   // 注册保存：保存当前草稿到全局状态与本地存储
   useEffect(() => {
+    if (isLoading) {
+      onRegisterSave?.(() => {});
+      return;
+    }
     onRegisterSave?.(() => {
       dispatch({ type: "UPDATE_QUOTE_CHANNELS", payload: channels });
     });
-  }, [onRegisterSave, channels, dispatch]);
+  }, [onRegisterSave, channels, dispatch, isLoading]);
 
   if (isLoading) {
     return (
-      <FormSection title="语录渠道管理">
+      <FormSection title="语录渠道管理" variant="plain">
         <InfoPanel tone="info">
           <RefreshIcon className={styles.loadingIcon} />
           <span>加载渠道配置中...</span>
@@ -352,7 +358,11 @@ export function QuoteChannelManager({
   }
 
   return (
-    <FormSection title="语录渠道管理" description="管理励志语录的来源、权重、分类和本地内容。">
+    <FormSection
+      title="语录渠道管理"
+      description="管理励志语录的来源、权重、分类和本地内容。"
+      variant="plain"
+    >
       <InfoPanel tone="neutral">
         权重越高，被选中的概率越大；渠道启用状态会随设置保存一起写入本地配置。
       </InfoPanel>

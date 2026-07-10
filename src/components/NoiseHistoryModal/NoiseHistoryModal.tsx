@@ -1,4 +1,5 @@
-import React, { useEffect, useMemo, useState } from "react";
+import { ChevronDown } from "lucide-react";
+import React, { useEffect, useId, useMemo, useState } from "react";
 
 import { DEFAULT_NOISE_REPORT_RETENTION_DAYS } from "../../constants/noiseReport";
 import type { NoiseSliceSummary } from "../../types/noise";
@@ -39,6 +40,7 @@ const NoiseHistoryModal: React.FC<NoiseHistoryModalProps> = ({ isOpen, onClose, 
   const [customEndValue, setCustomEndValue] = useState("");
   const [customError, setCustomError] = useState<string | null>(null);
   const [customOpen, setCustomOpen] = useState(false);
+  const customErrorId = useId();
 
   useEffect(() => {
     if (!isOpen) return;
@@ -136,32 +138,45 @@ const NoiseHistoryModal: React.FC<NoiseHistoryModalProps> = ({ isOpen, onClose, 
       closeButtonDataTour="noise-history-close"
     >
       <div data-tour="noise-history-modal">
-        <FormSection title={`历史记录（最近${retentionDays}天）`}>
+        <FormSection title={`历史记录（最近${retentionDays}天）`} variant="plain">
           <div className={styles.note}>
             数据来源：噪音切片摘要（按“历史保存天数”保存，且会受本地容量限制自动裁剪）。
           </div>
 
-          <div className={styles.list} aria-live="polite">
-            <div className={styles.headerRow}>
-              <div className={styles.colName}>名称</div>
-              <div className={styles.colScore}>评分</div>
-              <div className={styles.colTime}>时间</div>
-              <div className={styles.colAction}></div>
+          <div className={styles.list} role="table" aria-label="噪音历史记录" aria-live="polite">
+            <div className={styles.headerRow} role="row">
+              <div className={styles.colName} role="columnheader">
+                名称
+              </div>
+              <div className={styles.colScore} role="columnheader">
+                评分
+              </div>
+              <div className={styles.colTime} role="columnheader">
+                时间
+              </div>
+              <div className={styles.colAction} role="columnheader">
+                操作
+              </div>
             </div>
 
             {items.length === 0 ? (
-              <div className={styles.empty}>暂无历史记录</div>
+              <div className={styles.empty} role="row">
+                <span role="cell">暂无历史记录</span>
+              </div>
             ) : (
               items.map((item) => (
-                <div key={item.period.id} className={styles.dataRow}>
-                  <div className={styles.colName}>{item.period.name}</div>
-                  <div className={styles.colScore}>
+                <div key={item.period.id} className={styles.dataRow} role="row">
+                  <div className={styles.colName} role="cell">
+                    {item.period.name}
+                  </div>
+                  <div className={styles.colScore} role="cell">
+                    <span className={styles.mobileLabel}>评分</span>
                     {item.avgScore === null ? "—" : item.avgScore.toFixed(1)}
                   </div>
-                  <div className={styles.colTime}>
+                  <div className={styles.colTime} role="cell">
                     {formatRange(item.period.start, item.period.end)}
                   </div>
-                  <div className={styles.colAction}>
+                  <div className={styles.colAction} role="cell">
                     <FormButton
                       variant="secondary"
                       size="sm"
@@ -187,7 +202,10 @@ const NoiseHistoryModal: React.FC<NoiseHistoryModalProps> = ({ isOpen, onClose, 
             open={customOpen}
             onToggle={(e) => setCustomOpen((e.currentTarget as HTMLDetailsElement).open)}
           >
-            <summary className={styles.customSummary}>自定义时间段报告</summary>
+            <summary className={styles.customSummary}>
+              <ChevronDown size={18} aria-hidden="true" />
+              <span>自定义时间段报告</span>
+            </summary>
             <div className={styles.customBody}>
               <div className={styles.note}>
                 {availableRange
@@ -209,12 +227,16 @@ const NoiseHistoryModal: React.FC<NoiseHistoryModalProps> = ({ isOpen, onClose, 
                     type="datetime-local"
                     value={customStartValue}
                     onChange={(e) => setCustomStartValue(e.target.value)}
+                    aria-invalid={customError ? true : undefined}
+                    aria-describedby={customError ? customErrorId : undefined}
                   />
                   <FormInput
                     label="结束时间"
                     type="datetime-local"
                     value={customEndValue}
                     onChange={(e) => setCustomEndValue(e.target.value)}
+                    aria-invalid={customError ? true : undefined}
+                    aria-describedby={customError ? customErrorId : undefined}
                   />
                 </FormRow>
 
@@ -224,7 +246,11 @@ const NoiseHistoryModal: React.FC<NoiseHistoryModalProps> = ({ isOpen, onClose, 
                   </FormButton>
                 </FormButtonGroup>
 
-                {customError ? <div className={styles.customError}>{customError}</div> : null}
+                {customError ? (
+                  <div id={customErrorId} className={styles.customError} role="alert">
+                    {customError}
+                  </div>
+                ) : null}
               </div>
             </div>
           </details>

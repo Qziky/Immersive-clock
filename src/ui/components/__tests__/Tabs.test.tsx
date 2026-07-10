@@ -64,4 +64,61 @@ describe("Tabs", () => {
     await user.click(screen.getByRole("tab", { name: "自习" }));
     expect(onChange).toHaveBeenCalledWith("study");
   });
+
+  it("uses roving tabindex and supports arrow, Home and End navigation", async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+
+    render(
+      <Tabs
+        id="settings"
+        value="startup"
+        items={[
+          { value: "startup", label: "启动", ariaControls: "panel-startup" },
+          { value: "disabled", label: "禁用", disabled: true },
+          { value: "display", label: "显示", ariaControls: "panel-display" },
+          { value: "about", label: "关于", ariaControls: "panel-about" },
+        ]}
+        onChange={onChange}
+      />
+    );
+
+    const startupTab = screen.getByRole("tab", { name: "启动" });
+    const displayTab = screen.getByRole("tab", { name: "显示" });
+    const aboutTab = screen.getByRole("tab", { name: "关于" });
+
+    expect(startupTab).toHaveAttribute("tabindex", "0");
+    expect(displayTab).toHaveAttribute("tabindex", "-1");
+    expect(startupTab).toHaveAttribute("id", "settings-tab-startup");
+    expect(startupTab).toHaveAttribute("aria-controls", "panel-startup");
+
+    startupTab.focus();
+    await user.keyboard("{ArrowRight}");
+    expect(onChange).toHaveBeenLastCalledWith("display");
+    expect(displayTab).toHaveFocus();
+
+    await user.keyboard("{End}");
+    expect(onChange).toHaveBeenLastCalledWith("about");
+    expect(aboutTab).toHaveFocus();
+
+    await user.keyboard("{Home}");
+    expect(onChange).toHaveBeenLastCalledWith("startup");
+    expect(startupTab).toHaveFocus();
+  });
+
+  it("keeps one enabled tab in the tab order when the selected value is disabled", () => {
+    render(
+      <Tabs
+        value="disabled"
+        items={[
+          { value: "clock", label: "时钟" },
+          { value: "disabled", label: "禁用", disabled: true },
+        ]}
+        onChange={vi.fn()}
+      />
+    );
+
+    expect(screen.getByRole("tab", { name: "时钟" })).toHaveAttribute("tabindex", "0");
+    expect(screen.getByRole("tab", { name: "禁用" })).toHaveAttribute("tabindex", "-1");
+  });
 });

@@ -25,58 +25,6 @@ const SMALL_CHART_HEIGHT = 100;
 const CHART_PADDING = 24;
 
 /**
- * 数字滚动组件
- * @param value 目标数值
- * @param duration 动画持续时间
- * @param delay 动画延迟
- * @param decimals 小数位数
- * @param suffix 后缀
- * @param formatter 自定义格式化函数
- */
-const NumberTicker: React.FC<{
-  value: number;
-  duration?: number;
-  delay?: number;
-  decimals?: number;
-  suffix?: string;
-  formatter?: (v: number) => string;
-}> = ({ value, duration = 1000, delay = 0, decimals = 0, suffix = "", formatter }) => {
-  const [displayValue, setDisplayValue] = useState(0);
-  const startTimeRef = useRef<number | null>(null);
-  const rafRef = useRef<number | null>(null);
-
-  useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      const animate = (time: number) => {
-        if (!startTimeRef.current) startTimeRef.current = time;
-        const progress = Math.min((time - startTimeRef.current) / duration, 1);
-
-        // 三次缓出效果
-        const easeProgress = 1 - Math.pow(1 - progress, 3);
-
-        const current = progress === 1 ? value : value * easeProgress;
-        setDisplayValue(current);
-
-        if (progress < 1) {
-          rafRef.current = requestAnimationFrame(animate);
-        }
-      };
-
-      rafRef.current = requestAnimationFrame(animate);
-    }, delay);
-
-    return () => {
-      clearTimeout(timeoutId);
-      if (rafRef.current) cancelAnimationFrame(rafRef.current);
-    };
-  }, [value, duration, delay]);
-
-  const formatted = formatter ? formatter(displayValue) : displayValue.toFixed(decimals) + suffix;
-
-  return <span>{formatted}</span>;
-};
-
-/**
  * 格式化持续时间
  * @param ms 毫秒数
  */
@@ -195,15 +143,9 @@ export const NoiseReportModal: React.FC<NoiseReportModalProps> = ({
   period,
 }) => {
   const chartContainerRef = useRef<HTMLDivElement>(null);
-  const moreStatsRef = useRef<HTMLDivElement>(null);
   const [chartWidth, setChartWidth] = useState(860);
   const [isGridSingleColumn, setIsGridSingleColumn] = useState(false);
   const [tick, setTick] = useState(0);
-
-  // 动画状态
-  const [isLoaded, setIsLoaded] = useState(false);
-  const [showMainChart, setShowMainChart] = useState(false);
-  const [showMoreStats, setShowMoreStats] = useState(false);
   const [isMainChartCombined, setIsMainChartCombined] = useState(() => {
     try {
       const saved = localStorage.getItem("noise-report.is-main-chart-combined");
@@ -216,42 +158,6 @@ export const NoiseReportModal: React.FC<NoiseReportModalProps> = ({
   useEffect(() => {
     localStorage.setItem("noise-report.is-main-chart-combined", String(isMainChartCombined));
   }, [isMainChartCombined]);
-
-  useEffect(() => {
-    if (isOpen) {
-      // 开启时重置动画状态
-      setIsLoaded(false);
-      setShowMainChart(false);
-      setShowMoreStats(false);
-
-      // 延迟触发概览动画
-      const t1 = setTimeout(() => setIsLoaded(true), 100);
-      // 延迟触发主图表动画
-      const t2 = setTimeout(() => setShowMainChart(true), 900);
-
-      return () => {
-        clearTimeout(t1);
-        clearTimeout(t2);
-      };
-    }
-  }, [isOpen]);
-
-  useEffect(() => {
-    if (!isOpen || !moreStatsRef.current) return;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting) {
-          setShowMoreStats(true);
-          observer.disconnect();
-        }
-      },
-      { threshold: 0.2 }
-    );
-
-    observer.observe(moreStatsRef.current);
-    return () => observer.disconnect();
-  }, [isOpen]);
 
   useEffect(() => {
     const measure = () => {
@@ -308,17 +214,17 @@ export const NoiseReportModal: React.FC<NoiseReportModalProps> = ({
       severe: 0, // > 75
     };
 
-    // 适配暗色主题的调色盘
+    // 与 UI 语义色保持一致，避免报告形成独立配色体系。
     const COLORS = {
-      quiet: "#81C784", // 绿色 - 安静
-      normal: "#64B5F6", // 蓝色 - 正常
-      loud: "#FFB74D", // 橙色 - 吵闹
-      severe: "#E57373", // 红色 - 极吵
-      sustained: "#FFD54F", // 琥珀色
-      time: "#FF8A65", // 深橙色
-      segment: "#F06292", // 粉色
-      score: "#BA68C8", // 紫色
-      event: "#E57373", // 红色
+      quiet: "var(--ui-color-accent)",
+      normal: "var(--ui-color-info)",
+      loud: "var(--ui-color-warning)",
+      severe: "var(--ui-color-danger)",
+      sustained: "var(--ui-color-warning)",
+      time: "var(--ui-color-info)",
+      segment: "var(--ui-color-danger)",
+      score: "var(--ui-color-info)",
+      event: "var(--ui-color-danger)",
     };
 
     const series: { t: number; start: number; v: number; score: number; events: number }[] = [];
@@ -748,100 +654,85 @@ export const NoiseReportModal: React.FC<NoiseReportModalProps> = ({
     return { score: s, level: getScoreLevelText(s) };
   }, [report]);
 
+  const modalTitle = period ? `${period.name} 统计报告` : "统计报告";
+  const modalFooter = (
+    <div className={styles.footer}>
+      {onBack ? (
+        <FormButton variant="primary" size="sm" onClick={onBack}>
+          返回
+        </FormButton>
+      ) : (
+        <FormButton variant="primary" size="sm" onClick={onClose}>
+          关闭
+        </FormButton>
+      )}
+    </div>
+  );
+
+  if (!report || report.totalMs <= 0) {
+    return (
+      <Modal
+        isOpen={isOpen}
+        onClose={onClose}
+        title={modalTitle}
+        maxWidth="xxl"
+        className={styles.reportModal}
+        footer={modalFooter}
+      >
+        <div className={styles.empty} role="status">
+          <strong>该时段暂无噪音数据</strong>
+          <span>生成有效的噪音切片后，这里将显示评分与趋势。</span>
+        </div>
+      </Modal>
+    );
+  }
+
   return (
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={period ? `${period.name} 统计报告` : "统计报告"}
+      title={modalTitle}
       maxWidth="xxl"
-      footer={
-        <div className={styles.footer}>
-          {onBack ? (
-            <FormButton variant="primary" size="sm" onClick={onBack}>
-              返回
-            </FormButton>
-          ) : (
-            <FormButton variant="primary" size="sm" onClick={onClose}>
-              关闭
-            </FormButton>
-          )}
-        </div>
-      }
+      className={styles.reportModal}
+      footer={modalFooter}
     >
-      <div className={styles.container}>
+      <div className={`${styles.container} ${styles.reportContent}`}>
         <div className={styles.section}>
           <h4 className={styles.sectionTitle}>报告概览</h4>
           <div className={styles.overviewGrid}>
-            <div
-              className={`${styles.card} ${isLoaded ? styles.animateEnter : ""}`}
-              style={{ opacity: 0 }}
-            >
+            <div className={styles.card}>
               <div className={styles.cardLabel}>时长</div>
               <div className={styles.cardValue}>{report ? formatMinutes(report.totalMs) : "—"}</div>
             </div>
-            <div
-              className={`${styles.card} ${isLoaded ? styles.animateEnter : ""}`}
-              style={{ opacity: 0 }}
-            >
+            <div className={styles.card}>
               <div className={styles.cardLabel}>表现</div>
               <div className={styles.cardValue}>
-                {scoreInfo ? (
-                  <>
-                    <NumberTicker value={scoreInfo.score} duration={8000} /> 分
-                  </>
-                ) : (
-                  "—"
-                )}
+                {scoreInfo ? <>{scoreInfo.score} 分</> : "—"}
                 {scoreInfo ? <span className={styles.cardSub}>（{scoreInfo.level}）</span> : null}
               </div>
+              <div className={styles.scoreSummary}>{report.scoreText}</div>
             </div>
-            <div
-              className={`${styles.card} ${isLoaded ? styles.animateEnter : ""}`}
-              style={{ opacity: 0 }}
-            >
+            <div className={styles.card}>
               <div className={styles.cardLabel}>峰值</div>
               <div className={styles.cardValue}>
-                {report ? (
-                  <>
-                    <NumberTicker value={report.maxDb} decimals={1} duration={1800} /> dB
-                  </>
-                ) : (
-                  "—"
-                )}
+                {report ? <>{report.maxDb.toFixed(1)} dB</> : "—"}
               </div>
             </div>
-            <div
-              className={`${styles.card} ${isLoaded ? styles.animateEnter : ""}`}
-              style={{ opacity: 0 }}
-            >
+            <div className={styles.card}>
               <div className={styles.cardLabel}>平均</div>
               <div className={styles.cardValue}>
-                {report ? (
-                  <>
-                    <NumberTicker value={report.avgDb} decimals={1} duration={1800} /> dB
-                  </>
-                ) : (
-                  "—"
-                )}
+                {report ? <>{report.avgDb.toFixed(1)} dB</> : "—"}
               </div>
             </div>
-            <div
-              className={`${styles.card} ${isLoaded ? styles.animateEnter : ""}`}
-              style={{ opacity: 0 }}
-            >
+            <div className={styles.card}>
               <div className={styles.cardLabel}>超阈时长</div>
               <div className={styles.cardValue}>
                 {report ? formatDuration(report.overDurationMs) : "—"}
               </div>
             </div>
-            <div
-              className={`${styles.card} ${isLoaded ? styles.animateEnter : ""}`}
-              style={{ opacity: 0 }}
-            >
+            <div className={styles.card}>
               <div className={styles.cardLabel}>打断次数</div>
-              <div className={styles.cardValue}>
-                {report ? <NumberTicker value={report.segmentCount} duration={750} /> : "—"}
-              </div>
+              <div className={styles.cardValue}>{report.segmentCount}</div>
             </div>
           </div>
         </div>
@@ -856,12 +747,13 @@ export const NoiseReportModal: React.FC<NoiseReportModalProps> = ({
                   height={chart.height}
                   className={styles.chart}
                   viewBox={`0 0 ${chart.width} ${chart.height}`}
-                  style={
-                    {
-                      "--path-length": Math.ceil(chart.pathLength),
-                    } as React.CSSProperties
-                  }
+                  role="img"
+                  aria-labelledby="noise-trend-title noise-trend-description"
                 >
+                  <title id="noise-trend-title">噪音走势</title>
+                  <desc id="noise-trend-description">
+                    展示所选时段内的平均噪音、报警阈值以及可选的评分和打断密度。
+                  </desc>
                   <defs>
                     <linearGradient
                       id="noiseAreaGradient"
@@ -871,8 +763,8 @@ export const NoiseReportModal: React.FC<NoiseReportModalProps> = ({
                       y2={chart.height}
                       gradientUnits="userSpaceOnUse"
                     >
-                      <stop offset="0%" stopColor="#03DAC6" stopOpacity={0.35} />
-                      <stop offset="100%" stopColor="#03DAC6" stopOpacity={0} />
+                      <stop offset="0%" stopColor="var(--ui-color-accent)" stopOpacity={0.28} />
+                      <stop offset="100%" stopColor="var(--ui-color-accent)" stopOpacity={0} />
                     </linearGradient>
                     <linearGradient
                       id="noiseAreaGradientWarning"
@@ -957,15 +849,8 @@ export const NoiseReportModal: React.FC<NoiseReportModalProps> = ({
                       fill="none"
                       stroke={report.COLORS.score}
                       strokeWidth="1.5"
-                      opacity={0.5}
-                      className={showMainChart ? styles.animatePath : ""}
+                      opacity={0.72}
                       mask="url(#scoreCoverageMaskMain)"
-                      style={
-                        {
-                          "--path-length": Math.ceil(chart.scorePathLength),
-                          visibility: showMainChart ? "visible" : "hidden",
-                        } as React.CSSProperties
-                      }
                     />
                   )}
 
@@ -982,7 +867,7 @@ export const NoiseReportModal: React.FC<NoiseReportModalProps> = ({
                     <rect x="0" y="0" width={chart.width} height={chart.thresholdY} fill="white" />
                   </mask>
 
-                  <g className={showMainChart ? styles.animateArea : ""} style={{ opacity: 0 }}>
+                  <g>
                     <path
                       d={chart.areaPath}
                       fill="url(#noiseAreaGradient)"
@@ -997,85 +882,41 @@ export const NoiseReportModal: React.FC<NoiseReportModalProps> = ({
                     />
                   </g>
 
-                  {isMainChartCombined ? (
-                    <>
-                      {(() => {
-                        const maxRate = Math.max(1, chart.maxBucketEventRate);
-                        const totalDuration = 4.05;
-                        const barWidth = 3;
+                  {isMainChartCombined
+                    ? chart.eventRateBuckets.map((bucket, index) => {
+                        if (bucket.count === 0 || bucket.rate <= 0) return null;
+                        const barHeight =
+                          (bucket.rate / Math.max(1, chart.maxBucketEventRate)) *
+                          (chart.height - chart.padding * 2) *
+                          0.7;
+                        const y = chart.height - chart.padding - barHeight;
 
                         return (
-                          <>
-                            {chart.eventRateBuckets.map((b, i) => {
-                              if (b.count === 0 || b.rate <= 0) return null;
-                              const barHeight =
-                                (b.rate / maxRate) * (chart.height - chart.padding * 2) * 0.7;
-                              const y = chart.height - chart.padding - barHeight;
-
-                              const progress = i / Math.max(1, chart.eventRateBuckets.length - 1);
-                              let low = 0,
-                                high = 1;
-                              let solvedT = progress;
-                              for (let k = 0; k < 8; k++) {
-                                const mid = (low + high) / 2;
-                                const t = mid;
-                                const invT = 1 - t;
-                                const yVal =
-                                  3 * invT * invT * t * 0.46 + 3 * invT * t * t * 0.94 + t * t * t;
-                                if (yVal < progress) low = mid;
-                                else high = mid;
-                                solvedT = mid;
-                              }
-                              const delay = solvedT * totalDuration;
-
-                              return (
-                                <rect
-                                  key={i}
-                                  x={b.x - barWidth / 2}
-                                  y={y}
-                                  width={barWidth}
-                                  height={barHeight}
-                                  fill={report.COLORS.event}
-                                  opacity={0.42}
-                                  className={showMainChart ? styles.animateBarHeight : ""}
-                                  shapeRendering="crispEdges"
-                                  style={{
-                                    transformOrigin: `center ${chart.height - chart.padding}px`,
-                                    animationDelay: `${delay}s`,
-                                    transform: showMainChart ? undefined : "scaleY(0)",
-                                  }}
-                                />
-                              );
-                            })}
-                          </>
+                          <rect
+                            key={index}
+                            x={bucket.x - 1.5}
+                            y={y}
+                            width={3}
+                            height={barHeight}
+                            fill={report.COLORS.event}
+                            opacity={0.42}
+                            shapeRendering="crispEdges"
+                          />
                         );
-                      })()}
-                    </>
-                  ) : null}
+                      })
+                    : null}
 
                   <path
                     d={chart.path}
-                    className={`${styles.line} ${showMainChart ? styles.animatePath : ""}`}
-                    stroke="#03DAC6"
+                    className={styles.line}
+                    stroke="var(--ui-color-accent)"
                     mask="url(#lineNormalMask)"
-                    style={{
-                      stroke: "#03DAC6",
-                      strokeDasharray: "var(--path-length)",
-                      strokeDashoffset: "var(--path-length)",
-                      visibility: showMainChart ? "visible" : "hidden",
-                    }}
                   />
                   <path
                     d={chart.path}
-                    className={`${styles.line} ${showMainChart ? styles.animatePath : ""}`}
+                    className={styles.line}
                     stroke={report.COLORS.severe}
                     mask="url(#lineWarningMask)"
-                    style={{
-                      stroke: report.COLORS.severe,
-                      strokeDasharray: "var(--path-length)",
-                      strokeDashoffset: "var(--path-length)",
-                      visibility: showMainChart ? "visible" : "hidden",
-                    }}
                   />
 
                   {chart.xTicks.map((t, idx) => (
@@ -1128,11 +969,11 @@ export const NoiseReportModal: React.FC<NoiseReportModalProps> = ({
               </div>
             </div>
           ) : (
-            <div className={styles.empty}>该时段暂无切片数据</div>
+            <div className={`${styles.empty} ${styles.chartEmpty}`}>趋势样本不足</div>
           )}
         </div>
 
-        <div className={styles.section} ref={moreStatsRef}>
+        <div className={styles.section}>
           <h4 className={styles.sectionTitle}>更多统计</h4>
           {report ? (
             <div className={styles.chartGrid}>
@@ -1142,12 +983,11 @@ export const NoiseReportModal: React.FC<NoiseReportModalProps> = ({
                   width={smallChart.width}
                   height={smallChart.height}
                   viewBox={`0 0 ${smallChart.width} ${smallChart.height}`}
-                  style={
-                    {
-                      "--path-length": Math.ceil(smallChart.scorePathLength),
-                    } as React.CSSProperties
-                  }
+                  role="img"
+                  aria-labelledby="score-trend-title score-trend-description"
                 >
+                  <title id="score-trend-title">评分走势</title>
+                  <desc id="score-trend-description">展示所选时段内零到一百分的评分变化。</desc>
                   <defs>
                     <mask id="scoreCoverageMaskSmall">
                       {smallChart.maskRects.map((r, i) => (
@@ -1180,13 +1020,7 @@ export const NoiseReportModal: React.FC<NoiseReportModalProps> = ({
                     stroke={report.COLORS.score}
                     strokeWidth="2"
                     opacity={0.9}
-                    className={showMoreStats ? styles.animatePath : ""}
                     mask="url(#scoreCoverageMaskSmall)"
-                    style={{
-                      strokeDasharray: "var(--path-length)",
-                      strokeDashoffset: showMoreStats ? undefined : "var(--path-length)",
-                      visibility: showMoreStats ? "visible" : "hidden",
-                    }}
                   />
 
                   {smallChart.xTicks.map((t, idx) => (
@@ -1215,7 +1049,11 @@ export const NoiseReportModal: React.FC<NoiseReportModalProps> = ({
                   width={smallChart.width}
                   height={smallChart.height}
                   viewBox={`0 0 ${smallChart.width} ${smallChart.height}`}
+                  role="img"
+                  aria-labelledby="event-density-title event-density-description"
                 >
+                  <title id="event-density-title">打断次数密度</title>
+                  <desc id="event-density-description">展示所选时段内每分钟打断次数的分布。</desc>
                   {smallChart.eventTicks.map((t) => (
                     <line
                       key={`ey-${t.label}`}
@@ -1236,24 +1074,6 @@ export const NoiseReportModal: React.FC<NoiseReportModalProps> = ({
                     const y = smallChart.height - smallChart.padding - barHeight;
                     const barWidth = 3.5;
 
-                    const totalDuration = 4.05;
-                    const progress = i / Math.max(1, smallChart.eventBuckets.length - 1);
-
-                    let low = 0,
-                      high = 1;
-                    let solvedT = progress;
-                    for (let k = 0; k < 8; k++) {
-                      const mid = (low + high) / 2;
-                      const t = mid;
-                      const invT = 1 - t;
-                      const yVal = 3 * invT * invT * t * 0.46 + 3 * invT * t * t * 0.94 + t * t * t;
-                      if (yVal < progress) low = mid;
-                      else high = mid;
-                      solvedT = mid;
-                    }
-
-                    const delay = solvedT * totalDuration;
-
                     return (
                       <rect
                         key={i}
@@ -1263,13 +1083,7 @@ export const NoiseReportModal: React.FC<NoiseReportModalProps> = ({
                         height={barHeight}
                         fill={report.COLORS.event}
                         opacity={0.8}
-                        className={showMoreStats ? styles.animateBarHeight : ""}
                         shapeRendering="crispEdges"
-                        style={{
-                          transformOrigin: `center ${smallChart.height - smallChart.padding}px`,
-                          animationDelay: `${delay}s`,
-                          transform: showMoreStats ? undefined : "scaleY(0)",
-                        }}
                       />
                     );
                   })}
@@ -1299,43 +1113,31 @@ export const NoiseReportModal: React.FC<NoiseReportModalProps> = ({
                 <div className={styles.distributionChart}>
                   <div className={styles.distributionBar}>
                     <div
-                      className={`${styles.distributionSegment} ${showMoreStats ? styles.animateBarWidth : ""}`}
+                      className={styles.distributionSegment}
                       style={{
                         width: `${report.distribution.quiet * 100}%`,
                         backgroundColor: report.COLORS.quiet,
-                        animationDelay: "0s",
-                        transform: showMoreStats ? undefined : "scaleX(0)", // 初始隐藏
-                        transformOrigin: "left",
                       }}
                     />
                     <div
-                      className={`${styles.distributionSegment} ${showMoreStats ? styles.animateBarWidth : ""}`}
+                      className={styles.distributionSegment}
                       style={{
                         width: `${report.distribution.normal * 100}%`,
                         backgroundColor: report.COLORS.normal,
-                        animationDelay: "0.2s",
-                        transform: showMoreStats ? undefined : "scaleX(0)", // 初始隐藏
-                        transformOrigin: "left",
                       }}
                     />
                     <div
-                      className={`${styles.distributionSegment} ${showMoreStats ? styles.animateBarWidth : ""}`}
+                      className={styles.distributionSegment}
                       style={{
                         width: `${report.distribution.loud * 100}%`,
                         backgroundColor: report.COLORS.loud,
-                        animationDelay: "0.4s",
-                        transform: showMoreStats ? undefined : "scaleX(0)", // 初始隐藏
-                        transformOrigin: "left",
                       }}
                     />
                     <div
-                      className={`${styles.distributionSegment} ${showMoreStats ? styles.animateBarWidth : ""}`}
+                      className={styles.distributionSegment}
                       style={{
                         width: `${report.distribution.severe * 100}%`,
                         backgroundColor: report.COLORS.severe,
-                        animationDelay: "0.6s",
-                        transform: showMoreStats ? undefined : "scaleX(0)", // 初始隐藏
-                        transformOrigin: "left",
                       }}
                     />
                   </div>
@@ -1379,13 +1181,10 @@ export const NoiseReportModal: React.FC<NoiseReportModalProps> = ({
                     <div className={styles.penaltyLabel}>持续</div>
                     <div className={styles.penaltyBarTrack}>
                       <div
-                        className={`${styles.penaltyBarFill} ${showMoreStats ? styles.animateBarWidth : ""}`}
+                        className={styles.penaltyBarFill}
                         style={{
                           width: `${report.sustainedPenalty * 100}%`,
                           backgroundColor: report.COLORS.sustained,
-                          animationDelay: "0s",
-                          transform: showMoreStats ? undefined : "scaleX(0)", // 初始隐藏
-                          transformOrigin: "left",
                         }}
                       />
                     </div>
@@ -1398,13 +1197,10 @@ export const NoiseReportModal: React.FC<NoiseReportModalProps> = ({
                     <div className={styles.penaltyLabel}>时长</div>
                     <div className={styles.penaltyBarTrack}>
                       <div
-                        className={`${styles.penaltyBarFill} ${showMoreStats ? styles.animateBarWidth : ""}`}
+                        className={styles.penaltyBarFill}
                         style={{
                           width: `${report.timePenalty * 100}%`,
                           backgroundColor: report.COLORS.time,
-                          animationDelay: "0.2s",
-                          transform: showMoreStats ? undefined : "scaleX(0)", // 初始隐藏
-                          transformOrigin: "left",
                         }}
                       />
                     </div>
@@ -1417,13 +1213,10 @@ export const NoiseReportModal: React.FC<NoiseReportModalProps> = ({
                     <div className={styles.penaltyLabel}>打断</div>
                     <div className={styles.penaltyBarTrack}>
                       <div
-                        className={`${styles.penaltyBarFill} ${showMoreStats ? styles.animateBarWidth : ""}`}
+                        className={styles.penaltyBarFill}
                         style={{
                           width: `${report.segmentPenalty * 100}%`,
                           backgroundColor: report.COLORS.segment,
-                          animationDelay: "0.4s",
-                          transform: showMoreStats ? undefined : "scaleX(0)", // 初始隐藏
-                          transformOrigin: "left",
                         }}
                       />
                     </div>

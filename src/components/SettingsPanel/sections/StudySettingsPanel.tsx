@@ -24,6 +24,7 @@ import {
   SettingItem,
   StatusPill,
   Switch as FormSwitch,
+  useFeedback,
 } from "../../../ui";
 import { getAppSettings, updateNoiseSettings } from "../../../utils/appSettings";
 import { pushErrorCenterRecord } from "../../../utils/errorCenter";
@@ -74,6 +75,7 @@ export const StudySettingsPanel: React.FC<StudySettingsPanelProps> = ({
   section,
 }) => {
   const { study } = useAppState();
+  const { confirm } = useFeedback();
   const [_effectiveBaselineRms, setEffectiveBaselineRms] = useState<number>(() => {
     return getAppSettings().noiseControl.baselineRms ?? 0;
   });
@@ -183,13 +185,19 @@ export const StudySettingsPanel: React.FC<StudySettingsPanelProps> = ({
     return off;
   }, []);
 
-  const handleClearNoiseBaseline = useCallback(() => {
-    if (confirm("确定要清除噪音校准吗？这将重置为未校准状态。")) {
+  const handleClearNoiseBaseline = useCallback(async () => {
+    const confirmed = await confirm({
+      title: "清除噪音校准",
+      description: "当前校准草稿将重置为未校准状态，保存设置后生效。",
+      confirmLabel: "清除校准",
+      variant: "danger",
+    });
+    if (confirmed) {
       setNoiseBaseline(0);
       setBaselineRms(0);
       openMessagePopup({ type: "general", title: "提示", message: "噪音校准已清除（未保存）" });
     }
-  }, [openMessagePopup]);
+  }, [confirm, openMessagePopup]);
 
   const performCalibration = useCallback(async () => {
     setCalibrationError(null);
@@ -297,10 +305,15 @@ export const StudySettingsPanel: React.FC<StudySettingsPanelProps> = ({
 
   const handleRecalibrate = useCallback(async () => {
     if (isCalibrating) return;
-    if (confirm("确定要开始/重新校准噪音基准吗？请确保当前环境安静，校准过程约3秒。")) {
+    const confirmed = await confirm({
+      title: "开始噪音校准",
+      description: "请确保当前环境安静。校准过程约 3 秒，并会请求麦克风权限。",
+      confirmLabel: "开始校准",
+    });
+    if (confirmed) {
       await performCalibration();
     }
-  }, [performCalibration, isCalibrating]);
+  }, [confirm, performCalibration, isCalibrating]);
 
   // 课表编辑功能已迁移到基础设置面板
   // 注册保存：在父组件点击保存时统一写入持久化存储
@@ -364,9 +377,10 @@ export const StudySettingsPanel: React.FC<StudySettingsPanelProps> = ({
     section ? section !== candidate : undefined;
 
   return (
-    <div id="study-panel" role="tabpanel" aria-labelledby="study">
+    <div id="study-panel">
       <FormSection
         title="噪音控制"
+        variant="plain"
         description="调整噪音状态展示与提示音触发，不影响评分结果。"
         hidden={isSectionHidden("control")}
       >
@@ -437,6 +451,7 @@ export const StudySettingsPanel: React.FC<StudySettingsPanelProps> = ({
 
       <FormSection
         title="校准与修正"
+        variant="plain"
         description="请在安静环境下校准，或手动选择当前环境所处的噪音水平。"
         hidden={isSectionHidden("calibration")}
       >
@@ -492,6 +507,7 @@ export const StudySettingsPanel: React.FC<StudySettingsPanelProps> = ({
 
       <FormSection
         title="噪音报告"
+        variant="plain"
         description="控制学习结束后的报告弹出与历史保留范围。"
         hidden={isSectionHidden("reports")}
       >
@@ -540,10 +556,10 @@ export const StudySettingsPanel: React.FC<StudySettingsPanelProps> = ({
 
       {/* 背景设置已迁移到基础设置 */}
 
-      <FormSection title="实时监控" hidden={isSectionHidden("reports")}>
+      <FormSection title="实时监控" variant="plain" hidden={isSectionHidden("reports")}>
         <RealTimeNoiseChart />
       </FormSection>
-      <FormSection title="统计数据" hidden={isSectionHidden("reports")}>
+      <FormSection title="统计数据" variant="plain" hidden={isSectionHidden("reports")}>
         <NoiseStatsSummary />
       </FormSection>
     </div>

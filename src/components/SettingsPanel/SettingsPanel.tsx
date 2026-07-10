@@ -3,6 +3,7 @@ import {
   BookOpen,
   Brush,
   CalendarClock,
+  ChevronDown,
   Clock3,
   CloudSun,
   Database,
@@ -21,11 +22,12 @@ import {
   TimerReset,
   Type,
   Wifi,
+  X,
 } from "lucide-react";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 
 import { useAppDispatch, useAppState } from "../../contexts/AppContext";
-import { Button, Modal, StatusPill } from "../../ui";
+import { Button, IconButton, Modal, useFeedback } from "../../ui";
 import { logger } from "../../utils/logger";
 import { broadcastSettingsEvent, SETTINGS_EVENTS } from "../../utils/settingsEvents";
 
@@ -329,6 +331,14 @@ const paneItems: SettingsPane[] = [
   },
 ];
 
+const DEFAULT_PANES_BY_GROUP: Record<SettingsPrimaryGroup, SettingsPaneId> = {
+  workspace: "startup",
+  appearance: "colors",
+  environment: "weatherAlerts",
+  content: "quoteRefresh",
+  system: "timeSync",
+};
+
 function getPane(value: SettingsPaneId): SettingsPane {
   return paneItems.find((item) => item.value === value) ?? paneItems[0];
 }
@@ -341,16 +351,21 @@ function getGroupForPane(value: SettingsPaneId): SettingsPrimaryGroup {
   return getPane(value).group;
 }
 
-function getDefaultPaneForGroup(value: SettingsPrimaryGroup): SettingsPaneId {
-  return getGroup(value).defaultPane;
-}
-
 export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
   const { study } = useAppState();
   const dispatch = useAppDispatch();
+  const { notify } = useFeedback();
 
   const [activeGroup, setActiveGroup] = useState<SettingsPrimaryGroup>("workspace");
+  const [expandedGroup, setExpandedGroup] = useState<SettingsPrimaryGroup | null>("workspace");
+  const [compactMenuGroup, setCompactMenuGroup] = useState<SettingsPrimaryGroup | null>(null);
   const [activePane, setActivePane] = useState<SettingsPaneId>("startup");
+  const [lastPaneByGroup, setLastPaneByGroup] =
+    useState<Record<SettingsPrimaryGroup, SettingsPaneId>>(DEFAULT_PANES_BY_GROUP);
+  const [visitedPanels, setVisitedPanels] = useState<Set<SettingsPane["panel"]>>(
+    () => new Set(["basic"])
+  );
+  const [draftSession, setDraftSession] = useState(0);
   const [targetYear, setTargetYear] = useState(study.targetYear);
 
   const basicSaveRef = useRef<() => void>(() => {});
@@ -359,6 +374,30 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
   const quotesSaveRef = useRef<() => void>(() => {});
   const aboutSaveRef = useRef<() => void>(() => {});
   const contentRef = useRef<HTMLDivElement>(null);
+  const wasOpenRef = useRef(isOpen);
+
+  useLayoutEffect(() => {
+    if (isOpen && !wasOpenRef.current) {
+      setDraftSession((current) => current + 1);
+    }
+    wasOpenRef.current = isOpen;
+  }, [isOpen]);
+
+  const registerBasicSave = useCallback((save: () => void) => {
+    basicSaveRef.current = save;
+  }, []);
+  const registerWeatherSave = useCallback((save: () => void) => {
+    weatherSaveRef.current = save;
+  }, []);
+  const registerMonitorSave = useCallback((save: () => void) => {
+    monitorSaveRef.current = save;
+  }, []);
+  const registerQuotesSave = useCallback((save: () => void) => {
+    quotesSaveRef.current = save;
+  }, []);
+  const registerAboutSave = useCallback((save: () => void) => {
+    aboutSaveRef.current = save;
+  }, []);
 
   const handleClose = useCallback(() => {
     try {
@@ -369,177 +408,326 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
   }, [onClose]);
 
   const handleSaveAll = useCallback(() => {
-    dispatch({ type: "SET_TARGET_YEAR", payload: targetYear });
-
     try {
       basicSaveRef.current?.();
-      weatherSaveRef.current?.();
-      monitorSaveRef.current?.();
-      quotesSaveRef.current?.();
-      aboutSaveRef.current?.();
+      if (visitedPanels.has("weather")) weatherSaveRef.current?.();
+      if (visitedPanels.has("monitor")) monitorSaveRef.current?.();
+      if (visitedPanels.has("quotes")) quotesSaveRef.current?.();
+      if (visitedPanels.has("about")) aboutSaveRef.current?.();
+      dispatch({ type: "SET_TARGET_YEAR", payload: targetYear });
     } catch (error) {
       logger.error("保存分区设置失败:", error);
-      alert("保存设置时出现错误，请重试");
+      notify({
+        variant: "danger",
+        title: "保存失败",
+        description: error instanceof Error ? error.message : "保存设置时出现错误，请重试。",
+      });
       return;
     }
 
     broadcastSettingsEvent(SETTINGS_EVENTS.SettingsSaved, { targetYear });
     handleClose();
-  }, [targetYear, dispatch, handleClose]);
+  }, [targetYear, dispatch, handleClose, notify, visitedPanels]);
 
   useEffect(() => {
     if (isOpen) {
       setTargetYear(study.targetYear);
       setActiveGroup("workspace");
+      setExpandedGroup("workspace");
+      setCompactMenuGroup(null);
       setActivePane("startup");
+      setLastPaneByGroup(DEFAULT_PANES_BY_GROUP);
+    } else {
+      setActiveGroup("workspace");
+      setExpandedGroup("workspace");
+      setCompactMenuGroup(null);
+      setActivePane("startup");
+      setLastPaneByGroup(DEFAULT_PANES_BY_GROUP);
+      setVisitedPanels(new Set(["basic"]));
     }
   }, [isOpen, study.targetYear]);
 
   useEffect(() => {
     if (!isOpen) return;
-    contentRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+    const panel = getPane(activePane).panel;
+    setVisitedPanels((current) => {
+      if (current.has(panel)) return current;
+      const next = new Set(current);
+      next.add(panel);
+      return next;
+    });
   }, [activePane, isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    contentRef.current?.scrollTo?.({ top: 0 });
+  }, [activePane, isOpen]);
+
+  const handleGroupChange = useCallback(
+    (group: SettingsPrimaryGroup) => {
+      setActiveGroup(group);
+      setExpandedGroup(group);
+      setActivePane(lastPaneByGroup[group]);
+    },
+    [lastPaneByGroup]
+  );
+
+  const handleDesktopGroupToggle = useCallback(
+    (group: SettingsPrimaryGroup) => {
+      if (expandedGroup === group) {
+        setExpandedGroup(null);
+        return;
+      }
+      handleGroupChange(group);
+    },
+    [expandedGroup, handleGroupChange]
+  );
+
+  const handlePaneChange = useCallback((pane: SettingsPaneId) => {
+    const group = getGroupForPane(pane);
+    setActiveGroup(group);
+    setActivePane(pane);
+    setCompactMenuGroup(null);
+    setLastPaneByGroup((current) => ({ ...current, [group]: pane }));
+  }, []);
 
   const activeGroupItem = getGroup(activeGroup);
   const activePaneItem = getPane(activePane);
-  const visiblePaneItems = paneItems.filter((item) => item.group === activeGroup);
-
-  const renderActivePane = () => {
-    switch (activePaneItem.panel) {
-      case "basic":
-        return (
-          <BasicSettingsPanel
-            section={activePaneItem.section}
-            targetYear={targetYear}
-            onTargetYearChange={setTargetYear}
-            onRegisterSave={(fn) => {
-              basicSaveRef.current = fn;
-            }}
-          />
-        );
-      case "weather":
-        return (
-          <WeatherSettingsPanel
-            section={activePaneItem.section}
-            onRegisterSave={(fn) => {
-              weatherSaveRef.current = fn;
-            }}
-          />
-        );
-      case "monitor":
-        return (
-          <StudySettingsPanel
-            section={activePaneItem.section}
-            onRegisterSave={(fn) => {
-              monitorSaveRef.current = fn;
-            }}
-          />
-        );
-      case "quotes":
-        return (
-          <ContentSettingsPanel
-            section={activePaneItem.section}
-            onRegisterSave={(fn) => {
-              quotesSaveRef.current = fn;
-            }}
-          />
-        );
-      case "about":
-        return (
-          <AboutSettingsPanel
-            section={activePaneItem.section}
-            onRegisterSave={(fn) => {
-              aboutSaveRef.current = fn;
-            }}
-          />
-        );
-      default:
-        return null;
-    }
-  };
+  const compactMenuGroupItem = compactMenuGroup ? getGroup(compactMenuGroup) : null;
+  const compactMenuPaneItems = compactMenuGroup
+    ? paneItems.filter((item) => item.group === compactMenuGroup)
+    : [];
+  const basicSection: BasicSettingsSection =
+    activePaneItem.panel === "basic" ? activePaneItem.section : "startup";
+  const weatherSection: WeatherSettingsSection =
+    activePaneItem.panel === "weather" ? activePaneItem.section : "alerts";
+  const monitorSection: StudySettingsSection =
+    activePaneItem.panel === "monitor" ? activePaneItem.section : "control";
+  const quotesSection: ContentSettingsSection =
+    activePaneItem.panel === "quotes" ? activePaneItem.section : "refresh";
+  const aboutSection: AboutSettingsSection =
+    activePaneItem.panel === "about" ? activePaneItem.section : "project";
 
   return (
     <Modal
       isOpen={isOpen}
       onClose={handleClose}
       title="设置"
-      fullScreen
+      placement="left"
+      maxWidth="xxl"
       hideHeader
       className={styles.settingsModal}
     >
       <div id="settings-panel-container" className={styles.settingsApp}>
-        <header className={styles.topNav}>
-          <nav className={styles.topNavList} aria-label="设置一级分类">
-            {primaryGroups.map((group) => {
-              const active = group.value === activeGroup;
-              return (
-                <button
-                  key={group.value}
-                  className={active ? styles.topNavItemActive : styles.topNavItem}
-                  type="button"
-                  aria-label={group.label}
-                  aria-current={active ? "page" : undefined}
-                  title={group.label}
-                  onClick={() => {
-                    setActiveGroup(group.value);
-                    setActivePane(getDefaultPaneForGroup(group.value));
-                  }}
-                >
-                  {group.icon}
-                  <span className={styles.topNavText}>
-                    <span>{group.label}</span>
-                    <small>{group.description}</small>
-                  </span>
-                </button>
-              );
-            })}
-          </nav>
+        <header className={styles.drawerHeader}>
+          <div className={styles.drawerTitle}>
+            <SlidersHorizontal size={18} aria-hidden="true" />
+            <h1>设置</h1>
+          </div>
+          <IconButton
+            className={styles.drawerClose}
+            aria-label="关闭设置"
+            icon={<X size={18} aria-hidden="true" />}
+            onClick={handleClose}
+          />
         </header>
 
         <div className={styles.settingsWorkspace}>
-          <aside className={styles.sideNav} aria-label="设置二级分类">
-            <div className={styles.sideNavHeader}>
-              <strong>{activeGroupItem.label}</strong>
-              <span>{activeGroupItem.description}</span>
-            </div>
-            <nav className={styles.sideNavList}>
-              {visiblePaneItems.map((pane) => {
-                const active = pane.value === activePane;
+          <aside className={styles.sideNav} aria-label="设置导航">
+            <nav className={styles.groupNav} aria-label="设置分组">
+              {primaryGroups.map((group) => {
+                const active = group.value === activeGroup;
+                const expanded = group.value === expandedGroup;
+                const groupPanes = paneItems.filter((pane) => pane.group === group.value);
                 return (
-                  <button
-                    key={pane.value}
-                    className={active ? styles.sideNavItemActive : styles.sideNavItem}
-                    type="button"
-                    aria-label={pane.label}
-                    aria-current={active ? "page" : undefined}
-                    title={pane.label}
-                    onClick={() => {
-                      setActivePane(pane.value);
-                      setActiveGroup(getGroupForPane(pane.value));
-                    }}
-                  >
-                    {pane.icon}
-                    <span>{pane.label}</span>
-                  </button>
+                  <section className={styles.groupSection} key={group.value}>
+                    <button
+                      className={active ? styles.groupHeaderActive : styles.groupHeader}
+                      type="button"
+                      aria-expanded={expanded}
+                      onClick={() => handleDesktopGroupToggle(group.value)}
+                    >
+                      <span className={styles.groupIcon}>{group.icon}</span>
+                      <span className={styles.groupText}>
+                        <strong>{group.label}</strong>
+                        <small>{group.description}</small>
+                      </span>
+                      <ChevronDown
+                        className={expanded ? styles.groupChevronActive : styles.groupChevron}
+                        size={15}
+                        aria-hidden="true"
+                      />
+                    </button>
+                    {expanded && (
+                      <div className={styles.groupPanes} role="group" aria-label={group.label}>
+                        {groupPanes.map((pane) => {
+                          const paneActive = pane.value === activePane;
+                          return (
+                            <button
+                              key={pane.value}
+                              className={paneActive ? styles.sideNavItemActive : styles.sideNavItem}
+                              type="button"
+                              aria-current={paneActive ? "page" : undefined}
+                              onClick={() => handlePaneChange(pane.value)}
+                            >
+                              {pane.icon}
+                              <span>{pane.label}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </section>
                 );
               })}
             </nav>
           </aside>
 
-          <main className={styles.contentPane}>
-            <div className={styles.contentHeader}>
-              <div className={styles.contentHeaderText}>
-                <p className={styles.contentEyebrow}>{activeGroupItem.label}</p>
-                <h2>{activePaneItem.label}</h2>
-                <p className={styles.contentDescription}>{activePaneItem.description}</p>
-              </div>
-              <StatusPill className={styles.contentPill} tone="accent" icon={activePaneItem.icon}>
-                {activeGroupItem.label}
-              </StatusPill>
-            </div>
+          <div
+            className={styles.compactNavigation}
+            onMouseLeave={() => setCompactMenuGroup(null)}
+            onKeyDown={(event) => {
+              if (event.key !== "Escape" || !compactMenuGroup) return;
+              event.preventDefault();
+              event.stopPropagation();
+              setCompactMenuGroup(null);
+            }}
+          >
+            <nav className={styles.compactGroupRail} aria-label="设置紧凑导航">
+              {primaryGroups.map((group) => {
+                const active = group.value === activeGroup;
+                const expanded = group.value === compactMenuGroup;
+                return (
+                  <button
+                    key={group.value}
+                    data-settings-group={group.value}
+                    className={
+                      expanded
+                        ? styles.compactGroupOpen
+                        : active
+                          ? styles.compactGroupActive
+                          : styles.compactGroup
+                    }
+                    type="button"
+                    aria-label={group.label}
+                    aria-current={active ? "page" : undefined}
+                    aria-expanded={expanded}
+                    aria-controls={expanded ? "settings-compact-submenu" : undefined}
+                    title={group.label}
+                    onClick={() => setCompactMenuGroup(group.value)}
+                  >
+                    {group.icon}
+                  </button>
+                );
+              })}
+            </nav>
+            {compactMenuGroupItem && (
+              <section
+                className={styles.compactMenu}
+                id="settings-compact-submenu"
+                aria-labelledby="settings-compact-menu-title"
+                style={
+                  {
+                    "--settings-compact-menu-top": `${
+                      10 + primaryGroups.findIndex((group) => group.value === compactMenuGroup) * 50
+                    }px`,
+                  } as React.CSSProperties
+                }
+              >
+                <header className={styles.compactMenuHeader}>
+                  <strong id="settings-compact-menu-title">{compactMenuGroupItem.label}</strong>
+                  <span>{compactMenuGroupItem.description}</span>
+                </header>
+                <nav
+                  className={styles.compactPaneList}
+                  aria-label={`${compactMenuGroupItem.label}子分类`}
+                >
+                  {compactMenuPaneItems.map((pane) => {
+                    const active = pane.value === activePane;
+                    return (
+                      <button
+                        key={pane.value}
+                        data-settings-pane={pane.value}
+                        className={active ? styles.compactPaneItemActive : styles.compactPaneItem}
+                        type="button"
+                        aria-current={active ? "page" : undefined}
+                        onClick={() => handlePaneChange(pane.value)}
+                      >
+                        {pane.icon}
+                        <span>{pane.label}</span>
+                      </button>
+                    );
+                  })}
+                </nav>
+              </section>
+            )}
+          </div>
+
+          {compactMenuGroupItem && (
+            <button
+              className={styles.compactMenuScrim}
+              type="button"
+              aria-label="关闭设置子菜单"
+              tabIndex={-1}
+              onClick={() => setCompactMenuGroup(null)}
+            />
+          )}
+
+          <section className={styles.contentPane} aria-labelledby="settings-pane-title">
+            <header className={styles.contentHeader}>
+              <span className={styles.contentGroupLabel}>{activeGroupItem.label}</span>
+              <h2 id="settings-pane-title">{activePaneItem.label}</h2>
+              <p className={styles.contentDescription}>{activePaneItem.description}</p>
+            </header>
 
             <div ref={contentRef} className={styles.contentBody}>
-              {renderActivePane()}
+              {visitedPanels.has("basic") && (
+                <div className={styles.panelMount} hidden={activePaneItem.panel !== "basic"}>
+                  <BasicSettingsPanel
+                    key={`basic-${draftSession}`}
+                    section={basicSection}
+                    targetYear={targetYear}
+                    onTargetYearChange={setTargetYear}
+                    onRegisterSave={registerBasicSave}
+                  />
+                </div>
+              )}
+              {visitedPanels.has("weather") && (
+                <div className={styles.panelMount} hidden={activePaneItem.panel !== "weather"}>
+                  <WeatherSettingsPanel
+                    key={`weather-${draftSession}`}
+                    section={weatherSection}
+                    onRegisterSave={registerWeatherSave}
+                  />
+                </div>
+              )}
+              {visitedPanels.has("monitor") && (
+                <div className={styles.panelMount} hidden={activePaneItem.panel !== "monitor"}>
+                  <StudySettingsPanel
+                    key={`monitor-${draftSession}`}
+                    section={monitorSection}
+                    onRegisterSave={registerMonitorSave}
+                  />
+                </div>
+              )}
+              {visitedPanels.has("quotes") && (
+                <div className={styles.panelMount} hidden={activePaneItem.panel !== "quotes"}>
+                  <ContentSettingsPanel
+                    key={`quotes-${draftSession}`}
+                    section={quotesSection}
+                    onRegisterSave={registerQuotesSave}
+                  />
+                </div>
+              )}
+              {visitedPanels.has("about") && (
+                <div className={styles.panelMount} hidden={activePaneItem.panel !== "about"}>
+                  <AboutSettingsPanel
+                    key={`about-${draftSession}`}
+                    section={aboutSection}
+                    onRegisterSave={registerAboutSave}
+                  />
+                </div>
+              )}
             </div>
 
             <footer className={styles.actionBar}>
@@ -550,7 +738,7 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
                 保存
               </Button>
             </footer>
-          </main>
+          </section>
         </div>
       </div>
     </Modal>

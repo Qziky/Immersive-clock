@@ -181,12 +181,14 @@ const NoiseMonitor: React.FC<NoiseMonitorProps> = ({ onBreathingLightClick, onSt
   return (
     <div className={styles.noiseMonitor} data-tour="noise-monitor">
       <div className={styles.statusContainer}>
-        <div
+        <button
+          type="button"
           className={`${styles.breathingLight} ${statusClassName}`}
           onClick={handleBreathingLightClick}
           title={breathingLightTooltip}
+          aria-label={breathingLightTooltip}
           data-tour="noise-history-trigger"
-        ></div>
+        />
         <div className={styles.textBlock}>
           <div
             className={`${styles.statusText} ${statusClassName}`}

@@ -18,6 +18,13 @@ npm run test:e2e
 Playwright 默认使用系统 Edge 项目。若需要 Playwright 自带浏览器，可设置
 `PW_BUNDLED_BROWSERS=1` 后再运行 E2E。
 
+## 浏览器验证工具边界
+
+- 临时检查页面视觉、响应式布局、交互流程、控制台和截图时，优先使用 Codex 应用内的 `@浏览器` / Browser 插件。
+- `npm run test:e2e` 与 Playwright Test 用于可重复执行的自动化流程和需要提交的视觉回归基线。
+- 当应用内 Browser 可用时，不使用独立 `playwright-cli` 代替交互式检查；仅在 Browser 不可用或用户明确要求终端 Playwright 时回退，并在结果中说明。
+- 浏览器标签页的环境上下文本身不代表用户明确选择了浏览器，但任务需要浏览器交互时，应先选择应用内 Browser。
+
 ## Vitest 覆盖重点
 
 单元测试主要覆盖工具、服务、状态和算法：

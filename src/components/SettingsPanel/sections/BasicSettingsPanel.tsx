@@ -1,5 +1,4 @@
 import {
-  BookOpen,
   CalendarClock,
   CalendarDays,
   CheckCircle2,
@@ -34,6 +33,7 @@ import {
   Slider as FormSlider,
   StatusPill,
   Switch as FormSwitch,
+  useFeedback,
 } from "../../../ui";
 import {
   getAppSettings,
@@ -41,6 +41,7 @@ import {
   updateStudySettings,
   updateTimeSyncSettings,
 } from "../../../utils/appSettings";
+import { logger } from "../../../utils/logger";
 import { resolveStartupMode } from "../../../utils/startupMode";
 import {
   readNormalBackground,
@@ -55,7 +56,7 @@ import {
   importFontFile,
   loadImportedFonts,
 } from "../../../utils/studyFontStorage";
-import ScheduleSettings from "../../ScheduleSettings";
+import { ScheduleEditor } from "../../ScheduleSettings/ScheduleSettings";
 import styles from "../SettingsPanel.module.css";
 
 import { CountdownManagerPanel } from "./CountdownManagerPanel";
@@ -117,6 +118,7 @@ export const BasicSettingsPanel: React.FC<BasicSettingsPanelProps> = ({
 }) => {
   const { mode, study } = useAppState();
   const dispatch = useAppDispatch();
+  const { notify } = useFeedback();
 
   const [startupMode, setStartupMode] = useState<AppMode>("clock");
 
@@ -179,11 +181,9 @@ export const BasicSettingsPanel: React.FC<BasicSettingsPanelProps> = ({
     }
   };
 
-  // 课表设置弹窗
-  const [scheduleOpen, setScheduleOpen] = useState<boolean>(false);
-
   // 子分区保存注册
   const countdownSaveRef = React.useRef<() => void>(() => {});
+  const scheduleSaveRef = React.useRef<() => void>(() => {});
 
   // 单事件颜色透明度草稿
   const [singleBgOpacity, setSingleBgOpacity] = useState<number>(0);
@@ -409,6 +409,8 @@ export const BasicSettingsPanel: React.FC<BasicSettingsPanelProps> = ({
   // 注册保存动作：统一在父组件保存时派发
   useEffect(() => {
     onRegisterSave?.(() => {
+      scheduleSaveRef.current?.();
+
       // 倒计时模式映射到旧字段：多事件作为自定义类型
       const nextType: "gaokao" | "custom" = countdownMode === "gaokao" ? "gaokao" : "custom";
       dispatch({ type: "SET_COUNTDOWN_TYPE", payload: nextType });
@@ -605,7 +607,11 @@ export const BasicSettingsPanel: React.FC<BasicSettingsPanelProps> = ({
   /** 导入字体文件（函数级注释：读取所选字体文件为DataURL并保存为指定家族名） */
   const handleImportFont = async () => {
     if (!fontFile) {
-      alert("请选择要导入的字体文件（TTF/OTF/WOFF/WOFF2）");
+      notify({
+        variant: "warning",
+        title: "请选择字体文件",
+        description: "支持 TTF、OTF、WOFF 和 WOFF2。",
+      });
       return;
     }
     const family =
@@ -614,13 +620,13 @@ export const BasicSettingsPanel: React.FC<BasicSettingsPanelProps> = ({
       await importFontFile(fontFile, family);
       const fonts = await loadImportedFonts();
       setImportedFonts(fonts);
-      alert(`已导入字体：${family}`);
+      notify({ variant: "success", title: "字体导入成功", description: family });
       setFontFile(null);
       setFontAlias("");
     } catch (error: unknown) {
       const message =
         error instanceof Error ? error.message : typeof error === "string" ? error : "未知错误";
-      alert(`导入字体失败：${message}`);
+      notify({ variant: "danger", title: "字体导入失败", description: message });
     }
   };
 
@@ -629,7 +635,11 @@ export const BasicSettingsPanel: React.FC<BasicSettingsPanelProps> = ({
    */
   const handleLoadSystemFonts = async () => {
     if (typeof window === "undefined") {
-      alert("当前环境不支持读取系统字体");
+      notify({
+        variant: "warning",
+        title: "无法读取系统字体",
+        description: "当前环境不支持此能力。",
+      });
       return;
     }
     const anyWindow = window as unknown as {
@@ -640,7 +650,11 @@ export const BasicSettingsPanel: React.FC<BasicSettingsPanelProps> = ({
       >;
     };
     if (typeof anyWindow.queryLocalFonts !== "function") {
-      alert("当前浏览器不支持直接读取系统字体，请使用导入字体或手动输入字体名称。");
+      notify({
+        variant: "warning",
+        title: "浏览器不支持读取系统字体",
+        description: "请使用导入字体或手动输入字体名称。",
+      });
       return;
     }
     try {
@@ -661,15 +675,23 @@ export const BasicSettingsPanel: React.FC<BasicSettingsPanelProps> = ({
       options.sort((a, b) => a.label.localeCompare(b.label, "zh-Hans-CN"));
       setSystemFonts(options);
       if (options.length === 0) {
-        alert("未能从系统中读取到可用字体，请检查浏览器权限设置。");
+        notify({
+          variant: "warning",
+          title: "未读取到可用字体",
+          description: "请检查浏览器权限设置。",
+        });
       } else {
-        alert(`已读取到 ${options.length} 个系统字体，可在下拉列表中选择。`);
+        notify({
+          variant: "success",
+          title: "系统字体已载入",
+          description: `共 ${options.length} 个，可在下拉列表中选择。`,
+        });
       }
     } catch (error: unknown) {
-      console.error("Failed to load system fonts:", error);
+      logger.error("读取系统字体失败:", error);
       const message =
         error instanceof Error ? error.message : typeof error === "string" ? error : "未知错误";
-      alert(`读取系统字体失败：${message}`);
+      notify({ variant: "danger", title: "读取系统字体失败", description: message });
     } finally {
       setLoadingSystemFonts(false);
     }
@@ -742,7 +764,7 @@ export const BasicSettingsPanel: React.FC<BasicSettingsPanelProps> = ({
         <FormInput
           label="选择颜色"
           type="color"
-          value={digitColor || "#03DAC6"}
+          value={digitColor || "#2FECC6"}
           onChange={(e) => setDigitColor(e.target.value)}
         />
       </SettingItem>
@@ -781,10 +803,10 @@ export const BasicSettingsPanel: React.FC<BasicSettingsPanelProps> = ({
     section ? section !== candidate : undefined;
 
   return (
-    <div id="basic-panel" role="tabpanel" aria-labelledby="basic">
+    <div id="basic-panel">
       {/* 显示设置分区已前移到倒计时设置之前 */}
 
-      <FormSection title="启动设置" hidden={isSectionHidden("startup")}>
+      <FormSection title="启动设置" variant="plain" hidden={isSectionHidden("startup")}>
         <SettingItem
           icon={<Clock3 size={18} />}
           title="启动时默认页面"
@@ -807,6 +829,7 @@ export const BasicSettingsPanel: React.FC<BasicSettingsPanelProps> = ({
       {/* 倒计时设置 */}
       <FormSection
         title="倒计时设置"
+        variant="plain"
         description="配置自习页面的倒计时来源、轮播和局部样式。"
         hidden={isSectionHidden("countdown")}
       >
@@ -952,6 +975,7 @@ export const BasicSettingsPanel: React.FC<BasicSettingsPanelProps> = ({
 
       <FormSection
         title="显示设置"
+        variant="plain"
         description="选择自习页面显示的组件，时间始终显示。"
         hidden={isSectionHidden("display")}
       >
@@ -1032,6 +1056,7 @@ export const BasicSettingsPanel: React.FC<BasicSettingsPanelProps> = ({
 
       <FormSection
         title="时间与日期颜色"
+        variant="plain"
         description="为自习页面中央时间与日期单独设置颜色，默认跟随主题。"
         hidden={isSectionHidden("colors")}
       >
@@ -1077,6 +1102,7 @@ export const BasicSettingsPanel: React.FC<BasicSettingsPanelProps> = ({
 
       <FormSection
         title="字体设置"
+        variant="plain"
         description="分别控制数字与普通文本字体，保存后应用到自习页面。"
         hidden={isSectionHidden("fonts")}
       >
@@ -1247,6 +1273,7 @@ export const BasicSettingsPanel: React.FC<BasicSettingsPanelProps> = ({
       {/* 背景设置 */}
       <FormSection
         title="背景设置"
+        variant="plain"
         description="普通页面与自习页面可分别保存背景预设、纯色或本地图片。"
         hidden={isSectionHidden("background")}
       >
@@ -1370,6 +1397,7 @@ export const BasicSettingsPanel: React.FC<BasicSettingsPanelProps> = ({
 
       <FormSection
         title="时间与校时"
+        variant="plain"
         description="按需启用外部时间源，并保留手动偏移修正。"
         hidden={isSectionHidden("timeSync")}
       >
@@ -1577,30 +1605,13 @@ export const BasicSettingsPanel: React.FC<BasicSettingsPanelProps> = ({
         )}
       </FormSection>
 
-      <FormSection
-        title="课表设置"
-        description="管理自习课程时间段，保存后即时生效。"
-        hidden={isSectionHidden("schedule")}
-      >
-        <SettingItem
-          icon={<BookOpen size={18} />}
-          title="课程时间表"
-          description="打开弹窗编辑、导入或重排自习课程时间段。"
-          tone="accent"
-          control={
-            <FormButton variant="primary" onClick={() => setScheduleOpen(true)}>
-              打开
-            </FormButton>
-          }
-        />
-        <ScheduleSettings
-          isOpen={scheduleOpen}
-          onClose={() => setScheduleOpen(false)}
-          onSave={() => {
-            /* 已在弹窗内持久化 */
+      <div hidden={isSectionHidden("schedule")}>
+        <ScheduleEditor
+          onRegisterSave={(save) => {
+            scheduleSaveRef.current = save;
           }}
         />
-      </FormSection>
+      </div>
     </div>
   );
 };

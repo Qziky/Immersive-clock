@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 
 import type { UiMotionMode } from "../types";
 import { classNames } from "../utils/classNames";
+import { useOverlayLayer } from "../utils/overlayStack";
 import { usePresence } from "../utils/usePresence";
 
 import styles from "./primitives.module.css";
@@ -50,6 +51,7 @@ export function Popover({
   const [isOpen, setIsOpen] = useState(false);
   const [panelStyle, setPanelStyle] = useState<CSSProperties>();
   const { isPresent, presenceState, shouldAnimate } = usePresence({ isOpen, motion });
+  const { isTop, zIndex } = useOverlayLayer({ active: isOpen, type: "floating" });
 
   const updatePosition = useCallback(() => {
     const triggerNode = triggerRef.current;
@@ -83,7 +85,10 @@ export function Popover({
     };
 
     const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setIsOpen(false);
+      if (event.key === "Escape" && isTop()) {
+        event.preventDefault();
+        setIsOpen(false);
+      }
     };
 
     document.addEventListener("pointerdown", closeOnPointerDown);
@@ -97,7 +102,7 @@ export function Popover({
       window.removeEventListener("resize", updatePosition);
       window.removeEventListener("scroll", updatePosition, true);
     };
-  }, [id, isOpen, updatePosition]);
+  }, [id, isOpen, isTop, updatePosition]);
 
   const panel =
     isPresent && typeof document !== "undefined"
@@ -105,11 +110,13 @@ export function Popover({
           <div
             className={classNames(styles.popoverPanel, className)}
             data-ui-motion={shouldAnimate ? "default" : "none"}
+            data-ui-overlay-root
             data-popover-panel={id}
             data-ui-presence={presenceState}
+            data-ui-scope
             role="dialog"
             aria-label={ariaLabel}
-            style={panelStyle}
+            style={{ ...panelStyle, zIndex }}
           >
             {children}
           </div>,

@@ -7,6 +7,15 @@ async function openStudySettings(page: Parameters<typeof showHud>[0]) {
   const tablist = page.getByRole("tablist", { name: "选择时钟模式" });
   await tablist.getByRole("tab", { name: /自习/ }).click();
 
+  const automaticReport = page.getByRole("dialog", { name: /统计报告/ });
+  try {
+    await automaticReport.waitFor({ state: "visible", timeout: 1000 });
+    await page.keyboard.press("Escape");
+    await expect(automaticReport).toBeHidden();
+  } catch {
+    // 当前时间不在课时结算点时不会出现自动报告。
+  }
+
   await page.getByRole("button", { name: "打开设置" }).click();
 
   const dialog = page.getByRole("dialog", { name: "设置" });
@@ -22,7 +31,7 @@ test("设置持久化：修改目标年份并保存", async ({ page }) => {
   await page.goto("/");
 
   const dialog = await openStudySettings(page);
-  await dialog.getByRole("button", { name: "倒计时" }).click();
+  await dialog.getByRole("button", { name: "倒计时", exact: true }).click();
 
   await dialog.getByRole("radio", { name: "高考" }).check({ force: true });
 
@@ -61,14 +70,18 @@ test("设置导航：一级分类切换后只显示当前二级分区", async ({
 
   const dialog = await openStudySettings(page);
 
+  const viewport = page.viewportSize();
+  await page.mouse.click((viewport?.width ?? 1280) - 4, Math.round((viewport?.height ?? 720) / 2));
+  await expect(dialog).toBeVisible();
+
   await expect(dialog.getByRole("button", { name: "启动页面" })).toBeVisible();
   await expect(dialog.getByRole("button", { name: "自习显示" })).toBeVisible();
   await expect(dialog.getByRole("button", { name: "时间颜色" })).toBeHidden();
 
   await dialog.getByRole("button", { name: "视觉外观" }).click();
   await expect(dialog.getByRole("button", { name: "时间颜色" })).toBeVisible();
-  await expect(dialog.getByRole("button", { name: "字体" })).toBeVisible();
-  await expect(dialog.getByRole("button", { name: "背景" })).toBeVisible();
+  await expect(dialog.getByRole("button", { name: "字体", exact: true })).toBeVisible();
+  await expect(dialog.getByRole("button", { name: "背景", exact: true })).toBeVisible();
   await expect(dialog.getByRole("button", { name: "启动页面" })).toBeHidden();
 
   await dialog.getByRole("button", { name: "环境提醒" }).click();
@@ -87,6 +100,37 @@ test("设置导航：一级分类切换后只显示当前二级分区", async ({
   await expect(dialog.getByRole("button", { name: "设置数据" })).toBeVisible();
   await expect(dialog.getByRole("button", { name: "错误与调试" })).toBeVisible();
   await expect(dialog.getByRole("button", { name: "启动页面" })).toBeHidden();
+});
+
+/** 端到端用例：课程表作为设置草稿参与统一保存，取消后重新读取已保存数据。 */
+test("课程表：随设置统一保存并在取消时丢弃草稿", async ({ page }) => {
+  await page.goto("/");
+
+  const dialog = await openStudySettings(page);
+  await dialog.getByRole("button", { name: "课程表" }).click();
+
+  const firstCourseName = dialog.getByLabel("课程名称").first();
+  await firstCourseName.fill("晨间数学");
+  await dialog.getByRole("button", { name: "保存" }).click();
+
+  const savedName = await page.evaluate(() => {
+    const raw = localStorage.getItem("AppSettings");
+    if (!raw) return null;
+    return JSON.parse(raw)?.study?.schedule?.[0]?.name ?? null;
+  });
+  expect(savedName).toBe("晨间数学");
+
+  await page.getByRole("button", { name: "打开设置" }).click();
+  const secondDialog = page.getByRole("dialog", { name: "设置" });
+  await secondDialog.getByRole("button", { name: "课程表" }).click();
+  await secondDialog.getByLabel("课程名称").first().fill("未保存课程");
+  await secondDialog.getByRole("button", { name: "取消" }).click();
+  await expect(secondDialog).toBeHidden();
+
+  await page.getByRole("button", { name: "打开设置" }).click();
+  const reopenedDialog = page.getByRole("dialog", { name: "设置" });
+  await reopenedDialog.getByRole("button", { name: "课程表" }).click();
+  await expect(reopenedDialog.getByLabel("课程名称").first()).toHaveValue("晨间数学");
 });
 
 /** 端到端用例：切换“错误与调试-记录方式”时不应在保存前清空持久化记录（函数级注释） */
@@ -158,4 +202,43 @@ test("错误与调试：记录方式切换延迟到保存", async ({ page }) => 
 
   const afterSave = await page.evaluate(() => localStorage.getItem("error-center.records"));
   expect(afterSave).toBeNull();
+});
+
+test.describe("移动端设置抽屉", () => {
+  test.use({ viewport: { width: 390, height: 844 } });
+
+  test("全屏展示两级横向导航并将当前分组滚动入视口", async ({ page }) => {
+    await page.goto("/");
+    const dialog = await openStudySettings(page);
+
+    await expect
+      .poll(async () => {
+        const dialogBox = await dialog.boundingBox();
+        return Boolean(
+          dialogBox && Math.abs(dialogBox.x) < 0.01 && Math.abs(dialogBox.width - 390) < 0.01
+        );
+      })
+      .toBe(true);
+
+    const groupRail = dialog.getByRole("navigation", { name: "设置一级分类" });
+    await groupRail.getByRole("button", { name: "系统数据" }).click();
+    await dialog.getByRole("button", { name: "错误与调试" }).click();
+    await expect(dialog.getByRole("heading", { name: "错误与调试", level: 2 })).toBeVisible();
+
+    await expect
+      .poll(() =>
+        groupRail.evaluate((element) => {
+          const current = element.querySelector<HTMLElement>("[aria-current='page']");
+          if (!current) return false;
+          const railRect = element.getBoundingClientRect();
+          const currentRect = current.getBoundingClientRect();
+          return currentRect.left >= railRect.left && currentRect.right <= railRect.right;
+        })
+      )
+      .toBe(true);
+
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)
+    ).toBe(true);
+  });
 });

@@ -117,9 +117,24 @@
 }
 
 .breathingLight {
+  appearance: none;
   align-self: center;
+  background: transparent;
+  border: 0;
   border-radius: 50%;
+  display: grid;
   flex: 0 0 auto;
+  height: 44px;
+  margin: calc((var(--study-status-dot-size, 0.625rem) - 44px) / 2);
+  padding: 0;
+  place-items: center;
+  width: 44px;
+}
+
+.breathingLight::before {
+  border-radius: 50%;
+  content: "";
+  display: block;
   height: var(--study-status-dot-size, 0.625rem);
   transition:
     box-shadow 0.24s ease,
@@ -127,38 +142,53 @@
   width: var(--study-status-dot-size, 0.625rem);
 }
 
-.breathingLight:hover:not(.calibrating):not(.initializing) {
+.breathingLight:hover:not(.calibrating):not(.initializing)::before {
   transform: scale(1.18);
 }
 
 .breathingLight.quiet {
+  cursor: pointer;
+}
+
+.breathingLight.quiet::before {
   animation: breatheQuiet 4s ease-in-out infinite;
   background-color: #7fd8bd;
-  cursor: pointer;
 }
 
 .breathingLight.noisy {
+  cursor: pointer;
+}
+
+.breathingLight.noisy::before {
   animation: breatheNoisy 2.3s ease-in-out infinite;
   background-color: #ff7a88;
-  cursor: pointer;
 }
 
 .breathingLight.error {
-  animation: breatheError 3s ease-in-out infinite;
-  background-color: #ff9b9b;
   cursor: pointer;
 }
 
+.breathingLight.error::before {
+  animation: breatheError 3s ease-in-out infinite;
+  background-color: #ff9b9b;
+}
+
 .breathingLight.initializing {
+  cursor: pointer;
+}
+
+.breathingLight.initializing::before {
   animation: breatheInitializing 3.5s ease-in-out infinite;
   background-color: rgba(248, 247, 240, 0.54);
-  cursor: default;
 }
 
 .breathingLight.calibrating {
+  cursor: not-allowed;
+}
+
+.breathingLight.calibrating::before {
   animation: breatheCalibrating 2s ease-in-out infinite;
   background-color: #f2c46d;
-  cursor: not-allowed;
 }
 
 @keyframes pulse {
@@ -284,17 +314,17 @@
   .statusText,
   .statusText.noisy,
   .statusText.initializing,
-  .breathingLight,
-  .breathingLight.quiet,
-  .breathingLight.noisy,
-  .breathingLight.error,
-  .breathingLight.initializing,
-  .breathingLight.calibrating {
+  .breathingLight::before,
+  .breathingLight.quiet::before,
+  .breathingLight.noisy::before,
+  .breathingLight.error::before,
+  .breathingLight.initializing::before,
+  .breathingLight.calibrating::before {
     animation: none;
     transition: none;
   }
 
-  .breathingLight:hover,
+  .breathingLight:hover::before,
   .statusText.noisy {
     transform: none;
   }

@@ -4,6 +4,7 @@ import { MemoryRouter } from "react-router-dom";
 import { describe, it, expect, afterEach, vi } from "vitest";
 
 import { AppContextProvider } from "../../../contexts/AppContext";
+import { FeedbackProvider } from "../../../ui";
 import { ClockPage } from "../ClockPage";
 
 vi.mock("../../../utils/timeSync", () => ({
@@ -70,7 +71,9 @@ describe("HUD 自动隐藏", () => {
     render(
       <MemoryRouter>
         <AppContextProvider>
-          <ClockPage />
+          <FeedbackProvider>
+            <ClockPage />
+          </FeedbackProvider>
         </AppContextProvider>
       </MemoryRouter>
     );

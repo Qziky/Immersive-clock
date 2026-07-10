@@ -1,11 +1,19 @@
 import { Minus as MinusIcon, Plus as PlusIcon } from "lucide-react";
-import React, { useState, useCallback, useEffect } from "react";
+import React, { useCallback, useState } from "react";
 
 import { useAppDispatch, useAppState } from "../../contexts/AppContext";
 import { Button as FormButton, FormSection, Inline as FormButtonGroup, Modal } from "../../ui";
 import { timeToSeconds } from "../../utils/formatTime";
 
 import styles from "./CountdownModal.module.css";
+
+const COUNTDOWN_PRESETS = [
+  { label: "10分钟", minutes: 10 },
+  { label: "30分钟", minutes: 30 },
+  { label: "1小时", minutes: 60 },
+  { label: "1小时15分", minutes: 75 },
+  { label: "2小时", minutes: 120 },
+] as const;
 
 /**
  * 倒计时设置模态框组件
@@ -65,24 +73,6 @@ export function CountdownModal() {
     }
   }, []);
 
-  /**
-   * 处理键盘事件
-   */
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (!isModalOpen) return;
-
-      if (e.key === "Escape") {
-        handleClose();
-      } else if (e.key === "Enter") {
-        handleConfirm();
-      }
-    };
-
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [isModalOpen, handleClose, handleConfirm]);
-
   if (!isModalOpen) {
     return null;
   }
@@ -90,22 +80,15 @@ export function CountdownModal() {
   const totalSeconds = timeToSeconds(hours, minutes, seconds);
   const isValid = totalSeconds > 0;
 
-  const presets = [
-    { label: "10分钟", minutes: 10 },
-    { label: "30分钟", minutes: 30 },
-    { label: "1小时", minutes: 60 },
-    { label: "1小时15分", minutes: 75 },
-    { label: "2小时", minutes: 120 },
-  ];
-
   return (
     <Modal
       isOpen={isModalOpen}
       onClose={handleClose}
       title="设置倒计时"
       maxWidth="md"
+      className={styles.countdownModal}
       footer={
-        <FormButtonGroup align="right">
+        <FormButtonGroup align="right" className={styles.footerActions}>
           <FormButton variant="secondary" onClick={handleClose}>
             取消
           </FormButton>
@@ -115,109 +98,122 @@ export function CountdownModal() {
         </FormButtonGroup>
       }
     >
-      <FormSection title="时间设置">
-        <div className={styles.timeInputs}>
-          {/* 小时 */}
-          <div className={styles.timeInput}>
-            <div className={styles.inputGroup}>
-              <FormButton
-                variant="secondary"
-                size="sm"
-                className={styles.adjustButton}
-                onClick={() => adjustTime("hours", -1)}
-                disabled={hours === 0}
-                icon={<MinusIcon size={16} />}
-                aria-label="减少小时"
-              />
-              <div className={styles.valueWrapper}>
-                <div className={styles.timeValue}>{hours.toString().padStart(2, "0")}</div>
-                <span className={styles.unit}>时</span>
+      <div className={styles.content}>
+        <FormSection title="时间设置" variant="plain" className={styles.section}>
+          <div className={styles.timeInputs}>
+            {/* 小时 */}
+            <div className={styles.timeInput}>
+              <div className={styles.inputGroup} role="group" aria-label="小时设置">
+                <FormButton
+                  variant="secondary"
+                  size="sm"
+                  className={styles.adjustButton}
+                  onClick={() => adjustTime("hours", 1)}
+                  disabled={hours === 23}
+                  icon={<PlusIcon size={18} aria-hidden="true" />}
+                  aria-label="增加小时"
+                />
+                <div className={styles.valueWrapper}>
+                  <output className={styles.timeValue} aria-live="polite">
+                    {hours.toString().padStart(2, "0")}
+                  </output>
+                  <span className={styles.unit}>时</span>
+                </div>
+                <FormButton
+                  variant="secondary"
+                  size="sm"
+                  className={styles.adjustButton}
+                  onClick={() => adjustTime("hours", -1)}
+                  disabled={hours === 0}
+                  icon={<MinusIcon size={18} aria-hidden="true" />}
+                  aria-label="减少小时"
+                />
               </div>
-              <FormButton
-                variant="secondary"
-                size="sm"
-                className={styles.adjustButton}
-                onClick={() => adjustTime("hours", 1)}
-                disabled={hours === 23}
-                icon={<PlusIcon size={16} />}
-                aria-label="增加小时"
-              />
+            </div>
+
+            {/* 分钟 */}
+            <div className={styles.timeInput}>
+              <div className={styles.inputGroup} role="group" aria-label="分钟设置">
+                <FormButton
+                  variant="secondary"
+                  size="sm"
+                  className={styles.adjustButton}
+                  onClick={() => adjustTime("minutes", 1)}
+                  disabled={minutes === 59}
+                  icon={<PlusIcon size={18} aria-hidden="true" />}
+                  aria-label="增加分钟"
+                />
+                <div className={styles.valueWrapper}>
+                  <output className={styles.timeValue} aria-live="polite">
+                    {minutes.toString().padStart(2, "0")}
+                  </output>
+                  <span className={styles.unit}>分</span>
+                </div>
+                <FormButton
+                  variant="secondary"
+                  size="sm"
+                  className={styles.adjustButton}
+                  onClick={() => adjustTime("minutes", -1)}
+                  disabled={minutes === 0}
+                  icon={<MinusIcon size={18} aria-hidden="true" />}
+                  aria-label="减少分钟"
+                />
+              </div>
+            </div>
+
+            {/* 秒 */}
+            <div className={styles.timeInput}>
+              <div className={styles.inputGroup} role="group" aria-label="秒设置">
+                <FormButton
+                  variant="secondary"
+                  size="sm"
+                  className={styles.adjustButton}
+                  onClick={() => adjustTime("seconds", 1)}
+                  disabled={seconds === 59}
+                  icon={<PlusIcon size={18} aria-hidden="true" />}
+                  aria-label="增加秒"
+                />
+                <div className={styles.valueWrapper}>
+                  <output className={styles.timeValue} aria-live="polite">
+                    {seconds.toString().padStart(2, "0")}
+                  </output>
+                  <span className={styles.unit}>秒</span>
+                </div>
+                <FormButton
+                  variant="secondary"
+                  size="sm"
+                  className={styles.adjustButton}
+                  onClick={() => adjustTime("seconds", -1)}
+                  disabled={seconds === 0}
+                  icon={<MinusIcon size={18} aria-hidden="true" />}
+                  aria-label="减少秒"
+                />
+              </div>
             </div>
           </div>
+        </FormSection>
 
-          {/* 分钟 */}
-          <div className={styles.timeInput}>
-            <div className={styles.inputGroup}>
-              <FormButton
-                variant="secondary"
-                size="sm"
-                className={styles.adjustButton}
-                onClick={() => adjustTime("minutes", -1)}
-                disabled={minutes === 0}
-                icon={<MinusIcon size={16} />}
-                aria-label="减少分钟"
-              />
-              <div className={styles.valueWrapper}>
-                <div className={styles.timeValue}>{minutes.toString().padStart(2, "0")}</div>
-                <span className={styles.unit}>分</span>
-              </div>
-              <FormButton
-                variant="secondary"
-                size="sm"
-                className={styles.adjustButton}
-                onClick={() => adjustTime("minutes", 1)}
-                disabled={minutes === 59}
-                icon={<PlusIcon size={16} />}
-                aria-label="增加分钟"
-              />
-            </div>
+        <FormSection title="快速设置" variant="plain" className={styles.section}>
+          <div className={styles.presetsGrid}>
+            {COUNTDOWN_PRESETS.map(({ label, minutes: presetMinutes }) => {
+              const isSelected = seconds === 0 && hours * 60 + minutes === presetMinutes;
+
+              return (
+                <FormButton
+                  key={presetMinutes}
+                  variant="secondary"
+                  className={styles.presetButton}
+                  onClick={() => handlePreset(presetMinutes)}
+                  title={`设置为${label}`}
+                  aria-pressed={isSelected}
+                >
+                  {label}
+                </FormButton>
+              );
+            })}
           </div>
-
-          {/* 秒 */}
-          <div className={styles.timeInput}>
-            <div className={styles.inputGroup}>
-              <FormButton
-                variant="secondary"
-                size="sm"
-                className={styles.adjustButton}
-                onClick={() => adjustTime("seconds", -1)}
-                disabled={seconds === 0}
-                icon={<MinusIcon size={16} />}
-                aria-label="减少秒"
-              />
-              <div className={styles.valueWrapper}>
-                <div className={styles.timeValue}>{seconds.toString().padStart(2, "0")}</div>
-                <span className={styles.unit}>秒</span>
-              </div>
-              <FormButton
-                variant="secondary"
-                size="sm"
-                className={styles.adjustButton}
-                onClick={() => adjustTime("seconds", 1)}
-                disabled={seconds === 59}
-                icon={<PlusIcon size={16} />}
-                aria-label="增加秒"
-              />
-            </div>
-          </div>
-        </div>
-      </FormSection>
-
-      <FormSection title="快速设置">
-        <div className={styles.presetsGrid}>
-          {presets.map(({ label, minutes: presetMinutes }) => (
-            <FormButton
-              key={presetMinutes}
-              variant="secondary"
-              className={styles.presetButton}
-              onClick={() => handlePreset(presetMinutes)}
-              title={`设置为${label}`}
-            >
-              {label}
-            </FormButton>
-          ))}
-        </div>
-      </FormSection>
+        </FormSection>
+      </div>
     </Modal>
   );
 }

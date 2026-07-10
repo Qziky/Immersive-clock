@@ -1,4 +1,5 @@
 import type { ButtonHTMLAttributes, ReactNode } from "react";
+import { forwardRef } from "react";
 
 import { classNames } from "../utils/classNames";
 
@@ -28,19 +29,23 @@ const sizeClassMap: Record<ButtonSize, string> = {
   lg: styles.buttonLg,
 };
 
-export function Button({
-  variant = "secondary",
-  size = "md",
-  icon,
-  loading = false,
-  disabled,
-  children,
-  className,
-  type = "button",
-  ...props
-}: ButtonProps) {
+export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
+  {
+    variant = "secondary",
+    size = "md",
+    icon,
+    loading = false,
+    disabled,
+    children,
+    className,
+    type = "button",
+    ...props
+  },
+  ref
+) {
   return (
     <button
+      ref={ref}
       className={classNames(styles.button, variantClassMap[variant], sizeClassMap[size], className)}
       disabled={disabled || loading}
       type={type}
@@ -57,4 +62,4 @@ export function Button({
       )}
     </button>
   );
-}
+});

@@ -7,7 +7,6 @@ import { Clock } from "../../components/Clock/Clock";
 import { Countdown } from "../../components/Countdown/Countdown";
 import { CountdownModal } from "../../components/CountdownModal/CountdownModal";
 import { HUD } from "../../components/HUD/HUD";
-import MessagePopup from "../../components/MessagePopup/MessagePopup";
 import { SettingsButton } from "../../components/SettingsButton";
 import { SettingsPanel } from "../../components/SettingsPanel";
 import { Stopwatch } from "../../components/Stopwatch/Stopwatch";
@@ -15,6 +14,7 @@ import { Study } from "../../components/Study/Study";
 import { useAppState, useAppDispatch } from "../../contexts/AppContext";
 import type { AppMode } from "../../types";
 import type { MessagePopupOpenDetail, MessagePopupType } from "../../types/messagePopup";
+import { useFeedback, type ToastVariant } from "../../ui";
 import { getModeFromPathname, MODE_ROUTE_PATHS } from "../../utils/modeRoutes";
 import {
   readNormalBackground,
@@ -28,7 +28,25 @@ import styles from "./ClockPage.module.css";
 const MINUTELY_PRECIP_POPUP_ID = "weather:minutelyPrecip";
 const MINUTELY_PRECIP_POPUP_OPEN_KEY = "weather.minutely.popupOpen";
 const MINUTELY_PRECIP_POPUP_DISMISSED_KEY = "weather.minutely.popupDismissed";
-const MESSAGE_POPUP_EXIT_MS = 300;
+
+function getPopupToastVariant(type: MessagePopupType): ToastVariant {
+  switch (type) {
+    case "error":
+      return "danger";
+    case "weatherAlert":
+      return "warning";
+    case "coolingReminder":
+      return "success";
+    default:
+      return "info";
+  }
+}
+
+function getPopupDuration(type: MessagePopupType): number {
+  if (type === "general") return 4000;
+  if (type === "error" || type === "weatherAlert") return 8000;
+  return 6000;
+}
 
 function hexToRgba(hex: string, alpha: number): string {
   const normalized = hex.replace("#", "");
@@ -70,25 +88,16 @@ function getNormalBackgroundStyle(settings: StudyBackgroundSettings): React.CSSP
 export function ClockPage() {
   const { mode, isModalOpen, study } = useAppState();
   const dispatch = useAppDispatch();
+  const { notify, dismiss } = useFeedback();
   const location = useLocation();
   const navigate = useNavigate();
   const hideTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const hudContainerRef = useRef<HTMLDivElement | null>(null);
-  const popupCloseTimerMapRef = useRef<Record<string, number>>({});
+  const popupTypeMapRef = useRef(new Map<string, MessagePopupType>());
   const prevModeRef = useRef(mode);
   const [showSettings, setShowSettings] = useState(false);
   const [showAnnouncement, setShowAnnouncement] = useState(false);
   const [normalBackground, setNormalBackground] = useState(readNormalBackground);
-  const [globalPopups, setGlobalPopups] = useState<
-    Array<{
-      id: string;
-      type: MessagePopupType;
-      title: string;
-      message: React.ReactNode;
-      themeColor?: string;
-      isOpen: boolean;
-    }>
-  >([]);
 
   useEffect(() => {
     const routeMode = getModeFromPathname(location.pathname);
@@ -108,15 +117,6 @@ export function ClockPage() {
     [dispatch, navigate]
   );
 
-  /** 清理消息弹窗定时器（函数级注释：组件卸载时统一清理延时移除任务，避免内存泄漏与越界更新） */
-  const clearPopupCloseTimers = useCallback(() => {
-    const timerMap = popupCloseTimerMapRef.current;
-    Object.values(timerMap).forEach((timerId) => {
-      clearTimeout(timerId);
-    });
-    popupCloseTimerMapRef.current = {};
-  }, []);
-
   /** 设置最小化降雨弹窗状态（函数级注释：统一维护会话态下的“已打开/已手动关闭”标记） */
   const updateMinutelyPopupSessionFlag = useCallback((id: string, dismiss: boolean) => {
     if (id !== MINUTELY_PRECIP_POPUP_ID) return;
@@ -129,26 +129,6 @@ export function ClockPage() {
       /* 忽略错误 */
     }
   }, []);
-
-  /** 标记弹窗关闭并在动画后移除（函数级注释：先切换 isOpen 触发退出动画，再延迟移除保持与手动关闭一致） */
-  const closePopupWithAnimation = useCallback(
-    (id: string, dismiss: boolean) => {
-      const timerMap = popupCloseTimerMapRef.current;
-      const prevTimerId = timerMap[id];
-      if (prevTimerId) {
-        clearTimeout(prevTimerId);
-      }
-      setGlobalPopups((prev) =>
-        prev.map((item) => (item.id === id ? { ...item, isOpen: false } : item))
-      );
-      timerMap[id] = window.setTimeout(() => {
-        setGlobalPopups((prev) => prev.filter((item) => item.id !== id));
-        delete popupCloseTimerMapRef.current[id];
-      }, MESSAGE_POPUP_EXIT_MS);
-      updateMinutelyPopupSessionFlag(id, dismiss);
-    },
-    [updateMinutelyPopupSessionFlag]
-  );
 
   // 跟踪模式变化
   useEffect(() => {
@@ -207,11 +187,8 @@ export function ClockPage() {
   }, [clearHudHideTimeout, dispatch, shouldPreventHudAutoHide]);
 
   useEffect(() => {
-    return () => {
-      clearHudHideTimeout();
-      clearPopupCloseTimers();
-    };
-  }, [clearHudHideTimeout, clearPopupCloseTimers]);
+    return clearHudHideTimeout;
+  }, [clearHudHideTimeout]);
 
   // 自动启动新手指引
   useEffect(() => {
@@ -355,23 +332,21 @@ export function ClockPage() {
       if (type === "error" && !study.errorPopupEnabled) return;
       const title = (detail.title as string) || "消息提醒";
       const message = (detail.message as React.ReactNode) || "";
-      const themeColor = typeof detail.themeColor === "string" ? detail.themeColor : undefined;
+      const accentColor = typeof detail.themeColor === "string" ? detail.themeColor : undefined;
       const id = (detail.id as string) || `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-      setGlobalPopups((prev) => {
-        const idx = prev.findIndex((x) => x.id === id);
-        const nextItem = { id, type, title, message, themeColor, isOpen: true };
-        if (idx >= 0) {
-          const timerId = popupCloseTimerMapRef.current[id];
-          if (timerId) {
-            clearTimeout(timerId);
-            delete popupCloseTimerMapRef.current[id];
-          }
-          const next = [...prev];
-          next[idx] = nextItem;
-          return next;
-        }
-        return [...prev, nextItem];
+      notify({
+        id,
+        variant: getPopupToastVariant(type),
+        title,
+        description: message,
+        accentColor,
+        duration: getPopupDuration(type),
+        onDismiss: (reason) => {
+          popupTypeMapRef.current.delete(id);
+          updateMinutelyPopupSessionFlag(id, reason === "close");
+        },
       });
+      popupTypeMapRef.current.set(id, type);
       if (id === MINUTELY_PRECIP_POPUP_ID) {
         try {
           sessionStorage.setItem(MINUTELY_PRECIP_POPUP_OPEN_KEY, "1");
@@ -383,19 +358,21 @@ export function ClockPage() {
     const onClose = (e: Event) => {
       const detail = (e as CustomEvent).detail || {};
       const id = typeof detail.id === "string" ? detail.id : "";
-      const dismiss = detail.dismiss === true;
+      const shouldDismiss = detail.dismiss === true;
 
       if (id) {
-        closePopupWithAnimation(id, dismiss);
+        dismiss(id);
+        popupTypeMapRef.current.delete(id);
+        updateMinutelyPopupSessionFlag(id, shouldDismiss);
       } else {
-        const ids = globalPopups.map((item) => item.id);
-        ids.forEach((popupId) => closePopupWithAnimation(popupId, dismiss));
+        Array.from(popupTypeMapRef.current.keys()).forEach((popupId) => dismiss(popupId));
+        popupTypeMapRef.current.clear();
       }
 
       if (!id || id === MINUTELY_PRECIP_POPUP_ID) {
         try {
           sessionStorage.setItem(MINUTELY_PRECIP_POPUP_OPEN_KEY, "0");
-          if (dismiss) {
+          if (shouldDismiss) {
             sessionStorage.setItem(MINUTELY_PRECIP_POPUP_DISMISSED_KEY, "1");
           }
         } catch {
@@ -409,15 +386,25 @@ export function ClockPage() {
       window.removeEventListener("messagePopup:open", onOpen as EventListener);
       window.removeEventListener("messagePopup:close", onClose as EventListener);
     };
-  }, [closePopupWithAnimation, globalPopups, mode, study.errorPopupEnabled]);
+  }, [dismiss, mode, notify, study.errorPopupEnabled, updateMinutelyPopupSessionFlag]);
 
   // 非自习模式下仅保留天气相关弹窗，避免其它业务弹窗打扰
   useEffect(() => {
     if (mode === "study") return;
-    setGlobalPopups((prev) =>
-      prev.filter((p) => p.type === "weatherForecast" || p.type === "weatherAlert")
-    );
-  }, [mode, globalPopups.length]);
+    popupTypeMapRef.current.forEach((type, id) => {
+      if (type === "weatherForecast" || type === "weatherAlert") return;
+      dismiss(id);
+      popupTypeMapRef.current.delete(id);
+    });
+  }, [dismiss, mode]);
+
+  useEffect(() => {
+    const popupTypeMap = popupTypeMapRef.current;
+    return () => {
+      popupTypeMap.forEach((_type, id) => dismiss(id));
+      popupTypeMap.clear();
+    };
+  }, [dismiss]);
 
   return (
     <main
@@ -499,39 +486,6 @@ export function ClockPage() {
         onClose={handleAnnouncementClose}
         initialTab="announcement"
       />
-
-      {/* 全局消息弹窗堆叠容器：通过事件触发，不受设置面板卸载影响 */}
-      {globalPopups.length > 0 && (
-        <div
-          style={{
-            position: "fixed",
-            left: 8,
-            bottom: 80,
-            display: "flex",
-            flexDirection: "column",
-            gap: 8,
-            zIndex: 1201,
-          }}
-          aria-live="polite"
-          aria-label="消息弹窗堆叠容器"
-        >
-          {globalPopups.map((p) => (
-            <MessagePopup
-              key={p.id}
-              isOpen={p.isOpen}
-              onClose={() => {
-                updateMinutelyPopupSessionFlag(p.id, true);
-                setGlobalPopups((prev) => prev.filter((x) => x.id !== p.id));
-              }}
-              type={p.type}
-              title={p.title}
-              message={p.message}
-              themeColor={p.themeColor}
-              usePortal={false}
-            />
-          ))}
-        </div>
-      )}
     </main>
   );
 }

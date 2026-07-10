@@ -2,6 +2,10 @@
 
 [data-ui-root] {
   background: var(--ui-color-bg);
+}
+
+[data-ui-root],
+[data-ui-scope] {
   color: var(--ui-color-text);
   font-family: var(--ui-font-sans);
   font-size: var(--ui-font-size-md);
@@ -10,11 +14,15 @@
 
 [data-ui-root] *,
 [data-ui-root] *::before,
-[data-ui-root] *::after {
+[data-ui-root] *::after,
+[data-ui-scope] *,
+[data-ui-scope] *::before,
+[data-ui-scope] *::after {
   box-sizing: border-box;
 }
 
-[data-ui-root] ::selection {
+[data-ui-root] ::selection,
+[data-ui-scope] ::selection {
   background: rgba(47, 236, 198, 0.24);
   color: var(--ui-color-text);
 }
@@ -22,7 +30,11 @@
 [data-ui-root] button,
 [data-ui-root] input,
 [data-ui-root] select,
-[data-ui-root] textarea {
+[data-ui-root] textarea,
+[data-ui-scope] button,
+[data-ui-scope] input,
+[data-ui-scope] select,
+[data-ui-scope] textarea {
   font: inherit;
 }
 
@@ -30,12 +42,18 @@
 [data-ui-root] input:focus-visible,
 [data-ui-root] select:focus-visible,
 [data-ui-root] textarea:focus-visible,
-[data-ui-root] [tabindex]:focus-visible {
+[data-ui-root] [tabindex]:focus-visible,
+[data-ui-scope] button:focus-visible,
+[data-ui-scope] input:focus-visible,
+[data-ui-scope] select:focus-visible,
+[data-ui-scope] textarea:focus-visible,
+[data-ui-scope] [tabindex]:focus-visible {
   outline: none;
   box-shadow: var(--ui-focus-ring);
 }
 
-[data-ui-root] svg {
+[data-ui-root] svg,
+[data-ui-scope] svg {
   flex: 0 0 auto;
 }
 
@@ -56,7 +74,11 @@
   [data-ui-root],
   [data-ui-root] *,
   [data-ui-root] *::before,
-  [data-ui-root] *::after {
+  [data-ui-root] *::after,
+  [data-ui-scope],
+  [data-ui-scope] *,
+  [data-ui-scope] *::before,
+  [data-ui-scope] *::after {
     scroll-behavior: auto !important;
   }
 }

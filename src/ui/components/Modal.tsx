@@ -1,10 +1,11 @@
 import { X } from "lucide-react";
-import type { ReactNode } from "react";
-import { useEffect } from "react";
+import type { ReactNode, RefObject } from "react";
+import { useId, useLayoutEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 
 import type { UiMotionMode } from "../types";
 import { classNames } from "../utils/classNames";
+import { OverlayLayerBoundary, useOverlayLayer } from "../utils/overlayStack";
 import { usePresence } from "../utils/usePresence";
 
 import styles from "./primitives.module.css";
@@ -17,8 +18,11 @@ export interface ModalProps {
   footer?: ReactNode;
   width?: "sm" | "md" | "lg" | "xl" | "xxl";
   maxWidth?: "sm" | "md" | "lg" | "xl" | "xxl";
+  placement?: "center" | "left";
   showCloseButton?: boolean;
   closeOnBackdrop?: boolean;
+  closeOnEscape?: boolean;
+  initialFocusRef?: RefObject<HTMLElement | null>;
   headerDivider?: boolean;
   hideHeader?: boolean;
   fullScreen?: boolean;
@@ -36,6 +40,24 @@ const widthMap: Record<NonNullable<ModalProps["width"]>, string> = {
   xxl: "1040px",
 };
 
+const focusableSelector = [
+  "a[href]",
+  "button:not([disabled])",
+  "input:not([disabled]):not([type='hidden'])",
+  "select:not([disabled])",
+  "textarea:not([disabled])",
+  "[tabindex]:not([tabindex='-1'])",
+].join(",");
+
+function getFocusableElements(container: HTMLElement) {
+  return Array.from(container.querySelectorAll<HTMLElement>(focusableSelector)).filter(
+    (element) =>
+      !element.hidden &&
+      element.getAttribute("aria-hidden") !== "true" &&
+      !element.closest("[hidden], [inert], [aria-hidden='true']")
+  );
+}
+
 export function Modal({
   isOpen,
   title,
@@ -44,8 +66,11 @@ export function Modal({
   footer,
   width = "md",
   maxWidth,
+  placement = "center",
   showCloseButton = true,
   closeOnBackdrop = false,
+  closeOnEscape = true,
+  initialFocusRef,
   headerDivider = true,
   hideHeader = false,
   fullScreen = false,
@@ -54,76 +79,164 @@ export function Modal({
   motion = "default",
   className,
 }: ModalProps) {
+  const titleId = useId();
+  const panelRef = useRef<HTMLElement>(null);
+  const restoreFocusRef = useRef<HTMLElement | null>(null);
   const { isPresent, presenceState, shouldAnimate } = usePresence({ isOpen, motion });
+  const {
+    id: layerId,
+    isTop,
+    isTopModal,
+    zIndex,
+  } = useOverlayLayer({
+    active: isOpen,
+    type: "modal",
+  });
 
-  useEffect(() => {
+  useLayoutEffect(() => {
+    if (!isOpen) return undefined;
+
+    restoreFocusRef.current =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+
+    return () => {
+      const restoreTarget = restoreFocusRef.current;
+      queueMicrotask(() => {
+        if (restoreTarget?.isConnected) restoreTarget.focus({ preventScroll: true });
+      });
+    };
+  }, [isOpen]);
+
+  useLayoutEffect(() => {
+    if (!isOpen || !isTopModal) return;
+
+    const panel = panelRef.current;
+    const requestedTarget = initialFocusRef?.current;
+    const target =
+      requestedTarget && panel?.contains(requestedTarget)
+        ? requestedTarget
+        : panel
+          ? (getFocusableElements(panel)[0] ?? panel)
+          : null;
+    target?.focus({ preventScroll: true });
+  }, [initialFocusRef, isOpen, isTopModal]);
+
+  useLayoutEffect(() => {
     if (!isOpen) return undefined;
 
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
+      if (!isTop()) return;
+
+      if (event.key === "Escape" && closeOnEscape) {
+        event.preventDefault();
         onClose();
+        return;
+      }
+
+      if (event.key !== "Tab") return;
+
+      const panel = panelRef.current;
+      if (!panel) return;
+
+      const focusableElements = getFocusableElements(panel);
+      if (focusableElements.length === 0) {
+        event.preventDefault();
+        panel.focus();
+        return;
+      }
+
+      const first = focusableElements[0];
+      const last = focusableElements[focusableElements.length - 1];
+      const activeElement = document.activeElement;
+
+      if (event.shiftKey && (activeElement === first || !panel.contains(activeElement))) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && (activeElement === last || !panel.contains(activeElement))) {
+        event.preventDefault();
+        first.focus();
       }
     };
 
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [isOpen, onClose]);
+  }, [closeOnEscape, isOpen, isTop, onClose]);
 
   if (!isPresent) return null;
 
   const resolvedWidth = maxWidth ?? width;
+  const isLeft = placement === "left" && !fullScreen;
 
   return createPortal(
     <div
-      className={classNames(styles.modalBackdrop, fullScreen && styles.modalBackdropFullscreen)}
+      className={classNames(
+        styles.modalBackdrop,
+        fullScreen && styles.modalBackdropFullscreen,
+        isLeft && styles.modalBackdropLeft
+      )}
       data-ui-motion={shouldAnimate ? "default" : "none"}
+      data-ui-overlay-root
       data-ui-presence={presenceState}
+      data-ui-scope
       role="presentation"
-      onMouseDown={() => {
-        if (isOpen && closeOnBackdrop) {
+      style={{ zIndex }}
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget && isOpen && closeOnBackdrop && isTop()) {
           onClose();
         }
       }}
     >
       <section
+        ref={panelRef}
         className={classNames(
           styles.modalPanel,
           fullScreen && styles.modalPanelFullscreen,
+          isLeft && styles.modalPanelLeft,
           className
         )}
         data-ui-motion={shouldAnimate ? "default" : "none"}
         data-ui-presence={presenceState}
         role="dialog"
-        aria-modal="true"
-        aria-label={title}
+        aria-hidden={isTopModal ? undefined : "true"}
+        aria-modal={isTopModal ? "true" : undefined}
+        aria-labelledby={titleId}
+        inert={isTopModal ? undefined : true}
         style={fullScreen ? undefined : { width: `min(100%, ${widthMap[resolvedWidth]})` }}
-        onMouseDown={(event) => event.stopPropagation()}
+        tabIndex={-1}
       >
-        {!hideHeader && (
-          <header
-            className={classNames(styles.modalHeader, !headerDivider && styles.modalHeaderFlat)}
+        <OverlayLayerBoundary layerId={layerId}>
+          {hideHeader ? (
+            <h2 className={styles.visuallyHidden} id={titleId}>
+              {title}
+            </h2>
+          ) : (
+            <header
+              className={classNames(styles.modalHeader, !headerDivider && styles.modalHeaderFlat)}
+            >
+              <h2 className={styles.modalTitle} id={titleId}>
+                {title}
+              </h2>
+              {showCloseButton && (
+                <button
+                  className={styles.closeButton}
+                  type="button"
+                  aria-label="关闭"
+                  data-tour={closeButtonDataTour}
+                  onClick={onClose}
+                >
+                  <X size={18} aria-hidden="true" />
+                </button>
+              )}
+            </header>
+          )}
+          <div
+            className={classNames(styles.modalBody, compactBodyTop && styles.modalBodyCompactTop)}
+            data-ui-modal-body
           >
-            <h2 className={styles.modalTitle}>{title}</h2>
-            {showCloseButton && (
-              <button
-                className={styles.closeButton}
-                type="button"
-                aria-label="关闭"
-                data-tour={closeButtonDataTour}
-                onClick={onClose}
-              >
-                <X size={18} aria-hidden="true" />
-              </button>
-            )}
-          </header>
-        )}
-        <div
-          className={classNames(styles.modalBody, compactBodyTop && styles.modalBodyCompactTop)}
-          data-ui-modal-body
-        >
-          {children}
-        </div>
-        {footer && <footer className={styles.modalFooter}>{footer}</footer>}
+            {children}
+          </div>
+          {footer && <footer className={styles.modalFooter}>{footer}</footer>}
+        </OverlayLayerBoundary>
       </section>
     </div>,
     document.body

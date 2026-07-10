@@ -1,12 +1,4 @@
-import {
-  CalendarDays,
-  GripVertical,
-  Palette,
-  Plus,
-  TimerReset,
-  Trash2,
-  Type,
-} from "lucide-react";
+import { CalendarDays, GripVertical, Palette, Plus, TimerReset, Trash2, Type } from "lucide-react";
 import React, { useCallback, useEffect, useState } from "react";
 
 import { useAppDispatch, useAppState } from "../../../contexts/AppContext";
@@ -284,7 +276,7 @@ export const CountdownManagerPanel: React.FC<CountdownManagerPanelProps> = ({ on
                 <FormInput
                   label="数字颜色"
                   type="color"
-                  value={it.digitColor ?? (study.digitColor || "#03DAC6")}
+                  value={it.digitColor ?? (study.digitColor || "#2FECC6")}
                   onChange={(e) => updateItem(it.id, { digitColor: e.target.value })}
                   prefix={<TimerReset size={14} />}
                 />

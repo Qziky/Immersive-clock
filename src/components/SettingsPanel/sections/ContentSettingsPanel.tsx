@@ -56,9 +56,10 @@ export const ContentSettingsPanel: React.FC<ContentSettingsPanelProps> = ({
     section ? section !== candidate : undefined;
 
   return (
-    <div id="content-panel" role="tabpanel" aria-labelledby="content">
+    <div id="content-panel">
       <FormSection
         title="语录自动刷新"
+        variant="plain"
         description="控制自习页面语录内容的自动刷新节奏。"
         hidden={isSectionHidden("refresh")}
       >

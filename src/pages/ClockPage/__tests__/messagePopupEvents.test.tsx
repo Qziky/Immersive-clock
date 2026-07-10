@@ -4,6 +4,7 @@ import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { AppContextProvider } from "../../../contexts/AppContext";
+import { FeedbackProvider } from "../../../ui";
 import { ClockPage } from "../ClockPage";
 
 vi.mock("../../../utils/timeSync", () => ({
@@ -51,17 +52,20 @@ vi.mock("../../../components/Study/Study", () => ({
   Study: () => <div>study</div>,
 }));
 
-describe("消息弹窗事件关闭动画", () => {
+describe("消息事件通知适配", () => {
   afterEach(() => {
     vi.useRealTimers();
+    sessionStorage.clear();
   });
 
-  it("事件关闭时应先播放退出动画再移除弹窗", () => {
+  it("保持 messagePopup 事件协议并投递到统一通知视口", () => {
     vi.useFakeTimers();
     render(
       <MemoryRouter>
         <AppContextProvider>
-          <ClockPage />
+          <FeedbackProvider>
+            <ClockPage />
+          </FeedbackProvider>
         </AppContextProvider>
       </MemoryRouter>
     );
@@ -74,12 +78,17 @@ describe("消息弹窗事件关闭动画", () => {
             type: "weatherForecast",
             title: "天气提醒",
             message: "测试内容",
+            themeColor: "#8ec5ff",
           },
         })
       );
     });
 
-    expect(screen.getByLabelText("天气提醒")).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("天气提醒");
+    expect(screen.getByRole("status")).toHaveTextContent("测试内容");
+    expect(screen.getByRole("status").style.getPropertyValue("--ui-toast-accent-color")).toBe(
+      "#8ec5ff"
+    );
 
     act(() => {
       window.dispatchEvent(
@@ -92,16 +101,68 @@ describe("消息弹窗事件关闭动画", () => {
       );
     });
 
-    expect(screen.getByLabelText("天气提醒")).toBeInTheDocument();
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+  });
+
+  it("手动关闭分钟级降雨通知时同步会话标记", () => {
+    render(
+      <MemoryRouter>
+        <AppContextProvider>
+          <FeedbackProvider>
+            <ClockPage />
+          </FeedbackProvider>
+        </AppContextProvider>
+      </MemoryRouter>
+    );
 
     act(() => {
-      vi.advanceTimersByTime(299);
+      window.dispatchEvent(
+        new CustomEvent("messagePopup:open", {
+          detail: {
+            id: "weather:minutelyPrecip",
+            type: "weatherForecast",
+            title: "分钟级降雨",
+          },
+        })
+      );
     });
-    expect(screen.getByLabelText("天气提醒")).toBeInTheDocument();
+
+    expect(sessionStorage.getItem("weather.minutely.popupOpen")).toBe("1");
+    act(() => screen.getByRole("button", { name: "关闭通知" }).click());
+    expect(sessionStorage.getItem("weather.minutely.popupOpen")).toBe("0");
+    expect(sessionStorage.getItem("weather.minutely.popupDismissed")).toBe("1");
+  });
+
+  it("分钟级降雨通知超时后只清理打开标记", () => {
+    vi.useFakeTimers();
+    render(
+      <MemoryRouter>
+        <AppContextProvider>
+          <FeedbackProvider>
+            <ClockPage />
+          </FeedbackProvider>
+        </AppContextProvider>
+      </MemoryRouter>
+    );
 
     act(() => {
-      vi.advanceTimersByTime(1);
+      window.dispatchEvent(
+        new CustomEvent("messagePopup:open", {
+          detail: {
+            id: "weather:minutelyPrecip",
+            type: "weatherForecast",
+            title: "分钟级降雨",
+          },
+        })
+      );
     });
-    expect(screen.queryByLabelText("天气提醒")).not.toBeInTheDocument();
+
+    act(() => {
+      vi.advanceTimersByTime(6000);
+    });
+
+    expect(screen.queryByText("分钟级降雨")).not.toBeInTheDocument();
+    expect(sessionStorage.getItem("weather.minutely.popupOpen")).toBe("0");
+    expect(sessionStorage.getItem("weather.minutely.popupDismissed")).toBeNull();
   });
 });

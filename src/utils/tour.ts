@@ -372,11 +372,15 @@ export const startTour = (force = false, options?: TourOptions) => {
   // 派发全局事件通知指引开始
   window.dispatchEvent(new Event("tour:start"));
 
+  const shouldReduceMotion =
+    typeof window.matchMedia === "function" &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
   const driverObj = driver({
     showProgress: true,
     allowClose: false,
     allowKeyboardControl: false,
-    animate: true,
+    animate: !shouldReduceMotion,
     nextBtnText: "下一步",
     prevBtnText: "上一步",
     doneBtnText: "完成",
