@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 
 import { DEFAULT_SCHEDULE, StudyPeriod } from "../../types/studySchedule";
 import { logger } from "../../utils/logger";
@@ -183,15 +183,22 @@ const StudyStatus: React.FC<StudyStatusProps> = () => {
     return () => clearInterval(interval);
   }, [calculateCurrentStatus]);
 
+  const roundedProgress = Math.round(currentStatus.progress);
+  const hasProgress = currentStatus.currentPeriod !== null;
+
   return (
-    <div className={styles.studyStatus}>
+    <div
+      className={styles.studyStatus}
+      role="progressbar"
+      aria-label={`${currentStatus.statusText}进度`}
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-valuenow={roundedProgress}
+    >
+      <div className={styles.progressFill} style={{ width: `${currentStatus.progress}%` }} />
       <div className={styles.statusRow}>
         <div className={styles.statusText}>{currentStatus.statusText}</div>
-      </div>
-      <div className={styles.progressContainer}>
-        <div className={styles.progressBar}>
-          <div className={styles.progressFill} style={{ width: `${currentStatus.progress}%` }} />
-        </div>
+        {hasProgress && <span className={styles.progressMeta}>{roundedProgress}%</span>}
       </div>
     </div>
   );

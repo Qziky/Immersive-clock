@@ -1,6 +1,6 @@
 import { getAppSettings, updateAppSettings } from "./appSettings";
 
-export type StudyBackgroundType = "default" | "color" | "image";
+export type StudyBackgroundType = "default" | "black" | "dark" | "system" | "color" | "image";
 
 export interface StudyBackgroundSettings {
   type: StudyBackgroundType;
@@ -10,32 +10,57 @@ export interface StudyBackgroundSettings {
   imageDataUrl?: string;
 }
 
+function normalizeBackground(settings: StudyBackgroundSettings): StudyBackgroundSettings {
+  const type = settings.type === "system" ? "dark" : (settings.type ?? "default");
+  const background: StudyBackgroundSettings = {
+    type,
+    color: undefined,
+    colorAlpha: undefined,
+    imageDataUrl: undefined,
+  };
+
+  if (type === "color" && settings.color && isValidHexColor(settings.color)) {
+    background.color = settings.color;
+    background.colorAlpha =
+      typeof settings.colorAlpha === "number" ? Math.max(0, Math.min(1, settings.colorAlpha)) : 1;
+  } else if (type === "image" && settings.imageDataUrl) {
+    background.imageDataUrl = settings.imageDataUrl;
+  }
+
+  return background;
+}
+
 function isValidHexColor(hex: string): boolean {
   return /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(hex);
 }
 
 export function readStudyBackground(): StudyBackgroundSettings {
-  return getAppSettings().study.background;
+  const background = getAppSettings().study.background;
+  return background.type === "system" ? { ...background, type: "dark" } : background;
+}
+
+export function readNormalBackground(): StudyBackgroundSettings {
+  const background = getAppSettings().general.background;
+  return background.type === "system" ? { ...background, type: "dark" } : background;
 }
 
 export function saveStudyBackground(settings: StudyBackgroundSettings): void {
-  const type = settings.type ?? "default";
-
-  // 清理不兼容字段的逻辑可以在此处理，或直接原样保存
-  // 为了与之前的“清理”行为保持一致：
-  const newBackground: StudyBackgroundSettings = { type };
-
-  if (type === "color" && settings.color && isValidHexColor(settings.color)) {
-    newBackground.color = settings.color;
-    newBackground.colorAlpha =
-      typeof settings.colorAlpha === "number" ? Math.max(0, Math.min(1, settings.colorAlpha)) : 1;
-  } else if (type === "image" && settings.imageDataUrl) {
-    newBackground.imageDataUrl = settings.imageDataUrl;
-  }
+  const newBackground = normalizeBackground(settings);
 
   updateAppSettings((current) => ({
     study: {
       ...current.study,
+      background: newBackground,
+    },
+  }));
+}
+
+export function saveNormalBackground(settings: StudyBackgroundSettings): void {
+  const newBackground = normalizeBackground(settings);
+
+  updateAppSettings((current) => ({
+    general: {
+      ...current.general,
       background: newBackground,
     },
   }));

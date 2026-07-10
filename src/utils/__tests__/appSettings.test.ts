@@ -6,6 +6,11 @@ import {
   updateTimeSyncSettings,
   updateStudySettings,
 } from "../appSettings";
+import {
+  readStudyBackground,
+  saveNormalBackground,
+  saveStudyBackground,
+} from "../studyBackgroundStorage";
 
 class MemoryStorage implements Storage {
   private store = new Map<string, string>();
@@ -148,5 +153,47 @@ describe("appSettings", () => {
     expect(s.study.background.type).toBe("color");
     expect(s.study.background.color).toBe("#000000");
     expect(s.study.background.colorAlpha).toBe(0.8);
+  });
+
+  it("saveStudyBackground 能兼容旧系统背景并映射为深灰", () => {
+    updateStudySettings({
+      background: {
+        type: "image",
+        imageDataUrl: "data:image/png;base64,example",
+      },
+    });
+
+    saveStudyBackground({ type: "system" });
+
+    expect(getAppSettings().study.background).toEqual({ type: "dark" });
+  });
+
+  it("saveNormalBackground 会独立保存普通页面背景", () => {
+    saveNormalBackground({ type: "color", color: "#102030", colorAlpha: 0.75 });
+
+    const settings = getAppSettings();
+    expect(settings.general.background).toEqual({
+      type: "color",
+      color: "#102030",
+      colorAlpha: 0.75,
+    });
+    expect(settings.study.background.type).toBe("default");
+  });
+
+  it("readStudyBackground 会将旧系统背景映射为深灰", () => {
+    updateStudySettings({ background: { type: "system" } });
+
+    expect(readStudyBackground().type).toBe("dark");
+  });
+
+  it("纯黑预设不会保留自定义背景字段", () => {
+    saveNormalBackground({
+      type: "black",
+      color: "#ffffff",
+      colorAlpha: 0.5,
+      imageDataUrl: "data:image/png;base64,unused",
+    });
+
+    expect(getAppSettings().general.background).toEqual({ type: "black" });
   });
 });

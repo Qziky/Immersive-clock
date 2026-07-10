@@ -7,6 +7,7 @@ import {
   Eye,
   FileText,
   Image as ImageIcon,
+  Monitor,
   Palette,
   RotateCw,
   TimerReset,
@@ -41,7 +42,14 @@ import {
   updateTimeSyncSettings,
 } from "../../../utils/appSettings";
 import { resolveStartupMode } from "../../../utils/startupMode";
-import { readStudyBackground, saveStudyBackground } from "../../../utils/studyBackgroundStorage";
+import {
+  readNormalBackground,
+  readStudyBackground,
+  saveNormalBackground,
+  saveStudyBackground,
+  type StudyBackgroundSettings,
+  type StudyBackgroundType,
+} from "../../../utils/studyBackgroundStorage";
 import {
   ImportedFontMeta,
   importFontFile,
@@ -74,6 +82,26 @@ export type BasicSettingsSection =
   | "timeSync"
   | "schedule";
 
+type BackgroundScope = "normal" | "study";
+
+interface BackgroundDraft {
+  type: StudyBackgroundType;
+  color: string;
+  alpha: number;
+  image: string | null;
+  imageFileName: string;
+}
+
+function createBackgroundDraft(settings: StudyBackgroundSettings): BackgroundDraft {
+  return {
+    type: settings.type,
+    color: settings.color ?? "#121212",
+    alpha: settings.colorAlpha ?? 1,
+    image: settings.imageDataUrl ?? null,
+    imageFileName: "",
+  };
+}
+
 /**
  * 基础设置分段组件
  * - 倒计时类型与目标年份/自定义事件设置
@@ -87,7 +115,7 @@ export const BasicSettingsPanel: React.FC<BasicSettingsPanelProps> = ({
   onRegisterSave,
   section,
 }) => {
-  const { study } = useAppState();
+  const { mode, study } = useAppState();
   const dispatch = useAppDispatch();
 
   const [startupMode, setStartupMode] = useState<AppMode>("clock");
@@ -130,12 +158,26 @@ export const BasicSettingsPanel: React.FC<BasicSettingsPanelProps> = ({
     ...(study.display || defaultDisplay),
   });
 
-  // 背景设置草稿
-  const [bgType, setBgType] = useState<"default" | "color" | "image">("default");
-  const [bgColor, setBgColor] = useState<string>("#121212");
-  const [bgAlpha, setBgAlpha] = useState<number>(1);
-  const [bgImage, setBgImage] = useState<string | null>(null);
-  const [bgImageFileName, setBgImageFileName] = useState<string>("");
+  // 普通页面与自习页面分别维护背景草稿，打开设置时优先编辑当前页面。
+  const [backgroundScope, setBackgroundScope] = useState<BackgroundScope>(
+    mode === "study" ? "study" : "normal"
+  );
+  const [normalBackgroundDraft, setNormalBackgroundDraft] = useState<BackgroundDraft>(() =>
+    createBackgroundDraft(readNormalBackground())
+  );
+  const [studyBackgroundDraft, setStudyBackgroundDraft] = useState<BackgroundDraft>(() =>
+    createBackgroundDraft(readStudyBackground())
+  );
+  const activeBackgroundDraft =
+    backgroundScope === "normal" ? normalBackgroundDraft : studyBackgroundDraft;
+  const updateActiveBackgroundDraft = (updates: Partial<BackgroundDraft>) => {
+    const updateDraft = (current: BackgroundDraft) => ({ ...current, ...updates });
+    if (backgroundScope === "normal") {
+      setNormalBackgroundDraft(updateDraft);
+    } else {
+      setStudyBackgroundDraft(updateDraft);
+    }
+  };
 
   // 课表设置弹窗
   const [scheduleOpen, setScheduleOpen] = useState<boolean>(false);
@@ -264,12 +306,8 @@ export const BasicSettingsPanel: React.FC<BasicSettingsPanelProps> = ({
     setDraftCustomDate(study.customDate ?? "");
     setDraftDisplay({ ...(study.display || defaultDisplay), showTime: true });
     // 背景设置
-    const bg = readStudyBackground();
-    setBgType(bg.type);
-    if (bg.color) setBgColor(bg.color);
-    setBgAlpha(typeof bg.colorAlpha === "number" ? bg.colorAlpha : 1);
-    setBgImage(bg.imageDataUrl ?? null);
-    setBgImageFileName("");
+    setNormalBackgroundDraft(createBackgroundDraft(readNormalBackground()));
+    setStudyBackgroundDraft(createBackgroundDraft(readStudyBackground()));
 
     const nextDigitColor = study.digitColor ?? "";
     setDigitColor(nextDigitColor);
@@ -407,13 +445,27 @@ export const BasicSettingsPanel: React.FC<BasicSettingsPanelProps> = ({
         payload: dateColorMode === "custom" ? dateColor : undefined,
       });
       // 保存背景设置
-      saveStudyBackground({
-        type: bgType,
-        color: bgType === "color" ? bgColor : undefined,
-        colorAlpha: bgType === "color" ? bgAlpha : undefined,
-        imageDataUrl: bgType === "image" ? (bgImage ?? undefined) : undefined,
+      saveNormalBackground({
+        type: normalBackgroundDraft.type,
+        color: normalBackgroundDraft.type === "color" ? normalBackgroundDraft.color : undefined,
+        colorAlpha:
+          normalBackgroundDraft.type === "color" ? normalBackgroundDraft.alpha : undefined,
+        imageDataUrl:
+          normalBackgroundDraft.type === "image"
+            ? (normalBackgroundDraft.image ?? undefined)
+            : undefined,
       });
-      // 通知学习页面刷新背景
+      saveStudyBackground({
+        type: studyBackgroundDraft.type,
+        color: studyBackgroundDraft.type === "color" ? studyBackgroundDraft.color : undefined,
+        colorAlpha: studyBackgroundDraft.type === "color" ? studyBackgroundDraft.alpha : undefined,
+        imageDataUrl:
+          studyBackgroundDraft.type === "image"
+            ? (studyBackgroundDraft.image ?? undefined)
+            : undefined,
+      });
+      // 分别通知普通页面与自习页面刷新背景。
+      window.dispatchEvent(new CustomEvent("normal-background-updated"));
       window.dispatchEvent(new CustomEvent("study-background-updated"));
 
       // 保存倒计时项目
@@ -499,10 +551,8 @@ export const BasicSettingsPanel: React.FC<BasicSettingsPanelProps> = ({
     timeColor,
     dateColorMode,
     dateColor,
-    bgType,
-    bgColor,
-    bgAlpha,
-    bgImage,
+    normalBackgroundDraft,
+    studyBackgroundDraft,
     singleBgColor,
     singleTextColor,
     singleBgOpacity,
@@ -716,7 +766,11 @@ export const BasicSettingsPanel: React.FC<BasicSettingsPanelProps> = ({
   );
 
   const timeSyncProviderLabel =
-    timeSyncProvider === "httpDate" ? "HTTP Date" : timeSyncProvider === "timeApi" ? "时间 API" : "NTP";
+    timeSyncProvider === "httpDate"
+      ? "HTTP Date"
+      : timeSyncProvider === "timeApi"
+        ? "时间 API"
+        : "NTP";
   const timeSyncOffsetText = timeSyncStatus?.enabled
     ? `${Math.trunc((timeSyncStatus.offsetMs || 0) + (timeSyncStatus.manualOffsetMs || 0))} ms`
     : "未启用";
@@ -1193,27 +1247,44 @@ export const BasicSettingsPanel: React.FC<BasicSettingsPanelProps> = ({
       {/* 背景设置 */}
       <FormSection
         title="背景设置"
-        description="选择自习页面背景来源，支持纯色与本地图片。"
+        description="普通页面与自习页面可分别保存背景预设、纯色或本地图片。"
         hidden={isSectionHidden("background")}
       >
         <SettingItem
-          icon={<ImageIcon size={18} />}
-          title="背景来源"
-          description="保存后应用到自习页面，默认模式会回到系统背景。"
-          tone="accent"
+          icon={<Monitor size={18} />}
+          title="应用页面"
+          description="普通页面包含时钟、倒计时和秒表。"
         >
           <FormSegmented
-            value={bgType}
+            value={backgroundScope}
             options={[
-              { label: "系统默认", value: "default" },
-              { label: "自定义颜色", value: "color" },
-              { label: "背景图片", value: "image" },
+              { label: "普通页面", value: "normal" },
+              { label: "自习页面", value: "study" },
             ]}
-            onChange={(v) => setBgType(v as "default" | "color" | "image")}
+            onChange={setBackgroundScope}
           />
         </SettingItem>
 
-        {bgType === "color" && (
+        <SettingItem
+          icon={<ImageIcon size={18} />}
+          title="背景来源"
+          description={"自习氛围使用统一的深色渐变与边缘暗化，并作为全局默认背景。"}
+          tone="accent"
+        >
+          <FormSegmented
+            value={activeBackgroundDraft.type}
+            options={[
+              { label: "自习氛围", value: "default" },
+              { label: "纯黑", value: "black" },
+              { label: "深灰", value: "dark" },
+              { label: "自定义纯色", value: "color" },
+              { label: "自定义图片", value: "image" },
+            ]}
+            onChange={(type) => updateActiveBackgroundDraft({ type })}
+          />
+        </SettingItem>
+
+        {activeBackgroundDraft.type === "color" && (
           <SettingGrid columns={2}>
             <SettingItem
               icon={<Palette size={18} />}
@@ -1224,14 +1295,14 @@ export const BasicSettingsPanel: React.FC<BasicSettingsPanelProps> = ({
                 <FormInput
                   label="调色盘"
                   type="color"
-                  value={bgColor}
-                  onChange={(e) => setBgColor(e.target.value)}
+                  value={activeBackgroundDraft.color}
+                  onChange={(event) => updateActiveBackgroundDraft({ color: event.target.value })}
                 />
                 <FormInput
                   label="颜色代码"
                   type="text"
-                  value={bgColor}
-                  onChange={(e) => setBgColor(e.target.value)}
+                  value={activeBackgroundDraft.color}
+                  onChange={(event) => updateActiveBackgroundDraft({ color: event.target.value })}
                   placeholder="#121212"
                 />
               </SettingGrid>
@@ -1247,39 +1318,47 @@ export const BasicSettingsPanel: React.FC<BasicSettingsPanelProps> = ({
                 min={0}
                 max={1}
                 step={0.01}
-                value={bgAlpha}
-                onChange={(v) => setBgAlpha(v)}
-                formatValue={(v) => `${Math.round(v * 100)}%`}
+                value={activeBackgroundDraft.alpha}
+                onChange={(alpha) => updateActiveBackgroundDraft({ alpha })}
+                formatValue={(value) => `${Math.round(value * 100)}%`}
               />
             </SettingItem>
           </SettingGrid>
         )}
 
-        {bgType === "image" && (
+        {activeBackgroundDraft.type === "image" && (
           <SettingItem
             icon={<ImageIcon size={18} />}
             title="背景图片"
-            description="选择本地图片作为自习页背景，保存后写入本地缓存。"
+            description={`选择本地图片作为${backgroundScope === "study" ? "自习" : "普通"}页面背景，保存后写入本地缓存。`}
           >
             <FormFilePicker
               label="选择图片"
               accept="image/*"
-              fileName={bgImageFileName}
+              fileName={activeBackgroundDraft.imageFileName}
               placeholder="未选择图片"
               buttonText="选择图片"
               onFileChange={(file) => {
                 if (!file) return;
-                setBgImageFileName(file.name);
+                updateActiveBackgroundDraft({ imageFileName: file.name });
                 const reader = new FileReader();
-                reader.onload = () => setBgImage(reader.result as string);
+                reader.onload = () =>
+                  updateActiveBackgroundDraft({ image: reader.result as string });
                 reader.readAsDataURL(file);
               }}
             />
-            {bgImage && (
+            {activeBackgroundDraft.image && (
               <>
-                <img className={styles.backgroundPreview} src={bgImage} alt="背景预览" />
+                <img
+                  className={styles.backgroundPreview}
+                  src={activeBackgroundDraft.image}
+                  alt={`${backgroundScope === "study" ? "自习" : "普通"}页面背景预览`}
+                />
                 <FormButtonGroup align="left">
-                  <FormButton variant="secondary" onClick={() => setBgImage(null)}>
+                  <FormButton
+                    variant="secondary"
+                    onClick={() => updateActiveBackgroundDraft({ image: null, imageFileName: "" })}
+                  >
                     移除图片
                   </FormButton>
                 </FormButtonGroup>
@@ -1479,7 +1558,8 @@ export const BasicSettingsPanel: React.FC<BasicSettingsPanelProps> = ({
             )}
             {isDesktop && !ntpAvailable && (
               <InfoPanel tone="warning" title="NTP 能力未就绪">
-                检测到桌面端环境，但 NTP preload 未加载到最新版本；请重新启动桌面端或重新构建桌面端产物。
+                检测到桌面端环境，但 NTP preload
+                未加载到最新版本；请重新启动桌面端或重新构建桌面端产物。
               </InfoPanel>
             )}
             {timeSyncProvider === "httpDate" && (
@@ -1489,7 +1569,8 @@ export const BasicSettingsPanel: React.FC<BasicSettingsPanelProps> = ({
             )}
             {timeSyncProvider === "ntp" && (
               <InfoPanel tone="warning" title="NTP 网络提示">
-                NTP 使用 UDP/123，可能会被防火墙或网络策略拦截；若提示桌面端不可用，请先重建桌面端产物。
+                NTP 使用
+                UDP/123，可能会被防火墙或网络策略拦截；若提示桌面端不可用，请先重建桌面端产物。
               </InfoPanel>
             )}
           </>

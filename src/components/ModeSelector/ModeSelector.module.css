@@ -3,22 +3,22 @@
 .modeSelector.modeSelector {
   border-bottom: 0;
   display: flex;
-  gap: 3rem;
+  gap: clamp(0.75rem, 1.5vw, 1.25rem);
   overflow-x: visible;
 }
 
 .modeSelector .modeButton {
   display: flex;
   align-items: center;
-  gap: 0.6rem;
-  padding: 0.75rem 1.5rem;
+  gap: 0.5rem;
+  padding: 0.625rem 0.875rem;
   background: transparent;
   border: none;
   border-radius: 0;
-  color: rgba(255, 255, 255, 0.5);
+  color: rgba(255, 255, 255, 0.62);
   font-family: var(--font-ui);
-  font-size: 1.1rem;
-  font-weight: 400;
+  font-size: 1rem;
+  font-weight: 500;
   height: auto;
   cursor: pointer;
   transition: all 0.3s ease;
@@ -33,32 +33,32 @@
   left: 50%;
   width: 0;
   height: 2px;
-  background: var(--primary-color);
+  background: var(--ui-color-accent, var(--accent-color));
   transition: all 0.3s ease;
   transform: translateX(-50%);
 }
 
 .modeSelector .modeButton:hover {
-  color: rgba(255, 255, 255, 0.8);
+  color: rgba(255, 255, 255, 0.86);
   transform: translateY(-1px);
 }
 
 .modeSelector .modeButton:focus-visible {
-  outline: 1px solid rgba(255, 255, 255, 0.3);
+  outline: 2px solid rgba(47, 236, 198, 0.48);
   outline-offset: 2px;
 }
 
 .modeSelector .modeButton[aria-selected="true"] {
-  color: #ffffff;
-  font-weight: 500;
+  color: var(--ui-color-accent, var(--accent-color));
+  font-weight: 600;
 }
 
 .modeSelector .modeButton[aria-selected="true"]::after {
-  width: 80%;
+  width: 74%;
 }
 
 .modeSelector .modeButton[aria-selected="true"]:hover {
-  color: #ffffff;
+  color: var(--ui-color-accent, var(--accent-color));
   transform: translateY(-1px);
 }
 
@@ -75,12 +75,12 @@
 /* 响应式适配 */
 @media (max-width: 1200px) {
   .modeSelector.modeSelector {
-    gap: 2rem;
+    gap: 1rem;
   }
 
   .modeSelector .modeButton {
-    font-size: 1rem;
-    padding: 0.6rem 1.2rem;
+    font-size: 0.95rem;
+    padding: 0.55rem 0.75rem;
   }
 
   .icon {
@@ -91,12 +91,12 @@
 
 @media (max-width: 768px) {
   .modeSelector.modeSelector {
-    gap: 1.5rem;
+    gap: 0.7rem;
   }
 
   .modeSelector .modeButton {
-    font-size: 0.9rem;
-    padding: 0.5rem 1rem;
+    font-size: 0.86rem;
+    padding: 0.5rem 0.625rem;
   }
 
   .icon {
@@ -107,14 +107,14 @@
 
 @media (max-width: 480px) {
   .modeSelector.modeSelector {
-    gap: 1rem;
+    gap: 0.55rem;
   }
 
   .modeSelector .modeButton {
     flex-direction: column;
     gap: 0.25rem;
     font-size: 0.7rem;
-    padding: 0.4rem 0.8rem;
+    padding: 0.4rem 0.5rem;
   }
 
   .icon {

@@ -56,6 +56,12 @@ export interface AppSettings {
       lastRttMs?: number;
       lastError?: string;
     };
+    background: {
+      type: StudyBackgroundType;
+      color?: string;
+      colorAlpha?: number;
+      imageDataUrl?: string;
+    };
   };
 
   study: {
@@ -151,6 +157,9 @@ const DEFAULT_SETTINGS: AppSettings = {
       lastSyncAt: 0,
       lastRttMs: undefined,
       lastError: undefined,
+    },
+    background: {
+      type: "default",
     },
   },
   study: {
@@ -274,6 +283,10 @@ export function getAppSettings(): AppSettings {
         },
         weather: { ...DEFAULT_SETTINGS.general.weather, ...(parsed.general?.weather || {}) },
         timeSync: { ...DEFAULT_SETTINGS.general.timeSync, ...(parsed.general?.timeSync || {}) },
+        background: {
+          ...DEFAULT_SETTINGS.general.background,
+          ...(parsed.general?.background || {}),
+        },
       },
       study: {
         ...DEFAULT_SETTINGS.study,
@@ -360,6 +373,9 @@ export function updateAppSettings(
         timeSync: generalUpdates.timeSync
           ? { ...current.general.timeSync, ...generalUpdates.timeSync }
           : current.general.timeSync,
+        background: generalUpdates.background
+          ? { ...current.general.background, ...generalUpdates.background }
+          : current.general.background,
       };
     }
     if (updates.study) {

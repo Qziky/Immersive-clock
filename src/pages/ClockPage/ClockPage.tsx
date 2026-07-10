@@ -16,6 +16,10 @@ import { useAppState, useAppDispatch } from "../../contexts/AppContext";
 import type { AppMode } from "../../types";
 import type { MessagePopupOpenDetail, MessagePopupType } from "../../types/messagePopup";
 import { getModeFromPathname, MODE_ROUTE_PATHS } from "../../utils/modeRoutes";
+import {
+  readNormalBackground,
+  type StudyBackgroundSettings,
+} from "../../utils/studyBackgroundStorage";
 import { startTimeSyncManager } from "../../utils/timeSync";
 import { startTour, isTourActive } from "../../utils/tour";
 
@@ -25,6 +29,39 @@ const MINUTELY_PRECIP_POPUP_ID = "weather:minutelyPrecip";
 const MINUTELY_PRECIP_POPUP_OPEN_KEY = "weather.minutely.popupOpen";
 const MINUTELY_PRECIP_POPUP_DISMISSED_KEY = "weather.minutely.popupDismissed";
 const MESSAGE_POPUP_EXIT_MS = 300;
+
+function hexToRgba(hex: string, alpha: number): string {
+  const normalized = hex.replace("#", "");
+  const value =
+    normalized.length === 3
+      ? normalized
+          .split("")
+          .map((character) => character + character)
+          .join("")
+      : normalized;
+  const red = parseInt(value.slice(0, 2), 16);
+  const green = parseInt(value.slice(2, 4), 16);
+  const blue = parseInt(value.slice(4, 6), 16);
+  return `rgba(${red}, ${green}, ${blue}, ${Math.max(0, Math.min(1, alpha))})`;
+}
+
+function getNormalBackgroundStyle(settings: StudyBackgroundSettings): React.CSSProperties {
+  if (settings.type === "image" && settings.imageDataUrl) {
+    return {
+      backgroundImage: `url(${settings.imageDataUrl})`,
+      backgroundPosition: "center",
+      backgroundRepeat: "no-repeat",
+      backgroundSize: "cover",
+    };
+  }
+  if (settings.type === "color" && settings.color) {
+    return {
+      backgroundImage: "none",
+      backgroundColor: hexToRgba(settings.color, settings.colorAlpha ?? 1),
+    };
+  }
+  return {};
+}
 
 /**
  * 时钟主页面组件
@@ -41,6 +78,7 @@ export function ClockPage() {
   const prevModeRef = useRef(mode);
   const [showSettings, setShowSettings] = useState(false);
   const [showAnnouncement, setShowAnnouncement] = useState(false);
+  const [normalBackground, setNormalBackground] = useState(readNormalBackground);
   const [globalPopups, setGlobalPopups] = useState<
     Array<{
       id: string;
@@ -125,6 +163,12 @@ export function ClockPage() {
 
   useEffect(() => {
     return startTimeSyncManager();
+  }, []);
+
+  useEffect(() => {
+    const handleBackgroundUpdate = () => setNormalBackground(readNormalBackground());
+    window.addEventListener("normal-background-updated", handleBackgroundUpdate);
+    return () => window.removeEventListener("normal-background-updated", handleBackgroundUpdate);
   }, []);
 
   /**
@@ -378,13 +422,15 @@ export function ClockPage() {
   return (
     <main
       className={styles.clockPage}
+      data-background-type={mode === "study" ? undefined : normalBackground.type}
       onClick={handlePageClick}
       onKeyDown={handleKeyDown}
+      style={mode === "study" ? undefined : getNormalBackgroundStyle(normalBackground)}
       tabIndex={0}
       aria-label="时钟应用主界面"
     >
       <div
-        className={styles.timeDisplay}
+        className={`${styles.timeDisplay} ${mode === "study" ? styles.studyTimeDisplay : ""}`}
         id={`${mode}-panel`}
         role="tabpanel"
         data-tour="clock-area"

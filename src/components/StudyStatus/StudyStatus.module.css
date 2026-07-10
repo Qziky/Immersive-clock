@@ -1,39 +1,51 @@
-/* 自习状态：顶栏里的轻量课程信息 */
+/* 自习状态：整个容器本身表达当前时段进度。 */
 .studyStatus {
-  background: var(--study-panel-bg, rgba(10, 16, 14, 0.22));
-  border: 1px solid var(--study-panel-border, rgba(238, 243, 234, 0.075));
-  border-radius: 8px;
-  box-shadow: none;
-  color: var(--study-ink, var(--text-color));
+  align-items: center;
+  background: rgba(232, 233, 224, 0.035);
+  border-radius: var(--ui-radius-sm, 4px);
+  color: var(--study-text-primary, var(--study-ink, var(--text-color)));
   display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  justify-content: center;
-  min-height: 3.18rem;
-  min-width: min(19rem, 100%);
-  padding: 0.58rem 0.7rem 0.62rem;
+  height: var(--study-rail-item-height, 2rem);
+  isolation: isolate;
+  line-height: 1;
+  min-width: 0;
+  overflow: hidden;
+  padding: 0 0.4rem;
+  position: relative;
   text-align: left;
-  width: min(26rem, 36vw);
-  -webkit-backdrop-filter: blur(16px);
-  backdrop-filter: blur(16px);
+  width: 100%;
+}
+
+.progressFill {
+  background: linear-gradient(90deg, rgba(23, 199, 173, 0.14), rgba(47, 236, 198, 0.22));
+  bottom: 0;
+  left: 0;
+  position: absolute;
+  top: 0;
+  transition: width 0.35s ease;
+  z-index: -1;
 }
 
 .statusRow {
   align-items: center;
   display: flex;
   gap: 0.7rem;
+  height: 100%;
   justify-content: space-between;
   min-width: 0;
+  position: relative;
+  width: 100%;
+  z-index: 1;
 }
 
 .statusText {
-  color: var(--study-ink, var(--text-color));
+  color: var(--study-text-primary, var(--study-ink, var(--text-color)));
   flex: 1 1 auto;
   font-family: var(--font-ui);
-  font-size: 0.96rem;
+  font-size: var(--study-rail-primary-font-size, 0.94rem);
   font-weight: 600;
   letter-spacing: 0;
-  line-height: 1.2;
+  line-height: 1;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -41,63 +53,34 @@
   white-space: nowrap;
 }
 
-.progressContainer {
-  width: 100%;
-}
-
-.progressBar {
-  background: rgba(232, 233, 224, 0.12);
-  border-radius: 999px;
-  height: 2px;
-  overflow: hidden;
-  position: relative;
-  width: 100%;
-}
-
-.progressFill {
-  background: linear-gradient(90deg, rgba(127, 216, 189, 0.52), rgba(218, 228, 197, 0.62));
-  border-radius: inherit;
-  height: 100%;
-  position: relative;
-  transition: width 0.35s ease;
-}
-
-.progressFill::after {
-  background: rgba(255, 255, 255, 0.34);
-  border-radius: inherit;
-  content: "";
-  height: 100%;
-  opacity: 0.68;
-  position: absolute;
-  right: 0;
-  top: 0;
-  width: 1rem;
+.progressMeta {
+  color: var(--study-text-tertiary, rgba(232, 233, 224, 0.54));
+  flex: 0 0 auto;
+  font-family: var(--font-main);
+  font-size: var(--study-rail-meta-font-size, 0.72rem);
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
 }
 
 @media (max-width: 768px) {
   .studyStatus {
-    max-width: none;
-    min-height: 3rem;
-    min-width: 0;
-    padding: 0.56rem 0.68rem 0.62rem;
-    width: 100%;
-  }
-
-  .statusRow {
-    gap: 0.55rem;
+    padding: 0 0.4rem;
   }
 
   .statusText {
-    font-size: 0.9rem;
+    font-size: 0.88rem;
   }
 
+  .progressMeta {
+    font-size: 0.68rem;
+  }
 }
 
 @media (max-width: 480px) {
   .studyStatus {
-    gap: 0.46rem;
-    min-height: 2.9rem;
-    padding: 0.54rem 0.62rem 0.58rem;
+    padding: 0 0.35rem;
   }
 
   .statusRow {
@@ -105,26 +88,20 @@
   }
 
   .statusText {
-    font-size: 0.86rem;
-  }
-
-  .progressBar {
-    height: 2px;
+    font-size: 0.84rem;
   }
 }
 
 @media (prefers-contrast: high) {
   .studyStatus {
     background: #000000;
-    border-color: #ffffff;
-  }
-
-  .progressBar {
-    background: #444444;
+    color: #ffffff;
   }
 
   .progressFill {
     background: #ffffff;
+    border-right: 0;
+    mix-blend-mode: difference;
   }
 }
 

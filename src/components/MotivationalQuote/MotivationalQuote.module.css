@@ -1,10 +1,10 @@
 /* 励志语录：倒计时下方的低声量文本 */
 .motivationalQuote {
-  align-items: flex-start;
+  align-items: center;
   border-radius: 6px;
   cursor: pointer;
   display: flex;
-  justify-content: flex-start;
+  justify-content: center;
   margin-top: 0;
   padding: 0.1rem 0 0;
   width: 100%;
@@ -26,7 +26,7 @@
 }
 
 .quoteText {
-  color: var(--study-muted, rgba(255, 255, 255, 0.72));
+  color: var(--study-text-tertiary, var(--study-muted, rgba(255, 255, 255, 0.72)));
   font-family: var(--font-ui);
   font-size: 0.92rem;
   font-weight: 400;
@@ -34,7 +34,7 @@
   line-height: 1.55;
   max-width: 100%;
   overflow-wrap: anywhere;
-  text-align: left;
+  text-align: center;
   transition: color var(--transition-fast);
   white-space: normal;
   word-break: break-word;

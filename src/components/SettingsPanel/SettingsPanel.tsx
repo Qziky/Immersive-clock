@@ -214,7 +214,7 @@ const paneItems: SettingsPane[] = [
     value: "background",
     group: "appearance",
     label: "背景",
-    description: "选择自习页面背景来源、颜色或图片。",
+    description: "分别设置普通页面与自习页面的背景。",
     icon: <ImageIcon size={20} aria-hidden="true" />,
     panel: "basic",
     section: "background",

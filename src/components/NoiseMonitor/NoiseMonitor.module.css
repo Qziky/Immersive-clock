@@ -1,49 +1,61 @@
 /* 实时噪音状态：顶栏里的可点击环境指示 */
 .noiseMonitor {
-  color: var(--study-ink, var(--text-color));
+  align-items: center;
+  color: var(--study-text-primary, var(--study-ink, var(--text-color)));
+  display: flex;
+  height: 100%;
+  line-height: 1;
   margin: 0;
-  max-width: min(100%, 12rem);
+  max-width: 100%;
   text-align: left;
 }
 
 .statusContainer {
   align-items: center;
-  background: var(--study-panel-bg, rgba(10, 16, 14, 0.22));
-  border: 1px solid var(--study-panel-border, rgba(238, 243, 234, 0.075));
-  border-radius: 8px;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
   display: inline-flex;
-  gap: 0.58rem;
+  gap: 0.4rem;
+  height: 100%;
   justify-content: center;
-  min-height: 3.18rem;
-  padding: 0.56rem 0.72rem;
+  line-height: 1;
+  min-height: 0;
+  padding: 0;
   transition:
     background 0.22s ease,
     border-color 0.22s ease;
-  -webkit-backdrop-filter: blur(16px);
-  backdrop-filter: blur(16px);
 }
 
 .statusContainer:hover {
-  background: var(--study-panel-bg-hover, rgba(19, 29, 26, 0.38));
-  border-color: rgba(238, 243, 234, 0.12);
+  background: transparent;
+  border-color: transparent;
 }
 
 .textBlock {
-  display: flex;
-  flex-direction: column;
-  gap: 0.1rem;
+  align-items: center;
+  column-gap: 0.28rem;
+  display: grid;
+  grid-template-columns: auto auto;
+  grid-template-rows: 1fr auto;
+  height: 100%;
+  line-height: 1;
   min-width: 0;
 }
 
 .statusText {
+  align-items: center;
+  align-self: center;
   border-radius: 6px;
   cursor: pointer;
   display: inline-flex;
   font-family: var(--font-ui);
-  font-size: 0.92rem;
+  font-size: var(--study-rail-primary-font-size, 1rem);
   font-weight: 600;
+  grid-column: 1;
+  grid-row: 1 / -1;
   letter-spacing: 0;
-  line-height: 1.1;
+  line-height: 1;
   padding: 0;
   transition:
     color 0.24s ease,
@@ -58,11 +70,18 @@
 }
 
 .statusSubtext {
-  color: var(--study-muted, rgba(255, 255, 255, 0.68));
+  align-items: flex-end;
+  align-self: end;
+  color: var(--study-text-tertiary, rgba(232, 233, 224, 0.54));
+  display: inline-flex;
   font-family: var(--font-ui);
-  font-size: 0.7rem;
-  line-height: 1.12;
-  margin-top: 0;
+  font-size: var(--study-rail-meta-font-size, 0.58rem);
+  font-weight: 500;
+  grid-column: 2;
+  grid-row: 2;
+  justify-self: end;
+  line-height: 1;
+  margin: 0;
   padding: 0;
   white-space: nowrap;
 }
@@ -98,13 +117,14 @@
 }
 
 .breathingLight {
+  align-self: center;
   border-radius: 50%;
   flex: 0 0 auto;
-  height: 0.56rem;
+  height: var(--study-status-dot-size, 0.625rem);
   transition:
     box-shadow 0.24s ease,
     transform 0.24s ease;
-  width: 0.56rem;
+  width: var(--study-status-dot-size, 0.625rem);
 }
 
 .breathingLight:hover:not(.calibrating):not(.initializing) {
@@ -242,46 +262,14 @@
 
   .statusContainer {
     justify-content: flex-start;
-    min-height: 2.9rem;
-    padding: 0.5rem 0.68rem;
     width: 100%;
-  }
-
-  .statusText {
-    font-size: 0.9rem;
-    min-height: 1.35rem;
-  }
-
-  .breathingLight {
-    height: 0.64rem;
-    width: 0.64rem;
-  }
-}
-
-@media (max-width: 480px) {
-  .statusContainer {
-    gap: 0.64rem;
-    min-height: 2.85rem;
-  }
-
-  .statusText {
-    font-size: 0.86rem;
-  }
-
-  .statusSubtext {
-    font-size: 0.66rem;
-  }
-
-  .breathingLight {
-    height: 0.68rem;
-    width: 0.68rem;
   }
 }
 
 @media (prefers-contrast: high) {
   .statusContainer {
-    background: #000000;
-    border-color: #ffffff;
+    background: transparent;
+    border-color: transparent;
   }
 
   .statusText.noisy,

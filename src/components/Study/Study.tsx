@@ -187,6 +187,8 @@ export function Study() {
   }, [study.targetYear]);
 
   const timeString = formatClock(currentTime);
+  const [hours = "00", minutes = "00", seconds = "00"] = timeString.split(":");
+  const primaryTime = `${hours}:${minutes}`;
   const dateString = currentTime.toLocaleDateString("zh-CN", {
     year: "numeric",
     month: "long",
@@ -417,12 +419,13 @@ export function Study() {
   };
 
   return (
-    <div className={styles.container} style={containerStyle}>
-      {/* 顶部：辅助信息贴近居中的状态栏 */}
-      {(display.showStatusBar ||
-        display.showNoiseMonitor ||
-        display.showCountdown ||
-        display.showQuote) && (
+    <div
+      className={styles.container}
+      data-background-type={backgroundSettings.type}
+      style={containerStyle}
+    >
+      {/* 顶部：环境、课时与倒计时共用一条状态栏。 */}
+      {(display.showStatusBar || display.showNoiseMonitor || display.showCountdown) && (
         <div className={styles.topDock}>
           {(display.showStatusBar || display.showNoiseMonitor) && (
             <div className={styles.auxDock}>
@@ -446,23 +449,16 @@ export function Study() {
               <StudyStatus />
             </div>
           )}
-          {(display.showCountdown || display.showQuote) && (
+          {display.showCountdown && (
             <div className={styles.countdownDock}>
-              {display.showCountdown && (
-                <div className={styles.countdownCarousel} ref={countdownRef} aria-live="polite">
-                  <div
-                    className={styles.carouselTrack}
-                    style={{ transform: `translateY(-${activeIndex * (itemHeight || 0)}px)` }}
-                  >
-                    {countdownItems.map(renderItem)}
-                  </div>
+              <div className={styles.countdownCarousel} ref={countdownRef} aria-live="polite">
+                <div
+                  className={styles.carouselTrack}
+                  style={{ transform: `translateY(-${activeIndex * (itemHeight || 0)}px)` }}
+                >
+                  {countdownItems.map(renderItem)}
                 </div>
-              )}
-              {display.showQuote && (
-                <div className={styles.quoteSection}>
-                  <MotivationalQuote />
-                </div>
-              )}
+              </div>
             </div>
           )}
         </div>
@@ -473,8 +469,10 @@ export function Study() {
         <div
           className={styles.currentTime}
           style={study.timeColor ? { color: study.timeColor } : undefined}
+          aria-label={`当前时间：${timeString}`}
         >
-          {timeString}
+          <span className={styles.timePrimary}>{primaryTime}</span>
+          <span className={styles.timeSeconds}>:{seconds}</span>
         </div>
         {display.showDate && (
           <div
@@ -482,6 +480,11 @@ export function Study() {
             style={study.dateColor ? { color: study.dateColor } : undefined}
           >
             {dateString}
+          </div>
+        )}
+        {display.showQuote && (
+          <div className={styles.quoteSection}>
+            <MotivationalQuote />
           </div>
         )}
       </div>
