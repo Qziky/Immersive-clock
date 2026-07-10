@@ -4,7 +4,9 @@ import {
   appearanceStyleToCss,
   createDefaultAppearance,
   migrateV1Appearance,
+  normalizeAppearance,
   normalizeAppearanceStyle,
+  resolveAppearanceBackground,
   resolveAppearanceEditorStyle,
   resolveAppearanceStyle,
 } from "../appearanceModel";
@@ -27,6 +29,33 @@ describe("appearanceModel", () => {
         instanceId: "exam",
       })
     ).toEqual({ color: "#444444", fontWeight: 400, opacity: 0.8 });
+  });
+
+  it("页面背景继承全局并允许页面覆盖", () => {
+    const appearance = createDefaultAppearance();
+    appearance.global.background = { type: "color", color: "#123456", colorAlpha: 0.8 };
+
+    expect(resolveAppearanceBackground(appearance, "clock")).toEqual({
+      type: "color",
+      color: "#123456",
+      colorAlpha: 0.8,
+    });
+
+    appearance.scenes.clock.background = { type: "black" };
+    expect(resolveAppearanceBackground(appearance, "clock")).toEqual({ type: "black" });
+
+    appearance.scenes.clock.background = { type: "builtin" };
+    expect(resolveAppearanceBackground(appearance, "clock")).toEqual({ type: "default" });
+  });
+
+  it("将旧页面默认背景规范化为继承全局", () => {
+    const normalized = normalizeAppearance({
+      global: {},
+      scenes: { clock: { background: { type: "default" }, components: {} } },
+    });
+
+    expect(normalized.global.background).toEqual({ type: "default" });
+    expect(normalized.scenes.clock.background).toEqual({ type: "inherit" });
   });
 
   it("编辑器展示内置默认值但不把默认值写入配置", () => {

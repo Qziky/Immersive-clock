@@ -13,6 +13,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useAppState } from "../../../contexts/AppContext";
 import { useAppearance } from "../../../contexts/AppearanceContext";
 import type {
+  AppearanceBackground,
   AppearanceComponentId,
   AppearanceSceneId,
   AppearanceSlotKind,
@@ -36,6 +37,7 @@ import {
 import { saveBackgroundAsset } from "../../../utils/appearanceAssets";
 import {
   APPEARANCE_COMPONENTS,
+  resolveAppearanceBackground,
   resolveAppearanceEditorStyle,
 } from "../../../utils/appearanceModel";
 import {
@@ -47,17 +49,25 @@ import {
 
 import styles from "./AppearanceSettingsPanel.module.css";
 
-export type AppearanceSettingsSection = "components" | "fonts" | "background";
+export type AppearanceSettingsSection = "basic" | AppearanceComponentId;
 
 interface AppearanceSettingsPanelProps {
   section?: AppearanceSettingsSection;
 }
 
-const SCENE_OPTIONS = [
+const SCENE_LABELS: Record<AppearanceSceneId, string> = {
+  clock: "时钟",
+  countdown: "倒计时",
+  stopwatch: "秒表",
+  study: "自习",
+};
+
+const BASIC_COMPONENT_OPTIONS = [
+  { label: "通用", value: "common" },
   { label: "时钟", value: "clock" },
   { label: "倒计时", value: "countdown" },
   { label: "秒表", value: "stopwatch" },
-  { label: "自习", value: "study" },
+  { label: "自习时间", value: "studyTime" },
 ] as const;
 
 const BUILT_IN_FONTS = [
@@ -128,7 +138,97 @@ function contrastRatio(foreground: string, background: string): number {
   return (Math.max(first, second) + 0.05) / (Math.min(first, second) + 0.05);
 }
 
-export function AppearanceSettingsPanel({ section = "components" }: AppearanceSettingsPanelProps) {
+interface BackgroundEditorProps {
+  background: AppearanceBackground;
+  description: string;
+  path: readonly string[];
+  title: string;
+  allowInherit?: boolean;
+  onUpdate: (path: readonly string[], value: unknown) => void;
+  onError: (error: unknown) => void;
+}
+
+function BackgroundEditor({
+  background,
+  description,
+  path,
+  title,
+  allowInherit = false,
+  onUpdate,
+  onError,
+}: BackgroundEditorProps) {
+  const options = [
+    ...(allowInherit ? [{ label: "继承基本设置", value: "inherit" }] : []),
+    { label: allowInherit ? "页面默认" : "应用默认", value: allowInherit ? "builtin" : "default" },
+    { label: "纯黑", value: "black" },
+    { label: "深灰", value: "dark" },
+    { label: "纯色", value: "color" },
+    { label: "图片", value: "image" },
+  ];
+
+  return (
+    <FormSection title={title} description={description}>
+      <SettingItem icon={<ImageIcon size={18} />} title="背景类型">
+        <FormSegmented
+          value={background.type}
+          options={options}
+          onChange={(value) => onUpdate([...path, "type"], value)}
+        />
+      </SettingItem>
+      {background.type === "color" && (
+        <SettingGrid className={styles.editorGrid} columns={2}>
+          <SettingItem icon={<Palette size={18} />} title="背景颜色">
+            <FormInput
+              label="背景颜色"
+              type="color"
+              value={background.color ?? "#121212"}
+              onChange={(event) => onUpdate([...path, "color"], event.target.value)}
+            />
+          </SettingItem>
+          <SettingItem icon={<Palette size={18} />} title="背景透明度">
+            <FormSlider
+              label="背景透明度"
+              min={0}
+              max={1}
+              step={0.01}
+              value={background.colorAlpha ?? 1}
+              onChange={(value) => onUpdate([...path, "colorAlpha"], value)}
+              formatValue={(value) => `${Math.round(value * 100)}%`}
+            />
+          </SettingItem>
+        </SettingGrid>
+      )}
+      {background.type === "image" && (
+        <SettingItem icon={<Upload size={18} />} title="背景图片">
+          <FormInput
+            label="选择图片"
+            type="file"
+            accept="image/*"
+            onChange={async (event) => {
+              const file = event.target.files?.[0];
+              if (!file) return;
+              try {
+                const asset = await saveBackgroundAsset(file);
+                onUpdate(path, {
+                  type: "image",
+                  assetId: asset.id,
+                  imageFileName: asset.name,
+                });
+              } catch (error) {
+                onError(error);
+              }
+            }}
+          />
+          {background.imageFileName && (
+            <InfoPanel tone="info">当前图片：{background.imageFileName}</InfoPanel>
+          )}
+        </SettingItem>
+      )}
+    </FormSection>
+  );
+}
+
+export function AppearanceSettingsPanel({ section = "basic" }: AppearanceSettingsPanelProps) {
   const { mode, study } = useAppState();
   const {
     activeAppearance,
@@ -138,27 +238,27 @@ export function AppearanceSettingsPanel({ section = "components" }: AppearanceSe
     resetAppearance,
   } = useAppearance();
   const { confirm, notify } = useFeedback();
-  const [scene, setScene] = useState<AppearanceSceneId>(mode);
-  const definitions = useMemo(
-    () => APPEARANCE_COMPONENTS.filter((item) => item.scene === scene),
-    [scene]
-  );
-  const [componentId, setComponentId] = useState<AppearanceComponentId>(
-    definitions[0]?.id ?? "clock"
-  );
+  const isBasic = section === "basic";
+  const [basicView, setBasicView] =
+    useState<(typeof BASIC_COMPONENT_OPTIONS)[number]["value"]>("common");
+  const isBasicCommon = isBasic && basicView === "common";
+  const componentId: AppearanceComponentId = isBasic
+    ? basicView === "common"
+      ? "clock"
+      : basicView
+    : section;
   const definition =
-    definitions.find((item) => item.id === componentId) ??
-    definitions[0] ??
-    APPEARANCE_COMPONENTS[0];
+    APPEARANCE_COMPONENTS.find((item) => item.id === componentId) ?? APPEARANCE_COMPONENTS[0];
+  const scene = definition.scene;
   const slotOptions = useMemo(
     () => [
       ...(definition.supportsSurface
         ? [{ label: "组件表面", value: "__container", kind: "surface" as const }]
         : []),
-      ...definition.slots.map((slot) => ({
-        label: slot.label,
-        value: slot.id,
-        kind: slot.kind,
+      ...definition.slots.map((item) => ({
+        label: item.label,
+        value: item.id,
+        kind: item.kind,
       })),
     ],
     [definition]
@@ -188,8 +288,9 @@ export function AppearanceSettingsPanel({ section = "components" }: AppearanceSe
     kind,
     { state: state || undefined, instanceId: instanceId || undefined }
   );
+  const currentBackground = resolveAppearanceBackground(activeAppearance, scene);
+  const pageBackground = activeAppearance.scenes[scene].background;
   const isInheriting = Object.keys(currentOverrideStyle).length === 0;
-  const currentBackground = activeAppearance.scenes[scene].background;
 
   useEffect(() => {
     beginAppearancePreview(mode);
@@ -197,20 +298,11 @@ export function AppearanceSettingsPanel({ section = "components" }: AppearanceSe
   }, [beginAppearancePreview, mode]);
 
   useEffect(() => {
-    setPreviewScene(scene);
-    const nextDefinitions = APPEARANCE_COMPONENTS.filter((item) => item.scene === scene);
-    const nextDefinition = nextDefinitions[0];
-    if (nextDefinition && !nextDefinitions.some((item) => item.id === componentId)) {
-      setComponentId(nextDefinition.id);
-      setSlot(nextDefinition.supportsSurface ? "__container" : (nextDefinition.slots[0]?.id ?? ""));
-      setState("");
-      setInstanceId("");
-    }
-  }, [componentId, scene, setPreviewScene]);
+    setPreviewScene(isBasicCommon ? mode : scene);
+  }, [isBasicCommon, mode, scene, setPreviewScene]);
 
   useEffect(() => {
-    const nextSlot = definition.supportsSurface ? "__container" : (definition.slots[0]?.id ?? "");
-    setSlot(nextSlot);
+    setSlot(definition.supportsSurface ? "__container" : (definition.slots[0]?.id ?? ""));
     setState("");
     setInstanceId("");
   }, [definition.id, definition.slots, definition.supportsSurface]);
@@ -235,7 +327,7 @@ export function AppearanceSettingsPanel({ section = "components" }: AppearanceSe
     if (
       await confirm({
         title: "重置当前页面外观",
-        description: `将清除${SCENE_OPTIONS.find((item) => item.value === scene)?.label}页面的全部外观覆盖。`,
+        description: `将清除${SCENE_LABELS[scene]}页面的全部组件和背景覆盖。`,
         confirmLabel: "重置页面",
         variant: "danger",
       })
@@ -244,11 +336,24 @@ export function AppearanceSettingsPanel({ section = "components" }: AppearanceSe
     }
   };
 
+  const handleGlobalReset = async () => {
+    if (
+      await confirm({
+        title: "重置基本外观",
+        description: "将清除基本字体和背景设置，组件与页面覆盖会保留。",
+        confirmLabel: "重置基本",
+        variant: "danger",
+      })
+    ) {
+      resetAppearance({ type: "global" });
+    }
+  };
+
   const handleAllReset = async () => {
     if (
       await confirm({
         title: "重置全部外观",
-        description: "四个页面的组件和背景外观都会恢复默认。",
+        description: "基本设置、四个页面的组件和背景外观都会恢复默认。",
         confirmLabel: "全部重置",
         variant: "danger",
       })
@@ -294,33 +399,113 @@ export function AppearanceSettingsPanel({ section = "components" }: AppearanceSe
     currentBackground.color &&
     contrastRatio(currentStyle.color, currentBackground.color) < 3;
 
+  const reportBackgroundError = (error: unknown) => {
+    notify({
+      variant: "danger",
+      title: "背景图片导入失败",
+      description: error instanceof Error ? error.message : "无法读取图片",
+    });
+  };
+
   return (
     <div className={styles.panel}>
-      <FormSection title="预览页面" description="切换页面只影响预览，不会改变当前应用模式。">
-        <FormSegmented
-          value={scene}
-          options={SCENE_OPTIONS.map((item) => ({ ...item }))}
-          onChange={(value) => setScene(value as AppearanceSceneId)}
-        />
-      </FormSection>
+      {isBasic && (
+        <FormSection
+          title="基本分类"
+          description="通用设置提供默认值，时钟、倒计时、秒表和自习时间可分别覆盖。"
+        >
+          <FormSegmented
+            value={basicView}
+            options={BASIC_COMPONENT_OPTIONS.map((item) => ({ ...item }))}
+            onChange={(value) =>
+              setBasicView(value as (typeof BASIC_COMPONENT_OPTIONS)[number]["value"])
+            }
+          />
+        </FormSection>
+      )}
 
-      <div hidden={section !== "components"}>
-        <FormSection title="组件样式" description="选择组件、子元素和状态后调整其独立外观。">
-          <div className={styles.editorLayout}>
-            <nav className={styles.componentList} aria-label="内容组件">
-              {definitions.map((item) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  className={item.id === definition.id ? styles.componentActive : styles.component}
-                  aria-current={item.id === definition.id ? "page" : undefined}
-                  onClick={() => setComponentId(item.id)}
+      {isBasicCommon && (
+        <>
+          <FormSection
+            title="基本字体"
+            description="提供常用字体默认值；组件中单独设置的字体优先级更高。"
+          >
+            <SettingGrid className={styles.editorGrid} columns={2}>
+              {(["numeric", "text"] as const).map((category) => (
+                <SettingItem
+                  key={category}
+                  icon={category === "numeric" ? <Type size={18} /> : <FileText size={18} />}
+                  title={category === "numeric" ? "数字字体" : "文本字体"}
                 >
-                  <strong>{item.label}</strong>
-                  <span>{item.description}</span>
-                </button>
+                  <Dropdown
+                    label={category === "numeric" ? "数字字体" : "文本字体"}
+                    placeholder="跟随应用默认"
+                    value={fontValue(activeAppearance.global[category]?.font)}
+                    groups={fontGroups}
+                    onChange={(value) =>
+                      updateAppearanceDraft(
+                        ["global", category, "font"],
+                        fontFromValue(String(value), fonts)
+                      )
+                    }
+                  />
+                </SettingItem>
               ))}
-            </nav>
+            </SettingGrid>
+          </FormSection>
+
+          <BackgroundEditor
+            title="基本背景"
+            description="作为四个内容页面的默认背景；页面单独设置后优先使用页面背景。"
+            background={activeAppearance.global.background}
+            path={["global", "background"]}
+            onUpdate={updateAppearanceDraft}
+            onError={reportBackgroundError}
+          />
+
+          <FormSection title="字体资源" description="导入字体后，可在基本设置或任一组件中选择。">
+            <SettingGrid className={styles.editorGrid} columns={2}>
+              <FormInput
+                label="字体名称"
+                value={fontAlias}
+                placeholder="例如 JetBrains Mono"
+                onChange={(event) => setFontAlias(event.target.value)}
+              />
+              <FormInput
+                label="字体文件"
+                type="file"
+                accept=".ttf,.otf,.woff,.woff2"
+                onChange={(event) => setFontFile(event.target.files?.[0] ?? null)}
+              />
+            </SettingGrid>
+            <FormButton icon={<Upload size={16} />} onClick={handleFontImport}>
+              导入字体
+            </FormButton>
+            {fonts.length > 0 && (
+              <div className={styles.fontList}>
+                {fonts.map((font) => (
+                  <div key={font.id} className={styles.fontRow}>
+                    <span style={{ fontFamily: font.family }}>{font.family}</span>
+                    <FormButton
+                      variant="secondary"
+                      icon={<Trash2 size={15} />}
+                      aria-label={`删除字体 ${font.family}`}
+                      onClick={async () => {
+                        await removeImportedFont(font.id);
+                        setFonts(await loadImportedFonts());
+                      }}
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
+          </FormSection>
+        </>
+      )}
+
+      {!isBasicCommon && (
+        <>
+          <FormSection title={definition.label} description={definition.description}>
             <div className={styles.editor}>
               <SettingGrid className={styles.editorGrid} columns={2}>
                 {definition.id === "studyCountdown" && countdownItems.length > 0 && (
@@ -373,8 +558,8 @@ export function AppearanceSettingsPanel({ section = "components" }: AppearanceSe
 
               <InfoPanel tone="info">
                 {isInheriting
-                  ? "当前控件展示的是实际生效的内置或上级继承值；修改后才会创建覆盖。"
-                  : "当前子元素包含自定义覆盖；未覆盖的属性继续显示继承后的实际值。"}
+                  ? "当前控件展示的是实际生效的内置或基本设置继承值；修改后才会创建组件覆盖。"
+                  : "当前子元素包含组件覆盖；未覆盖的属性继续显示继承后的实际值。"}
               </InfoPanel>
 
               {kind !== "surface" && (
@@ -414,7 +599,7 @@ export function AppearanceSettingsPanel({ section = "components" }: AppearanceSe
                   <SettingItem icon={<Type size={18} />} title="字体">
                     <Dropdown
                       label="字体"
-                      placeholder="跟随上级"
+                      placeholder="跟随基本设置"
                       value={fontValue(currentStyle.font)}
                       groups={fontGroups}
                       onChange={(value) => updateStyle("font", fontFromValue(String(value), fonts))}
@@ -483,13 +668,13 @@ export function AppearanceSettingsPanel({ section = "components" }: AppearanceSe
                 <SettingGrid className={styles.editorGrid} columns={2}>
                   <SettingItem icon={<Palette size={18} />} title="背景颜色">
                     <FormInput
-                      label="背景颜色"
+                      label="组件背景颜色"
                       type="color"
                       value={currentStyle.backgroundColor ?? "#111317"}
                       onChange={(event) => updateStyle("backgroundColor", event.target.value)}
                     />
                     <FormSlider
-                      label="背景透明度"
+                      label="组件背景透明度"
                       min={0}
                       max={1}
                       step={0.01}
@@ -569,158 +754,28 @@ export function AppearanceSettingsPanel({ section = "components" }: AppearanceSe
                 </FormButton>
               </FormButtonGroup>
             </div>
-          </div>
-        </FormSection>
-      </div>
+          </FormSection>
 
-      <div hidden={section !== "background"}>
-        <FormSection title="页面背景" description="每个页面独立保存背景来源。">
-          <SettingItem icon={<ImageIcon size={18} />} title="背景类型">
-            <FormSegmented
-              value={currentBackground.type}
-              options={[
-                { label: "默认", value: "default" },
-                { label: "纯黑", value: "black" },
-                { label: "深灰", value: "dark" },
-                { label: "纯色", value: "color" },
-                { label: "图片", value: "image" },
-              ]}
-              onChange={(value) =>
-                updateAppearanceDraft(["scenes", scene, "background", "type"], value)
-              }
-            />
-          </SettingItem>
-          {currentBackground.type === "color" && (
-            <SettingGrid className={styles.editorGrid} columns={2}>
-              <SettingItem icon={<Palette size={18} />} title="背景颜色">
-                <FormInput
-                  label="背景颜色"
-                  type="color"
-                  value={currentBackground.color ?? "#121212"}
-                  onChange={(event) =>
-                    updateAppearanceDraft(
-                      ["scenes", scene, "background", "color"],
-                      event.target.value
-                    )
-                  }
-                />
-              </SettingItem>
-              <SettingItem icon={<Palette size={18} />} title="背景透明度">
-                <FormSlider
-                  label="背景透明度"
-                  min={0}
-                  max={1}
-                  step={0.01}
-                  value={currentBackground.colorAlpha ?? 1}
-                  onChange={(value) =>
-                    updateAppearanceDraft(["scenes", scene, "background", "colorAlpha"], value)
-                  }
-                  formatValue={(value) => `${Math.round(value * 100)}%`}
-                />
-              </SettingItem>
-            </SettingGrid>
-          )}
-          {currentBackground.type === "image" && (
-            <SettingItem icon={<Upload size={18} />} title="背景图片">
-              <FormInput
-                label="选择图片"
-                type="file"
-                accept="image/*"
-                onChange={async (event) => {
-                  const file = event.target.files?.[0];
-                  if (!file) return;
-                  try {
-                    const asset = await saveBackgroundAsset(file);
-                    updateAppearanceDraft(["scenes", scene, "background"], {
-                      type: "image",
-                      assetId: asset.id,
-                      imageFileName: asset.name,
-                    });
-                  } catch (error) {
-                    notify({
-                      variant: "danger",
-                      title: "背景图片导入失败",
-                      description: error instanceof Error ? error.message : "无法读取图片",
-                    });
-                  }
-                }}
-              />
-              {currentBackground.imageFileName && (
-                <InfoPanel tone="info">当前图片：{currentBackground.imageFileName}</InfoPanel>
-              )}
-            </SettingItem>
-          )}
-        </FormSection>
-      </div>
-
-      <div hidden={section !== "fonts"}>
-        <FormSection title="全局字体" description="组件未单独指定字体时继承这里的设置。">
-          <SettingGrid className={styles.editorGrid} columns={2}>
-            {(["numeric", "text"] as const).map((category) => (
-              <SettingItem
-                key={category}
-                icon={category === "numeric" ? <Type size={18} /> : <FileText size={18} />}
-                title={category === "numeric" ? "数字字体" : "文本字体"}
-              >
-                <Dropdown
-                  label={category === "numeric" ? "数字字体" : "文本字体"}
-                  placeholder="跟随应用默认"
-                  value={fontValue(activeAppearance.global[category]?.font)}
-                  groups={fontGroups}
-                  onChange={(value) =>
-                    updateAppearanceDraft(
-                      ["global", category, "font"],
-                      fontFromValue(String(value), fonts)
-                    )
-                  }
-                />
-              </SettingItem>
-            ))}
-          </SettingGrid>
-        </FormSection>
-        <FormSection title="导入字体" description="字体文件保存在本机 IndexedDB 中。">
-          <SettingGrid className={styles.editorGrid} columns={2}>
-            <FormInput
-              label="字体名称"
-              value={fontAlias}
-              placeholder="例如 JetBrains Mono"
-              onChange={(event) => setFontAlias(event.target.value)}
-            />
-            <FormInput
-              label="字体文件"
-              type="file"
-              accept=".ttf,.otf,.woff,.woff2"
-              onChange={(event) => setFontFile(event.target.files?.[0] ?? null)}
-            />
-          </SettingGrid>
-          <FormButton icon={<Upload size={16} />} onClick={handleFontImport}>
-            导入字体
-          </FormButton>
-          {fonts.length > 0 && (
-            <div className={styles.fontList}>
-              {fonts.map((font) => (
-                <div key={font.id} className={styles.fontRow}>
-                  <span style={{ fontFamily: font.family }}>{font.family}</span>
-                  <FormButton
-                    variant="secondary"
-                    icon={<Trash2 size={15} />}
-                    aria-label={`删除字体 ${font.family}`}
-                    onClick={async () => {
-                      await removeImportedFont(font.id);
-                      setFonts(await loadImportedFonts());
-                    }}
-                  />
-                </div>
-              ))}
-            </div>
-          )}
-        </FormSection>
-      </div>
+          <BackgroundEditor
+            title={`${SCENE_LABELS[scene]}页面背景`}
+            description="此页面设置高于基本背景；选择继承基本设置可恢复统一背景。"
+            background={pageBackground}
+            path={["scenes", scene, "background"]}
+            allowInherit
+            onUpdate={updateAppearanceDraft}
+            onError={reportBackgroundError}
+          />
+        </>
+      )}
 
       <FormSection title="重置外观" description="重置只修改草稿，点击保存后才会生效。">
         <FormButtonGroup align="left">
-          <FormButton variant="secondary" icon={<RotateCcw size={16} />} onClick={handleSceneReset}>
-            重置当前页面
+          <FormButton
+            variant="secondary"
+            icon={<RotateCcw size={16} />}
+            onClick={isBasicCommon ? handleGlobalReset : handleSceneReset}
+          >
+            {isBasicCommon ? "重置基本设置" : "重置当前页面"}
           </FormButton>
           <FormButton variant="danger" icon={<Trash2 size={16} />} onClick={handleAllReset}>
             重置全部外观

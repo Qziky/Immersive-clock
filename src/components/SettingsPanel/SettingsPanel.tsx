@@ -10,7 +10,6 @@ import {
   Eye,
   FileText,
   Gauge,
-  Image as ImageIcon,
   Info,
   MapPin,
   MessageSquareText,
@@ -20,7 +19,6 @@ import {
   ShieldAlert,
   SlidersHorizontal,
   TimerReset,
-  Type,
   Wifi,
   X,
 } from "lucide-react";
@@ -51,9 +49,13 @@ type SettingsPaneId =
   | "display"
   | "countdown"
   | "schedule"
-  | "colors"
-  | "fonts"
-  | "background"
+  | "appearanceBasic"
+  | "appearanceStudyQuote"
+  | "appearanceStudyTopDock"
+  | "appearanceStudyWeather"
+  | "appearanceStudyNoise"
+  | "appearanceStudyStatus"
+  | "appearanceStudyCountdown"
   | "weatherAlerts"
   | "weatherLocation"
   | "weatherLive"
@@ -147,7 +149,7 @@ const primaryGroups: Array<{
     label: "视觉外观",
     description: "颜色、字体与背景",
     icon: <Palette size={18} aria-hidden="true" />,
-    defaultPane: "colors",
+    defaultPane: "appearanceBasic",
   },
   {
     value: "environment",
@@ -210,31 +212,67 @@ const paneItems: SettingsPane[] = [
     section: "schedule",
   },
   {
-    value: "colors",
+    value: "appearanceBasic",
     group: "appearance",
-    label: "组件样式",
-    description: "逐组件调整文字、颜色、表面与状态。",
+    label: "基本",
+    description: "设置通用外观与时钟、倒计时、秒表、自习时间。",
     icon: <Brush size={20} aria-hidden="true" />,
     panel: "appearance",
-    section: "components",
+    section: "basic",
   },
   {
-    value: "fonts",
+    value: "appearanceStudyQuote",
     group: "appearance",
-    label: "字体",
-    description: "设置全局字体并管理本地导入字体。",
-    icon: <Type size={20} aria-hidden="true" />,
+    label: "语录",
+    description: "设置语录文字与光标。",
+    icon: <FileText size={20} aria-hidden="true" />,
     panel: "appearance",
-    section: "fonts",
+    section: "studyQuote",
   },
   {
-    value: "background",
+    value: "appearanceStudyTopDock",
     group: "appearance",
-    label: "背景",
-    description: "分别设置四个内容页面的背景。",
-    icon: <ImageIcon size={20} aria-hidden="true" />,
+    label: "顶部信息栏",
+    description: "设置顶栏表面、边框与阴影。",
+    icon: <SlidersHorizontal size={20} aria-hidden="true" />,
     panel: "appearance",
-    section: "background",
+    section: "studyTopDock",
+  },
+  {
+    value: "appearanceStudyWeather",
+    group: "appearance",
+    label: "天气",
+    description: "设置温度、描述与图标。",
+    icon: <CloudSun size={20} aria-hidden="true" />,
+    panel: "appearance",
+    section: "studyWeather",
+  },
+  {
+    value: "appearanceStudyNoise",
+    group: "appearance",
+    label: "噪音监测",
+    description: "设置状态、辅助文字与指示灯。",
+    icon: <Mic2 size={20} aria-hidden="true" />,
+    panel: "appearance",
+    section: "studyNoise",
+  },
+  {
+    value: "appearanceStudyStatus",
+    group: "appearance",
+    label: "课时状态",
+    description: "设置课时状态与进度样式。",
+    icon: <CalendarClock size={20} aria-hidden="true" />,
+    panel: "appearance",
+    section: "studyStatus",
+  },
+  {
+    value: "appearanceStudyCountdown",
+    group: "appearance",
+    label: "事件倒计时",
+    description: "设置事件名称、数字、单位与实例。",
+    icon: <TimerReset size={20} aria-hidden="true" />,
+    panel: "appearance",
+    section: "studyCountdown",
   },
   {
     value: "weatherAlerts",
@@ -348,7 +386,7 @@ const paneItems: SettingsPane[] = [
 
 const DEFAULT_PANES_BY_GROUP: Record<SettingsPrimaryGroup, SettingsPaneId> = {
   workspace: "startup",
-  appearance: "colors",
+  appearance: "appearanceBasic",
   environment: "weatherAlerts",
   content: "quoteRefresh",
   system: "timeSync",
@@ -529,7 +567,7 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
   const aboutSection: AboutSettingsSection =
     activePaneItem.panel === "about" ? activePaneItem.section : "project";
   const appearanceSection: AppearanceSettingsSection =
-    activePaneItem.panel === "appearance" ? activePaneItem.section : "components";
+    activePaneItem.panel === "appearance" ? activePaneItem.section : "basic";
 
   return (
     <Modal

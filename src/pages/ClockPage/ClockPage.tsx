@@ -52,7 +52,7 @@ function getPopupDuration(type: MessagePopupType): number {
  */
 export function ClockPage() {
   const { mode, isModalOpen, study } = useAppState();
-  const { activeAppearance, previewScene, getBackgroundImage } = useAppearance();
+  const { previewScene, getBackgroundImage, resolveBackground } = useAppearance();
   const dispatch = useAppDispatch();
   const { notify, dismiss } = useFeedback();
   const location = useLocation();
@@ -64,7 +64,7 @@ export function ClockPage() {
   const [showSettings, setShowSettings] = useState(false);
   const [showAnnouncement, setShowAnnouncement] = useState(false);
   const displayMode = previewScene ?? mode;
-  const displayBackground = activeAppearance.scenes[displayMode].background;
+  const displayBackground = resolveBackground(displayMode);
   const displayBackgroundStyle = appearanceBackgroundToCss(
     displayBackground,
     getBackgroundImage(displayMode)

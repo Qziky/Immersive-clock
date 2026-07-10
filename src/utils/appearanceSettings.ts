@@ -13,6 +13,23 @@ export async function migrateAppearanceAssets(): Promise<void> {
   const settings = getAppSettings();
   const appearance = structuredClone(settings.appearance);
   let changed = false;
+  const globalBackground = appearance.global.background;
+  if (
+    globalBackground.type === "image" &&
+    globalBackground.imageDataUrl &&
+    !globalBackground.assetId
+  ) {
+    const asset = await saveLegacyBackgroundAsset(
+      globalBackground.imageDataUrl,
+      globalBackground.imageFileName ?? "global-background"
+    );
+    appearance.global.background = {
+      type: "image",
+      assetId: asset.id,
+      imageFileName: asset.name,
+    };
+    changed = true;
+  }
   for (const sceneId of Object.keys(appearance.scenes) as AppearanceSceneId[]) {
     const background = appearance.scenes[sceneId].background;
     if (background.type !== "image" || !background.imageDataUrl || background.assetId) continue;

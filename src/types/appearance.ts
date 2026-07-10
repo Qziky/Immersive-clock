@@ -53,7 +53,14 @@ export interface ComponentAppearance {
   states?: Record<string, AppearanceStyle>;
 }
 
-export type AppearanceBackgroundType = "default" | "black" | "dark" | "color" | "image";
+export type AppearanceBackgroundType =
+  | "inherit"
+  | "default"
+  | "builtin"
+  | "black"
+  | "dark"
+  | "color"
+  | "image";
 
 export interface AppearanceBackground {
   type: AppearanceBackgroundType;
@@ -71,6 +78,7 @@ export interface SceneAppearance {
 }
 
 export interface GlobalAppearance {
+  background: AppearanceBackground;
   numeric?: AppearanceStyle;
   text?: AppearanceStyle;
 }

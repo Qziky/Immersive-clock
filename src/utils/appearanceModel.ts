@@ -10,6 +10,7 @@ import type {
   AppearanceStyle,
   ComponentAppearance,
   FontReference,
+  GlobalAppearance,
   ShadowStyle,
 } from "../types/appearance";
 
@@ -314,11 +315,11 @@ export const APPEARANCE_COMPONENTS: readonly AppearanceComponentDefinition[] = [
 
 export function createDefaultAppearance(): AppearanceSettingsV2 {
   const scene = (): AppearanceSettingsV2["scenes"][AppearanceSceneId] => ({
-    background: { type: "default" },
+    background: { type: "inherit" },
     components: {},
   });
   return {
-    global: {},
+    global: { background: { type: "default" } },
     scenes: {
       clock: scene(),
       countdown: scene(),
@@ -437,19 +438,29 @@ function normalizeComponent(value: unknown): ComponentAppearance {
   };
 }
 
-export function normalizeAppearanceBackground(value: unknown): AppearanceBackground {
-  if (!value || typeof value !== "object") return { type: "default" };
+export function normalizeAppearanceBackground(
+  value: unknown,
+  options: { allowInherit?: boolean; legacyDefaultAsInherit?: boolean } = {}
+): AppearanceBackground {
+  const fallback = options.allowInherit ? "inherit" : "default";
+  if (!value || typeof value !== "object") return { type: fallback };
   const candidate = value as Partial<AppearanceBackground>;
   const rawType = (value as { type?: string }).type;
   const type = rawType === "system" ? "dark" : rawType;
-  if (!type || !["default", "black", "dark", "color", "image"].includes(type)) {
-    return { type: "default" };
+  if (type === "inherit") {
+    return { type: options.allowInherit ? "inherit" : "default" };
+  }
+  if (type === "default" && options.legacyDefaultAsInherit) {
+    return { type: "inherit" };
+  }
+  if (!type || !["default", "builtin", "black", "dark", "color", "image"].includes(type)) {
+    return { type: fallback };
   }
   if (type === "color") {
     const color = normalizeColor(candidate.color);
     return color
       ? { type, color, colorAlpha: finiteNumber(candidate.colorAlpha, 0, 1) ?? 1 }
-      : { type: "default" };
+      : { type: fallback };
   }
   if (type === "image") {
     const assetId = typeof candidate.assetId === "string" ? candidate.assetId.slice(0, 128) : "";
@@ -466,7 +477,7 @@ export function normalizeAppearanceBackground(value: unknown): AppearanceBackgro
             ? { imageFileName: candidate.imageFileName.slice(0, 200) }
             : {}),
         }
-      : { type: "default" };
+      : { type: fallback };
   }
   return { type: type as AppearanceBackground["type"] };
 }
@@ -475,7 +486,8 @@ export function normalizeAppearance(value: unknown): AppearanceSettingsV2 {
   const defaults = createDefaultAppearance();
   if (!value || typeof value !== "object") return defaults;
   const candidate = value as Partial<AppearanceSettingsV2>;
-  const global = candidate.global && typeof candidate.global === "object" ? candidate.global : {};
+  const global: Partial<GlobalAppearance> =
+    candidate.global && typeof candidate.global === "object" ? candidate.global : {};
   const scenes = { ...defaults.scenes };
   (Object.keys(scenes) as AppearanceSceneId[]).forEach((sceneId) => {
     const rawScene = candidate.scenes?.[sceneId];
@@ -487,7 +499,10 @@ export function normalizeAppearance(value: unknown): AppearanceSettingsV2 {
       }
     });
     scenes[sceneId] = {
-      background: normalizeAppearanceBackground(rawScene.background),
+      background: normalizeAppearanceBackground(rawScene.background, {
+        allowInherit: true,
+        legacyDefaultAsInherit: true,
+      }),
       components,
     };
   });
@@ -497,6 +512,7 @@ export function normalizeAppearance(value: unknown): AppearanceSettingsV2 {
   });
   return {
     global: {
+      background: normalizeAppearanceBackground(global.background),
       numeric: normalizeAppearanceStyle(global.numeric),
       text: normalizeAppearanceStyle(global.text),
     },
@@ -619,6 +635,16 @@ export function resolveAppearanceStyle(
     ...instance?.slots?.[slot],
     ...(options?.state ? instance?.states?.[options.state] : undefined),
   };
+}
+
+export function resolveAppearanceBackground(
+  appearance: AppearanceSettingsV2,
+  scene: AppearanceSceneId
+): AppearanceBackground {
+  const sceneBackground = appearance.scenes[scene].background;
+  const effective =
+    sceneBackground.type === "inherit" ? appearance.global.background : sceneBackground;
+  return effective.type === "builtin" ? { type: "default" } : effective;
 }
 
 /** Resolve the value shown by the editor without persisting CSS-module defaults as overrides. */

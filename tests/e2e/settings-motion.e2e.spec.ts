@@ -62,9 +62,10 @@ test.describe("设置动效", () => {
 
     const dialog = await openSettings(page);
     await dialog.getByRole("button", { name: "视觉外观" }).click();
-    await dialog.getByRole("button", { name: "背景", exact: true }).click();
+    await dialog.getByRole("button", { name: "语录", exact: true }).click();
+    await dialog.getByRole("button", { name: "基本", exact: true }).click();
 
-    const paneTitle = dialog.getByRole("heading", { name: "背景", level: 2 });
+    const paneTitle = dialog.getByRole("heading", { name: "基本", level: 2 });
     await expect(paneTitle).toBeVisible();
     const animatedHeader = paneTitle.locator("..");
     expect(
@@ -72,9 +73,9 @@ test.describe("设置动效", () => {
     ).toContain("settingsReveal");
 
     const backgroundSection = dialog
-      .getByRole("heading", { name: "页面背景" })
+      .getByRole("heading", { name: "基本背景" })
       .locator("xpath=ancestor::section[1]");
-    const animatedSection = backgroundSection.locator("..");
+    const animatedSection = backgroundSection;
     const firstSetting = dialog
       .getByText("背景类型", { exact: true })
       .first()
@@ -136,7 +137,12 @@ test.describe("移动端设置动效", () => {
     await expect(submenu).toBeVisible();
     expect((await readAnimation(submenu)).name).toContain("settingsCompactMenuIn");
 
-    await dialog.getByRole("button", { name: "关闭设置子菜单" }).click();
+    const submenuScrim = dialog.getByRole("button", { name: "关闭设置子菜单" });
+    const scrimBox = await submenuScrim.boundingBox();
+    expect(scrimBox).not.toBeNull();
+    await submenuScrim.click({
+      position: { x: (scrimBox?.width ?? 16) - 8, y: 8 },
+    });
     await expect(submenu).toHaveAttribute("data-ui-presence", "exiting");
     await expect(submenu).toHaveAttribute("aria-hidden", "true");
     await expect(submenu).toHaveAttribute("inert", "");

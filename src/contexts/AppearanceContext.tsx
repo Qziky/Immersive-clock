@@ -23,6 +23,7 @@ import {
   findAppearanceComponent,
   normalizeAppearance,
   normalizeAppearanceStyle,
+  resolveAppearanceBackground,
   resolveAppearanceStyle,
 } from "../utils/appearanceModel";
 import { getAppSettings, replaceAppearanceSettings } from "../utils/appSettings";
@@ -31,6 +32,7 @@ type ResetScope =
   | { type: "property"; path: readonly string[] }
   | { type: "component"; scene: AppearanceSceneId; componentId: AppearanceComponentId }
   | { type: "scene"; scene: AppearanceSceneId }
+  | { type: "global" }
   | { type: "all" };
 
 interface AppearanceContextValue {
@@ -52,6 +54,7 @@ interface AppearanceContextValue {
     options?: { state?: string; instanceId?: string }
   ) => CSSProperties;
   getBackgroundImage: (scene: AppearanceSceneId) => string | undefined;
+  resolveBackground: (scene: AppearanceSceneId) => AppearanceSettingsV2["global"]["background"];
 }
 
 const AppearanceContext = createContext<AppearanceContextValue | undefined>(undefined);
@@ -105,7 +108,9 @@ function isValidDraftValue(path: readonly string[], value: unknown): boolean {
   }
   if (path.includes("background")) {
     if (property === "type") {
-      return ["default", "black", "dark", "color", "image"].includes(String(value));
+      return ["inherit", "default", "builtin", "black", "dark", "color", "image"].includes(
+        String(value)
+      );
     }
     if (property === "colorAlpha") {
       return typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 1;
@@ -115,8 +120,11 @@ function isValidDraftValue(path: readonly string[], value: unknown): boolean {
 }
 
 function collectBackgroundAssetIds(appearance: AppearanceSettingsV2): string[] {
-  return Object.values(appearance.scenes)
-    .map((scene) => scene.background.assetId)
+  return [
+    appearance.global.background,
+    ...Object.values(appearance.scenes).map((scene) => scene.background),
+  ]
+    .map((background) => background.assetId)
     .filter((id): id is string => Boolean(id));
 }
 
@@ -185,6 +193,8 @@ export function AppearanceProvider({ children }: { children: ReactNode }) {
               ["scenes", scope.scene],
               createDefaultAppearance().scenes[scope.scene]
             );
+          case "global":
+            return setAtPath(base, ["global"], createDefaultAppearance().global);
           case "all":
             return createDefaultAppearance();
         }
@@ -232,10 +242,15 @@ export function AppearanceProvider({ children }: { children: ReactNode }) {
 
   const getBackgroundImage = useCallback(
     (scene: AppearanceSceneId) => {
-      const assetId = activeAppearance.scenes[scene].background.assetId;
+      const assetId = resolveAppearanceBackground(activeAppearance, scene).assetId;
       return assetId ? backgroundImages[assetId] : undefined;
     },
     [activeAppearance, backgroundImages]
+  );
+
+  const resolveBackground = useCallback(
+    (scene: AppearanceSceneId) => resolveAppearanceBackground(activeAppearance, scene),
+    [activeAppearance]
   );
 
   const value = useMemo<AppearanceContextValue>(
@@ -253,6 +268,7 @@ export function AppearanceProvider({ children }: { children: ReactNode }) {
       cancelAppearancePreview,
       resolveStyle,
       getBackgroundImage,
+      resolveBackground,
     }),
     [
       committedAppearance,
@@ -267,6 +283,7 @@ export function AppearanceProvider({ children }: { children: ReactNode }) {
       cancelAppearancePreview,
       resolveStyle,
       getBackgroundImage,
+      resolveBackground,
     ]
   );
 

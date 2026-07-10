@@ -25,7 +25,7 @@ import styles from "./Study.module.css";
  */
 export function Study() {
   const { study } = useAppState();
-  const { activeAppearance, getBackgroundImage, resolveStyle } = useAppearance();
+  const { getBackgroundImage, resolveBackground, resolveStyle } = useAppearance();
   const [currentTime, setCurrentTime] = useState<Date>(getAdjustedDate());
   const [reportOpen, setReportOpen] = useState(false);
   const [reportPeriod, setReportPeriod] = useState<NoiseReportPeriod | null>(null);
@@ -243,7 +243,7 @@ export function Study() {
     return () => clearInterval(timer);
   }, [countdownItems.length, study.carouselIntervalSec]);
 
-  const backgroundSettings = activeAppearance.scenes.study.background;
+  const backgroundSettings = resolveBackground("study");
   const containerStyle = appearanceBackgroundToCss(backgroundSettings, getBackgroundImage("study"));
   const topDockAppearance = useComponentAppearance("studyTopDock", "surface");
   const primaryTimeAppearance = useComponentAppearance("studyTime", "primary");

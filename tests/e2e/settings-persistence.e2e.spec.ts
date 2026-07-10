@@ -73,13 +73,13 @@ test("组件外观：实时预览、取消回滚并在保存后持久化", async
   await page.goto("/");
   let dialog = await openStudySettings(page);
   await dialog.getByRole("button", { name: "视觉外观" }).click();
-  await dialog.getByRole("button", { name: "组件样式" }).click();
+  await dialog.getByRole("button", { name: "基本", exact: true }).click();
   await dialog.getByRole("radio", { name: "时钟" }).check({ force: true });
 
   await dialog.getByRole("button", { name: "选择子元素" }).click();
   await page.getByRole("option", { name: "日期" }).click();
   await expect(dialog.getByLabel("颜色代码")).toHaveValue("#bbbbbb");
-  await expect(dialog.getByText(/实际生效的内置或上级继承值/)).toBeVisible();
+  await expect(dialog.getByText(/实际生效的内置或基本设置继承值/)).toBeVisible();
   await dialog.getByRole("button", { name: "选择子元素" }).click();
   await page.getByRole("option", { name: "主时间" }).click();
 
@@ -99,7 +99,7 @@ test("组件外观：实时预览、取消回滚并在保存后持久化", async
   await page.getByRole("button", { name: "打开设置" }).click();
   dialog = page.getByRole("dialog", { name: "设置" });
   await dialog.getByRole("button", { name: "视觉外观" }).click();
-  await dialog.getByRole("button", { name: "组件样式" }).click();
+  await dialog.getByRole("button", { name: "基本", exact: true }).click();
   await dialog.getByRole("radio", { name: "时钟" }).check({ force: true });
   await dialog.getByLabel("颜色代码").fill("#ff3366");
   await dialog.getByRole("button", { name: "保存" }).click();
@@ -124,9 +124,7 @@ test("组件外观：多事件倒计时可按实例保存覆盖", async ({ page 
   await page.getByRole("button", { name: "打开设置" }).click();
   dialog = page.getByRole("dialog", { name: "设置" });
   await dialog.getByRole("button", { name: "视觉外观" }).click();
-  await dialog.getByRole("button", { name: "组件样式" }).click();
-  await dialog.getByRole("radio", { name: "自习" }).check({ force: true });
-  await dialog.getByRole("button", { name: /^事件倒计时/ }).click();
+  await dialog.getByRole("button", { name: "事件倒计时", exact: true }).click();
   await dialog.getByRole("button", { name: "选择实例" }).click();
   await page.getByRole("option", { name: "高考倒计时" }).click();
   await dialog.getByRole("button", { name: "选择子元素" }).click();
@@ -157,13 +155,18 @@ test("设置导航：一级分类切换后只显示当前二级分区", async ({
 
   await expect(dialog.getByRole("button", { name: "启动页面" })).toBeVisible();
   await expect(dialog.getByRole("button", { name: "自习显示" })).toBeVisible();
-  await expect(dialog.getByRole("button", { name: "组件样式" })).toBeHidden();
+  await expect(dialog.getByRole("button", { name: "基本", exact: true })).toBeHidden();
 
   await dialog.getByRole("button", { name: "视觉外观" }).click();
   const settingsNavigation = dialog.getByRole("navigation", { name: "设置分组" });
-  await expect(settingsNavigation.getByRole("button", { name: "组件样式" })).toBeVisible();
-  await expect(settingsNavigation.getByRole("button", { name: "字体", exact: true })).toBeVisible();
-  await expect(settingsNavigation.getByRole("button", { name: "背景", exact: true })).toBeVisible();
+  await expect(settingsNavigation.getByRole("button", { name: "基本", exact: true })).toBeVisible();
+  await expect(
+    settingsNavigation.getByRole("button", { name: "自习时间", exact: true })
+  ).toHaveCount(0);
+  await expect(settingsNavigation.getByRole("button", { name: "语录", exact: true })).toBeVisible();
+  await expect(
+    settingsNavigation.getByRole("button", { name: "事件倒计时", exact: true })
+  ).toBeVisible();
   await expect(dialog.getByRole("button", { name: "启动页面" })).toBeHidden();
 
   await dialog.getByRole("button", { name: "环境提醒" }).click();
@@ -289,32 +292,21 @@ test("错误与调试：记录方式切换延迟到保存", async ({ page }) => 
 test.describe("移动端设置抽屉", () => {
   test.use({ viewport: { width: 390, height: 844 } });
 
-  test("组件列表自动换行且所有卡片完整显示", async ({ page }) => {
+  test("外观组件二级菜单可滚动且项目不横向截断", async ({ page }) => {
     await page.goto("/");
     const dialog = await openStudySettings(page);
     await dialog.getByRole("button", { name: "视觉外观" }).click();
-    await dialog.getByRole("button", { name: "组件样式" }).click();
 
-    const componentList = dialog.getByRole("navigation", { name: "内容组件" });
-    await expect(componentList).toBeVisible();
-    expect(await componentList.getByRole("button").count()).toBe(7);
+    const componentMenu = dialog.getByRole("navigation", { name: "视觉外观子分类" });
+    await expect(componentMenu).toBeVisible();
+    expect(await componentMenu.getByRole("button").count()).toBe(7);
 
-    const layout = await componentList.evaluate((element) => {
-      const containerRect = element.getBoundingClientRect();
-      const buttons = Array.from(element.querySelectorAll<HTMLElement>("button"));
-      const rows = new Set(buttons.map((button) => Math.round(button.getBoundingClientRect().top)));
-      return {
-        fits:
-          element.scrollWidth <= element.clientWidth &&
-          buttons.every((button) => {
-            const rect = button.getBoundingClientRect();
-            return rect.left >= containerRect.left - 0.5 && rect.right <= containerRect.right + 0.5;
-          }),
-        rowCount: rows.size,
-      };
-    });
-    expect(layout.fits).toBe(true);
-    expect(layout.rowCount).toBeGreaterThan(1);
+    const lastItem = componentMenu.getByRole("button", { name: "事件倒计时" });
+    await lastItem.scrollIntoViewIfNeeded();
+    await expect(lastItem).toBeInViewport();
+    expect(
+      await componentMenu.evaluate((element) => element.scrollWidth <= element.clientWidth)
+    ).toBe(true);
   });
 
   test("全屏展示纵向紧凑导航并将当前分组滚动入视口", async ({ page }) => {

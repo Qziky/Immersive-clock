@@ -176,9 +176,9 @@ describe("SettingsPanel", () => {
     const appearancePanes = within(dialog).getByRole("navigation", {
       name: "视觉外观子分类",
     });
-    fireEvent.click(within(appearancePanes).getByRole("button", { name: "字体" }));
+    fireEvent.click(within(appearancePanes).getByRole("button", { name: "基本" }));
 
-    expect(within(dialog).getByRole("heading", { name: "字体" })).toBeInTheDocument();
+    expect(within(dialog).getByRole("heading", { name: "基本" })).toBeInTheDocument();
     expect(within(dialog).queryByRole("navigation", { name: "视觉外观子分类" })).toBeNull();
   });
 
@@ -225,14 +225,14 @@ describe("SettingsPanel", () => {
     fireEvent.change(screen.getByLabelText("课程草稿"), { target: { value: "晚间自习" } });
 
     fireEvent.click(navigation.getByRole("button", { name: /视觉外观/ }));
-    fireEvent.click(navigation.getByRole("button", { name: "字体" }));
+    fireEvent.click(navigation.getByRole("button", { name: "基本" }));
     fireEvent.click(navigation.getByRole("button", { name: /常用工作台/ }));
 
     expect(screen.getByTestId("basic-panel")).toHaveAttribute("data-section", "schedule");
     expect(screen.getByLabelText("课程草稿")).toHaveValue("晚间自习");
 
     fireEvent.click(navigation.getByRole("button", { name: /视觉外观/ }));
-    expect(screen.getByTestId("appearance-panel")).toHaveAttribute("data-section", "fonts");
+    expect(screen.getByTestId("appearance-panel")).toHaveAttribute("data-section", "basic");
   });
 
   it("统一保存会提交所有已挂载设置面板", () => {
@@ -303,13 +303,13 @@ describe("SettingsPanel", () => {
     const dialog = screen.getByRole("dialog", { name: "设置" });
     const navigation = within(within(dialog).getByRole("complementary", { name: "设置导航" }));
     fireEvent.click(navigation.getByRole("button", { name: /视觉外观/ }));
-    fireEvent.click(navigation.getByRole("button", { name: "字体" }));
+    fireEvent.click(navigation.getByRole("button", { name: "基本" }));
     fireEvent.click(within(dialog).getByRole("button", { name: "取消" }));
 
     const exitingDialog = screen.getByRole("dialog", { hidden: true });
     expect(exitingDialog).toHaveAttribute("data-ui-presence", "exiting");
     expect(
-      within(exitingDialog).getByRole("heading", { name: "字体", hidden: true })
+      within(exitingDialog).getByRole("heading", { name: "基本", hidden: true })
     ).toBeVisible();
 
     act(() => {
