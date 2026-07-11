@@ -1,9 +1,17 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 
+import { resolveQuoteChannels } from "../../services/quotes/quoteRegistry";
+import { QuoteRuntimeStore } from "../../services/quotes/runtimeStorage";
 import {
   APP_SETTINGS_KEY,
+  APP_SETTINGS_QUARANTINE_KEY,
+  CURRENT_SETTINGS_VERSION,
   getAppSettings,
+  getQuarantinedAppSettings,
   migrateStoredAppSettings,
+  normalizeAppSettings,
+  resetAppSettingsPreservingUserContent,
+  saveQuoteSettings,
   updateTimeSyncSettings,
   updateStudySettings,
 } from "../appSettings";
@@ -56,9 +64,21 @@ describe("appSettings", () => {
 
   it("getAppSettings 在无存储时返回默认配置", () => {
     const s = getAppSettings();
+    expect(s.version).toBe(3);
     expect(s.general.timeSync.provider).toBe("httpDate");
     expect(s.study.display.showTime).toBe(true);
-    expect(Array.isArray(s.general.quote.channels)).toBe(true);
+    expect(s.general.quote.autoRefreshEnabled).toBe(true);
+    expect(s.general.quote.autoRefreshIntervalSec).toBe(600);
+    expect(s.general.quote.channels).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: "local-inspirational", enabled: true, weight: 40 }),
+        expect.objectContaining({ id: "university-mottos", enabled: true, weight: 40 }),
+        expect.objectContaining({ id: "hitokoto-api", enabled: true, weight: 20 }),
+        expect.objectContaining({ id: "jinrishici-api", enabled: true, weight: 10 }),
+        expect.objectContaining({ id: "advice-slip-api", enabled: true, weight: 10 }),
+      ])
+    );
+    expect(s.general.quote.customChannels).toEqual([]);
   });
 
   it("getAppSettings 能对 study.display 做深合并，避免缺字段", () => {
@@ -212,11 +232,292 @@ describe("appSettings", () => {
 
     const migrated = migrateStoredAppSettings();
 
-    expect(migrated.version).toBe(2);
+    expect(migrated.version).toBe(CURRENT_SETTINGS_VERSION);
     expect(migrated.appearance.scenes.study.components.studyCountdown?.slots?.digit).toEqual({
       color: "#12abef",
       opacity: 0.45,
     });
-    expect(JSON.parse(localStorage.getItem(APP_SETTINGS_KEY) ?? "{}").version).toBe(2);
+    expect(JSON.parse(localStorage.getItem(APP_SETTINGS_KEY) ?? "{}").version).toBe(
+      CURRENT_SETTINGS_VERSION
+    );
+  });
+
+  it.each([
+    { hitokotoEnabled: true, expectedNewRemoteEnabled: true },
+    { hitokotoEnabled: false, expectedNewRemoteEnabled: false },
+  ])(
+    "v2 一言启用状态为 $hitokotoEnabled 时会为新增在线源选择对应默认值",
+    ({ hitokotoEnabled, expectedNewRemoteEnabled }) => {
+      localStorage.setItem(
+        APP_SETTINGS_KEY,
+        JSON.stringify({
+          version: 2,
+          general: {
+            quote: {
+              autoRefreshInterval: 600,
+              channels: [
+                {
+                  id: "hitokoto-api",
+                  enabled: hitokotoEnabled,
+                  weight: 27,
+                  onlineFetch: true,
+                  hitokotoCategories: ["d", "i"],
+                },
+              ],
+              lastUpdated: 123,
+            },
+          },
+        })
+      );
+
+      const quote = migrateStoredAppSettings().general.quote;
+      const channelMap = new Map(quote.channels.map((channel) => [channel.id, channel]));
+
+      expect(channelMap.get("hitokoto-api")).toEqual(
+        expect.objectContaining({
+          enabled: hitokotoEnabled,
+          weight: 27,
+          hitokotoCategories: ["d", "i"],
+        })
+      );
+      expect(channelMap.get("jinrishici-api")?.enabled).toBe(expectedNewRemoteEnabled);
+      expect(channelMap.get("advice-slip-api")?.enabled).toBe(expectedNewRemoteEnabled);
+      expect(quote).not.toHaveProperty("lastUpdated");
+    }
+  );
+
+  it("v2 迁移会保留本地覆盖与自定义 TXT，并丢弃未知在线源和重复项", () => {
+    localStorage.setItem(
+      APP_SETTINGS_KEY,
+      JSON.stringify({
+        version: 2,
+        general: {
+          quote: {
+            autoRefreshInterval: 1800,
+            channels: [
+              null,
+              { id: "hitokoto-api", enabled: true, weight: 31, hitokotoCategories: ["k"] },
+              { id: "hitokoto-api", enabled: false, weight: 99, hitokotoCategories: ["l"] },
+              {
+                id: "local-inspirational",
+                enabled: false,
+                weight: 55,
+                onlineFetch: false,
+                quotes: [" 自定义本地句子 ", "", 123],
+                orderMode: "sequential",
+                currentQuoteIndex: 8,
+              },
+              {
+                id: "txt-channel",
+                name: "导入文件",
+                enabled: true,
+                weight: 12,
+                onlineFetch: false,
+                quotes: ["第一句", "第二句"],
+                orderMode: "sequential",
+                currentQuoteIndex: 1,
+              },
+              {
+                id: "txt-channel",
+                name: "重复文件",
+                enabled: false,
+                weight: 99,
+                onlineFetch: false,
+                quotes: ["不应覆盖"],
+              },
+              {
+                id: "unknown-api",
+                name: "未知在线源",
+                enabled: true,
+                weight: 99,
+                onlineFetch: true,
+                apiEndpoint: "https://example.com/quote",
+                quotes: ["不应保留"],
+              },
+            ],
+          },
+        },
+      })
+    );
+
+    const migrated = migrateStoredAppSettings();
+    const quote = migrated.general.quote;
+    const channelMap = new Map(quote.channels.map((channel) => [channel.id, channel]));
+
+    expect(channelMap.get("hitokoto-api")).toEqual(
+      expect.objectContaining({ weight: 31, hitokotoCategories: ["k"] })
+    );
+    expect(channelMap.get("local-inspirational")).toEqual(
+      expect.objectContaining({
+        enabled: false,
+        weight: 55,
+        orderMode: "sequential",
+        quotesOverride: ["自定义本地句子"],
+      })
+    );
+    expect(quote.customChannels).toEqual([
+      expect.objectContaining({
+        id: "txt-channel",
+        name: "导入文件",
+        quotes: ["第一句", "第二句"],
+        orderMode: "sequential",
+      }),
+    ]);
+    expect(quote.channels.some((channel) => channel.id === "unknown-api")).toBe(false);
+    expect(JSON.stringify(quote)).not.toContain("currentQuoteIndex");
+    expect(JSON.stringify(quote)).not.toContain("apiEndpoint");
+
+    const runtimeStore = new QuoteRuntimeStore({ storage: localStorage });
+    expect(runtimeStore.takeSequentialIndex("local-inspirational", 30)).toBe(8);
+    expect(runtimeStore.takeSequentialIndex("txt-channel", 2)).toBe(1);
+  });
+
+  it.each([
+    { legacyInterval: 0, enabled: false, interval: 600 },
+    { legacyInterval: 1, enabled: true, interval: 30 },
+    { legacyInterval: 30, enabled: true, interval: 30 },
+    { legacyInterval: 1800, enabled: true, interval: 1800 },
+    { legacyInterval: 9999, enabled: true, interval: 1800 },
+    { legacyInterval: null, enabled: true, interval: 600 },
+    { legacyInterval: "invalid", enabled: true, interval: 600 },
+  ])(
+    "v2 自动刷新值 $legacyInterval 会迁移为 enabled=$enabled interval=$interval",
+    ({ legacyInterval, enabled, interval }) => {
+      localStorage.setItem(
+        APP_SETTINGS_KEY,
+        JSON.stringify({
+          version: 2,
+          general: { quote: { autoRefreshInterval: legacyInterval, channels: [] } },
+        })
+      );
+
+      const quote = migrateStoredAppSettings().general.quote;
+      expect(quote.autoRefreshEnabled).toBe(enabled);
+      expect(quote.autoRefreshIntervalSec).toBe(interval);
+    }
+  );
+
+  it("v3 损坏数据会安全归一，并由 saveQuoteSettings 一次写入精简偏好", () => {
+    localStorage.setItem(
+      APP_SETTINGS_KEY,
+      JSON.stringify({
+        version: 3,
+        general: {
+          quote: {
+            autoRefreshEnabled: false,
+            autoRefreshIntervalSec: null,
+            channels: [
+              { id: "hitokoto-api", enabled: "bad", weight: "bad" },
+              { id: "hitokoto-api", enabled: false, weight: 44 },
+              { id: "missing-api", enabled: true, weight: 100 },
+            ],
+            customChannels: [null, { id: "empty", quotes: [] }],
+          },
+        },
+      })
+    );
+
+    const loaded = getAppSettings();
+    expect(loaded.general.quote.autoRefreshEnabled).toBe(false);
+    expect(loaded.general.quote.autoRefreshIntervalSec).toBe(600);
+    expect(loaded.general.quote.channels.find((channel) => channel.id === "hitokoto-api")).toEqual(
+      expect.objectContaining({ enabled: true, weight: 20 })
+    );
+    expect(loaded.general.quote.customChannels).toEqual([]);
+
+    const resolvedChannels = resolveQuoteChannels(
+      loaded.general.quote.channels,
+      loaded.general.quote.customChannels
+    );
+    saveQuoteSettings(resolvedChannels, {
+      autoRefreshEnabled: true,
+      autoRefreshIntervalSec: 5000,
+    });
+
+    const saved = JSON.parse(localStorage.getItem(APP_SETTINGS_KEY) ?? "{}");
+    expect(saved.version).toBe(3);
+    expect(saved.general.quote.autoRefreshEnabled).toBe(true);
+    expect(saved.general.quote.autoRefreshIntervalSec).toBe(1800);
+    expect(saved.general.quote).not.toHaveProperty("lastUpdated");
+    expect(saved.general.quote.channels[0]).not.toHaveProperty("apiEndpoint");
+  });
+
+  it("normalizeAppSettings 会在不写入存储的情况下规范化导入候选", () => {
+    const original = JSON.stringify({ marker: "unchanged" });
+    localStorage.setItem(APP_SETTINGS_KEY, original);
+
+    const normalized = normalizeAppSettings({
+      version: 1,
+      study: { display: { showQuote: false } },
+    });
+
+    expect(normalized.version).toBe(CURRENT_SETTINGS_VERSION);
+    expect(normalized.study.display.showQuote).toBe(false);
+    expect(localStorage.getItem(APP_SETTINGS_KEY)).toBe(original);
+  });
+
+  it("恢复默认设置时保留课程、倒计时和语录内容，但重置外观与功能偏好", () => {
+    const current = getAppSettings();
+    current.general.startup.initialMode = "study";
+    current.general.quote.customChannels = [
+      {
+        id: "custom:test",
+        name: "自定义",
+        enabled: true,
+        weight: 10,
+        quotes: ["保留内容"],
+        orderMode: "random",
+      },
+    ];
+    current.study.countdownMode = "single";
+    current.study.customCountdown = { name: "期末", date: "2030-01-01" };
+    current.study.countdownItems = [
+      {
+        id: "exam",
+        kind: "custom",
+        name: "考试",
+        targetDate: "2030-01-01",
+        order: 0,
+      },
+    ];
+    current.study.schedule = [
+      { id: "morning", startTime: "08:00", endTime: "09:00", name: "数学" },
+    ];
+    current.appearance.global.background = { type: "black" };
+    localStorage.setItem(APP_SETTINGS_KEY, JSON.stringify(current));
+
+    const reset = resetAppSettingsPreservingUserContent();
+
+    expect(reset.general.startup.initialMode).toBe("clock");
+    expect(reset.general.quote.customChannels[0]?.quotes).toEqual(["保留内容"]);
+    expect(reset.study.countdownItems[0]?.name).toBe("考试");
+    expect(reset.study.schedule[0]?.name).toBe("数学");
+    expect(reset.appearance.global.background.type).toBe("default");
+  });
+
+  it("启动迁移会隔离损坏 JSON 并恢复默认设置", () => {
+    localStorage.setItem(APP_SETTINGS_KEY, "{broken-json");
+
+    const migrated = migrateStoredAppSettings();
+
+    expect(migrated.version).toBe(CURRENT_SETTINGS_VERSION);
+    expect(getQuarantinedAppSettings()).toMatchObject({
+      reason: "invalid-json",
+      raw: "{broken-json",
+    });
+    expect(localStorage.getItem(APP_SETTINGS_QUARANTINE_KEY)).not.toBeNull();
+  });
+
+  it("启动迁移会隔离未来版本设置而不是阻断启动", () => {
+    const raw = JSON.stringify({ version: CURRENT_SETTINGS_VERSION + 1, study: {} });
+    localStorage.setItem(APP_SETTINGS_KEY, raw);
+
+    const migrated = migrateStoredAppSettings();
+
+    expect(migrated.version).toBe(CURRENT_SETTINGS_VERSION);
+    expect(getQuarantinedAppSettings()).toMatchObject({
+      reason: "unsupported-version",
+      raw,
+    });
   });
 });

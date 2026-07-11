@@ -34,7 +34,7 @@ function formatRange(start: Date, end: Date): string {
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 const NoiseHistoryModal: React.FC<NoiseHistoryModalProps> = ({ isOpen, onClose, onViewDetail }) => {
-  const [tick, setTick] = useState(0);
+  const [slices, setSlices] = useState<NoiseSliceSummary[]>([]);
   const [customName, setCustomName] = useState("自定义报告");
   const [customStartValue, setCustomStartValue] = useState("");
   const [customEndValue, setCustomEndValue] = useState("");
@@ -43,10 +43,27 @@ const NoiseHistoryModal: React.FC<NoiseHistoryModalProps> = ({ isOpen, onClose, 
   const customErrorId = useId();
 
   useEffect(() => {
-    if (!isOpen) return;
-    const unsubscribe = subscribeNoiseSlicesUpdated(() => setTick((t) => t + 1));
-    setTick((t) => t + 1);
-    return unsubscribe;
+    if (!isOpen) {
+      setSlices([]);
+      return;
+    }
+
+    let active = true;
+    const refresh = () => {
+      void readNoiseSlices()
+        .then((nextSlices) => {
+          if (active) setSlices(nextSlices);
+        })
+        .catch(() => {
+          if (active) setSlices([]);
+        });
+    };
+    const unsubscribe = subscribeNoiseSlicesUpdated(refresh);
+    refresh();
+    return () => {
+      active = false;
+      unsubscribe();
+    };
   }, [isOpen]);
 
   useEffect(() => {
@@ -61,17 +78,10 @@ const NoiseHistoryModal: React.FC<NoiseHistoryModalProps> = ({ isOpen, onClose, 
     setCustomOpen(false);
   }, [isOpen]);
 
-  const slices: NoiseSliceSummary[] = useMemo(() => {
-    void tick;
-    if (!isOpen) return [];
-    return readNoiseSlices();
-  }, [isOpen, tick]);
-
   const retentionDays = useMemo(() => {
-    void tick;
     if (!isOpen) return DEFAULT_NOISE_REPORT_RETENTION_DAYS;
     return getNoiseReportSettings().retentionDays;
-  }, [isOpen, tick]);
+  }, [isOpen]);
 
   const maxCustomRangeMs = Math.max(1, Math.round(retentionDays)) * DAY_MS;
 

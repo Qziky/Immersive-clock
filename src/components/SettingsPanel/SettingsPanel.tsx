@@ -22,7 +22,7 @@ import {
   Wifi,
   X,
 } from "lucide-react";
-import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import { useAppDispatch, useAppState } from "../../contexts/AppContext";
 import { useAppearance } from "../../contexts/AppearanceContext";
@@ -38,6 +38,7 @@ import {
 } from "./sections/AppearanceSettingsPanel";
 import BasicSettingsPanel, { type BasicSettingsSection } from "./sections/BasicSettingsPanel";
 import ContentSettingsPanel, { type ContentSettingsSection } from "./sections/ContentSettingsPanel";
+import DataSettingsPanel from "./sections/DataSettingsPanel";
 import StudySettingsPanel, { type StudySettingsSection } from "./sections/StudySettingsPanel";
 import WeatherSettingsPanel, { type WeatherSettingsSection } from "./sections/WeatherSettingsPanel";
 import styles from "./SettingsPanel.module.css";
@@ -123,6 +124,15 @@ type SettingsPane =
       icon: React.ReactNode;
       panel: "about";
       section: AboutSettingsSection;
+    }
+  | {
+      value: "data";
+      group: "system";
+      label: string;
+      description: string;
+      icon: React.ReactNode;
+      panel: "data";
+      section: "data";
     };
 
 interface SettingsPanelProps {
@@ -370,7 +380,7 @@ const paneItems: SettingsPane[] = [
     label: "设置数据",
     description: "导入导出设置、清理缓存和重置本地数据。",
     icon: <Database size={20} aria-hidden="true" />,
-    panel: "about",
+    panel: "data",
     section: "data",
   },
   {
@@ -408,7 +418,8 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
   const { study } = useAppState();
   const dispatch = useAppDispatch();
   const { notify } = useFeedback();
-  const { cancelAppearancePreview, commitAppearanceDraft } = useAppearance();
+  const { cancelAppearancePreview, commitAppearanceDraft, committedAppearance, draftAppearance } =
+    useAppearance();
 
   const [activeGroup, setActiveGroup] = useState<SettingsPrimaryGroup>("workspace");
   const [expandedGroup, setExpandedGroup] = useState<SettingsPrimaryGroup | null>("workspace");
@@ -423,6 +434,16 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
   );
   const [draftSession, setDraftSession] = useState(0);
   const [targetYear, setTargetYear] = useState(study.targetYear);
+  const [dataBusy, setDataBusy] = useState(false);
+  const [reloadPending, setReloadPending] = useState(false);
+
+  const hasUnsavedAppearanceChanges = useMemo(
+    () =>
+      draftAppearance !== null &&
+      JSON.stringify(draftAppearance) !== JSON.stringify(committedAppearance),
+    [committedAppearance, draftAppearance]
+  );
+  const settingsBusy = dataBusy || reloadPending;
 
   const basicSaveRef = useRef<() => void>(() => {});
   const weatherSaveRef = useRef<() => void>(() => {});
@@ -443,6 +464,8 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
       setLastPaneByGroup(DEFAULT_PANES_BY_GROUP);
       setVisitedPanels(new Set(["basic"]));
       setDraftSession((current) => current + 1);
+      setDataBusy(false);
+      setReloadPending(false);
     }
     wasOpenRef.current = isOpen;
   }, [isOpen, study.targetYear]);
@@ -463,16 +486,34 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
     aboutSaveRef.current = save;
   }, []);
 
+  const handleDataBusyChange = useCallback((isBusy: boolean) => {
+    setDataBusy(isBusy);
+  }, []);
+
   const handleClose = useCallback(() => {
+    if (settingsBusy) return;
     try {
       cancelAppearancePreview();
       broadcastSettingsEvent(SETTINGS_EVENTS.SettingsPanelClosed);
     } finally {
       onClose();
     }
-  }, [cancelAppearancePreview, onClose]);
+  }, [cancelAppearancePreview, onClose, settingsBusy]);
+
+  const handleDataReloadRequired = useCallback(() => {
+    if (reloadPending) return;
+    setReloadPending(true);
+    try {
+      cancelAppearancePreview();
+      broadcastSettingsEvent(SETTINGS_EVENTS.SettingsPanelClosed);
+    } finally {
+      onClose();
+      window.setTimeout(() => window.location.reload(), 800);
+    }
+  }, [cancelAppearancePreview, onClose, reloadPending]);
 
   const handleSaveAll = useCallback(() => {
+    if (settingsBusy) return;
     try {
       if (visitedPanels.has("appearance")) commitAppearanceDraft();
       basicSaveRef.current?.();
@@ -493,7 +534,15 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
 
     broadcastSettingsEvent(SETTINGS_EVENTS.SettingsSaved, { targetYear });
     handleClose();
-  }, [targetYear, dispatch, handleClose, notify, visitedPanels, commitAppearanceDraft]);
+  }, [
+    targetYear,
+    dispatch,
+    handleClose,
+    notify,
+    visitedPanels,
+    commitAppearanceDraft,
+    settingsBusy,
+  ]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -513,36 +562,46 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
 
   const handleGroupChange = useCallback(
     (group: SettingsPrimaryGroup) => {
+      if (settingsBusy) return;
       setActiveGroup(group);
       setExpandedGroup(group);
       setActivePane(lastPaneByGroup[group]);
     },
-    [lastPaneByGroup]
+    [lastPaneByGroup, settingsBusy]
   );
 
   const handleDesktopGroupToggle = useCallback(
     (group: SettingsPrimaryGroup) => {
+      if (settingsBusy) return;
       if (expandedGroup === group) {
         setExpandedGroup(null);
         return;
       }
       handleGroupChange(group);
     },
-    [expandedGroup, handleGroupChange]
+    [expandedGroup, handleGroupChange, settingsBusy]
   );
 
-  const handlePaneChange = useCallback((pane: SettingsPaneId) => {
-    const group = getGroupForPane(pane);
-    setActiveGroup(group);
-    setActivePane(pane);
-    setCompactMenuGroup(null);
-    setLastPaneByGroup((current) => ({ ...current, [group]: pane }));
-  }, []);
+  const handlePaneChange = useCallback(
+    (pane: SettingsPaneId) => {
+      if (settingsBusy) return;
+      const group = getGroupForPane(pane);
+      setActiveGroup(group);
+      setActivePane(pane);
+      setCompactMenuGroup(null);
+      setLastPaneByGroup((current) => ({ ...current, [group]: pane }));
+    },
+    [settingsBusy]
+  );
 
-  const handleCompactMenuOpen = useCallback((group: SettingsPrimaryGroup) => {
-    setRenderedCompactMenuGroup(group);
-    setCompactMenuGroup(group);
-  }, []);
+  const handleCompactMenuOpen = useCallback(
+    (group: SettingsPrimaryGroup) => {
+      if (settingsBusy) return;
+      setRenderedCompactMenuGroup(group);
+      setCompactMenuGroup(group);
+    },
+    [settingsBusy]
+  );
 
   const activeGroupItem = getGroup(activeGroup);
   const activePaneItem = getPane(activePane);
@@ -573,13 +632,18 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
     <Modal
       isOpen={isOpen}
       onClose={handleClose}
+      closeOnEscape={!settingsBusy}
       title="设置"
       placement="left"
       maxWidth="xxl"
       hideHeader
       className={styles.settingsModal}
     >
-      <div id="settings-panel-container" className={styles.settingsApp}>
+      <div
+        id="settings-panel-container"
+        className={styles.settingsApp}
+        aria-busy={settingsBusy || undefined}
+      >
         <header className={styles.drawerHeader}>
           <div className={styles.drawerTitle}>
             <SlidersHorizontal size={18} aria-hidden="true" />
@@ -589,6 +653,7 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
             className={styles.drawerClose}
             aria-label="关闭设置"
             icon={<X size={18} aria-hidden="true" />}
+            disabled={settingsBusy}
             onClick={handleClose}
           />
         </header>
@@ -606,6 +671,7 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
                       className={active ? styles.groupHeaderActive : styles.groupHeader}
                       type="button"
                       aria-expanded={expanded}
+                      disabled={settingsBusy}
                       onClick={() => handleDesktopGroupToggle(group.value)}
                     >
                       <span className={styles.groupIcon}>{group.icon}</span>
@@ -635,6 +701,7 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
                               className={paneActive ? styles.sideNavItemActive : styles.sideNavItem}
                               type="button"
                               aria-current={paneActive ? "page" : undefined}
+                              disabled={settingsBusy}
                               onClick={() => handlePaneChange(pane.value)}
                             >
                               {pane.icon}
@@ -681,6 +748,7 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
                     aria-expanded={expanded}
                     aria-controls={expanded ? "settings-compact-submenu" : undefined}
                     title={group.label}
+                    disabled={settingsBusy}
                     onClick={() => handleCompactMenuOpen(group.value)}
                   >
                     {group.icon}
@@ -724,6 +792,7 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
                         className={active ? styles.compactPaneItemActive : styles.compactPaneItem}
                         type="button"
                         aria-current={active ? "page" : undefined}
+                        disabled={settingsBusy}
                         onClick={() => handlePaneChange(pane.value)}
                       >
                         {pane.icon}
@@ -815,13 +884,33 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
                   />
                 </div>
               )}
+              {visitedPanels.has("data") && (
+                <div className={styles.panelMount} hidden={activePaneItem.panel !== "data"}>
+                  <DataSettingsPanel
+                    key={`data-${draftSession}`}
+                    hasUnsavedAppearanceChanges={hasUnsavedAppearanceChanges}
+                    onBusyChange={handleDataBusyChange}
+                    onReloadRequired={handleDataReloadRequired}
+                  />
+                </div>
+              )}
             </div>
 
-            <footer className={styles.actionBar}>
-              <Button id="settings-close-btn" variant="secondary" onClick={handleClose}>
+            <footer className={styles.actionBar} aria-busy={settingsBusy || undefined}>
+              <Button
+                id="settings-close-btn"
+                variant="secondary"
+                disabled={settingsBusy}
+                onClick={handleClose}
+              >
                 取消
               </Button>
-              <Button id="settings-save-btn" variant="primary" onClick={handleSaveAll}>
+              <Button
+                id="settings-save-btn"
+                variant="primary"
+                disabled={settingsBusy}
+                onClick={handleSaveAll}
+              >
                 保存
               </Button>
             </footer>

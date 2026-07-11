@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 
+import type { NoiseSliceSummary } from "../../types/noise";
 import { Button as FormButton, Modal } from "../../ui";
 import { getNoiseControlSettings } from "../../utils/noiseControlSettings";
 import { readNoiseSlices, subscribeNoiseSlicesUpdated } from "../../utils/noiseSliceService";
@@ -145,7 +146,7 @@ export const NoiseReportModal: React.FC<NoiseReportModalProps> = ({
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const [chartWidth, setChartWidth] = useState(860);
   const [isGridSingleColumn, setIsGridSingleColumn] = useState(false);
-  const [tick, setTick] = useState(0);
+  const [slices, setSlices] = useState<NoiseSliceSummary[]>([]);
   const [isMainChartCombined, setIsMainChartCombined] = useState(() => {
     try {
       const saved = localStorage.getItem("noise-report.is-main-chart-combined");
@@ -173,11 +174,28 @@ export const NoiseReportModal: React.FC<NoiseReportModalProps> = ({
   }, [isOpen]);
 
   useEffect(() => {
-    if (!isOpen) return;
-    const unsubscribe = subscribeNoiseSlicesUpdated(() => setTick((t) => t + 1));
-    setTick((t) => t + 1);
-    return unsubscribe;
-  }, [isOpen]);
+    if (!isOpen || !period) {
+      setSlices([]);
+      return;
+    }
+
+    let active = true;
+    const refresh = () => {
+      void readNoiseSlices({ endFrom: period.start.getTime() })
+        .then((nextSlices) => {
+          if (active) setSlices(nextSlices);
+        })
+        .catch(() => {
+          if (active) setSlices([]);
+        });
+    };
+    const unsubscribe = subscribeNoiseSlicesUpdated(refresh);
+    refresh();
+    return () => {
+      active = false;
+      unsubscribe();
+    };
+  }, [isOpen, period]);
 
   const periodDurationMs = useMemo(() => {
     if (!period) return 0;
@@ -185,13 +203,12 @@ export const NoiseReportModal: React.FC<NoiseReportModalProps> = ({
   }, [period]);
 
   const report = useMemo(() => {
-    void tick;
     if (!period) return null;
     const startTs = period.start.getTime();
     const endTs = period.end.getTime();
     const thresholdDb = getNoiseControlSettings().maxLevelDb;
 
-    const slices = readNoiseSlices()
+    const periodSlices = slices
       .filter((s) => s.end >= startTs && s.start <= endTs)
       .sort((a, b) => a.start - b.start);
 
@@ -229,7 +246,7 @@ export const NoiseReportModal: React.FC<NoiseReportModalProps> = ({
 
     const series: { t: number; start: number; v: number; score: number; events: number }[] = [];
 
-    for (const s of slices) {
+    for (const s of periodSlices) {
       const overlapStart = Math.max(startTs, s.start);
       const overlapEnd = Math.min(endTs, s.end);
       const overlapMs = overlapEnd - overlapStart;
@@ -311,7 +328,7 @@ export const NoiseReportModal: React.FC<NoiseReportModalProps> = ({
       scoreText,
       COLORS,
     };
-  }, [period, tick]);
+  }, [period, slices]);
 
   const chart = useMemo(() => {
     const width = chartWidth;

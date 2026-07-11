@@ -6,8 +6,21 @@ import {
   NOISE_SCORE_THRESHOLD_DBFS,
 } from "../constants/noise";
 import { DEFAULT_NOISE_REPORT_RETENTION_DAYS } from "../constants/noiseReport";
-import { QuoteSourceConfig, StudyDisplaySettings, CountdownItem, AppMode } from "../types";
+import {
+  getDefaultQuoteChannels,
+  resolveQuoteChannels,
+  serializeQuoteChannels,
+} from "../services/quotes/quoteRegistry";
+import { QuoteRuntimeStore } from "../services/quotes/runtimeStorage";
+import { StudyDisplaySettings, CountdownItem, AppMode } from "../types";
 import type { AppearanceSettingsV2 } from "../types/appearance";
+import type {
+  CustomQuoteChannel,
+  PersistedQuoteSettings,
+  QuoteChannel,
+  QuoteChannelPreference,
+  QuoteSettingsState,
+} from "../types/quote";
 import { DEFAULT_SCHEDULE, type StudyPeriod } from "../types/studySchedule";
 import { DeepPartial } from "../types/utilityTypes";
 
@@ -28,11 +41,7 @@ export interface AppSettings {
     startup: {
       initialMode: AppMode;
     };
-    quote: {
-      autoRefreshInterval: number;
-      channels: QuoteSourceConfig[];
-      lastUpdated: number;
-    };
+    quote: PersistedQuoteSettings;
     announcement: {
       hideUntil: number;
       version: string; // 存储版本号，用于与当前应用版本进行比对
@@ -124,13 +133,228 @@ export interface AppSettings {
 }
 
 export const APP_SETTINGS_KEY = "AppSettings";
-export const CURRENT_SETTINGS_VERSION = 2;
+export const APP_SETTINGS_QUARANTINE_KEY = "immersive-clock:quarantine:app-settings";
+export const CURRENT_SETTINGS_VERSION = 3;
+
+export interface QuarantinedAppSettings {
+  createdAt: number;
+  reason: "invalid-json" | "unsupported-version";
+  raw: string;
+}
 
 export class UnsupportedSettingsVersionError extends Error {
   constructor(public readonly storedVersion: number) {
     super(`设置文件版本 ${storedVersion} 高于当前支持版本 ${CURRENT_SETTINGS_VERSION}`);
     this.name = "UnsupportedSettingsVersionError";
   }
+}
+
+const DEFAULT_QUOTE_REFRESH_INTERVAL_SEC = 600;
+const MIN_QUOTE_REFRESH_INTERVAL_SEC = 30;
+const MAX_QUOTE_REFRESH_INTERVAL_SEC = 1800;
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function isErrorCenterMode(value: unknown): value is "off" | "memory" | "persist" {
+  return value === "off" || value === "memory" || value === "persist";
+}
+
+function parseStoredNumber(value: unknown): number {
+  if (typeof value === "number") return value;
+  if (typeof value === "string" && value.trim()) return Number(value);
+  return Number.NaN;
+}
+
+function normalizeQuoteRefreshInterval(value: unknown): number {
+  const parsed = parseStoredNumber(value);
+  if (!Number.isFinite(parsed)) return DEFAULT_QUOTE_REFRESH_INTERVAL_SEC;
+  return Math.max(
+    MIN_QUOTE_REFRESH_INTERVAL_SEC,
+    Math.min(MAX_QUOTE_REFRESH_INTERVAL_SEC, Math.round(parsed))
+  );
+}
+
+function createDefaultQuoteSettings(): PersistedQuoteSettings {
+  const serialized = serializeQuoteChannels(getDefaultQuoteChannels());
+  return {
+    autoRefreshEnabled: true,
+    autoRefreshIntervalSec: DEFAULT_QUOTE_REFRESH_INTERVAL_SEC,
+    channels: serialized.channels,
+    customChannels: serialized.customChannels,
+  };
+}
+
+function normalizeStoredWeight(value: unknown, fallback: number): number {
+  const parsed = parseStoredNumber(value);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.max(1, Math.min(9999, Math.round(parsed)));
+}
+
+function normalizeStoredQuotes(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  return value
+    .filter((quote): quote is string => typeof quote === "string")
+    .map((quote) => quote.trim())
+    .filter(Boolean)
+    .slice(0, 1000);
+}
+
+function normalizeQuotePreference(
+  value: unknown,
+  defaultChannel: QuoteChannel
+): QuoteChannelPreference | null {
+  if (!isRecord(value) || value.id !== defaultChannel.id) return null;
+
+  const preference: QuoteChannelPreference = {
+    id: defaultChannel.id,
+    enabled: typeof value.enabled === "boolean" ? value.enabled : defaultChannel.enabled,
+    weight: normalizeStoredWeight(value.weight, defaultChannel.weight),
+  };
+
+  if (defaultChannel.kind === "local") {
+    preference.orderMode = value.orderMode === "sequential" ? "sequential" : "random";
+    const quotesOverride = normalizeStoredQuotes(value.quotesOverride ?? value.quotes);
+    if (quotesOverride) preference.quotesOverride = quotesOverride;
+  } else if (defaultChannel.providerId === "hitokoto" && Array.isArray(value.hitokotoCategories)) {
+    preference.hitokotoCategories = value.hitokotoCategories.filter(
+      (category): category is "d" | "i" | "k" | "l" =>
+        category === "d" || category === "i" || category === "k" || category === "l"
+    );
+  }
+
+  return preference;
+}
+
+function normalizeCustomQuoteChannel(value: unknown): CustomQuoteChannel | null {
+  if (!isRecord(value) || typeof value.id !== "string") return null;
+  const id = value.id.trim();
+  const quotes = normalizeStoredQuotes(value.quotes);
+  if (!id || !quotes?.length) return null;
+
+  return {
+    id,
+    name: typeof value.name === "string" && value.name.trim() ? value.name.trim() : "自定义语录",
+    enabled: typeof value.enabled === "boolean" ? value.enabled : true,
+    weight: normalizeStoredWeight(value.weight, 10),
+    quotes,
+    orderMode: value.orderMode === "sequential" ? "sequential" : "random",
+  };
+}
+
+function isLegacyRemoteChannel(value: Record<string, unknown>): boolean {
+  return (
+    value.onlineFetch === true ||
+    value.kind === "remote" ||
+    typeof value.providerId === "string" ||
+    typeof value.apiEndpoint === "string"
+  );
+}
+
+function migrateLegacyQuoteCursors(value: unknown, storedVersion: number): void {
+  if (storedVersion >= 3 || !isRecord(value)) return;
+  const candidates = [
+    ...(Array.isArray(value.channels) ? value.channels : []),
+    ...(Array.isArray(value.customChannels) ? value.customChannels : []),
+  ];
+  const runtimeStore = new QuoteRuntimeStore();
+  const seenIds = new Set<string>();
+
+  for (const candidate of candidates) {
+    if (
+      !isRecord(candidate) ||
+      typeof candidate.id !== "string" ||
+      candidate.orderMode !== "sequential" ||
+      isLegacyRemoteChannel(candidate)
+    ) {
+      continue;
+    }
+    const id = candidate.id.trim();
+    const cursor = parseStoredNumber(candidate.currentQuoteIndex);
+    if (!id || seenIds.has(id) || !Number.isSafeInteger(cursor) || cursor < 0) continue;
+    seenIds.add(id);
+    runtimeStore.seedSequentialCursor(id, cursor);
+  }
+}
+
+function normalizeQuoteSettings(value: unknown, storedVersion: number): PersistedQuoteSettings {
+  const defaults = getDefaultQuoteChannels();
+  const defaultById = new Map(defaults.map((channel) => [channel.id, channel]));
+  const source = isRecord(value) ? value : {};
+  const rawPreferences = Array.isArray(source.channels) ? source.channels : [];
+  const preferences: QuoteChannelPreference[] = [];
+  const customChannels: CustomQuoteChannel[] = [];
+  const seenPreferenceIds = new Set<string>();
+
+  for (const candidate of rawPreferences) {
+    if (!isRecord(candidate) || typeof candidate.id !== "string") continue;
+    const id = candidate.id.trim();
+    const defaultChannel = defaultById.get(id);
+    if (defaultChannel) {
+      if (seenPreferenceIds.has(id)) continue;
+      const preference = normalizeQuotePreference({ ...candidate, id }, defaultChannel);
+      if (preference) {
+        seenPreferenceIds.add(id);
+        preferences.push(preference);
+      }
+      continue;
+    }
+
+    if (storedVersion < 3 && !isLegacyRemoteChannel(candidate)) {
+      const custom = normalizeCustomQuoteChannel({ ...candidate, id });
+      if (custom) customChannels.push(custom);
+    }
+  }
+
+  const rawCustomChannels = Array.isArray(source.customChannels) ? source.customChannels : [];
+  for (const candidate of rawCustomChannels) {
+    const custom = normalizeCustomQuoteChannel(candidate);
+    if (custom) customChannels.push(custom);
+  }
+
+  if (storedVersion < 3) {
+    const hitokotoDisabled = preferences.some(
+      (preference) => preference.id === "hitokoto-api" && !preference.enabled
+    );
+    if (hitokotoDisabled) {
+      for (const id of ["jinrishici-api", "advice-slip-api"]) {
+        if (seenPreferenceIds.has(id)) continue;
+        const defaultChannel = defaultById.get(id);
+        if (!defaultChannel) continue;
+        preferences.push({ id, enabled: false, weight: defaultChannel.weight });
+        seenPreferenceIds.add(id);
+      }
+    }
+  }
+
+  const normalizedChannels = resolveQuoteChannels(preferences, customChannels);
+  const serialized = serializeQuoteChannels(normalizedChannels);
+
+  if (storedVersion < 3) {
+    const legacyInterval = parseStoredNumber(source.autoRefreshInterval);
+    if (legacyInterval === 0) {
+      return {
+        autoRefreshEnabled: false,
+        autoRefreshIntervalSec: DEFAULT_QUOTE_REFRESH_INTERVAL_SEC,
+        ...serialized,
+      };
+    }
+    if (Number.isFinite(legacyInterval) && legacyInterval > 0) {
+      return {
+        autoRefreshEnabled: true,
+        autoRefreshIntervalSec: normalizeQuoteRefreshInterval(legacyInterval),
+        ...serialized,
+      };
+    }
+  }
+
+  return {
+    autoRefreshEnabled:
+      typeof source.autoRefreshEnabled === "boolean" ? source.autoRefreshEnabled : true,
+    autoRefreshIntervalSec: normalizeQuoteRefreshInterval(source.autoRefreshIntervalSec),
+    ...serialized,
+  };
 }
 
 const DEFAULT_SETTINGS: AppSettings = {
@@ -141,11 +365,7 @@ const DEFAULT_SETTINGS: AppSettings = {
     startup: {
       initialMode: "clock",
     },
-    quote: {
-      autoRefreshInterval: 600,
-      channels: [],
-      lastUpdated: Date.now(),
-    },
+    quote: createDefaultQuoteSettings(),
     announcement: {
       hideUntil: 0,
       version: "",
@@ -225,107 +445,166 @@ const DEFAULT_SETTINGS: AppSettings = {
   },
 };
 
+function createDefaultAppSettings(modifiedAt = Date.now()): AppSettings {
+  return {
+    ...structuredClone(DEFAULT_SETTINGS),
+    modifiedAt,
+    general: {
+      ...structuredClone(DEFAULT_SETTINGS.general),
+      quote: createDefaultQuoteSettings(),
+    },
+  };
+}
+
+export function getDefaultAppSettings(): AppSettings {
+  return createDefaultAppSettings();
+}
+
+function quarantineAppSettings(raw: string, reason: QuarantinedAppSettings["reason"]): void {
+  try {
+    const record: QuarantinedAppSettings = { createdAt: Date.now(), reason, raw };
+    localStorage.setItem(APP_SETTINGS_QUARANTINE_KEY, JSON.stringify(record));
+  } catch (error) {
+    logger.warn("Failed to quarantine invalid AppSettings", error);
+  }
+}
+
+export function getQuarantinedAppSettings(): QuarantinedAppSettings | null {
+  try {
+    const raw = localStorage.getItem(APP_SETTINGS_QUARANTINE_KEY);
+    if (!raw) return null;
+    const candidate = JSON.parse(raw) as Partial<QuarantinedAppSettings>;
+    if (
+      typeof candidate.createdAt !== "number" ||
+      typeof candidate.raw !== "string" ||
+      (candidate.reason !== "invalid-json" && candidate.reason !== "unsupported-version")
+    ) {
+      return null;
+    }
+    return candidate as QuarantinedAppSettings;
+  } catch {
+    return null;
+  }
+}
+
+export function clearQuarantinedAppSettings(): void {
+  localStorage.removeItem(APP_SETTINGS_QUARANTINE_KEY);
+}
+
+export function normalizeAppSettings(value: unknown): AppSettings {
+  if (!isRecord(value) || Array.isArray(value)) {
+    throw new TypeError("设置数据必须是对象");
+  }
+
+  const parsed = value;
+  const storedVersion = typeof parsed.version === "number" ? parsed.version : 1;
+  if (storedVersion > CURRENT_SETTINGS_VERSION) {
+    throw new UnsupportedSettingsVersionError(storedVersion);
+  }
+  const parsedGeneral = isRecord(parsed.general) ? parsed.general : {};
+  const parsedStudy = isRecord(parsed.study) ? parsed.study : {};
+  const parsedAlerts = isRecord(parsedStudy.alerts) ? parsedStudy.alerts : {};
+  const parsedNoiseControl = isRecord(parsed.noiseControl) ? parsed.noiseControl : {};
+  const parsedStartup = isRecord(parsedGeneral.startup) ? parsedGeneral.startup : {};
+  const parsedAnnouncement = isRecord(parsedGeneral.announcement) ? parsedGeneral.announcement : {};
+  const parsedWeather = isRecord(parsedGeneral.weather) ? parsedGeneral.weather : {};
+  const parsedTimeSync = isRecord(parsedGeneral.timeSync) ? parsedGeneral.timeSync : {};
+  const parsedGeneralBackground = isRecord(parsedGeneral.background)
+    ? parsedGeneral.background
+    : {};
+  const parsedDisplay = isRecord(parsedStudy.display) ? parsedStudy.display : {};
+  const parsedStyle = isRecord(parsedStudy.style) ? parsedStudy.style : {};
+  const parsedStudyBackground = isRecord(parsedStudy.background) ? parsedStudy.background : {};
+
+  const legacyMinutelyForecast =
+    typeof parsedAlerts.minutelyForecast === "boolean" ? parsedAlerts.minutelyForecast : undefined;
+  const legacyPrecipDuration =
+    typeof parsedAlerts.precipDuration === "boolean" ? parsedAlerts.precipDuration : undefined;
+  const legacyErrorCenterEnabled =
+    typeof parsedAlerts.errorCenterEnabled === "boolean"
+      ? parsedAlerts.errorCenterEnabled
+      : undefined;
+  const legacyMergedMinutely =
+    legacyMinutelyForecast != null || legacyPrecipDuration != null
+      ? !!(legacyMinutelyForecast || legacyPrecipDuration)
+      : undefined;
+  const mergedStudyAlerts: AppSettings["study"]["alerts"] = {
+    weatherAlert:
+      typeof parsedAlerts.weatherAlert === "boolean"
+        ? parsedAlerts.weatherAlert
+        : DEFAULT_SETTINGS.study.alerts.weatherAlert,
+    minutelyPrecip:
+      typeof parsedAlerts.minutelyPrecip === "boolean"
+        ? parsedAlerts.minutelyPrecip
+        : (legacyMergedMinutely ?? DEFAULT_SETTINGS.study.alerts.minutelyPrecip),
+    errorPopup:
+      typeof parsedAlerts.errorPopup === "boolean"
+        ? parsedAlerts.errorPopup
+        : DEFAULT_SETTINGS.study.alerts.errorPopup,
+    errorCenterMode: isErrorCenterMode(parsedAlerts.errorCenterMode)
+      ? parsedAlerts.errorCenterMode
+      : legacyErrorCenterEnabled
+        ? "persist"
+        : DEFAULT_SETTINGS.study.alerts.errorCenterMode,
+    airQuality:
+      typeof parsedAlerts.airQuality === "boolean"
+        ? parsedAlerts.airQuality
+        : DEFAULT_SETTINGS.study.alerts.airQuality,
+    sunriseSunset:
+      typeof parsedAlerts.sunriseSunset === "boolean"
+        ? parsedAlerts.sunriseSunset
+        : DEFAULT_SETTINGS.study.alerts.sunriseSunset,
+  };
+
+  const appearance = parsed.appearance
+    ? normalizeAppearance(parsed.appearance)
+    : migrateV1Appearance(parsed as Parameters<typeof migrateV1Appearance>[0]);
+  const modifiedAt =
+    typeof parsed.modifiedAt === "number" && Number.isFinite(parsed.modifiedAt)
+      ? parsed.modifiedAt
+      : DEFAULT_SETTINGS.modifiedAt;
+  return {
+    ...createDefaultAppSettings(modifiedAt),
+    version: CURRENT_SETTINGS_VERSION,
+    modifiedAt,
+    appearance,
+    general: {
+      ...DEFAULT_SETTINGS.general,
+      ...parsedGeneral,
+      startup: { ...DEFAULT_SETTINGS.general.startup, ...parsedStartup },
+      quote: normalizeQuoteSettings(parsedGeneral.quote, storedVersion),
+      announcement: { ...DEFAULT_SETTINGS.general.announcement, ...parsedAnnouncement },
+      weather: { ...DEFAULT_SETTINGS.general.weather, ...parsedWeather },
+      timeSync: { ...DEFAULT_SETTINGS.general.timeSync, ...parsedTimeSync },
+      background: { ...DEFAULT_SETTINGS.general.background, ...parsedGeneralBackground },
+    } as AppSettings["general"],
+    study: {
+      ...DEFAULT_SETTINGS.study,
+      ...parsedStudy,
+      display: { ...DEFAULT_SETTINGS.study.display, ...parsedDisplay },
+      style: { ...DEFAULT_SETTINGS.study.style, ...parsedStyle },
+      alerts: mergedStudyAlerts,
+      background: { ...DEFAULT_SETTINGS.study.background, ...parsedStudyBackground },
+    } as AppSettings["study"],
+    noiseControl: {
+      ...DEFAULT_SETTINGS.noiseControl,
+      ...parsedNoiseControl,
+    } as AppSettings["noiseControl"],
+  };
+}
+
 /**
  * 获取完整的 AppSettings 配置对象
  */
 export function getAppSettings(): AppSettings {
   try {
     const raw = localStorage.getItem(APP_SETTINGS_KEY);
-    if (!raw) {
-      return DEFAULT_SETTINGS;
-    }
-    const parsed = JSON.parse(raw);
-    const storedVersion = typeof parsed.version === "number" ? parsed.version : 1;
-    if (storedVersion > CURRENT_SETTINGS_VERSION) {
-      throw new UnsupportedSettingsVersionError(storedVersion);
-    }
-    const parsedStudy = parsed.study || {};
-    const parsedAlerts = parsedStudy.alerts || {};
-    const legacyMinutelyForecast =
-      typeof parsedAlerts.minutelyForecast === "boolean"
-        ? parsedAlerts.minutelyForecast
-        : undefined;
-    const legacyPrecipDuration =
-      typeof parsedAlerts.precipDuration === "boolean" ? parsedAlerts.precipDuration : undefined;
-    const legacyErrorCenterEnabled =
-      typeof parsedAlerts.errorCenterEnabled === "boolean"
-        ? parsedAlerts.errorCenterEnabled
-        : undefined;
-    const legacyMergedMinutely =
-      legacyMinutelyForecast != null || legacyPrecipDuration != null
-        ? !!(legacyMinutelyForecast || legacyPrecipDuration)
-        : undefined;
-    const mergedStudyAlerts: AppSettings["study"]["alerts"] = {
-      weatherAlert:
-        typeof parsedAlerts.weatherAlert === "boolean"
-          ? parsedAlerts.weatherAlert
-          : DEFAULT_SETTINGS.study.alerts.weatherAlert,
-      minutelyPrecip:
-        typeof parsedAlerts.minutelyPrecip === "boolean"
-          ? parsedAlerts.minutelyPrecip
-          : (legacyMergedMinutely ?? DEFAULT_SETTINGS.study.alerts.minutelyPrecip),
-      errorPopup:
-        typeof parsedAlerts.errorPopup === "boolean"
-          ? parsedAlerts.errorPopup
-          : DEFAULT_SETTINGS.study.alerts.errorPopup,
-      errorCenterMode:
-        typeof parsedAlerts.errorCenterMode === "string" &&
-        ["off", "memory", "persist"].includes(parsedAlerts.errorCenterMode)
-          ? parsedAlerts.errorCenterMode
-          : legacyErrorCenterEnabled
-            ? "persist"
-            : DEFAULT_SETTINGS.study.alerts.errorCenterMode,
-      airQuality:
-        typeof parsedAlerts.airQuality === "boolean"
-          ? parsedAlerts.airQuality
-          : DEFAULT_SETTINGS.study.alerts.airQuality,
-      sunriseSunset:
-        typeof parsedAlerts.sunriseSunset === "boolean"
-          ? parsedAlerts.sunriseSunset
-          : DEFAULT_SETTINGS.study.alerts.sunriseSunset,
-    };
-
-    // 可以在此添加简单的版本检查或结构校验逻辑
-    // 目前先信任存储结构，如有新增字段则通过与默认配置合并补齐
-    // 此处的深度合并逻辑做了简化处理
-    const appearance = parsed.appearance
-      ? normalizeAppearance(parsed.appearance)
-      : migrateV1Appearance(parsed);
-    return {
-      ...DEFAULT_SETTINGS,
-      ...parsed,
-      version: CURRENT_SETTINGS_VERSION,
-      appearance,
-      general: {
-        ...DEFAULT_SETTINGS.general,
-        ...parsed.general,
-        startup: { ...DEFAULT_SETTINGS.general.startup, ...(parsed.general?.startup || {}) },
-        quote: { ...DEFAULT_SETTINGS.general.quote, ...(parsed.general?.quote || {}) },
-        announcement: {
-          ...DEFAULT_SETTINGS.general.announcement,
-          ...(parsed.general?.announcement || {}),
-        },
-        weather: { ...DEFAULT_SETTINGS.general.weather, ...(parsed.general?.weather || {}) },
-        timeSync: { ...DEFAULT_SETTINGS.general.timeSync, ...(parsed.general?.timeSync || {}) },
-        background: {
-          ...DEFAULT_SETTINGS.general.background,
-          ...(parsed.general?.background || {}),
-        },
-      },
-      study: {
-        ...DEFAULT_SETTINGS.study,
-        ...parsedStudy,
-        display: { ...DEFAULT_SETTINGS.study.display, ...(parsedStudy.display || {}) },
-        style: { ...DEFAULT_SETTINGS.study.style, ...(parsedStudy.style || {}) },
-        alerts: mergedStudyAlerts,
-        background: { ...DEFAULT_SETTINGS.study.background, ...(parsedStudy.background || {}) },
-      },
-      noiseControl: { ...DEFAULT_SETTINGS.noiseControl, ...parsed.noiseControl },
-    };
+    if (!raw) return createDefaultAppSettings();
+    return normalizeAppSettings(JSON.parse(raw));
   } catch (error) {
     if (error instanceof UnsupportedSettingsVersionError) throw error;
     logger.error("Failed to load AppSettings", error);
-    return DEFAULT_SETTINGS;
+    return createDefaultAppSettings();
   }
 }
 
@@ -461,14 +740,33 @@ export function updateAppSettings(
  */
 export function resetAppSettings(): void {
   try {
-    const settings = {
-      ...DEFAULT_SETTINGS,
-      modifiedAt: Date.now(),
-    };
-    localStorage.setItem(APP_SETTINGS_KEY, JSON.stringify(settings));
+    localStorage.setItem(APP_SETTINGS_KEY, JSON.stringify(createDefaultAppSettings()));
   } catch (error) {
     logger.error("Failed to reset AppSettings", error);
   }
+}
+
+export function resetAppSettingsPreservingUserContent(): AppSettings {
+  const current = getAppSettings();
+  const defaults = createDefaultAppSettings();
+  const next: AppSettings = {
+    ...defaults,
+    general: {
+      ...defaults.general,
+      quote: structuredClone(current.general.quote),
+    },
+    study: {
+      ...defaults.study,
+      targetYear: current.study.targetYear,
+      countdownType: current.study.countdownType,
+      countdownMode: current.study.countdownMode,
+      customCountdown: structuredClone(current.study.customCountdown),
+      countdownItems: structuredClone(current.study.countdownItems),
+      schedule: structuredClone(current.study.schedule),
+    },
+  };
+  localStorage.setItem(APP_SETTINGS_KEY, JSON.stringify(next));
+  return next;
 }
 
 /**
@@ -483,6 +781,24 @@ export function updateStudySettings(updates: DeepPartial<AppSettings["study"]>):
 export function updateGeneralSettings(updates: DeepPartial<AppSettings["general"]>): void {
   updateAppSettings({
     general: updates,
+  });
+}
+
+/** Persist the quote editor draft as one normalized v3 settings update. */
+export function saveQuoteSettings(
+  channels: readonly QuoteChannel[],
+  refreshState: QuoteSettingsState
+): void {
+  const serialized = serializeQuoteChannels(channels);
+  updateAppSettings({
+    general: {
+      quote: {
+        autoRefreshEnabled: Boolean(refreshState.autoRefreshEnabled),
+        autoRefreshIntervalSec: normalizeQuoteRefreshInterval(refreshState.autoRefreshIntervalSec),
+        channels: serialized.channels,
+        customChannels: serialized.customChannels,
+      },
+    },
   });
 }
 
@@ -517,18 +833,37 @@ export function replaceAppearanceSettings(appearance: AppearanceSettingsV2): voi
   updateAppSettings({ appearance: normalizeAppearance(appearance) });
 }
 
-/** Persist the normalized v2 structure before legacy keys are removed. */
+/** Persist the normalized versioned structure before legacy keys are removed. */
 export function migrateStoredAppSettings(): AppSettings {
   const raw = localStorage.getItem(APP_SETTINGS_KEY);
   if (!raw) {
     resetAppSettings();
     return getAppSettings();
   }
-  const parsed = JSON.parse(raw) as Record<string, unknown>;
+  let parsed: Record<string, unknown>;
+  try {
+    const candidate: unknown = JSON.parse(raw);
+    if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) {
+      throw new TypeError("AppSettings must be an object");
+    }
+    parsed = candidate as Record<string, unknown>;
+  } catch (error) {
+    logger.error("Stored AppSettings are invalid; restoring defaults", error);
+    quarantineAppSettings(raw, "invalid-json");
+    resetAppSettings();
+    return getAppSettings();
+  }
   const storedVersion = typeof parsed.version === "number" ? parsed.version : 1;
   if (storedVersion > CURRENT_SETTINGS_VERSION) {
-    throw new UnsupportedSettingsVersionError(storedVersion);
+    logger.warn(
+      `Stored AppSettings version ${storedVersion} is unsupported; restoring defaults after quarantine.`
+    );
+    quarantineAppSettings(raw, "unsupported-version");
+    resetAppSettings();
+    return getAppSettings();
   }
+  const parsedGeneral = isRecord(parsed.general) ? parsed.general : {};
+  migrateLegacyQuoteCursors(parsedGeneral.quote, storedVersion);
   const legacySource = parsed as unknown as Parameters<typeof migrateV1Appearance>[0];
   if (!parsed.appearance) {
     const study = (legacySource.study ??= {});
@@ -564,7 +899,9 @@ export function migrateStoredAppSettings(): AppSettings {
       ? normalizeAppearance(parsed.appearance)
       : migrateV1Appearance(legacySource),
   };
-  if (storedVersion < CURRENT_SETTINGS_VERSION || !parsed.appearance) {
+  const quoteNeedsNormalization =
+    JSON.stringify(parsedGeneral.quote) !== JSON.stringify(normalized.general.quote);
+  if (storedVersion < CURRENT_SETTINGS_VERSION || !parsed.appearance || quoteNeedsNormalization) {
     localStorage.setItem(APP_SETTINGS_KEY, JSON.stringify(normalized));
   }
   return normalized;

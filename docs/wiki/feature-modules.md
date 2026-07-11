@@ -108,14 +108,21 @@ UI、存储、网络请求和算法混在同一个组件中。
 
 ## 语录与频道
 
-语录模块支持多频道、刷新间隔、频道权重和展示配置。内置语录数据在 `src/data/`，频道
-状态和设置从 `appSettings.ts` 读取。
+语录模块通过统一注册表管理本地频道与一言、今日诗词、Advice Slip 三个在线频道，网络
+响应由各服务适配器转换为统一 `Quote` 模型。频道可独立启停和调权重，一言额外支持分类
+选择；自动刷新开关和 30 秒至 30 分钟的间隔由设置层持久化。
+
+在线获取由语录服务统一处理请求去重、提供商健康状态、跨源故障转移和最近 7 天的持久
+缓存。在线源均失败或处于离线状态时回退到本地数据，展示组件不直接拼装第三方请求。
 
 相关模块：
 
 - `src/components/MotivationalQuote/`：语录展示。
 - `src/components/QuoteChannelManager/`：频道管理。
+- `src/services/quotes/`：频道注册表、在线服务适配器、获取编排与运行时缓存。
+- `src/types/quote.ts`：统一语录、频道和提供商类型。
 - `src/data/quotes*.json`：内置语录数据。
+- `src/utils/appSettings.ts`：频道偏好和刷新设置的版本化持久化与迁移。
 - `src/contexts/AppContext.tsx`：语录频道和刷新设置状态。
 
 ## 设置、公告与引导

@@ -49,23 +49,18 @@ describe("apiGovernance", () => {
     await expect(p2).resolves.toBe(7);
   });
 
-  it("一言命中429后进入冷却窗口并拦截后续请求", async () => {
-    vi.spyOn(Math, "random").mockReturnValue(0);
+  it("时间同步请求绕过软缓存时仍遵守最小间隔", async () => {
+    const runner = vi.fn(async () => ({ timestamp: Date.now() }));
+    const options = {
+      apiClass: "timesync" as const,
+      requestKey: "timesync:https://worldtimeapi.org/api/timezone/Etc/UTC",
+      bypassSoftCache: true,
+    };
 
-    await expect(
-      executeGovernedRequest(
-        { apiClass: "hitokoto", requestKey: "hitokoto:https://v1.hitokoto.cn/" },
-        async () => {
-          throw new Error("HTTP 429 Too Many Requests");
-        }
-      )
-    ).rejects.toThrow("HTTP 429");
+    const first = await executeGovernedRequest(options, runner);
+    const second = await executeGovernedRequest(options, runner);
 
-    await expect(
-      executeGovernedRequest(
-        { apiClass: "hitokoto", requestKey: "hitokoto:https://v1.hitokoto.cn/" },
-        async () => ({ ok: true })
-      )
-    ).rejects.toThrow("API_GOVERNANCE_HITOKOTO_COOLDOWN");
+    expect(second).toEqual(first);
+    expect(runner).toHaveBeenCalledTimes(1);
   });
 });

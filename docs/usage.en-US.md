@@ -62,7 +62,8 @@ This document explains Immersive Clock features, operations, and details. Use th
   - Microphone calibration and baseline slider.
   - Auto pop report (on by default), preferences are persisted.
 - Quote settings:
-  - Channel management (kept: Literature, Poetry, Philosophy, Witty Lines); configurable refresh interval.
+  - Manage local channels and three independent online channels: Hitokoto, Jinrishici, and Advice Slip. Each channel can be enabled or disabled and assigned its own weight.
+  - Hitokoto supports Literature, Poetry, and Philosophy categories. Auto-refresh has a separate switch and an interval from 30 seconds to 30 minutes.
 - Schedule:
   - Add/Edit/Delete sessions; persisted to local storage.
 
@@ -80,13 +81,25 @@ This document explains Immersive Clock features, operations, and details. Use th
 
 ## Motivational Quotes & Channel Management
 
-- Multiple sources with adjustable refresh interval.
-- Online channels simplified to Literature, Poetry, Philosophy, and Witty Lines.
+- Online channels include Hitokoto, Jinrishici, and Advice Slip. Each can be enabled or disabled and assigned its own display weight; Hitokoto also supports Literature, Poetry, and Philosophy categories.
+- Hitokoto and Jinrishici provide Chinese content, while Advice Slip provides English content, so enabling multiple online channels may produce a mix of Chinese and English quotes.
+- Auto-refresh has a dedicated switch with an interval from 30 seconds to 30 minutes. Manual refresh tries online services first and keeps the current quote if all attempts fail.
+- If an online service is unavailable, the app tries other enabled and healthy online channels, persisted quotes from the last 7 days, and then local channels. Local quotes remain available offline.
+- Jinrishici's free service is limited to non-commercial use. It processes the device's public IP and, as recommended by the provider, stores a Token/Cookie on the device. The app only persists normalized quote content, not the raw IP, Token, or warning returned by the service.
+- This project does not guarantee third-party availability or content licensing. Follow each provider's terms and applicable content license when using online quotes.
 
 ## Schedule Management
 
 - Manage schedule in the Settings Panel; data is saved in local storage.
 - Suitable for campus projection and fixed-session study.
+
+## Local Data & Backups
+
+- Open **System Data -> Settings Data** to inspect settings, custom resources, noise history, cache, and diagnostics.
+- A full backup includes settings, custom backgrounds/fonts, and noise summaries; “Settings & Resources” excludes history.
+- Every restore is validated and previewed before confirmation, with no writes during preflight.
+- Cache, noise history, diagnostics, and unused resources can be cleared independently without a global `localStorage.clear()`.
+- Backups are unencrypted JSON files. See [Local Data Management](data-management.md) for exact boundaries.
 
 ## PWA Install & Offline
 

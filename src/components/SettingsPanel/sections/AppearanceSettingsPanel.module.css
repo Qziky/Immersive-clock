@@ -16,19 +16,54 @@
   grid-template-columns: minmax(72px, 0.35fr) minmax(0, 1fr);
 }
 
-.fontList {
+.resourceList {
   display: grid;
   gap: 6px;
   margin-top: 12px;
 }
 
-.fontRow {
+.resourceRow {
   align-items: center;
   border-top: 1px solid var(--ui-glass-border);
   display: flex;
+  gap: 12px;
   justify-content: space-between;
   min-height: 44px;
-  padding-top: 6px;
+  padding: 8px 0;
+}
+
+.resourceInfo {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
+}
+
+.resourceInfo strong {
+  overflow-wrap: anywhere;
+}
+
+.resourcePreview {
+  display: grid;
+  gap: 8px;
+  margin: 12px 0 0;
+  max-width: 420px;
+}
+
+.resourcePreview img {
+  aspect-ratio: 16 / 9;
+  background: var(--ui-color-bg);
+  border: 1px solid var(--ui-glass-border);
+  border-radius: var(--ui-radius-md);
+  max-height: 236px;
+  object-fit: contain;
+  width: 100%;
+}
+
+.resourcePreview figcaption {
+  color: var(--ui-color-text-subtle);
+  font-size: var(--ui-font-size-xs);
 }
 
 @media (max-width: 760px) {
@@ -38,5 +73,10 @@
 
   .colorFields {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .resourceRow {
+    align-items: stretch;
+    flex-direction: column;
   }
 }

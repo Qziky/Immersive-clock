@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { AppContextProvider } from "../../../contexts/AppContext";
-import { AppearanceProvider } from "../../../contexts/AppearanceContext";
+import { AppearanceProvider, useAppearance } from "../../../contexts/AppearanceContext";
 import { FeedbackProvider } from "../../../ui";
 import { SettingsPanel } from "../SettingsPanel";
 
@@ -94,10 +94,55 @@ vi.mock("../sections/AboutSettingsPanel", () => ({
   },
 }));
 
+vi.mock("../sections/DataSettingsPanel", () => ({
+  default: function DataSettingsPanelMock({
+    hasUnsavedAppearanceChanges,
+    onBusyChange,
+    onReloadRequired,
+  }: {
+    hasUnsavedAppearanceChanges: boolean;
+    onBusyChange: (isBusy: boolean) => void;
+    onReloadRequired: () => void;
+  }) {
+    return (
+      <div
+        data-testid="data-panel"
+        data-unsaved-appearance={hasUnsavedAppearanceChanges ? "true" : "false"}
+      >
+        <button type="button" onClick={() => onBusyChange(true)}>
+          模拟数据操作开始
+        </button>
+        <button type="button" onClick={() => onBusyChange(false)}>
+          模拟数据操作结束
+        </button>
+        <button type="button" onClick={onReloadRequired}>
+          模拟恢复并刷新
+        </button>
+      </div>
+    );
+  },
+}));
+
+function AppearanceDraftControl() {
+  const { updateAppearanceDraft } = useAppearance();
+  return (
+    <button
+      data-testid="make-appearance-dirty"
+      type="button"
+      onClick={() =>
+        updateAppearanceDraft(["global", "background"], { type: "color", color: "#123456" })
+      }
+    >
+      模拟外观草稿
+    </button>
+  );
+}
+
 function renderSettings(onClose = vi.fn()) {
   render(
     <AppContextProvider>
       <AppearanceProvider>
+        <AppearanceDraftControl />
         <FeedbackProvider>
           <SettingsPanel isOpen onClose={onClose} />
         </FeedbackProvider>
@@ -261,6 +306,69 @@ describe("SettingsPanel", () => {
 
     expect(saveCalls).toEqual([]);
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("数据恢复请求刷新时立即关闭并锁定设置底栏", () => {
+    vi.useFakeTimers();
+    const onClose = renderSettings();
+    const dialog = screen.getByRole("dialog", { name: "设置" });
+    const navigation = within(within(dialog).getByRole("complementary", { name: "设置导航" }));
+
+    fireEvent.click(navigation.getByRole("button", { name: /系统数据/ }));
+    fireEvent.click(navigation.getByRole("button", { name: "设置数据" }));
+    fireEvent.click(screen.getByRole("button", { name: "模拟恢复并刷新" }));
+
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(within(dialog).getByRole("button", { name: "取消" })).toBeDisabled();
+    expect(within(dialog).getByRole("button", { name: "保存" })).toBeDisabled();
+  });
+
+  it("数据操作期间锁定对话框关闭、导航和统一保存", () => {
+    saveCalls.length = 0;
+    const onClose = renderSettings();
+    const dialog = screen.getByRole("dialog", { name: "设置" });
+    const navigation = within(within(dialog).getByRole("complementary", { name: "设置导航" }));
+
+    fireEvent.click(navigation.getByRole("button", { name: /系统数据/ }));
+    fireEvent.click(navigation.getByRole("button", { name: "设置数据" }));
+    fireEvent.click(screen.getByRole("button", { name: "模拟数据操作开始" }));
+
+    expect(document.getElementById("settings-panel-container")).toHaveAttribute(
+      "aria-busy",
+      "true"
+    );
+    expect(navigation.getByRole("button", { name: /系统数据/ })).toBeDisabled();
+    expect(navigation.getByRole("button", { name: "设置数据" })).toBeDisabled();
+    expect(
+      within(within(dialog).getByRole("navigation", { name: "设置紧凑导航" })).getByRole("button", {
+        name: "系统数据",
+      })
+    ).toBeDisabled();
+    expect(within(dialog).getByRole("button", { name: "关闭设置" })).toBeDisabled();
+    expect(within(dialog).getByRole("button", { name: "取消" })).toBeDisabled();
+    expect(within(dialog).getByRole("button", { name: "保存" })).toBeDisabled();
+
+    fireEvent.keyDown(document, { key: "Escape" });
+    fireEvent.click(within(dialog).getByRole("button", { name: "取消" }));
+    expect(onClose).not.toHaveBeenCalled();
+    expect(saveCalls).toEqual([]);
+
+    fireEvent.click(screen.getByRole("button", { name: "模拟数据操作结束" }));
+    expect(document.getElementById("settings-panel-container")).not.toHaveAttribute("aria-busy");
+    expect(within(dialog).getByRole("button", { name: "取消" })).toBeEnabled();
+    expect(within(dialog).getByRole("button", { name: "保存" })).toBeEnabled();
+  });
+
+  it("把未保存的外观草稿状态传给数据面板", () => {
+    renderSettings();
+    fireEvent.click(screen.getByTestId("make-appearance-dirty"));
+
+    const dialog = screen.getByRole("dialog", { name: "设置" });
+    const navigation = within(within(dialog).getByRole("complementary", { name: "设置导航" }));
+    fireEvent.click(navigation.getByRole("button", { name: /系统数据/ }));
+    fireEvent.click(navigation.getByRole("button", { name: "设置数据" }));
+
+    expect(screen.getByTestId("data-panel")).toHaveAttribute("data-unsaved-appearance", "true");
   });
 
   it("退出动画期间重新打开会重置基础设置和课程表草稿", () => {

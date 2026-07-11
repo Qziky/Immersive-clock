@@ -100,8 +100,17 @@ test.describe("弹层重设计", () => {
         };
       });
       localStorage.setItem("noise-slices", JSON.stringify(slices));
-      window.dispatchEvent(new CustomEvent("noise-slices-updated"));
     });
+
+    await page.reload();
+    await showHud(page);
+    await page
+      .getByRole("tablist", { name: "选择时钟模式" })
+      .getByRole("tab", { name: /自习/ })
+      .click();
+    await page.getByRole("button", { name: /查看历史记录/ }).click();
+    await expect(reopenedHistory).toBeVisible();
+    await expect.poll(() => page.evaluate(() => localStorage.getItem("noise-slices"))).toBeNull();
 
     await reopenedHistory.getByText("自定义时间段报告").click();
     await reopenedHistory.getByRole("button", { name: "查看报告" }).click();

@@ -19,6 +19,15 @@ export interface InputProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 
   onFileChange?: (file: File | null) => void;
 }
 
+function getFileButtonAccessibleLabel(label: string | undefined, buttonText: string): string {
+  if (!label) return buttonText;
+  const labelSubject = label.startsWith("选择") ? label.slice(2) : label;
+  if (buttonText.includes(label) || (labelSubject && buttonText.includes(labelSubject))) {
+    return buttonText;
+  }
+  return `${label}：${buttonText}`;
+}
+
 export function Input({
   label,
   hint,
@@ -37,6 +46,8 @@ export function Input({
   const generatedId = useId();
   const inputId = id ?? generatedId;
   const hasAffix = Boolean(prefix || suffix);
+  const fileButtonAccessibleLabel =
+    props["aria-label"] ?? getFileButtonAccessibleLabel(label, buttonText);
 
   if (type === "file" || onFileChange || fileName !== undefined) {
     return (
@@ -47,7 +58,7 @@ export function Input({
               className={classNames(
                 styles.filePickerName,
                 !fileName && styles.filePickerEmpty,
-                invalid && styles.inputError,
+                invalid && styles.inputError
               )}
             >
               {fileName || props.placeholder || "未选择文件"}
@@ -57,6 +68,10 @@ export function Input({
               variant="secondary"
               size="sm"
               disabled={props.disabled}
+              aria-label={fileButtonAccessibleLabel}
+              aria-labelledby={props["aria-labelledby"]}
+              aria-describedby={describedBy}
+              aria-invalid={invalid || undefined}
               onClick={() => document.getElementById(controlId)?.click()}
             >
               {buttonText}
@@ -65,8 +80,8 @@ export function Input({
               className={styles.fileInput}
               id={controlId}
               type="file"
-              aria-invalid={invalid || undefined}
-              aria-describedby={describedBy}
+              aria-hidden="true"
+              tabIndex={-1}
               onChange={(event) => onFileChange?.(event.target.files?.[0] ?? null)}
               {...props}
             />
@@ -82,7 +97,7 @@ export function Input({
         <span
           className={classNames(
             hasAffix && styles.inputShell,
-            hasAffix && invalid && styles.inputError,
+            hasAffix && invalid && styles.inputError
           )}
         >
           {prefix && <span className={styles.inputAffix}>{prefix}</span>}
@@ -94,7 +109,7 @@ export function Input({
               (variant === "time" || type === "time") && styles.inputTime,
               (variant === "number" || type === "number") && styles.inputNumber,
               invalid && !hasAffix && styles.inputError,
-              className,
+              className
             )}
             id={controlId}
             type={type}

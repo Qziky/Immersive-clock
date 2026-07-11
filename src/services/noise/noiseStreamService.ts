@@ -160,7 +160,7 @@ async function hardStop() {
 
   try {
     const last = aggregatorFlush?.();
-    if (last) writeNoiseSlice(last);
+    if (last) await writeNoiseSlice(last);
   } catch {
     /* 忽略错误 */
   }
@@ -240,7 +240,9 @@ async function hardStart() {
 
         const slice = aggregator.onFrame(frame);
         if (slice) {
-          writeNoiseSlice(slice);
+          void Promise.resolve(writeNoiseSlice(slice)).catch(() => {
+            /* 单次持久化失败不应中断实时采集。 */
+          });
           snapshot = { ...snapshot, latestSlice: slice };
         }
 

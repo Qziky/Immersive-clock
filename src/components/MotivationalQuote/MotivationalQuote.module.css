@@ -1,12 +1,19 @@
 /* 励志语录：倒计时下方的低声量文本 */
 .motivationalQuote {
+  appearance: none;
   align-items: center;
+  background: transparent;
+  border: 0;
   border-radius: 6px;
+  color: inherit;
   cursor: pointer;
   display: flex;
+  font: inherit;
   justify-content: center;
   margin-top: 0;
+  min-height: 1.7rem;
   padding: 0.1rem 0 0;
+  text-align: center;
   width: 100%;
   -webkit-tap-highlight-color: transparent;
   transition:
@@ -39,6 +46,27 @@
   white-space: normal;
   word-break: break-word;
   word-wrap: break-word;
+}
+
+.quoteAttribution {
+  color: var(--study-text-tertiary, var(--study-muted, rgba(255, 255, 255, 0.64)));
+  display: inline;
+  font-family: var(--font-ui);
+  font-size: 0.82rem;
+  font-weight: 400;
+  line-height: 1.55;
+  margin-left: 0.45rem;
+  overflow-wrap: anywhere;
+}
+
+.screenReaderStatus {
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  height: 1px;
+  overflow: hidden;
+  position: absolute;
+  white-space: nowrap;
+  width: 1px;
 }
 
 .typing {
@@ -74,12 +102,23 @@
     font-size: 0.84rem;
     line-height: 1.48;
   }
+
+  .quoteAttribution {
+    font-size: 0.76rem;
+  }
 }
 
 @media (max-width: 480px) {
   .quoteText {
     font-size: 0.76rem;
     line-height: 1.42;
+  }
+
+  .quoteAttribution {
+    display: block;
+    font-size: 0.72rem;
+    margin-left: 0;
+    margin-top: 0.15rem;
   }
 }
 

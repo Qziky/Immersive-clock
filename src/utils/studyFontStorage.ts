@@ -1,4 +1,9 @@
-import { db } from "./db";
+import {
+  hashAppearanceAssetContent,
+  notifyAppearanceAssetsChanged,
+  removeAppearanceAsset,
+} from "./appearanceAssets";
+import { appearanceAssetMetadataDb, db } from "./db";
 
 /**
  * 学习页面字体存储与注入工具
@@ -13,6 +18,8 @@ export interface ImportedFontMeta {
   dataUrl: string;
   /** 字体格式 */
   format: "truetype" | "opentype" | "woff" | "woff2";
+  /** 字体正文哈希，用于避免重复导入 */
+  contentHash?: string;
 }
 
 const STORAGE_KEY = "study-fonts";
@@ -74,6 +81,18 @@ function inferFormatByFilename(name: string): ImportedFontMeta["format"] {
   return "woff";
 }
 
+function toFontMetadata(font: ImportedFontMeta) {
+  return {
+    id: font.id,
+    kind: "font" as const,
+    name: font.family,
+    mimeType: `font/${font.format}`,
+    family: font.family,
+    format: font.format,
+    ...(font.contentHash ? { contentHash: font.contentHash } : {}),
+  };
+}
+
 /**
  * 导入字体文件
  * @param file 字体文件（ttf/otf/woff/woff2）
@@ -95,10 +114,29 @@ export async function importFontFile(file: File, family: string): Promise<Import
     reader.readAsDataURL(file);
   });
 
-  const meta: ImportedFontMeta = { id, family, dataUrl, format: fmt };
+  const contentHash = await hashAppearanceAssetContent(dataUrl);
+  const existingFonts = await loadImportedFonts();
+  for (const font of existingFonts) {
+    if (font.family !== family || font.format !== fmt) continue;
+    if (font.dataUrl !== dataUrl) continue;
+    const withHash = font.contentHash === contentHash ? font : { ...font, contentHash };
+    if (font.contentHash !== contentHash) {
+      await Promise.all([
+        db.set(font.id, withHash),
+        appearanceAssetMetadataDb.set(font.id, toFontMetadata(withHash)),
+      ]);
+    }
+    injectFontFaces(
+      existingFonts.map((candidate) => (candidate.id === font.id ? withHash : candidate))
+    );
+    return withHash;
+  }
+
+  const meta: ImportedFontMeta = { id, family, dataUrl, format: fmt, contentHash };
 
   try {
-    await db.set(id, meta);
+    await Promise.all([db.set(id, meta), appearanceAssetMetadataDb.set(id, toFontMetadata(meta))]);
+    notifyAppearanceAssetsChanged();
     // 触发更新
     window.dispatchEvent(new CustomEvent("study-fonts-updated"));
 
@@ -154,11 +192,12 @@ export async function ensureInjectedFonts(): Promise<number> {
  */
 export async function removeImportedFont(id: string) {
   try {
-    await db.del(id);
+    await removeAppearanceAsset(id, "font");
     const next = await loadImportedFonts();
     injectFontFaces(next);
     window.dispatchEvent(new CustomEvent("study-fonts-updated"));
   } catch (e) {
     console.error("Failed to remove font:", e);
+    throw e;
   }
 }

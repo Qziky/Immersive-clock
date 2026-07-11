@@ -4,9 +4,11 @@
  */
 import { describe, it, expect, beforeEach, vi } from "vitest";
 
+import { getDefaultQuoteChannels } from "../../services/quotes/quoteRegistry";
 import { type AppAction, type AppState } from "../../types";
+import { APP_SETTINGS_KEY } from "../../utils/appSettings";
 import { nowMs } from "../../utils/timeSource";
-import { appReducer } from "../AppContext";
+import { appReducer, getInitialState } from "../AppContext";
 
 vi.mock("../../utils/timeSource");
 
@@ -14,6 +16,7 @@ describe("appReducer", () => {
   let state: AppState;
 
   beforeEach(() => {
+    localStorage.clear();
     state = {
       mode: "clock",
       isHudVisible: false,
@@ -46,10 +49,10 @@ describe("appReducer", () => {
       },
       quoteChannels: {
         channels: [],
-        lastUpdated: 0,
       },
       quoteSettings: {
-        autoRefreshInterval: 0,
+        autoRefreshEnabled: false,
+        autoRefreshIntervalSec: 600,
       },
       announcement: {
         isVisible: false,
@@ -187,6 +190,90 @@ describe("appReducer", () => {
       const newState = appReducer(state, action);
 
       expect(newState.stopwatch.elapsedTime).toBe(50);
+    });
+  });
+
+  describe("语录设置", () => {
+    it("初始化时会解析 v3 偏好、自定义频道和刷新状态", () => {
+      localStorage.setItem(
+        APP_SETTINGS_KEY,
+        JSON.stringify({
+          version: 3,
+          general: {
+            quote: {
+              autoRefreshEnabled: false,
+              autoRefreshIntervalSec: 90,
+              channels: [{ id: "hitokoto-api", enabled: false, weight: 23 }],
+              customChannels: [
+                {
+                  id: "custom-txt",
+                  name: "导入语录",
+                  enabled: true,
+                  weight: 7,
+                  quotes: ["自定义句子"],
+                  orderMode: "sequential",
+                },
+              ],
+            },
+          },
+        })
+      );
+
+      const initialState = getInitialState();
+
+      expect(initialState.quoteSettings).toEqual({
+        autoRefreshEnabled: false,
+        autoRefreshIntervalSec: 90,
+      });
+      expect(initialState.quoteChannels.channels).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            id: "hitokoto-api",
+            kind: "remote",
+            enabled: false,
+            weight: 23,
+          }),
+          expect.objectContaining({
+            id: "custom-txt",
+            kind: "local",
+            quotes: ["自定义句子"],
+            orderMode: "sequential",
+          }),
+        ])
+      );
+    });
+
+    it("UPDATE_QUOTE_CHANNELS 只更新内存状态且不写入存储", () => {
+      const channels = getDefaultQuoteChannels();
+      const setItemSpy = vi.spyOn(Storage.prototype, "setItem");
+
+      const newState = appReducer(state, { type: "UPDATE_QUOTE_CHANNELS", payload: channels });
+
+      expect(newState.quoteChannels).toEqual({ channels });
+      expect(state.quoteChannels).toEqual({ channels: [] });
+      expect(setItemSpy).not.toHaveBeenCalled();
+      setItemSpy.mockRestore();
+    });
+
+    it("SET_QUOTE_REFRESH_SETTINGS 只更新完整刷新状态且不写入存储", () => {
+      const setItemSpy = vi.spyOn(Storage.prototype, "setItem");
+      const refreshSettings = {
+        autoRefreshEnabled: true,
+        autoRefreshIntervalSec: 1800,
+      };
+
+      const newState = appReducer(state, {
+        type: "SET_QUOTE_REFRESH_SETTINGS",
+        payload: refreshSettings,
+      });
+
+      expect(newState.quoteSettings).toEqual(refreshSettings);
+      expect(state.quoteSettings).toEqual({
+        autoRefreshEnabled: false,
+        autoRefreshIntervalSec: 600,
+      });
+      expect(setItemSpy).not.toHaveBeenCalled();
+      setItemSpy.mockRestore();
     });
   });
 

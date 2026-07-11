@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useReducer, ReactNode } from "react";
 
 import { STOPWATCH_TICK_MS } from "../constants/timer";
+import { resolveQuoteChannels } from "../services/quotes/quoteRegistry";
 import { AppState, AppAction, StudyState, QuoteChannelState, QuoteSettingsState } from "../types";
 import { getAppSettings, updateAppSettings, updateStudySettings } from "../utils/appSettings";
 import { setErrorCenterMode } from "../utils/errorCenter";
@@ -13,7 +14,8 @@ import { nowMs } from "../utils/timeSource";
 function loadQuoteSettingsState(): QuoteSettingsState {
   const settings = getAppSettings();
   return {
-    autoRefreshInterval: settings.general.quote.autoRefreshInterval,
+    autoRefreshEnabled: settings.general.quote.autoRefreshEnabled,
+    autoRefreshIntervalSec: settings.general.quote.autoRefreshIntervalSec,
   };
 }
 
@@ -23,8 +25,10 @@ function loadQuoteSettingsState(): QuoteSettingsState {
 function loadQuoteChannelState(): QuoteChannelState {
   const settings = getAppSettings();
   return {
-    channels: settings.general.quote.channels,
-    lastUpdated: settings.general.quote.lastUpdated,
+    channels: resolveQuoteChannels(
+      settings.general.quote.channels,
+      settings.general.quote.customChannels
+    ),
   };
 }
 
@@ -423,165 +427,15 @@ function appReducer(state: AppState, action: AppAction): AppState {
       };
 
     case "UPDATE_QUOTE_CHANNELS":
-      const newQuoteChannelState = {
-        channels: action.payload,
-        lastUpdated: Date.now(),
-      };
-      // 保存到本地存储
-      updateAppSettings((current) => ({
-        general: {
-          ...current.general,
-          quote: {
-            ...current.general.quote,
-            channels: action.payload,
-            lastUpdated: Date.now(),
-          },
-        },
-      }));
       return {
         ...state,
-        quoteChannels: newQuoteChannelState,
+        quoteChannels: { channels: action.payload },
       };
 
-    case "TOGGLE_QUOTE_CHANNEL":
-      const updatedChannels = state.quoteChannels.channels.map((channel) =>
-        channel.id === action.payload ? { ...channel, enabled: !channel.enabled } : channel
-      );
-      const toggledChannelState = {
-        channels: updatedChannels,
-        lastUpdated: Date.now(),
-      };
-      updateAppSettings((current) => ({
-        general: {
-          ...current.general,
-          quote: {
-            ...current.general.quote,
-            channels: updatedChannels,
-            lastUpdated: Date.now(),
-          },
-        },
-      }));
+    case "SET_QUOTE_REFRESH_SETTINGS":
       return {
         ...state,
-        quoteChannels: toggledChannelState,
-      };
-
-    case "UPDATE_QUOTE_CHANNEL_WEIGHT":
-      const weightUpdatedChannels = state.quoteChannels.channels.map((channel) =>
-        channel.id === action.payload.id ? { ...channel, weight: action.payload.weight } : channel
-      );
-      const weightUpdatedState = {
-        channels: weightUpdatedChannels,
-        lastUpdated: Date.now(),
-      };
-      updateAppSettings((current) => ({
-        general: {
-          ...current.general,
-          quote: {
-            ...current.general.quote,
-            channels: weightUpdatedChannels,
-            lastUpdated: Date.now(),
-          },
-        },
-      }));
-      return {
-        ...state,
-        quoteChannels: weightUpdatedState,
-      };
-
-    case "UPDATE_QUOTE_CHANNEL_CATEGORIES":
-      const categoriesUpdatedChannels = state.quoteChannels.channels.map((channel) =>
-        channel.id === action.payload.id
-          ? { ...channel, hitokotoCategories: action.payload.categories }
-          : channel
-      );
-      const categoriesUpdatedState = {
-        channels: categoriesUpdatedChannels,
-        lastUpdated: Date.now(),
-      };
-      updateAppSettings((current) => ({
-        general: {
-          ...current.general,
-          quote: {
-            ...current.general.quote,
-            channels: categoriesUpdatedChannels,
-            lastUpdated: Date.now(),
-          },
-        },
-      }));
-      return {
-        ...state,
-        quoteChannels: categoriesUpdatedState,
-      };
-
-    case "UPDATE_QUOTE_CHANNEL_ORDER_MODE":
-      const orderModeUpdatedChannels = state.quoteChannels.channels.map((channel) =>
-        channel.id === action.payload.id
-          ? { ...channel, orderMode: action.payload.orderMode }
-          : channel
-      );
-      const orderModeUpdatedState = {
-        channels: orderModeUpdatedChannels,
-        lastUpdated: Date.now(),
-      };
-      updateAppSettings((current) => ({
-        general: {
-          ...current.general,
-          quote: {
-            ...current.general.quote,
-            channels: orderModeUpdatedChannels,
-            lastUpdated: Date.now(),
-          },
-        },
-      }));
-      return {
-        ...state,
-        quoteChannels: orderModeUpdatedState,
-      };
-
-    case "UPDATE_QUOTE_CHANNEL_INDEX":
-      const indexUpdatedChannels = state.quoteChannels.channels.map((channel) =>
-        channel.id === action.payload.id
-          ? { ...channel, currentQuoteIndex: action.payload.index }
-          : channel
-      );
-      const indexUpdatedState = {
-        channels: indexUpdatedChannels,
-        lastUpdated: Date.now(),
-      };
-      updateAppSettings((current) => ({
-        general: {
-          ...current.general,
-          quote: {
-            ...current.general.quote,
-            channels: indexUpdatedChannels,
-            lastUpdated: Date.now(),
-          },
-        },
-      }));
-      return {
-        ...state,
-        quoteChannels: indexUpdatedState,
-      };
-
-    case "SET_QUOTE_AUTO_REFRESH_INTERVAL":
-      const newQuoteSettings = {
-        ...state.quoteSettings,
-        autoRefreshInterval: action.payload,
-      };
-      // 保存到本地存储
-      updateAppSettings((current) => ({
-        general: {
-          ...current.general,
-          quote: {
-            ...current.general.quote,
-            autoRefreshInterval: action.payload,
-          },
-        },
-      }));
-      return {
-        ...state,
-        quoteSettings: newQuoteSettings,
+        quoteSettings: action.payload,
       };
 
     default:

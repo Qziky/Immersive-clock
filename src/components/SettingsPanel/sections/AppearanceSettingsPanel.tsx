@@ -1,5 +1,6 @@
 import {
   Brush,
+  Eye,
   FileText,
   Image as ImageIcon,
   Palette,
@@ -31,21 +32,25 @@ import {
   SettingGrid,
   SettingItem,
   Slider as FormSlider,
+  StatusPill,
   Switch as FormSwitch,
   useFeedback,
 } from "../../../ui";
-import { saveBackgroundAsset } from "../../../utils/appearanceAssets";
+import {
+  type AppearanceBackgroundMetadata,
+  type AppearanceFontMetadata,
+  loadAppearanceAssetCatalog,
+  loadBackgroundAsset,
+  removeAppearanceAsset,
+  saveBackgroundAsset,
+  subscribeAppearanceAssetsChanged,
+} from "../../../utils/appearanceAssets";
 import {
   APPEARANCE_COMPONENTS,
   resolveAppearanceBackground,
   resolveAppearanceEditorStyle,
 } from "../../../utils/appearanceModel";
-import {
-  importFontFile,
-  loadImportedFonts,
-  removeImportedFont,
-  type ImportedFontMeta,
-} from "../../../utils/studyFontStorage";
+import { importFontFile, removeImportedFont } from "../../../utils/studyFontStorage";
 
 import styles from "./AppearanceSettingsPanel.module.css";
 
@@ -102,7 +107,7 @@ function fontValue(font: FontReference | undefined): string {
 
 function fontFromValue(
   value: string,
-  importedFonts: ImportedFontMeta[]
+  importedFonts: AppearanceFontMetadata[]
 ): FontReference | undefined {
   if (!value) return undefined;
   const [source, ...idParts] = value.split(":");
@@ -113,6 +118,26 @@ function fontFromValue(
   }
   if (source === "builtin") return { id, family: id, source: "builtin" };
   return undefined;
+}
+
+function collectAppearanceResourceIds(
+  appearance: ReturnType<typeof useAppearance>["activeAppearance"]
+): { backgrounds: Set<string>; fonts: Set<string> } {
+  const backgrounds = new Set<string>();
+  const fonts = new Set<string>();
+  const visit = (value: unknown): void => {
+    if (Array.isArray(value)) {
+      value.forEach(visit);
+      return;
+    }
+    if (!value || typeof value !== "object") return;
+    const record = value as Record<string, unknown>;
+    if (typeof record.assetId === "string") backgrounds.add(record.assetId);
+    if (record.source === "imported" && typeof record.id === "string") fonts.add(record.id);
+    Object.values(record).forEach(visit);
+  };
+  visit(appearance);
+  return { backgrounds, fonts };
 }
 
 function contrastRatio(foreground: string, background: string): number {
@@ -139,6 +164,7 @@ function contrastRatio(foreground: string, background: string): number {
 }
 
 interface BackgroundEditorProps {
+  assets: AppearanceBackgroundMetadata[];
   background: AppearanceBackground;
   description: string;
   path: readonly string[];
@@ -149,6 +175,7 @@ interface BackgroundEditorProps {
 }
 
 function BackgroundEditor({
+  assets,
   background,
   description,
   path,
@@ -200,6 +227,23 @@ function BackgroundEditor({
       )}
       {background.type === "image" && (
         <SettingItem icon={<Upload size={18} />} title="背景图片">
+          <Dropdown
+            label="已导入背景"
+            placeholder={assets.length > 0 ? "选择已导入背景" : "暂无已导入背景"}
+            value={background.assetId}
+            options={assets.map((asset) => ({ label: asset.name, value: asset.id }))}
+            disabled={assets.length === 0}
+            searchable={assets.length > 8}
+            onChange={(value) => {
+              const asset = assets.find((candidate) => candidate.id === value);
+              if (!asset) return;
+              onUpdate(path, {
+                type: "image",
+                assetId: asset.id,
+                imageFileName: asset.name,
+              });
+            }}
+          />
           <FormInput
             label="选择图片"
             type="file"
@@ -266,7 +310,14 @@ export function AppearanceSettingsPanel({ section = "basic" }: AppearanceSetting
   const [slot, setSlot] = useState(slotOptions[0]?.value ?? "");
   const [state, setState] = useState("");
   const [instanceId, setInstanceId] = useState("");
-  const [fonts, setFonts] = useState<ImportedFontMeta[]>([]);
+  const [fonts, setFonts] = useState<AppearanceFontMetadata[]>([]);
+  const [backgroundAssets, setBackgroundAssets] = useState<AppearanceBackgroundMetadata[]>([]);
+  const [previewedBackground, setPreviewedBackground] = useState<{
+    id: string;
+    name: string;
+    dataUrl: string;
+  } | null>(null);
+  const [resourceOperation, setResourceOperation] = useState<string | null>(null);
   const [fontAlias, setFontAlias] = useState("");
   const [fontFile, setFontFile] = useState<File | null>(null);
   const countdownItems = study.countdownItems ?? [];
@@ -291,10 +342,34 @@ export function AppearanceSettingsPanel({ section = "basic" }: AppearanceSetting
   const currentBackground = resolveAppearanceBackground(activeAppearance, scene);
   const pageBackground = activeAppearance.scenes[scene].background;
   const isInheriting = Object.keys(currentOverrideStyle).length === 0;
+  const referencedResources = useMemo(
+    () => collectAppearanceResourceIds(activeAppearance),
+    [activeAppearance]
+  );
 
   useEffect(() => {
     beginAppearancePreview(mode);
-    void loadImportedFonts().then(setFonts);
+    let active = true;
+    const refreshAssets = async () => {
+      try {
+        const catalog = await loadAppearanceAssetCatalog();
+        if (!active) return;
+        setFonts(catalog.fonts);
+        setBackgroundAssets(catalog.backgrounds);
+      } catch {
+        if (!active) return;
+        setFonts([]);
+        setBackgroundAssets([]);
+      }
+    };
+    void refreshAssets();
+    const unsubscribe = subscribeAppearanceAssetsChanged(() => {
+      void refreshAssets();
+    });
+    return () => {
+      active = false;
+      unsubscribe();
+    };
   }, [beginAppearancePreview, mode]);
 
   useEffect(() => {
@@ -369,7 +444,6 @@ export function AppearanceSettingsPanel({ section = "basic" }: AppearanceSetting
     }
     try {
       await importFontFile(fontFile, fontAlias.trim());
-      setFonts(await loadImportedFonts());
       setFontAlias("");
       setFontFile(null);
       notify({ variant: "success", title: "字体已导入" });
@@ -405,6 +479,65 @@ export function AppearanceSettingsPanel({ section = "basic" }: AppearanceSetting
       title: "背景图片导入失败",
       description: error instanceof Error ? error.message : "无法读取图片",
     });
+  };
+
+  const handlePreviewBackground = async (asset: AppearanceBackgroundMetadata) => {
+    setResourceOperation(`preview:${asset.id}`);
+    try {
+      const stored = await loadBackgroundAsset(asset.id);
+      if (!stored) throw new Error("背景资源不存在或已被清理");
+      setPreviewedBackground({ id: asset.id, name: asset.name, dataUrl: stored.dataUrl });
+    } catch (error) {
+      reportBackgroundError(error);
+    } finally {
+      setResourceOperation(null);
+    }
+  };
+
+  const handleApplyBackground = (asset: AppearanceBackgroundMetadata) => {
+    updateAppearanceDraft(["global", "background"], {
+      type: "image",
+      assetId: asset.id,
+      imageFileName: asset.name,
+    });
+    notify({
+      variant: "success",
+      title: "背景已应用到草稿",
+      description: "保存设置后将作为基本背景使用。",
+    });
+  };
+
+  const handleDeleteResource = async (
+    asset: AppearanceBackgroundMetadata | AppearanceFontMetadata
+  ) => {
+    const isUsed =
+      asset.kind === "background"
+        ? referencedResources.backgrounds.has(asset.id)
+        : referencedResources.fonts.has(asset.id);
+    if (isUsed || resourceOperation) return;
+    const accepted = await confirm({
+      title: `删除${asset.kind === "background" ? "背景" : "字体"}资源`,
+      description: `“${asset.name}”当前未被外观设置引用，删除后无法撤销。`,
+      confirmLabel: "删除资源",
+      variant: "danger",
+    });
+    if (!accepted) return;
+
+    setResourceOperation(`delete:${asset.id}`);
+    try {
+      if (asset.kind === "font") await removeImportedFont(asset.id);
+      else await removeAppearanceAsset(asset.id, "background");
+      if (previewedBackground?.id === asset.id) setPreviewedBackground(null);
+      notify({ variant: "success", title: "资源已删除" });
+    } catch (error) {
+      notify({
+        variant: "danger",
+        title: "删除资源失败",
+        description: error instanceof Error ? error.message : "无法删除本地资源",
+      });
+    } finally {
+      setResourceOperation(null);
+    }
   };
 
   return (
@@ -455,6 +588,7 @@ export function AppearanceSettingsPanel({ section = "basic" }: AppearanceSetting
           </FormSection>
 
           <BackgroundEditor
+            assets={backgroundAssets}
             title="基本背景"
             description="作为四个内容页面的默认背景；页面单独设置后优先使用页面背景。"
             background={activeAppearance.global.background}
@@ -481,24 +615,101 @@ export function AppearanceSettingsPanel({ section = "basic" }: AppearanceSetting
             <FormButton icon={<Upload size={16} />} onClick={handleFontImport}>
               导入字体
             </FormButton>
-            {fonts.length > 0 && (
-              <div className={styles.fontList}>
-                {fonts.map((font) => (
-                  <div key={font.id} className={styles.fontRow}>
-                    <span style={{ fontFamily: font.family }}>{font.family}</span>
-                    <FormButton
-                      variant="secondary"
-                      icon={<Trash2 size={15} />}
-                      aria-label={`删除字体 ${font.family}`}
-                      onClick={async () => {
-                        await removeImportedFont(font.id);
-                        setFonts(await loadImportedFonts());
-                      }}
-                    />
-                  </div>
-                ))}
+          </FormSection>
+
+          <FormSection
+            title="资源清单"
+            description="查看资源状态、预览或重新应用背景，并删除未使用的本地资源。"
+          >
+            {backgroundAssets.length === 0 && fonts.length === 0 ? (
+              <InfoPanel tone="neutral">暂无已导入资源。</InfoPanel>
+            ) : (
+              <div className={styles.resourceList}>
+                {backgroundAssets.map((asset) => {
+                  const isUsed = referencedResources.backgrounds.has(asset.id);
+                  return (
+                    <div
+                      key={`background:${asset.id}`}
+                      className={styles.resourceRow}
+                      aria-label={`背景资源 ${asset.name}`}
+                    >
+                      <div className={styles.resourceInfo}>
+                        <strong>{asset.name}</strong>
+                        <StatusPill tone={isUsed ? "success" : "neutral"}>
+                          {isUsed ? "正在使用" : "未使用"}
+                        </StatusPill>
+                      </div>
+                      <FormButtonGroup gap="sm" align="left">
+                        <FormButton
+                          size="sm"
+                          variant="secondary"
+                          icon={<Eye size={15} />}
+                          loading={resourceOperation === `preview:${asset.id}`}
+                          disabled={resourceOperation !== null}
+                          aria-label={`预览背景 ${asset.name}`}
+                          onClick={() => void handlePreviewBackground(asset)}
+                        >
+                          预览
+                        </FormButton>
+                        <FormButton
+                          size="sm"
+                          variant="secondary"
+                          icon={<RotateCcw size={15} />}
+                          disabled={resourceOperation !== null}
+                          aria-label={`应用背景 ${asset.name}`}
+                          onClick={() => handleApplyBackground(asset)}
+                        >
+                          应用
+                        </FormButton>
+                        <FormButton
+                          size="sm"
+                          variant="danger"
+                          icon={<Trash2 size={15} />}
+                          loading={resourceOperation === `delete:${asset.id}`}
+                          disabled={isUsed || resourceOperation !== null}
+                          aria-label={`删除背景 ${asset.name}`}
+                          title={isUsed ? "正在使用的资源不能删除" : "删除背景"}
+                          onClick={() => void handleDeleteResource(asset)}
+                        />
+                      </FormButtonGroup>
+                    </div>
+                  );
+                })}
+                {fonts.map((font) => {
+                  const isUsed = referencedResources.fonts.has(font.id);
+                  return (
+                    <div
+                      key={`font:${font.id}`}
+                      className={styles.resourceRow}
+                      aria-label={`字体资源 ${font.family}`}
+                    >
+                      <div className={styles.resourceInfo}>
+                        <strong style={{ fontFamily: font.family }}>{font.family}</strong>
+                        <StatusPill tone={isUsed ? "success" : "neutral"}>
+                          {isUsed ? "正在使用" : "未使用"}
+                        </StatusPill>
+                      </div>
+                      <FormButton
+                        size="sm"
+                        variant="danger"
+                        icon={<Trash2 size={15} />}
+                        loading={resourceOperation === `delete:${font.id}`}
+                        disabled={isUsed || resourceOperation !== null}
+                        aria-label={`删除字体 ${font.family}`}
+                        title={isUsed ? "正在使用的资源不能删除" : "删除字体"}
+                        onClick={() => void handleDeleteResource(font)}
+                      />
+                    </div>
+                  );
+                })}
               </div>
             )}
+            {previewedBackground ? (
+              <figure className={styles.resourcePreview}>
+                <img src={previewedBackground.dataUrl} alt={`${previewedBackground.name}预览`} />
+                <figcaption>{previewedBackground.name}</figcaption>
+              </figure>
+            ) : null}
           </FormSection>
         </>
       )}
@@ -757,6 +968,7 @@ export function AppearanceSettingsPanel({ section = "basic" }: AppearanceSetting
           </FormSection>
 
           <BackgroundEditor
+            assets={backgroundAssets}
             title={`${SCENE_LABELS[scene]}页面背景`}
             description="此页面设置高于基本背景；选择继承基本设置可恢复统一背景。"
             background={pageBackground}

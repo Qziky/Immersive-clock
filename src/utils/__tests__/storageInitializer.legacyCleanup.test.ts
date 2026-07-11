@@ -43,15 +43,23 @@ describe("storageInitializer - legacy cleanup", () => {
     (globalThis as unknown as { localStorage: Storage }).localStorage = originalLocalStorage;
   });
 
-  it("initializeStorage 会清理已知 legacy 键", () => {
+  it("initializeStorage 只清理已知 legacy 键并保留当前接口治理状态", () => {
     localStorage.setItem("AppSettings", JSON.stringify({ version: 1, modifiedAt: 1 }));
     localStorage.setItem("quote-auto-refresh-interval", "123");
+    localStorage.setItem("api-governance.hitokoto.block-until", "999999");
+    localStorage.setItem("api-governance.hitokoto.backoff-level", "3");
+    localStorage.setItem("api-governance.hitokoto.device-seed", "42");
+    localStorage.setItem("api-governance.hitokoto.unknown-owner-key", "keep");
     localStorage.setItem("weather.city", "Shanghai");
     localStorage.setItem("noise-control-max-level-db", "55");
 
     initializeStorage();
 
     expect(localStorage.getItem("quote-auto-refresh-interval")).toBeNull();
+    expect(localStorage.getItem("api-governance.hitokoto.block-until")).toBe("999999");
+    expect(localStorage.getItem("api-governance.hitokoto.backoff-level")).toBe("3");
+    expect(localStorage.getItem("api-governance.hitokoto.device-seed")).toBe("42");
+    expect(localStorage.getItem("api-governance.hitokoto.unknown-owner-key")).toBe("keep");
     expect(localStorage.getItem("weather.city")).toBeNull();
     expect(localStorage.getItem("noise-control-max-level-db")).toBeNull();
     expect(localStorage.getItem("AppSettings")).not.toBeNull();

@@ -1,3 +1,5 @@
+import type { QuoteChannelState, QuoteSettingsState } from "./quote";
+
 /**
  * 公告选项卡类型
  */
@@ -175,92 +177,14 @@ export interface StudyState {
   sunriseSunsetAlertEnabled?: boolean;
 }
 
-/**
- * 一言分类类型
- * 只保留文学、哲学、诗词、抖机灵四个分类
- */
-export type HitokotoCategory = "d" | "i" | "k" | "l";
-
-/**
- * 一言分类映射
- */
-export const HITOKOTO_CATEGORIES: Record<HitokotoCategory, string> = {
-  d: "文学",
-  i: "诗词",
-  k: "哲学",
-  l: "抖机灵",
-};
-
-/**
- * 一言分类数组（用于遍历）
- * 按照文化内涵排序：文学 -> 诗词 -> 哲学 -> 抖机灵
- */
-export const HITOKOTO_CATEGORY_LIST: Array<{ key: HitokotoCategory; name: string }> = [
-  { key: "d", name: "文学" },
-  { key: "i", name: "诗词" },
-  { key: "k", name: "哲学" },
-  { key: "l", name: "抖机灵" },
-];
-
-/**
- * 语录数据源配置类型
- */
-export interface QuoteSourceConfig {
-  /** 数据源ID */
-  id: string;
-  /** 数据源名称 */
-  name: string;
-  /** 权重值 1-9999 */
-  weight: number;
-  /** 是否启用 */
-  enabled: boolean;
-  /** 是否线上拉取 */
-  onlineFetch: boolean;
-  /** API 地址（如适用） */
-  apiEndpoint?: string;
-  /** 一言分类选择（仅当为一言API时） */
-  hitokotoCategories?: HitokotoCategory[];
-  /** 本地语录 */
-  quotes?: string[];
-  /** 语录选取模式：随机或顺序（仅本地语录有效） */
-  orderMode?: "random" | "sequential";
-  /** 当前播放索引（仅顺序模式有效） */
-  currentQuoteIndex?: number;
-}
-
-/**
- * 语录渠道管理状态
- */
-export interface QuoteChannelState {
-  /** 渠道配置列表 */
-  channels: QuoteSourceConfig[];
-  /** 最后更新时间 */
-  lastUpdated: number;
-}
-
-/**
- * 一言 API 返回数据类型
- */
-export interface HitokotoResponse {
-  /** 一言正文 */
-  hitokoto: string;
-  /** 分类 */
-  type?: string;
-  /** 来源 */
-  from?: string;
-  /** 作者 */
-  from_who?: string | null;
-  /** 一言标识 */
-  id?: number;
-}
-
-/**
- * 语录设置状态
- */
-export interface QuoteSettingsState {
-  /** 自动刷新间隔（秒），0表示关闭自动刷新 */
-  autoRefreshInterval: number;
-}
+export type {
+  HitokotoCategory,
+  Quote,
+  QuoteChannel,
+  QuoteChannelState,
+  QuoteSettingsState,
+} from "./quote";
+export { HITOKOTO_CATEGORIES, HITOKOTO_CATEGORY_LIST } from "./quote";
 
 /**
  * 应用全局状态接口
@@ -307,19 +231,11 @@ export type AppAction =
   | { type: "SET_TARGET_YEAR"; payload: number }
   | { type: "SET_COUNTDOWN_TYPE"; payload: "gaokao" | "custom" }
   | { type: "SET_CUSTOM_COUNTDOWN"; payload: { name: string; date: string } }
-  | { type: "UPDATE_QUOTE_CHANNELS"; payload: QuoteSourceConfig[] }
-  | { type: "TOGGLE_QUOTE_CHANNEL"; payload: string }
-  | { type: "UPDATE_QUOTE_CHANNEL_WEIGHT"; payload: { id: string; weight: number } }
+  | { type: "UPDATE_QUOTE_CHANNELS"; payload: import("./quote").QuoteChannel[] }
   | {
-      type: "UPDATE_QUOTE_CHANNEL_CATEGORIES";
-      payload: { id: string; categories: HitokotoCategory[] };
+      type: "SET_QUOTE_REFRESH_SETTINGS";
+      payload: import("./quote").QuoteSettingsState;
     }
-  | {
-      type: "UPDATE_QUOTE_CHANNEL_ORDER_MODE";
-      payload: { id: string; orderMode: "random" | "sequential" };
-    }
-  | { type: "UPDATE_QUOTE_CHANNEL_INDEX"; payload: { id: string; index: number } }
-  | { type: "SET_QUOTE_AUTO_REFRESH_INTERVAL"; payload: number }
   | { type: "SHOW_ANNOUNCEMENT" }
   | { type: "HIDE_ANNOUNCEMENT" }
   | { type: "SET_ANNOUNCEMENT_TAB"; payload: AnnouncementTab }

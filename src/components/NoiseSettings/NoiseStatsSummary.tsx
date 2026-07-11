@@ -35,18 +35,32 @@ function clampFiniteNumber(v: number, fallback: number) {
 }
 
 export const NoiseStatsSummary: React.FC = () => {
-  const [tick, setTick] = useState(0);
+  const [settingsTick, setSettingsTick] = useState(0);
+  const [storedLatestSlice, setStoredLatestSlice] = useState<NoiseSliceSummary | null>(null);
   const [latestSlice, setLatestSlice] = useState<NoiseSliceSummary | null>(null);
 
   useEffect(() => {
-    const unsubscribe = subscribeNoiseSlicesUpdated(() => setTick((t) => t + 1));
-    setTick((t) => t + 1);
-    return unsubscribe;
+    let active = true;
+    const refresh = () => {
+      void readNoiseSlices({ direction: "desc", limit: 1 })
+        .then((slices) => {
+          if (active) setStoredLatestSlice(slices[0] ?? null);
+        })
+        .catch(() => {
+          if (active) setStoredLatestSlice(null);
+        });
+    };
+    const unsubscribe = subscribeNoiseSlicesUpdated(refresh);
+    refresh();
+    return () => {
+      active = false;
+      unsubscribe();
+    };
   }, []);
 
   useEffect(() => {
     const off = subscribeSettingsEvent(SETTINGS_EVENTS.NoiseControlSettingsUpdated, () =>
-      setTick((t) => t + 1)
+      setSettingsTick((tick) => tick + 1)
     );
     return off;
   }, []);
@@ -67,18 +81,14 @@ export const NoiseStatsSummary: React.FC = () => {
   }, []);
 
   const displaySlice = useMemo(() => {
-    void tick;
     if (latestSlice) return latestSlice;
-    const slices = readNoiseSlices()
-      .slice()
-      .sort((a, b) => b.start - a.start);
-    return slices[0] ?? null;
-  }, [latestSlice, tick]);
+    return storedLatestSlice;
+  }, [latestSlice, storedLatestSlice]);
 
   const thresholdDb = useMemo(() => {
-    void tick;
+    void settingsTick;
     return getNoiseControlSettings().maxLevelDb;
-  }, [tick]);
+  }, [settingsTick]);
 
   return (
     <>

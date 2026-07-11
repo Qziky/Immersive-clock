@@ -34,6 +34,19 @@ Immersive Clock 是一个单页 React 应用，同时支持 Web/PWA 和 Electron
 倒计时和秒表的实时刷新尽量在组件或 hook 中局部处理，避免把高频 tick 全部压到全局
 reducer。时间同步由 `src/utils/timeSync.ts` 管理，主页面挂载后启动。
 
+### 本地数据中心
+
+`src/services/dataManagement.ts` 是设置页数据操作的统一边界。它通过
+`dataDomainRegistry` 管理设置与用户内容、自定义资源、噪声历史、缓存、诊断记录和设备
+状态六个数据域；`DataSettingsPanel` 只调用服务接口，不直接清理 localStorage、IndexedDB
+或 CacheStorage。清理操作使用注册键和已知缓存名称白名单，未知同源数据不属于应用数据域。
+
+备份协议将设置、自定义资源和可选的噪声历史按域版本封装；恢复先完成解析、迁移和完整
+校验，再按替换语义提交，并在写入失败时尝试恢复原设置、资源和历史。噪声切片的主存储为
+IndexedDB `noise-history` Store，按 `end` 索引查询；旧 `noise-slices` localStorage 数据在首次
+使用时幂等迁移，IndexedDB 不可用时才保留兼容回退。完整的数据归属、备份内容与清理边界
+见 [本地数据管理](../data-management.md)。
+
 ## 模块分层
 
 - `src/components/`：可复用 UI 和功能组件，例如 Clock、Countdown、HUD、SettingsPanel、
@@ -81,5 +94,7 @@ Electron 构建输出分为 Web 渲染产物和 `dist-electron/` 主进程产物
 
 - 运行时行为以浏览器能力为主，Electron 只补充桌面能力。
 - 本地设置优先通过 `appSettings.ts` 管理，避免散落新的 localStorage key。
+- 跨数据域的导入、导出、检查和删除统一通过 `dataManagement.ts`，禁止使用
+  `localStorage.clear()` 清理应用数据。
 - 用户可见功能优先由组件表达，业务处理和存储逻辑下沉到 `services/` 或 `utils/`。
 - 高频计时、音频和噪音流处理应避免不必要的全局状态刷新。

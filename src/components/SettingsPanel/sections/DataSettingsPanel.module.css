@@ -1,0 +1,87 @@
+.panel {
+  align-content: start;
+  display: grid;
+  gap: var(--ui-space-4);
+  min-width: 0;
+}
+
+.preview {
+  display: grid;
+  gap: var(--ui-space-3);
+  min-width: 0;
+}
+
+.domainSummary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ui-space-2);
+  min-width: 0;
+}
+
+.domainSummary > * {
+  max-width: 100%;
+  white-space: normal;
+}
+
+.warningList {
+  display: grid;
+  gap: var(--ui-space-1);
+  margin: 0;
+  padding-left: 18px;
+}
+
+.quarantineDetails {
+  display: grid;
+  gap: var(--ui-space-1);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.restoreOptions {
+  background: var(--ui-color-bg);
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-lg);
+  display: grid;
+  gap: var(--ui-space-2);
+  min-width: 0;
+  padding: 12px 14px;
+}
+
+.restoreOptions > strong {
+  color: var(--ui-color-text);
+  font-size: var(--ui-font-size-sm);
+}
+
+.optionHint,
+.itemMeta {
+  color: var(--ui-color-text-subtle);
+  display: block;
+  font-size: var(--ui-font-size-xs);
+  line-height: 1.4;
+  margin-top: 3px;
+}
+
+.dangerSection {
+  border-top: 1px solid var(--ui-color-danger-border) !important;
+  padding-top: var(--ui-space-4) !important;
+}
+
+.confirmCopy {
+  display: grid;
+  gap: var(--ui-space-2);
+}
+
+.confirmCopy p {
+  margin: 0;
+}
+
+@media (max-width: 520px) {
+  .domainSummary {
+    display: grid;
+  }
+
+  .domainSummary > * {
+    justify-content: flex-start;
+    width: 100%;
+  }
+}

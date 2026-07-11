@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import { Portal } from "../Accessibility";
 import { FormSection } from "../FormComponents";
+import { Input } from "../Input";
 import { Toast } from "../Toast";
 
 describe("UI foundation", () => {
@@ -33,5 +34,29 @@ describe("UI foundation", () => {
     expect(screen.getByRole("button", { name: "Portal 操作" }).parentElement).toHaveAttribute(
       "data-ui-scope"
     );
+  });
+
+  it("文件选择器只暴露一个可访问按钮", () => {
+    const { container } = render(
+      <Input type="file" label="备份文件" buttonText="选择备份文件" onFileChange={() => {}} />
+    );
+
+    expect(screen.getAllByRole("button")).toHaveLength(1);
+    expect(screen.getByRole("button", { name: "选择备份文件" })).toBeInTheDocument();
+    expect(container.querySelector('input[type="file"]')).toHaveAttribute("aria-hidden", "true");
+    expect(container.querySelector('input[type="file"]')).toHaveAttribute("tabindex", "-1");
+  });
+
+  it("使用字段标签区分多个文件选择按钮", () => {
+    render(
+      <>
+        <Input type="file" label="选择图片" />
+        <Input type="file" label="字体文件" />
+      </>
+    );
+
+    expect(screen.getByRole("button", { name: "选择图片：选择文件" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "字体文件：选择文件" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "选择文件" })).toBeNull();
   });
 });

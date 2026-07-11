@@ -1,8 +1,15 @@
 import { RotateCw } from "lucide-react";
-import React, { useCallback } from "react";
+import { useEffect, useRef, useState } from "react";
 
-import { useAppDispatch, useAppState } from "../../../contexts/AppContext";
-import { FormSection, InfoPanel, SettingItem, Slider as FormSlider } from "../../../ui";
+import { useAppState } from "../../../contexts/AppContext";
+import type { QuoteSettingsState } from "../../../types";
+import {
+  FormSection,
+  InfoPanel,
+  SettingItem,
+  Slider as FormSlider,
+  Switch as FormSwitch,
+} from "../../../ui";
 import { QuoteChannelManager } from "../../QuoteChannelManager";
 
 /**
@@ -15,42 +22,32 @@ export interface ContentSettingsPanelProps {
 
 export type ContentSettingsSection = "refresh" | "channels";
 
+function formatRefreshIntervalText(seconds: number): string {
+  if (seconds < 60) return `${seconds}秒`;
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = seconds % 60;
+  return remainingSeconds === 0 ? `${minutes}分钟` : `${minutes}分${remainingSeconds}秒`;
+}
+
 /**
  * 内容管理分段组件
  * - 语录自动刷新间隔设置
  * - 频道管理
  */
-export const ContentSettingsPanel: React.FC<ContentSettingsPanelProps> = ({
-  onRegisterSave,
-  section,
-}) => {
+export function ContentSettingsPanel({ onRegisterSave, section }: ContentSettingsPanelProps) {
   const { quoteSettings } = useAppState();
-  const dispatch = useAppDispatch();
-  const [draftInterval, setDraftInterval] = React.useState<number>(
-    quoteSettings.autoRefreshInterval
-  );
-  const channelSaveRef = React.useRef<(() => void) | null>(null);
+  const [draftInterval, setDraftInterval] = useState<number>(quoteSettings.autoRefreshIntervalSec);
+  const [draftEnabled, setDraftEnabled] = useState(quoteSettings.autoRefreshEnabled);
+  const channelSaveRef = useRef<((settings: QuoteSettingsState) => void) | null>(null);
 
-  const formatRefreshIntervalText = useCallback((seconds: number): string => {
-    if (seconds === 0) return "手动刷新";
-    if (seconds < 60) return `${seconds}秒`;
-    const minutes = Math.floor(seconds / 60);
-    const remainingSeconds = seconds % 60;
-    return remainingSeconds === 0 ? `${minutes}分钟` : `${minutes}分${remainingSeconds}秒`;
-  }, []);
-
-  const handleQuoteRefreshIntervalChange = useCallback((value: number) => {
-    setDraftInterval(value);
-  }, []);
-
-  React.useEffect(() => {
+  useEffect(() => {
     onRegisterSave?.(() => {
-      // 保存刷新间隔
-      dispatch({ type: "SET_QUOTE_AUTO_REFRESH_INTERVAL", payload: draftInterval });
-      // 保存渠道草稿
-      channelSaveRef.current?.();
+      channelSaveRef.current?.({
+        autoRefreshEnabled: draftEnabled,
+        autoRefreshIntervalSec: draftInterval,
+      });
     });
-  }, [onRegisterSave, draftInterval, dispatch]);
+  }, [draftEnabled, draftInterval, onRegisterSave]);
 
   const isSectionHidden = (candidate: ContentSettingsSection) =>
     section ? section !== candidate : undefined;
@@ -65,9 +62,21 @@ export const ContentSettingsPanel: React.FC<ContentSettingsPanelProps> = ({
       >
         <SettingItem
           icon={<RotateCw size={18} />}
-          title="刷新频率"
-          description="左端为最短间隔 30 秒，右端为最长间隔。"
+          title="自动轮换"
+          description="关闭后仍可点击主界面的语录区域手动刷新。"
           tone="accent"
+          control={
+            <FormSwitch
+              checked={draftEnabled}
+              onCheckedChange={setDraftEnabled}
+              aria-label="自动轮换语录"
+            />
+          }
+        />
+        <SettingItem
+          icon={<RotateCw size={18} />}
+          title="刷新频率"
+          description="自动轮换开启时，每隔指定时间切换一次内容。"
         >
           <FormSlider
             label="刷新频率"
@@ -75,14 +84,15 @@ export const ContentSettingsPanel: React.FC<ContentSettingsPanelProps> = ({
             min={30}
             max={1800}
             step={30}
-            onChange={handleQuoteRefreshIntervalChange}
+            onChange={setDraftInterval}
             formatValue={formatRefreshIntervalText}
+            disabled={!draftEnabled}
             showRange={true}
             rangeLabels={["30秒", "30分钟"]}
           />
         </SettingItem>
         <InfoPanel tone="neutral" title="刷新策略">
-          该设置保存后影响语录自动轮换；如需手动刷新，可在主界面使用语录区域的刷新操作。
+          自动轮换会优先显示缓存或本地内容，并在后台补充在线句子；手动刷新会优先请求在线服务。
         </InfoPanel>
       </FormSection>
 
@@ -95,6 +105,6 @@ export const ContentSettingsPanel: React.FC<ContentSettingsPanelProps> = ({
       </div>
     </div>
   );
-};
+}
 
 export default ContentSettingsPanel;

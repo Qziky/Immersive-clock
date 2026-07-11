@@ -105,7 +105,7 @@ export async function estimateMaxRetentionDaysByQuota(): Promise<number | null> 
     if (!quota || quota <= 0) return null;
 
     const maxBytes = quota * 0.9;
-    const slices = readNoiseSlices();
+    const slices = await readNoiseSlices();
     const dayMs = 24 * 60 * 60 * 1000;
 
     let bytesPerDay = 512 * 1024;
@@ -117,8 +117,7 @@ export async function estimateMaxRetentionDaysByQuota(): Promise<number | null> 
         if (s.end > maxEnd) maxEnd = s.end;
       }
       const spanDays = Math.max(1, (maxEnd - minStart) / dayMs);
-      const raw = localStorage.getItem("noise-slices");
-      const usedBytes = (raw ? raw.length : 0) * 2;
+      const usedBytes = JSON.stringify(slices).length * 2;
       if (usedBytes > 0) {
         bytesPerDay = usedBytes / spanDays;
       }

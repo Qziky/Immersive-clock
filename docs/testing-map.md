@@ -26,6 +26,15 @@
   - 课程表时间解析、排序、重叠校验与智能新增：[studyScheduleValidation.test.ts](file:///d:/Desktop/Immersive-clock/src/utils/__tests__/studyScheduleValidation.test.ts) → [studyScheduleValidation.ts](file:///d:/Desktop/Immersive-clock/src/utils/studyScheduleValidation.ts)
   - legacy 课程表迁移、已保存课表保护与旧键清理：[storageInitializer.studyScheduleMigration.test.ts](file:///d:/Desktop/Immersive-clock/src/utils/__tests__/storageInitializer.studyScheduleMigration.test.ts) → [storageInitializer.ts](file:///d:/Desktop/Immersive-clock/src/utils/storageInitializer.ts)
   - 设置分组折叠与记忆、紧凑导航 presence/不可交互退出态、跨分组草稿常驻、访问后懒挂载、统一保存/取消、退出帧内容保持及快速重开草稿重置：[SettingsPanel.test.tsx](file:///d:/Desktop/Immersive-clock/src/components/SettingsPanel/__tests__/SettingsPanel.test.tsx) → [SettingsPanel.tsx](file:///d:/Desktop/Immersive-clock/src/components/SettingsPanel/SettingsPanel.tsx)
+  - 数据域检查、完整/精简备份、旧格式迁移、预检拒绝、恢复回滚、白名单清理、偏好重置与全部删除边界：`src/services/__tests__/dataManagement.test.ts` → `src/services/dataManagement.ts`
+  - 数据概览、默认备份范围、文件预检、选择性恢复、分类清理、失败反馈与刷新请求：`src/components/SettingsPanel/__tests__/DataSettingsPanel.test.tsx` → `src/components/SettingsPanel/sections/DataSettingsPanel.tsx`
+- **语录**
+  - 三提供商成功、空/坏响应、超时、取消、429、5xx、来源格式化与一言线路切换：`src/services/quotes/__tests__/providers.test.ts` → `src/services/quotes/providers/`
+  - 加权选源、手动联网优先、跨服务降级、单飞与本地兜底：`src/services/quotes/__tests__/quoteService.test.ts` → `src/services/quotes/quoteService.ts`
+  - 7 天缓存/最近记录、独立冷却、跨源去重、运行时版本迁移与顺序游标：`src/services/quotes/__tests__/runtimeStorage.test.ts` → `src/services/quotes/runtimeStorage.ts`
+  - 内置频道注册、偏好覆盖和自定义频道序列化：`src/services/quotes/__tests__/quoteRegistry.test.ts` → `src/services/quotes/quoteRegistry.ts`
+  - 首次有效远程替换、配置变化、自动/手动刷新、latest-wins 与卸载取消：`src/hooks/__tests__/useQuoteRotation.test.ts` → `src/hooks/useQuoteRotation.ts`
+  - 正文/来源展示和频道草稿保存：`src/components/MotivationalQuote/__tests__/MotivationalQuote.test.tsx` + `src/components/QuoteChannelManager/__tests__/QuoteChannelManager.test.tsx`
 - **天气**
   - 天气服务主流程与多分支回归：[weatherService.flow.test.ts](file:///d:/Desktop/Immersive-clock/src/services/__tests__/weatherService.flow.test.ts) + [weatherService.test.ts](file:///d:/Desktop/Immersive-clock/src/services/__tests__/weatherService.test.ts) → [weatherService.ts](file:///d:/Desktop/Immersive-clock/src/services/weatherService.ts)
   - 天气缓存（TTL/合并/清理）：[weatherStorage.test.ts](file:///d:/Desktop/Immersive-clock/src/utils/__tests__/weatherStorage.test.ts) → [weatherStorage.ts](file:///d:/Desktop/Immersive-clock/src/utils/weatherStorage.ts)
@@ -34,7 +43,7 @@
   - 时间源测量与中位数聚合：[timeSync.test.ts](file:///d:/Desktop/Immersive-clock/src/utils/__tests__/timeSync.test.ts) → [timeSync.ts](file:///d:/Desktop/Immersive-clock/src/utils/timeSync.ts)
   - NTP 客户端（mock dns/dgram）：[ntpClient.test.ts](file:///d:/Desktop/Immersive-clock/src/utils/__tests__/ntpClient.test.ts) → [ntpClient.ts](file:///d:/Desktop/Immersive-clock/src/utils/ntpClient.ts)
 - **噪音**
-  - 噪音切片存储与事件通知：[noiseSliceService.test.ts](file:///d:/Desktop/Immersive-clock/src/utils/__tests__/noiseSliceService.test.ts) → [noiseSliceService.ts](file:///d:/Desktop/Immersive-clock/src/utils/noiseSliceService.ts)
+  - 噪音切片 IndexedDB 幂等迁移、事务失败回退、索引读写、保留期限、原子替换、元数据与事件通知：[noiseSliceService.test.ts](file:///d:/Desktop/Immersive-clock/src/utils/__tests__/noiseSliceService.test.ts) → [noiseSliceService.ts](file:///d:/Desktop/Immersive-clock/src/utils/noiseSliceService.ts) / [db.ts](file:///d:/Desktop/Immersive-clock/src/utils/db.ts)
   - 噪音评分引擎：[noiseScoreEngine.test.ts](file:///d:/Desktop/Immersive-clock/src/utils/__tests__/noiseScoreEngine.test.ts) → [noiseScoreEngine.ts](file:///d:/Desktop/Immersive-clock/src/utils/noiseScoreEngine.ts)
   - 噪音历史构建：[noiseHistoryBuilder.test.ts](file:///d:/Desktop/Immersive-clock/src/utils/__tests__/noiseHistoryBuilder.test.ts) → [noiseHistoryBuilder.ts](file:///d:/Desktop/Immersive-clock/src/utils/noiseHistoryBuilder.ts)
 - **公告**
@@ -66,6 +75,8 @@
 - 倒计时弹窗选择 10 分钟预设、确认、开始/暂停/重置，以及 320×568 末项与固定底栏几何避让：[countdown.e2e.spec.ts](file:///d:/Desktop/Immersive-clock/tests/e2e/countdown.e2e.spec.ts)
 - 秒表开始/暂停/重置：[stopwatch.e2e.spec.ts](file:///d:/Desktop/Immersive-clock/tests/e2e/stopwatch.e2e.spec.ts)
 - 自习模式入口可见：[study-smoke.e2e.spec.ts](file:///d:/Desktop/Immersive-clock/tests/e2e/study-smoke.e2e.spec.ts)
+- 三语录服务拦截、主/备用及跨源切换、全失败/断网本地兜底与频道设置持久化：`tests/e2e/quotes.e2e.spec.ts`
+- 数据中心完整备份下载、缓存白名单清理、无效文件零写入预检，以及 320/390/1440 视口下文件控件与横向溢出：`tests/e2e/data-management.e2e.spec.ts`
 - 设置分组导航、遮罩不可关闭、移动全屏纵向紧凑导航与当前项滚动，以及目标年份、错误中心和内联课程表的统一保存/取消：[settings-persistence.e2e.spec.ts](file:///d:/Desktop/Immersive-clock/tests/e2e/settings-persistence.e2e.spec.ts)
 - 设置抽屉进出轨迹、页面标题到分组和设置项的入场顺序、条件内容进入、移动子菜单 presence、横向溢出和浏览器减少动效行为：[settings-motion.e2e.spec.ts](file:///d:/Desktop/Immersive-clock/tests/e2e/settings-motion.e2e.spec.ts)
 - 公告 320px Tabs/问卷边界/底栏说明，噪音历史折叠与字段错误、报告空态/有数据态、SVG 可访问描述，以及 Toast/Modal 层级：[modal-redesign.e2e.spec.ts](file:///d:/Desktop/Immersive-clock/tests/e2e/modal-redesign.e2e.spec.ts)
