@@ -28,7 +28,7 @@ describe("quoteRegistry", () => {
         id: "hitokoto-api",
         enabled: false,
         weight: 88,
-        hitokotoCategories: ["d", "l"],
+        hitokotoCategories: ["a", "h", "j", "l"],
       },
       {
         id: "local-inspirational",
@@ -45,7 +45,12 @@ describe("quoteRegistry", () => {
 
     expect(channels).toHaveLength(5);
     expect(hitokoto).toMatchObject({ enabled: false, weight: 88 });
-    expect(hitokoto?.kind === "remote" ? hitokoto.hitokotoCategories : []).toEqual(["d", "l"]);
+    expect(hitokoto?.kind === "remote" ? hitokoto.hitokotoCategories : []).toEqual([
+      "a",
+      "h",
+      "j",
+      "l",
+    ]);
     expect(local).toMatchObject({ weight: 12, orderMode: "sequential" });
     expect(local?.kind === "local" ? local.quotes : []).toEqual(["自定义第一句", "自定义第二句"]);
   });

@@ -37,7 +37,7 @@ describe("QuoteChannelManager", () => {
     });
   });
 
-  it("展示五个内置频道、三个在线来源及今日诗词隐私说明", () => {
+  it("展示五个内置频道和三个在线来源", () => {
     render(<QuoteChannelManager />);
 
     expect(screen.getAllByRole("article")).toHaveLength(5);
@@ -46,9 +46,7 @@ describe("QuoteChannelManager", () => {
     expect(screen.getByRole("heading", { name: "今日诗词" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Advice Slip" })).toBeInTheDocument();
     expect(screen.getByText("English")).toBeInTheDocument();
-    expect(
-      screen.getByText(/今日诗词免费版仅限非商业使用。启用后会由服务方处理公开 IP/)
-    ).toHaveTextContent("Token/Cookie");
+    expect(screen.queryByText(/今日诗词免费版仅限非商业使用/)).not.toBeInTheDocument();
 
     const categoryButtons = screen.getAllByRole("button", { name: "分类设置" });
     expect(categoryButtons).toHaveLength(1);
@@ -59,9 +57,20 @@ describe("QuoteChannelManager", () => {
       within(getChannelCard("Advice Slip")).queryByRole("button", { name: "分类设置" })
     ).not.toBeInTheDocument();
 
+    expect(categoryButtons[0]).toHaveAttribute("aria-expanded", "false");
     fireEvent.click(categoryButtons[0]);
+    expect(categoryButtons[0]).toHaveAttribute("aria-expanded", "true");
     expect(
       within(getChannelCard("一言")).getByRole("switch", { name: "文学分类" })
+    ).toBeInTheDocument();
+    expect(
+      within(getChannelCard("一言")).getByRole("switch", { name: "动画分类" })
+    ).toBeInTheDocument();
+    expect(
+      within(getChannelCard("一言")).getByRole("switch", { name: "影视分类" })
+    ).toBeInTheDocument();
+    expect(
+      within(getChannelCard("一言")).getByRole("switch", { name: "网易云分类" })
     ).toBeInTheDocument();
     expect(
       within(getChannelCard("一言")).getByRole("switch", { name: "诗词分类" })
@@ -85,7 +94,10 @@ describe("QuoteChannelManager", () => {
     });
 
     const localCard = getChannelCard("本地励志语录");
-    fireEvent.click(within(localCard).getByRole("button", { name: "编辑语录" }));
+    const editButton = within(localCard).getByRole("button", { name: "编辑语录" });
+    expect(editButton).toHaveAttribute("aria-expanded", "false");
+    fireEvent.click(editButton);
+    expect(editButton).toHaveAttribute("aria-expanded", "true");
     fireEvent.click(within(localCard).getByRole("radio", { name: "顺序" }));
 
     expect(within(hitokotoCard).getByRole("switch", { name: "启用一言" })).toHaveAttribute(

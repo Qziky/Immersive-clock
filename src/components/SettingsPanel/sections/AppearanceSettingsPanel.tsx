@@ -68,7 +68,7 @@ const SCENE_LABELS: Record<AppearanceSceneId, string> = {
 };
 
 const BASIC_COMPONENT_OPTIONS = [
-  { label: "通用", value: "common" },
+  { label: "全局", value: "common" },
   { label: "时钟", value: "clock" },
   { label: "倒计时", value: "countdown" },
   { label: "秒表", value: "stopwatch" },
@@ -544,8 +544,8 @@ export function AppearanceSettingsPanel({ section = "basic" }: AppearanceSetting
     <div className={styles.panel}>
       {isBasic && (
         <FormSection
-          title="基本分类"
-          description="通用设置提供默认值，时钟、倒计时、秒表和自习时间可分别覆盖。"
+          title="应用范围"
+          description="全局设置作为默认样式，时钟、倒计时、秒表和自习时间可分别覆盖。"
         >
           <FormSegmented
             value={basicView}
@@ -560,19 +560,32 @@ export function AppearanceSettingsPanel({ section = "basic" }: AppearanceSetting
       {isBasicCommon && (
         <>
           <FormSection
-            title="基本字体"
-            description="提供常用字体默认值；组件中单独设置的字体优先级更高。"
+            title="字体设置"
+            description="设置全局字体方案；组件中单独设置的字体优先级更高。"
           >
             <SettingGrid className={styles.editorGrid} columns={2}>
               {(["numeric", "text"] as const).map((category) => (
                 <SettingItem
                   key={category}
                   icon={category === "numeric" ? <Type size={18} /> : <FileText size={18} />}
-                  title={category === "numeric" ? "数字字体" : "文本字体"}
+                  title={category === "numeric" ? "主显示字体" : "信息字体"}
+                  description={
+                    category === "numeric"
+                      ? "用于时钟、倒计时和秒表的主要数字"
+                      : "用于日期、天气和其他辅助信息"
+                  }
                 >
+                  <div
+                    className={styles.fontPreview}
+                    data-font-role={category}
+                    style={{ fontFamily: activeAppearance.global[category]?.font?.family }}
+                    aria-label={`${category === "numeric" ? "主显示" : "信息"}字体预览`}
+                  >
+                    {category === "numeric" ? "12:45:09" : "周一 · 7月13日 · 26°C"}
+                  </div>
                   <Dropdown
-                    label={category === "numeric" ? "数字字体" : "文本字体"}
-                    placeholder="跟随应用默认"
+                    label={category === "numeric" ? "主显示字体" : "信息字体"}
+                    placeholder="使用应用默认字体"
                     value={fontValue(activeAppearance.global[category]?.font)}
                     groups={fontGroups}
                     onChange={(value) =>

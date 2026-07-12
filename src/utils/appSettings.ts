@@ -16,11 +16,13 @@ import { StudyDisplaySettings, CountdownItem, AppMode } from "../types";
 import type { AppearanceSettingsV2 } from "../types/appearance";
 import type {
   CustomQuoteChannel,
+  HitokotoCategory,
   PersistedQuoteSettings,
   QuoteChannel,
   QuoteChannelPreference,
   QuoteSettingsState,
 } from "../types/quote";
+import { HITOKOTO_CATEGORY_LIST } from "../types/quote";
 import { DEFAULT_SCHEDULE, type StudyPeriod } from "../types/studySchedule";
 import { DeepPartial } from "../types/utilityTypes";
 
@@ -218,9 +220,10 @@ function normalizeQuotePreference(
     const quotesOverride = normalizeStoredQuotes(value.quotesOverride ?? value.quotes);
     if (quotesOverride) preference.quotesOverride = quotesOverride;
   } else if (defaultChannel.providerId === "hitokoto" && Array.isArray(value.hitokotoCategories)) {
+    const allowedCategories = new Set(HITOKOTO_CATEGORY_LIST.map((category) => category.key));
     preference.hitokotoCategories = value.hitokotoCategories.filter(
-      (category): category is "d" | "i" | "k" | "l" =>
-        category === "d" || category === "i" || category === "k" || category === "l"
+      (category): category is HitokotoCategory =>
+        allowedCategories.has(category as HitokotoCategory)
     );
   }
 

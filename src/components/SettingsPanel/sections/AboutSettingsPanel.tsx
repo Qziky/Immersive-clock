@@ -186,6 +186,10 @@ const AboutSettingsPanel: React.FC<AboutSettingsPanelProps> = ({ onRegisterSave,
         <InfoPanel tone="warning" title="开源声明">
           本软件为开源软件，严禁倒卖商用。
         </InfoPanel>
+        <InfoPanel tone="warning" title="服务与隐私说明">
+          今日诗词免费版仅限非商业使用。启用后会由服务方处理公开 IP，并在当前终端保存推荐
+          Token/Cookie。
+        </InfoPanel>
       </FormSection>
 
       <FormSection

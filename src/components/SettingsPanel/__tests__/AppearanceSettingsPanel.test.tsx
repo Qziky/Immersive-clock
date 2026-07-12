@@ -69,6 +69,28 @@ describe("AppearanceSettingsPanel asset catalog", () => {
     fontMocks.removeImportedFont.mockResolvedValue(undefined);
   });
 
+  it("按应用范围和视觉角色呈现全局字体设置", async () => {
+    assetMocks.loadAppearanceAssetCatalog.mockResolvedValue({ backgrounds: [], fonts: [] });
+
+    render(
+      <FeedbackProvider>
+        <AppearanceSettingsPanel />
+      </FeedbackProvider>
+    );
+
+    expect(screen.getByRole("heading", { name: "应用范围" })).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "全局" })).toBeChecked();
+    expect(screen.getByRole("heading", { name: "字体设置" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "主显示字体" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "信息字体" })).toBeInTheDocument();
+    expect(screen.getByLabelText("主显示字体预览")).toHaveTextContent("12:45:09");
+    expect(screen.getByLabelText("信息字体预览")).toHaveTextContent("周一 · 7月13日 · 26°C");
+    expect(screen.queryByText("数字字体")).not.toBeInTheDocument();
+    expect(screen.queryByText("文本字体")).not.toBeInTheDocument();
+
+    await waitFor(() => expect(assetMocks.loadAppearanceAssetCatalog).toHaveBeenCalled());
+  });
+
   it("目录 revision 变化后同时刷新背景与字体 metadata", async () => {
     assetMocks.loadAppearanceAssetCatalog
       .mockResolvedValueOnce({

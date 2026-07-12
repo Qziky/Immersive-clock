@@ -16,6 +16,26 @@
   grid-template-columns: minmax(72px, 0.35fr) minmax(0, 1fr);
 }
 
+.fontPreview {
+  align-items: center;
+  border-bottom: 1px solid var(--ui-glass-border);
+  color: var(--ui-color-text);
+  display: flex;
+  letter-spacing: 0;
+  min-height: 52px;
+  overflow-wrap: anywhere;
+  padding: 2px 0 10px;
+}
+
+.fontPreview[data-font-role="numeric"] {
+  font-size: 28px;
+  font-variant-numeric: tabular-nums;
+}
+
+.fontPreview[data-font-role="text"] {
+  font-size: 18px;
+}
+
 .resourceList {
   display: grid;
   gap: 6px;

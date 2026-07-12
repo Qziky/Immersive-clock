@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { Quote } from "../../../types/quote";
@@ -32,6 +32,8 @@ const POEM_QUOTE: Quote = {
   language: "zh",
   fetchedAt: 1,
 };
+
+const TYPEWRITER_INTERVAL_MS = 120;
 
 function mockReducedMotion(matches: boolean) {
   vi.stubGlobal(
@@ -68,6 +70,7 @@ describe("MotivationalQuote", () => {
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
   });
@@ -109,5 +112,36 @@ describe("MotivationalQuote", () => {
     expect(screen.getByText(POEM_QUOTE.text)).toBeInTheDocument();
     expect(screen.queryByText("|")).not.toBeInTheDocument();
     expect(setIntervalSpy).not.toHaveBeenCalled();
+  });
+
+  it("正文完成后继续逐字显示来源", () => {
+    mockReducedMotion(false);
+    vi.useFakeTimers();
+
+    render(<MotivationalQuote />);
+
+    const visualQuote = screen
+      .getByRole("button", { name: "刷新语录" })
+      .querySelector('[aria-hidden="true"]');
+    expect(visualQuote).toHaveTextContent("|");
+    expect(visualQuote).not.toHaveTextContent("李白");
+
+    act(() => {
+      vi.advanceTimersByTime(Array.from(POEM_QUOTE.text).length * TYPEWRITER_INTERVAL_MS);
+    });
+    expect(visualQuote).toHaveTextContent(`${POEM_QUOTE.text}|`);
+    expect(visualQuote).not.toHaveTextContent("李白");
+
+    act(() => {
+      vi.advanceTimersByTime(TYPEWRITER_INTERVAL_MS);
+    });
+    expect(visualQuote).toHaveTextContent(`${POEM_QUOTE.text}—|`);
+
+    const attribution = "—— 唐 · 李白 · 静夜思";
+    act(() => {
+      vi.advanceTimersByTime((Array.from(attribution).length - 1) * TYPEWRITER_INTERVAL_MS);
+    });
+    expect(visualQuote).toHaveTextContent(`${POEM_QUOTE.text}${attribution}`);
+    expect(visualQuote).not.toHaveTextContent("|");
   });
 });

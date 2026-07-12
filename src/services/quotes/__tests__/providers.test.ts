@@ -55,14 +55,14 @@ describe("quote providers", () => {
     );
 
     const quote = await fetchHitokotoQuote({
-      categories: ["d", "i", "k"],
+      categories: ["a", "h", "j"],
       fetchImplementation: fetchMock as unknown as typeof fetch,
       now: () => 123,
     });
 
     const url = new URL(String(fetchMock.mock.calls[0][0]));
     expect(url.origin + url.pathname).toBe(HITOKOTO_PRIMARY_ENDPOINT);
-    expect(url.searchParams.getAll("c")).toEqual(["d", "i", "k"]);
+    expect(url.searchParams.getAll("c")).toEqual(["a", "h", "j"]);
     expect(url.searchParams.get("max_length")).toBe("100");
     expect(quote).toEqual({
       id: "hitokoto:quote-1",

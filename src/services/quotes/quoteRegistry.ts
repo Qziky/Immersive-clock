@@ -8,6 +8,7 @@ import type {
   QuoteChannelPreference,
   RemoteQuoteChannel,
 } from "../../types/quote";
+import { HITOKOTO_CATEGORY_LIST } from "../../types/quote";
 
 type BundledQuoteData = {
   quotes?: unknown;
@@ -42,7 +43,7 @@ const BUILT_IN_CHANNELS: readonly QuoteChannel[] = [
     kind: "remote",
     providerId: "hitokoto",
     language: "zh",
-    description: "中文文学、诗词与哲学短句",
+    description: "支持动画、文学、影视等多种中文短句",
     weight: 20,
     enabled: true,
     builtIn: true,
@@ -90,7 +91,7 @@ export function normalizeQuotes(value: unknown): string[] {
 
 function normalizeCategories(value: unknown): HitokotoCategory[] {
   if (!Array.isArray(value)) return [...DEFAULT_HITOKOTO_CATEGORIES];
-  const allowed = new Set<HitokotoCategory>(["d", "i", "k", "l"]);
+  const allowed = new Set(HITOKOTO_CATEGORY_LIST.map((category) => category.key));
   const categories = Array.from(
     new Set(value.filter((item): item is HitokotoCategory => allowed.has(item as HitokotoCategory)))
   );

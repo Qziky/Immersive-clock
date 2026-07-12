@@ -168,9 +168,35 @@
   min-width: 0;
 }
 
-.channelDetails {
+.channelDetails,
+.channelDetailsExpanded {
+  display: grid;
   grid-column: 1 / -1;
+  grid-template-rows: 0fr;
+  margin-top: -12px;
   min-width: 0;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(calc(var(--ui-motion-distance-sm) * -1));
+  transition:
+    grid-template-rows var(--ui-transition-normal),
+    margin-top var(--ui-transition-normal),
+    opacity var(--ui-transition-fast),
+    transform var(--ui-transition-normal);
+}
+
+.channelDetailsExpanded {
+  grid-template-rows: 1fr;
+  margin-top: 0;
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+
+.channelDetailsContent {
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .categorySettings,
@@ -291,6 +317,11 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .channelDetails,
+  .channelDetailsExpanded {
+    transition: none;
+  }
+
   .loadingIcon {
     animation: none;
   }

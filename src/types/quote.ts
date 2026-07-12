@@ -4,18 +4,46 @@ export type QuoteLanguage = "zh" | "en";
 
 export type QuoteOrderMode = "random" | "sequential";
 
-export type HitokotoCategory = "d" | "i" | "k" | "l";
+export type HitokotoCategory =
+  | "a"
+  | "b"
+  | "c"
+  | "d"
+  | "e"
+  | "f"
+  | "g"
+  | "h"
+  | "i"
+  | "j"
+  | "k"
+  | "l";
 
 export const HITOKOTO_CATEGORIES: Record<HitokotoCategory, string> = {
+  a: "动画",
+  b: "漫画",
+  c: "游戏",
   d: "文学",
+  e: "原创",
+  f: "来自网络",
+  g: "其他",
+  h: "影视",
   i: "诗词",
+  j: "网易云",
   k: "哲学",
   l: "抖机灵",
 };
 
 export const HITOKOTO_CATEGORY_LIST: Array<{ key: HitokotoCategory; name: string }> = [
+  { key: "a", name: "动画" },
+  { key: "b", name: "漫画" },
+  { key: "c", name: "游戏" },
   { key: "d", name: "文学" },
+  { key: "e", name: "原创" },
+  { key: "f", name: "来自网络" },
+  { key: "g", name: "其他" },
+  { key: "h", name: "影视" },
   { key: "i", name: "诗词" },
+  { key: "j", name: "网易云" },
   { key: "k", name: "哲学" },
   { key: "l", name: "抖机灵" },
 ];

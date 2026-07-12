@@ -261,7 +261,7 @@ describe("appSettings", () => {
                   enabled: hitokotoEnabled,
                   weight: 27,
                   onlineFetch: true,
-                  hitokotoCategories: ["d", "i"],
+                  hitokotoCategories: ["a", "h", "j"],
                 },
               ],
               lastUpdated: 123,
@@ -277,7 +277,7 @@ describe("appSettings", () => {
         expect.objectContaining({
           enabled: hitokotoEnabled,
           weight: 27,
-          hitokotoCategories: ["d", "i"],
+          hitokotoCategories: ["a", "h", "j"],
         })
       );
       expect(channelMap.get("jinrishici-api")?.enabled).toBe(expectedNewRemoteEnabled);

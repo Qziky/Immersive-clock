@@ -21,11 +21,13 @@
   - AppSettings 深合并与局部更新：[appSettings.test.ts](file:///d:/Desktop/Immersive-clock/src/utils/__tests__/appSettings.test.ts) → [appSettings.ts](file:///d:/Desktop/Immersive-clock/src/utils/appSettings.ts)
   - 外观默认值、继承优先级、v1 迁移、非法值规范化与 CSS 编译：`src/utils/__tests__/appearanceModel.test.ts` → `src/utils/appearanceModel.ts`
   - 外观实时预览、取消回滚与单次持久化提交：`src/contexts/__tests__/AppearanceContext.test.tsx` → `src/contexts/AppearanceContext.tsx`
+  - 外观应用范围、字体视觉角色与资源目录交互：`src/components/SettingsPanel/__tests__/AppearanceSettingsPanel.test.tsx` → `src/components/SettingsPanel/sections/AppearanceSettingsPanel.tsx`
   - 外观“基本/组件”导航、组件草稿、倒计时实例覆盖、背景继承与刷新持久化：`tests/e2e/settings-persistence.e2e.spec.ts`
   - 启动初始化与通用 legacy 键清理：[storageInitializer.legacyCleanup.test.ts](file:///d:/Desktop/Immersive-clock/src/utils/__tests__/storageInitializer.legacyCleanup.test.ts) → [storageInitializer.ts](file:///d:/Desktop/Immersive-clock/src/utils/storageInitializer.ts)
   - 课程表时间解析、排序、重叠校验与智能新增：[studyScheduleValidation.test.ts](file:///d:/Desktop/Immersive-clock/src/utils/__tests__/studyScheduleValidation.test.ts) → [studyScheduleValidation.ts](file:///d:/Desktop/Immersive-clock/src/utils/studyScheduleValidation.ts)
   - legacy 课程表迁移、已保存课表保护与旧键清理：[storageInitializer.studyScheduleMigration.test.ts](file:///d:/Desktop/Immersive-clock/src/utils/__tests__/storageInitializer.studyScheduleMigration.test.ts) → [storageInitializer.ts](file:///d:/Desktop/Immersive-clock/src/utils/storageInitializer.ts)
   - 设置分组折叠与记忆、紧凑导航 presence/不可交互退出态、跨分组草稿常驻、访问后懒挂载、统一保存/取消、退出帧内容保持及快速重开草稿重置：[SettingsPanel.test.tsx](file:///d:/Desktop/Immersive-clock/src/components/SettingsPanel/__tests__/SettingsPanel.test.tsx) → [SettingsPanel.tsx](file:///d:/Desktop/Immersive-clock/src/components/SettingsPanel/SettingsPanel.tsx)
+  - 项目信息中的版本、授权及服务与隐私说明：[AboutSettingsPanel.test.tsx](file:///d:/Desktop/Immersive-clock/src/components/SettingsPanel/__tests__/AboutSettingsPanel.test.tsx) → [AboutSettingsPanel.tsx](file:///d:/Desktop/Immersive-clock/src/components/SettingsPanel/sections/AboutSettingsPanel.tsx)
   - 数据域检查、完整/精简备份、旧格式迁移、预检拒绝、恢复回滚、白名单清理、偏好重置与全部删除边界：`src/services/__tests__/dataManagement.test.ts` → `src/services/dataManagement.ts`
   - 数据概览、默认备份范围、文件预检、选择性恢复、分类清理、失败反馈与刷新请求：`src/components/SettingsPanel/__tests__/DataSettingsPanel.test.tsx` → `src/components/SettingsPanel/sections/DataSettingsPanel.tsx`
 - **语录**
@@ -34,7 +36,7 @@
   - 7 天缓存/最近记录、独立冷却、跨源去重、运行时版本迁移与顺序游标：`src/services/quotes/__tests__/runtimeStorage.test.ts` → `src/services/quotes/runtimeStorage.ts`
   - 内置频道注册、偏好覆盖和自定义频道序列化：`src/services/quotes/__tests__/quoteRegistry.test.ts` → `src/services/quotes/quoteRegistry.ts`
   - 首次有效远程替换、配置变化、自动/手动刷新、latest-wins 与卸载取消：`src/hooks/__tests__/useQuoteRotation.test.ts` → `src/hooks/useQuoteRotation.ts`
-  - 正文/来源展示和频道草稿保存：`src/components/MotivationalQuote/__tests__/MotivationalQuote.test.tsx` + `src/components/QuoteChannelManager/__tests__/QuoteChannelManager.test.tsx`
+  - 正文/来源展示与连续打字动画、频道草稿保存、一言 12 分类选择和展开控件语义状态：`src/components/MotivationalQuote/__tests__/MotivationalQuote.test.tsx` + `src/components/QuoteChannelManager/__tests__/QuoteChannelManager.test.tsx`
 - **天气**
   - 天气服务主流程与多分支回归：[weatherService.flow.test.ts](file:///d:/Desktop/Immersive-clock/src/services/__tests__/weatherService.flow.test.ts) + [weatherService.test.ts](file:///d:/Desktop/Immersive-clock/src/services/__tests__/weatherService.test.ts) → [weatherService.ts](file:///d:/Desktop/Immersive-clock/src/services/weatherService.ts)
   - 天气缓存（TTL/合并/清理）：[weatherStorage.test.ts](file:///d:/Desktop/Immersive-clock/src/utils/__tests__/weatherStorage.test.ts) → [weatherStorage.ts](file:///d:/Desktop/Immersive-clock/src/utils/weatherStorage.ts)

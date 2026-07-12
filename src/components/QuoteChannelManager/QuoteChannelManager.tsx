@@ -289,6 +289,10 @@ export function QuoteChannelManager({ onRegisterSave }: QuoteChannelManagerProps
       <div className={styles.channelList}>
         {channels.map((channel) => {
           const isHitokoto = channel.kind === "remote" && channel.providerId === "hitokoto";
+          const isCategoryExpanded = expandedChannelId === channel.id;
+          const isEditorExpanded = expandedEditorChannelId === channel.id;
+          const categoryDetailsId = `quote-channel-categories-${channel.id}`;
+          const editorDetailsId = `quote-channel-editor-${channel.id}`;
           return (
             <article
               key={channel.id}
@@ -347,6 +351,8 @@ export function QuoteChannelManager({ onRegisterSave }: QuoteChannelManagerProps
                     size="sm"
                     title="分类设置"
                     aria-label="分类设置"
+                    aria-expanded={isCategoryExpanded}
+                    aria-controls={categoryDetailsId}
                     icon={<SettingsIcon size={16} />}
                   />
                 )}
@@ -357,6 +363,8 @@ export function QuoteChannelManager({ onRegisterSave }: QuoteChannelManagerProps
                     size="sm"
                     title="编辑语录"
                     aria-label="编辑语录"
+                    aria-expanded={isEditorExpanded}
+                    aria-controls={editorDetailsId}
                     icon={<EditIcon size={16} />}
                   />
                 )}
@@ -370,90 +378,103 @@ export function QuoteChannelManager({ onRegisterSave }: QuoteChannelManagerProps
                 />
               </div>
 
-              {expandedChannelId === channel.id && isHitokoto && (
-                <div className={styles.channelDetails}>
-                  <div className={styles.categorySettings}>
-                    <SettingGrid columns={2}>
-                      {HITOKOTO_CATEGORY_LIST.map((category) => (
-                        <SettingItem
-                          key={category.key}
-                          title={category.name}
-                          control={
-                            <FormSwitch
-                              checked={channel.hitokotoCategories?.includes(category.key) ?? false}
-                              onCheckedChange={() => handleToggleCategory(channel.id, category.key)}
-                              aria-label={`${category.name}分类`}
-                            />
-                          }
-                        />
-                      ))}
-                    </SettingGrid>
+              {isHitokoto && (
+                <div
+                  id={categoryDetailsId}
+                  className={
+                    isCategoryExpanded ? styles.channelDetailsExpanded : styles.channelDetails
+                  }
+                  aria-hidden={!isCategoryExpanded}
+                  inert={isCategoryExpanded ? undefined : true}
+                >
+                  <div className={styles.channelDetailsContent}>
+                    <div className={styles.categorySettings}>
+                      <SettingGrid columns={2}>
+                        {HITOKOTO_CATEGORY_LIST.map((category) => (
+                          <SettingItem
+                            key={category.key}
+                            title={category.name}
+                            control={
+                              <FormSwitch
+                                checked={
+                                  channel.hitokotoCategories?.includes(category.key) ?? false
+                                }
+                                onCheckedChange={() =>
+                                  handleToggleCategory(channel.id, category.key)
+                                }
+                                aria-label={`${category.name}分类`}
+                              />
+                            }
+                          />
+                        ))}
+                      </SettingGrid>
+                    </div>
                   </div>
                 </div>
               )}
 
-              {channel.kind === "remote" && channel.providerId === "jinrishici" && (
-                <div className={styles.channelDetails}>
-                  <InfoPanel tone="warning" title="服务与隐私说明">
-                    今日诗词免费版仅限非商业使用。启用后会由服务方处理公开 IP，并在当前终端保存推荐
-                    Token/Cookie。
-                  </InfoPanel>
-                </div>
-              )}
-
-              {expandedEditorChannelId === channel.id && channel.kind === "local" && (
-                <div className={styles.channelDetails}>
-                  <div className={styles.editorSection}>
-                    <div className={styles.editorHeader}>
-                      <h5 className={styles.editorTitle}>语录编辑器</h5>
-                      <div className={styles.quoteActions}>
-                        <FormSegmented
-                          value={channel.orderMode}
-                          onChange={(value) =>
-                            handleUpdateOrderMode(channel.id, value as "random" | "sequential")
-                          }
-                          options={ORDER_MODE_OPTIONS}
-                        />
-                        <FormButton
-                          variant="secondary"
-                          size="sm"
-                          title="恢复默认内容"
-                          aria-label="恢复默认内容"
-                          icon={<ResetIcon size={16} />}
-                          disabled={!defaultQuotesMap[channel.id]}
-                          onClick={() => handleRestoreDefaultAll(channel.id)}
-                        />
-                        {!channel.builtIn && (
-                          <FormButton
-                            onClick={() => handleDeleteChannel(channel.id)}
-                            variant="danger"
-                            size="sm"
-                            title="删除语录源"
-                            aria-label="删除语录源"
-                            icon={<TrashIcon size={16} />}
+              {channel.kind === "local" && (
+                <div
+                  id={editorDetailsId}
+                  className={
+                    isEditorExpanded ? styles.channelDetailsExpanded : styles.channelDetails
+                  }
+                  aria-hidden={!isEditorExpanded}
+                  inert={isEditorExpanded ? undefined : true}
+                >
+                  <div className={styles.channelDetailsContent}>
+                    <div className={styles.editorSection}>
+                      <div className={styles.editorHeader}>
+                        <h5 className={styles.editorTitle}>语录编辑器</h5>
+                        <div className={styles.quoteActions}>
+                          <FormSegmented
+                            value={channel.orderMode}
+                            onChange={(value) =>
+                              handleUpdateOrderMode(channel.id, value as "random" | "sequential")
+                            }
+                            options={ORDER_MODE_OPTIONS}
                           />
-                        )}
+                          <FormButton
+                            variant="secondary"
+                            size="sm"
+                            title="恢复默认内容"
+                            aria-label="恢复默认内容"
+                            icon={<ResetIcon size={16} />}
+                            disabled={!defaultQuotesMap[channel.id]}
+                            onClick={() => handleRestoreDefaultAll(channel.id)}
+                          />
+                          {!channel.builtIn && (
+                            <FormButton
+                              onClick={() => handleDeleteChannel(channel.id)}
+                              variant="danger"
+                              size="sm"
+                              title="删除语录源"
+                              aria-label="删除语录源"
+                              icon={<TrashIcon size={16} />}
+                            />
+                          )}
+                        </div>
                       </div>
+                      <FormTextarea
+                        label="语录文本（每行一个）"
+                        className={styles.quoteTextarea}
+                        value={editorDraftMap[channel.id] ?? channel.quotes.join("\n")}
+                        onChange={(event) =>
+                          handleUpdateQuotesFromTextarea(channel.id, event.target.value)
+                        }
+                        placeholder="例如：\n保持专注，持续前进。\n小步快跑，积累成塔。"
+                        rows={10}
+                      />
+                      <div className={styles.importInfo}>当前条目：{channel.quotes.length}</div>
+                      {editorError && (
+                        <InfoPanel tone="warning" role="alert">
+                          {editorError}
+                        </InfoPanel>
+                      )}
+                      {channel.quotes.length === 0 && (
+                        <InfoPanel tone="warning">当前频道暂无可用语录。</InfoPanel>
+                      )}
                     </div>
-                    <FormTextarea
-                      label="语录文本（每行一个）"
-                      className={styles.quoteTextarea}
-                      value={editorDraftMap[channel.id] ?? channel.quotes.join("\n")}
-                      onChange={(event) =>
-                        handleUpdateQuotesFromTextarea(channel.id, event.target.value)
-                      }
-                      placeholder="例如：\n保持专注，持续前进。\n小步快跑，积累成塔。"
-                      rows={10}
-                    />
-                    <div className={styles.importInfo}>当前条目：{channel.quotes.length}</div>
-                    {editorError && (
-                      <InfoPanel tone="warning" role="alert">
-                        {editorError}
-                      </InfoPanel>
-                    )}
-                    {channel.quotes.length === 0 && (
-                      <InfoPanel tone="warning">当前频道暂无可用语录。</InfoPanel>
-                    )}
                   </div>
                 </div>
               )}
