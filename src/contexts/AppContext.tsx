@@ -16,6 +16,8 @@ function loadQuoteSettingsState(): QuoteSettingsState {
   return {
     autoRefreshEnabled: settings.general.quote.autoRefreshEnabled,
     autoRefreshIntervalSec: settings.general.quote.autoRefreshIntervalSec,
+    animationMode: settings.general.quote.animationMode,
+    typingSpeed: settings.general.quote.typingSpeed,
   };
 }
 
@@ -432,7 +434,7 @@ function appReducer(state: AppState, action: AppAction): AppState {
         quoteChannels: { channels: action.payload },
       };
 
-    case "SET_QUOTE_REFRESH_SETTINGS":
+    case "SET_QUOTE_SETTINGS":
       return {
         ...state,
         quoteSettings: action.payload,

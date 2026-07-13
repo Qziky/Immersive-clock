@@ -42,15 +42,12 @@
   --quote-channel-border: rgba(47, 236, 198, 0.24);
 }
 
-.channelCard:hover,
-.channelCardActive:hover,
 .channelCard:focus-within,
 .channelCardActive:focus-within {
   background: var(--ui-color-bg-muted);
   border-color: var(--ui-color-border-strong);
 }
 
-.channelCardActive:hover,
 .channelCardActive:focus-within {
   border-color: var(--ui-color-accent-border);
 }

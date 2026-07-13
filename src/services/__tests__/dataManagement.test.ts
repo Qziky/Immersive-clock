@@ -291,6 +291,9 @@ describe("dataManagement", () => {
 
   it("兼容旧 v2 设置包与纯 AppSettings", async () => {
     const settings = settingsWithBackground();
+    const importedQuote = settings.general.quote as unknown as Record<string, unknown>;
+    importedQuote.animationMode = "slide";
+    importedQuote.typingSpeed = "instant";
     const legacyBundle = await prepareBackup({
       format: "immersive-clock-settings",
       version: 2,
@@ -303,6 +306,10 @@ describe("dataManagement", () => {
     expect(legacyBundle.preview.warnings[0]).toContain("v2");
     expect(plainSettings.sourceFormat).toBe("legacy-app-settings");
     expect(plainSettings.preview.hasNoiseHistory).toBe(false);
+    expect(plainSettings.backup.domains.settings.data.general.quote).toMatchObject({
+      animationMode: "typewriter",
+      typingSpeed: "normal",
+    });
   });
 
   it("在 Worker 不可用时仍可从 File 预检备份", async () => {

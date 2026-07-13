@@ -6,7 +6,7 @@ import { useAudio } from "../../hooks/useAudio";
 import { useNoiseStream } from "../../hooks/useNoiseStream";
 import { pushErrorCenterRecord } from "../../utils/errorCenter";
 
-import styles from "./NoiseMonitor.module.css";
+import { NoisePresentation, type NoisePresentationState } from "./NoisePresentation";
 
 interface NoiseMonitorProps {
   onBreathingLightClick?: () => void;
@@ -140,18 +140,18 @@ const NoiseMonitor: React.FC<NoiseMonitorProps> = ({ onBreathingLightClick, onSt
     }
   }, [status, openErrorPopup]);
 
-  const statusClassName = useMemo(() => {
+  const presentationState = useMemo<NoisePresentationState>(() => {
     switch (status) {
       case "quiet":
-        return styles.quiet;
+        return "quiet";
       case "noisy":
-        return styles.noisy;
+        return "noisy";
       case "permission-denied":
       case "error":
-        return styles.error;
+        return "error";
       case "initializing":
       default:
-        return styles.initializing;
+        return "initializing";
     }
   }, [status]);
 
@@ -200,34 +200,29 @@ const NoiseMonitor: React.FC<NoiseMonitorProps> = ({ onBreathingLightClick, onSt
   }, [status, realtimeDisplayDb, maxLevelDb]);
 
   return (
-    <div className={styles.noiseMonitor} data-tour="noise-monitor">
-      <div className={styles.statusContainer}>
-        <button
-          type="button"
-          className={`${styles.breathingLight} ${statusClassName}`}
-          style={indicatorStyle}
-          onClick={handleBreathingLightClick}
-          title={breathingLightTooltip}
-          aria-label={breathingLightTooltip}
-          data-tour="noise-history-trigger"
-        />
-        <div className={styles.textBlock}>
-          <div
-            className={`${styles.statusText} ${statusClassName}`}
-            style={statusAppearance}
-            onClick={handleStatusTextClick}
-            title={statusTextTooltip}
-          >
-            {statusText}
-          </div>
-          {showRealtimeDb && (status === "quiet" || status === "noisy") && (
-            <div className={styles.statusSubtext} style={subtextAppearance} aria-live="polite">
-              {realtimeDisplayDb.toFixed(0)} dB
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
+    <NoisePresentation
+      indicatorAttributes={{
+        "aria-label": breathingLightTooltip,
+        "data-tour": "noise-history-trigger",
+        onClick: handleBreathingLightClick,
+        style: indicatorStyle,
+        title: breathingLightTooltip,
+      }}
+      rootAttributes={{ "data-tour": "noise-monitor" }}
+      state={presentationState}
+      statusAttributes={{
+        onClick: handleStatusTextClick,
+        style: statusAppearance,
+        title: statusTextTooltip,
+      }}
+      statusText={statusText}
+      subtext={
+        showRealtimeDb && (status === "quiet" || status === "noisy")
+          ? `${realtimeDisplayDb.toFixed(0)} dB`
+          : undefined
+      }
+      subtextAttributes={{ "aria-live": "polite", style: subtextAppearance }}
+    />
   );
 };
 

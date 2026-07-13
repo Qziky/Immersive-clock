@@ -1,0 +1,78 @@
+import type { HTMLAttributes } from "react";
+
+import { classNames } from "../../ui/utils/classNames";
+import { PresentationContent, type PresentationAttributes } from "../PresentationContent";
+
+import styles from "./Stopwatch.module.css";
+
+interface StopwatchPresentationProps {
+  active: boolean;
+  contentAttributes?: PresentationAttributes<HTMLAttributes<HTMLDivElement>>;
+  milestoneAttributes?: PresentationAttributes<HTMLAttributes<HTMLDivElement>>;
+  milestoneText?: string;
+  placeholderAttributes?: PresentationAttributes<HTMLAttributes<HTMLSpanElement>>;
+  placeholderText?: string;
+  rootAttributes?: PresentationAttributes<HTMLAttributes<HTMLDivElement>>;
+  showMilestone: boolean;
+  showPausedStatus: boolean;
+  showPlaceholder: boolean;
+  statusAttributes?: PresentationAttributes<HTMLAttributes<HTMLDivElement>>;
+  statusText?: string;
+  timeAttributes?: PresentationAttributes<HTMLAttributes<HTMLDivElement>>;
+  timeText: string;
+}
+
+export function StopwatchPresentation({
+  active,
+  contentAttributes,
+  milestoneAttributes,
+  milestoneText = "🎉 已超过1小时！",
+  placeholderAttributes,
+  placeholderText = "00:00:00",
+  rootAttributes,
+  showMilestone,
+  showPausedStatus,
+  showPlaceholder,
+  statusAttributes,
+  statusText = "已暂停",
+  timeAttributes,
+  timeText,
+}: StopwatchPresentationProps) {
+  const { className: rootClassName, ...rootProps } = rootAttributes ?? {};
+  const { className: timeClassName, ...timeProps } = timeAttributes ?? {};
+  const { className: placeholderClassName, ...placeholderProps } = placeholderAttributes ?? {};
+  const { className: statusClassName, ...statusProps } = statusAttributes ?? {};
+  const { className: milestoneClassName, ...milestoneProps } = milestoneAttributes ?? {};
+
+  return (
+    <div {...rootProps} className={classNames(styles.stopwatch, rootClassName)}>
+      <PresentationContent attributes={contentAttributes}>
+        <div
+          {...timeProps}
+          className={classNames(styles.time, active && styles.running, timeClassName)}
+        >
+          {showPlaceholder ? (
+            <span
+              {...placeholderProps}
+              className={classNames(styles.placeholder, placeholderClassName)}
+            >
+              {placeholderText}
+            </span>
+          ) : (
+            timeText
+          )}
+        </div>
+        {showPausedStatus ? (
+          <div {...statusProps} className={classNames(styles.status, statusClassName)}>
+            {statusText}
+          </div>
+        ) : null}
+        {showMilestone ? (
+          <div {...milestoneProps} className={classNames(styles.milestone, milestoneClassName)}>
+            {milestoneText}
+          </div>
+        ) : null}
+      </PresentationContent>
+    </div>
+  );
+}

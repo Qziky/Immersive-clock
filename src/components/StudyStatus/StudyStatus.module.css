@@ -29,10 +29,10 @@
 
 .statusRow {
   align-items: center;
-  display: flex;
+  display: grid;
   gap: 0.7rem;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   height: 100%;
-  justify-content: space-between;
   min-width: 0;
   position: relative;
   width: 100%;
@@ -41,7 +41,6 @@
 
 .statusText {
   color: var(--study-text-primary, var(--study-ink, var(--text-color)));
-  flex: 1 1 auto;
   font-family: var(--font-ui);
   font-size: var(--study-rail-primary-font-size, 0.94rem);
   font-weight: 600;
@@ -54,6 +53,39 @@
   white-space: nowrap;
 }
 
+.progressRhythm {
+  align-items: baseline;
+  color: var(--study-text-secondary, rgba(232, 233, 224, 0.72));
+  display: flex;
+  font-family: var(--font-ui);
+  font-size: max(var(--study-rail-meta-font-size, 0.72rem), 0.8rem);
+  gap: 0.4rem;
+  justify-content: center;
+  line-height: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.stageText {
+  color: var(--study-data-accent, #2fecc6);
+  filter: brightness(0.8);
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rhythmSeparator {
+  color: var(--study-text-tertiary, rgba(232, 233, 224, 0.54));
+  flex: 0 0 auto;
+}
+
+.remainingTime {
+  flex: 0 0 auto;
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+}
+
 .progressMeta {
   color: var(--study-text-tertiary, rgba(232, 233, 224, 0.54));
   flex: 0 0 auto;
@@ -61,6 +93,7 @@
   font-size: var(--study-rail-meta-font-size, 0.72rem);
   font-variant-numeric: tabular-nums;
   font-weight: 500;
+  justify-self: end;
   line-height: 1;
   white-space: nowrap;
 }
@@ -77,6 +110,11 @@
   .progressMeta {
     font-size: 0.68rem;
   }
+
+  .progressRhythm {
+    font-size: 0.74rem;
+    gap: 0.32rem;
+  }
 }
 
 @media (max-width: 480px) {
@@ -91,6 +129,12 @@
   .statusText {
     font-size: 0.84rem;
   }
+
+  .progressRhythm {
+    font-size: 0.68rem;
+    gap: 0.25rem;
+    justify-content: center;
+  }
 }
 
 @media (prefers-contrast: high) {
@@ -103,6 +147,10 @@
     background: #ffffff;
     border-right: 0;
     mix-blend-mode: difference;
+  }
+
+  .stageText {
+    filter: none;
   }
 }
 

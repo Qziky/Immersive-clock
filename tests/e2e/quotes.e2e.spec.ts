@@ -1,4 +1,4 @@
-import { expect, test, type Page, type Route } from "@playwright/test";
+import { expect, test, type Locator, type Page, type Route } from "@playwright/test";
 
 import { showHud } from "./e2eUtils";
 
@@ -7,31 +7,46 @@ type QuotePreferenceSeed = {
   enabled: boolean;
   weight: number;
   hitokotoCategories?: string[];
+  orderMode?: "random" | "sequential";
   quotesOverride?: string[];
+};
+
+type QuoteAnimationSeed = {
+  animationMode?: "typewriter" | "crossfade" | "none";
+  typingSpeed?: "slow" | "normal" | "fast";
 };
 
 const LOCAL_FALLBACK_TEXT = "外部服务不可用时显示本地句子。";
 
-async function seedQuoteSettings(page: Page, channels: QuotePreferenceSeed[]) {
-  await page.addInitScript((quoteChannels) => {
-    if (sessionStorage.getItem("quote-e2e-seeded") === "true") return;
-    localStorage.setItem(
-      "AppSettings",
-      JSON.stringify({
-        version: 3,
-        modifiedAt: Date.now(),
-        general: {
-          quote: {
-            autoRefreshEnabled: false,
-            autoRefreshIntervalSec: 600,
-            channels: quoteChannels,
-            customChannels: [],
+async function seedQuoteSettings(
+  page: Page,
+  channels: QuotePreferenceSeed[],
+  animation: QuoteAnimationSeed = {}
+) {
+  await page.addInitScript(
+    ({ quoteAnimation, quoteChannels }) => {
+      if (sessionStorage.getItem("quote-e2e-seeded") === "true") return;
+      localStorage.setItem(
+        "AppSettings",
+        JSON.stringify({
+          version: 3,
+          modifiedAt: Date.now(),
+          general: {
+            quote: {
+              autoRefreshEnabled: false,
+              autoRefreshIntervalSec: 600,
+              animationMode: quoteAnimation.animationMode ?? "typewriter",
+              typingSpeed: quoteAnimation.typingSpeed ?? "normal",
+              channels: quoteChannels,
+              customChannels: [],
+            },
           },
-        },
-      })
-    );
-    sessionStorage.setItem("quote-e2e-seeded", "true");
-  }, channels);
+        })
+      );
+      sessionStorage.setItem("quote-e2e-seeded", "true");
+    },
+    { quoteAnimation: animation, quoteChannels: channels }
+  );
 }
 
 async function useDeterministicRandom(page: Page, value: number) {
@@ -78,6 +93,34 @@ async function openQuoteChannels(page: Page) {
   await dialog.getByRole("button", { name: "语录渠道" }).click();
   await expect(dialog.getByRole("heading", { name: "语录频道管理" })).toBeVisible();
   return dialog;
+}
+
+async function openQuoteEffects(page: Page) {
+  await enterStudyMode(page);
+  await page.getByRole("button", { name: "打开设置" }).click();
+  const dialog = page.getByRole("dialog", { name: "设置" });
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole("button", { name: "内容语录" }).click();
+  await dialog.getByRole("button", { name: "显示效果" }).click();
+  await expect(dialog.getByRole("heading", { name: "语录显示效果" })).toBeVisible();
+  return dialog;
+}
+
+async function expectOneOrTwoRevealLayers(reveal: Locator) {
+  const layerCount = await reveal.locator("[data-quote-reveal-layer]").count();
+  expect(layerCount).toBeGreaterThanOrEqual(1);
+  expect(layerCount).toBeLessThanOrEqual(2);
+}
+
+async function expectSettingsWithoutHorizontalOverflow(page: Page, dialog: Locator) {
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
+    true
+  );
+  const settingsContainer = dialog.locator("#settings-panel-container");
+  await expect(settingsContainer).toBeVisible();
+  expect(
+    await settingsContainer.evaluate((element) => element.scrollWidth <= element.clientWidth)
+  ).toBe(true);
 }
 
 test("在线语录：一言主线路失败后使用国际线路", async ({ page }) => {
@@ -328,4 +371,113 @@ test("语录设置：三个在线频道可见且保存后保持启停与权重",
   const reloadedAdvice = reloadedDialog.locator("article").filter({ hasText: "Advice Slip" });
   await expect(reloadedAdvice.getByRole("switch", { name: "停用Advice Slip" })).toBeChecked();
   await expect(reloadedAdvice.getByRole("spinbutton")).toHaveValue("37");
+});
+
+test("语录设置：显示效果在移动与桌面端可预览、保存并重载", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await seedQuoteSettings(page, [
+    {
+      id: "local-inspirational",
+      enabled: true,
+      weight: 100,
+      orderMode: "sequential",
+      quotesOverride: ["把注意力放回当下这一刻。", "一次只做一件事，也是在前进。"],
+    },
+    { id: "university-mottos", enabled: false, weight: 1 },
+    { id: "hitokoto-api", enabled: false, weight: 1 },
+    { id: "jinrishici-api", enabled: false, weight: 1 },
+    { id: "advice-slip-api", enabled: false, weight: 1 },
+  ]);
+
+  await page.goto("/");
+  let dialog = await openQuoteEffects(page);
+  await dialog.getByRole("radio", { name: "快速" }).click();
+  await dialog.getByRole("radio", { name: "平滑显示" }).click();
+
+  await expect(dialog.getByRole("radio", { name: "快速" })).toBeChecked();
+  await expect(dialog.getByRole("radio", { name: "快速" })).toBeDisabled();
+  let preview = dialog.getByTestId("quote-animation-preview");
+  const reveal = preview.locator('[data-quote-animation="crossfade"]');
+  await expect(reveal).toBeVisible();
+
+  let replayButton = dialog.getByRole("button", { name: "重播语录动画预览" });
+  for (let replay = 0; replay < 4; replay += 1) {
+    await replayButton.click();
+    await expectOneOrTwoRevealLayers(reveal);
+  }
+
+  const previewBoxBefore = await preview.boundingBox();
+  await replayButton.click();
+  const previewBoxAfter = await preview.boundingBox();
+  expect(Math.abs((previewBoxAfter?.height ?? 0) - (previewBoxBefore?.height ?? 0))).toBeLessThan(
+    2
+  );
+  await expectSettingsWithoutHorizontalOverflow(page, dialog);
+
+  await dialog.getByRole("button", { name: "保存" }).click();
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const raw = localStorage.getItem("AppSettings");
+        const quote = raw ? JSON.parse(raw)?.general?.quote : null;
+        return `${quote?.animationMode}:${quote?.typingSpeed}`;
+      })
+    )
+    .toBe("crossfade:fast");
+
+  const quoteButton = page.getByRole("button", { name: "刷新语录" });
+  const mainReveal = quoteButton.locator('[data-quote-reveal="true"]');
+  await expect(mainReveal).toHaveAttribute("data-quote-animation", "crossfade");
+  await quoteButton.click();
+  await expect(quoteButton).toContainText("一次只做一件事，也是在前进。");
+  await expectOneOrTwoRevealLayers(mainReveal);
+
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.reload();
+  dialog = await openQuoteEffects(page);
+  await expect(dialog.getByRole("radio", { name: "平滑显示" })).toBeChecked();
+  await expect(dialog.getByRole("radio", { name: "快速" })).toBeChecked();
+  await expectSettingsWithoutHorizontalOverflow(page, dialog);
+
+  preview = dialog.getByTestId("quote-animation-preview");
+  replayButton = dialog.getByRole("button", { name: "重播语录动画预览" });
+  await replayButton.click();
+  await expectOneOrTwoRevealLayers(preview.locator('[data-quote-animation="crossfade"]'));
+});
+
+test("语录显示：打字过程中启用减少动效会立即显示完整内容", async ({ page }) => {
+  const fullQuote = "把每一次专注都留给此刻，慢慢积累，终会抵达想去的地方。";
+  await seedQuoteSettings(
+    page,
+    [
+      {
+        id: "local-inspirational",
+        enabled: true,
+        weight: 100,
+        orderMode: "sequential",
+        quotesOverride: [fullQuote],
+      },
+      { id: "university-mottos", enabled: false, weight: 1 },
+      { id: "hitokoto-api", enabled: false, weight: 1 },
+      { id: "jinrishici-api", enabled: false, weight: 1 },
+      { id: "advice-slip-api", enabled: false, weight: 1 },
+    ],
+    { animationMode: "typewriter", typingSpeed: "slow" }
+  );
+
+  await page.goto("/");
+  await enterStudyMode(page);
+
+  const quoteButton = page.getByRole("button", { name: "刷新语录" });
+  const reveal = quoteButton.locator('[data-quote-reveal="true"]');
+  await expect(page.getByRole("status")).toContainText(fullQuote);
+  await expect(reveal).toHaveAttribute("data-quote-animation", "typewriter");
+  await expect(reveal.locator("[data-quote-unrevealed-text]")).toHaveCount(1);
+
+  await page.emulateMedia({ reducedMotion: "reduce" });
+
+  await expect(reveal).toHaveAttribute("data-quote-animation", "none");
+  await expect(reveal.locator("[data-quote-unrevealed-text]")).toHaveCount(0);
+  await expect(reveal.locator('[data-quote-visible-text="true"]')).toHaveText(fullQuote);
+  await expect(reveal.locator("[class*='cursor']")).toHaveCount(0);
 });

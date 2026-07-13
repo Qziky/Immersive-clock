@@ -18,6 +18,7 @@ import {
   RotateCw,
   ShieldAlert,
   SlidersHorizontal,
+  Sparkles,
   TimerReset,
   Wifi,
   X,
@@ -50,7 +51,8 @@ type SettingsPaneId =
   | "display"
   | "countdown"
   | "schedule"
-  | "appearanceBasic"
+  | "appearanceOverview"
+  | "appearanceTime"
   | "appearanceStudyQuote"
   | "appearanceStudyTopDock"
   | "appearanceStudyWeather"
@@ -64,6 +66,7 @@ type SettingsPaneId =
   | "noiseCalibration"
   | "noiseReports"
   | "quoteRefresh"
+  | "quoteEffects"
   | "quoteChannels"
   | "timeSync"
   | "project"
@@ -159,7 +162,7 @@ const primaryGroups: Array<{
     label: "视觉外观",
     description: "颜色、字体与背景",
     icon: <Palette size={18} aria-hidden="true" />,
-    defaultPane: "appearanceBasic",
+    defaultPane: "appearanceOverview",
   },
   {
     value: "environment",
@@ -171,7 +174,7 @@ const primaryGroups: Array<{
   {
     value: "content",
     label: "内容语录",
-    description: "刷新与渠道管理",
+    description: "刷新、显示与渠道管理",
     icon: <MessageSquareText size={18} aria-hidden="true" />,
     defaultPane: "quoteRefresh",
   },
@@ -222,13 +225,22 @@ const paneItems: SettingsPane[] = [
     section: "schedule",
   },
   {
-    value: "appearanceBasic",
+    value: "appearanceOverview",
     group: "appearance",
-    label: "基本",
-    description: "设置通用外观与时钟、倒计时、秒表、自习时间。",
+    label: "整体样式",
+    description: "设置所有页面共用的字体、背景与外观资源。",
     icon: <Brush size={20} aria-hidden="true" />,
     panel: "appearance",
-    section: "basic",
+    section: "overview",
+  },
+  {
+    value: "appearanceTime",
+    group: "appearance",
+    label: "时间显示",
+    description: "分别调整时钟、倒计时、秒表和自习时间。",
+    icon: <Clock3 size={20} aria-hidden="true" />,
+    panel: "appearance",
+    section: "time",
   },
   {
     value: "appearanceStudyQuote",
@@ -348,6 +360,15 @@ const paneItems: SettingsPane[] = [
     section: "refresh",
   },
   {
+    value: "quoteEffects",
+    group: "content",
+    label: "显示效果",
+    description: "自定义语录出现时的动画与打字速度。",
+    icon: <Sparkles size={20} aria-hidden="true" />,
+    panel: "quotes",
+    section: "effects",
+  },
+  {
     value: "quoteChannels",
     group: "content",
     label: "语录渠道",
@@ -396,7 +417,7 @@ const paneItems: SettingsPane[] = [
 
 const DEFAULT_PANES_BY_GROUP: Record<SettingsPrimaryGroup, SettingsPaneId> = {
   workspace: "startup",
-  appearance: "appearanceBasic",
+  appearance: "appearanceOverview",
   environment: "weatherAlerts",
   content: "quoteRefresh",
   system: "timeSync",
@@ -626,7 +647,7 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
   const aboutSection: AboutSettingsSection =
     activePaneItem.panel === "about" ? activePaneItem.section : "project";
   const appearanceSection: AppearanceSettingsSection =
-    activePaneItem.panel === "appearance" ? activePaneItem.section : "basic";
+    activePaneItem.panel === "appearance" ? activePaneItem.section : "overview";
 
   return (
     <Modal

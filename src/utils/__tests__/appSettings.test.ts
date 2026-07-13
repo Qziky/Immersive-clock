@@ -69,6 +69,8 @@ describe("appSettings", () => {
     expect(s.study.display.showTime).toBe(true);
     expect(s.general.quote.autoRefreshEnabled).toBe(true);
     expect(s.general.quote.autoRefreshIntervalSec).toBe(600);
+    expect(s.general.quote.animationMode).toBe("typewriter");
+    expect(s.general.quote.typingSpeed).toBe("normal");
     expect(s.general.quote.channels).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ id: "local-inspirational", enabled: true, weight: 40 }),
@@ -406,6 +408,8 @@ describe("appSettings", () => {
           quote: {
             autoRefreshEnabled: false,
             autoRefreshIntervalSec: null,
+            animationMode: "slide",
+            typingSpeed: "instant",
             channels: [
               { id: "hitokoto-api", enabled: "bad", weight: "bad" },
               { id: "hitokoto-api", enabled: false, weight: 44 },
@@ -420,6 +424,8 @@ describe("appSettings", () => {
     const loaded = getAppSettings();
     expect(loaded.general.quote.autoRefreshEnabled).toBe(false);
     expect(loaded.general.quote.autoRefreshIntervalSec).toBe(600);
+    expect(loaded.general.quote.animationMode).toBe("typewriter");
+    expect(loaded.general.quote.typingSpeed).toBe("normal");
     expect(loaded.general.quote.channels.find((channel) => channel.id === "hitokoto-api")).toEqual(
       expect.objectContaining({ enabled: true, weight: 20 })
     );
@@ -429,17 +435,52 @@ describe("appSettings", () => {
       loaded.general.quote.channels,
       loaded.general.quote.customChannels
     );
+    const setItemSpy = vi.spyOn(localStorage, "setItem");
     saveQuoteSettings(resolvedChannels, {
       autoRefreshEnabled: true,
       autoRefreshIntervalSec: 5000,
+      animationMode: "crossfade",
+      typingSpeed: "fast",
     });
 
+    expect(setItemSpy).toHaveBeenCalledTimes(1);
     const saved = JSON.parse(localStorage.getItem(APP_SETTINGS_KEY) ?? "{}");
     expect(saved.version).toBe(3);
     expect(saved.general.quote.autoRefreshEnabled).toBe(true);
     expect(saved.general.quote.autoRefreshIntervalSec).toBe(1800);
+    expect(saved.general.quote.animationMode).toBe("crossfade");
+    expect(saved.general.quote.typingSpeed).toBe("fast");
     expect(saved.general.quote).not.toHaveProperty("lastUpdated");
     expect(saved.general.quote.channels[0]).not.toHaveProperty("apiEndpoint");
+  });
+
+  it.each([
+    ["缺失", {}],
+    ["非法", { animationMode: "slide", typingSpeed: "instant" }],
+  ])("启动迁移会将 v3 %s动画设置归一到默认值并写回", (_label, animationSettings) => {
+    localStorage.setItem(
+      APP_SETTINGS_KEY,
+      JSON.stringify({
+        version: 3,
+        general: {
+          quote: {
+            ...animationSettings,
+            autoRefreshEnabled: true,
+            autoRefreshIntervalSec: 600,
+            channels: [],
+            customChannels: [],
+          },
+        },
+      })
+    );
+
+    const migrated = migrateStoredAppSettings();
+    const saved = JSON.parse(localStorage.getItem(APP_SETTINGS_KEY) ?? "{}");
+
+    expect(migrated.general.quote.animationMode).toBe("typewriter");
+    expect(migrated.general.quote.typingSpeed).toBe("normal");
+    expect(saved.general.quote.animationMode).toBe("typewriter");
+    expect(saved.general.quote.typingSpeed).toBe("normal");
   });
 
   it("normalizeAppSettings 会在不写入存储的情况下规范化导入候选", () => {
@@ -459,6 +500,8 @@ describe("appSettings", () => {
   it("恢复默认设置时保留课程、倒计时和语录内容，但重置外观与功能偏好", () => {
     const current = getAppSettings();
     current.general.startup.initialMode = "study";
+    current.general.quote.animationMode = "crossfade";
+    current.general.quote.typingSpeed = "fast";
     current.general.quote.customChannels = [
       {
         id: "custom:test",
@@ -489,6 +532,8 @@ describe("appSettings", () => {
     const reset = resetAppSettingsPreservingUserContent();
 
     expect(reset.general.startup.initialMode).toBe("clock");
+    expect(reset.general.quote.animationMode).toBe("crossfade");
+    expect(reset.general.quote.typingSpeed).toBe("fast");
     expect(reset.general.quote.customChannels[0]?.quotes).toEqual(["保留内容"]);
     expect(reset.study.countdownItems[0]?.name).toBe("考试");
     expect(reset.study.schedule[0]?.name).toBe("数学");

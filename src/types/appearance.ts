@@ -106,8 +106,14 @@ export interface AppearanceComponentDefinition {
   label: string;
   description: string;
   slots: AppearanceSlotDefinition[];
-  states?: Array<{ id: string; label: string; defaultStyle?: AppearanceStyle }>;
+  states?: Array<{
+    id: string;
+    label: string;
+    slotIds: string[];
+    defaultStyle?: AppearanceStyle;
+  }>;
   supportsSurface?: boolean;
+  containerLabel?: string;
   defaultContainerStyle?: AppearanceStyle;
 }
 

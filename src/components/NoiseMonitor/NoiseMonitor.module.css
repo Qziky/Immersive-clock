@@ -76,9 +76,12 @@
   display: inline-flex;
   font-family: var(--font-ui);
   font-size: var(--study-rail-meta-font-size, 0.58rem);
+  font-variant-numeric: tabular-nums;
   font-weight: 500;
   grid-column: 2;
   grid-row: 2;
+  inline-size: 6ch;
+  justify-content: flex-end;
   justify-self: end;
   line-height: 1;
   margin: 0;

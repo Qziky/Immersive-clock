@@ -64,6 +64,7 @@ This document explains Immersive Clock features, operations, and details. Use th
 - Quote settings:
   - Manage local channels and three independent online channels: Hitokoto, Jinrishici, and Advice Slip. Each channel can be enabled or disabled and assigned its own weight.
   - Hitokoto supports Literature, Poetry, and Philosophy categories. Auto-refresh has a separate switch and an interval from 30 seconds to 30 minutes.
+  - Under Display Effects, choose Natural Typing, Smooth Display, or Show Immediately. Natural Typing offers Slow, Standard, and Fast speeds with a replayable live preview.
 - Schedule:
   - Add/Edit/Delete sessions; persisted to local storage.
 
@@ -84,6 +85,8 @@ This document explains Immersive Clock features, operations, and details. Use th
 - Online channels include Hitokoto, Jinrishici, and Advice Slip. Each can be enabled or disabled and assigned its own display weight; Hitokoto also supports Literature, Poetry, and Philosophy categories.
 - Hitokoto and Jinrishici provide Chinese content, while Advice Slip provides English content, so enabling multiple online channels may produce a mix of Chinese and English quotes.
 - Auto-refresh has a dedicated switch with an interval from 30 seconds to 30 minutes. Manual refresh tries online services first and keeps the current quote if all attempts fail.
+- Quotes can use Natural Typing, Smooth Display, or Show Immediately. Natural Typing has three speed presets. The settings preview reflects the draft immediately, while the Study page changes only after you select Save.
+- When the system preference for reduced motion is enabled, the latest quote appears in full without an entrance animation.
 - If an online service is unavailable, the app tries other enabled and healthy online channels, persisted quotes from the last 7 days, and then local channels. Local quotes remain available offline.
 - Jinrishici's free service is limited to non-commercial use. It processes the device's public IP and, as recommended by the provider, stores a Token/Cookie on the device. The app only persists normalized quote content, not the raw IP, Token, or warning returned by the service.
 - This project does not guarantee third-party availability or content licensing. Follow each provider's terms and applicable content license when using online quotes.

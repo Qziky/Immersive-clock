@@ -29,6 +29,7 @@ export interface TabsProps<TValue extends string = string> {
   scrollable?: boolean;
   sticky?: boolean;
   className?: string;
+  onPreviewChange?: (value: TValue | null) => void;
 }
 
 const variantClassMap: Record<NonNullable<TabsProps["variant"]>, string> = {
@@ -63,6 +64,7 @@ export function Tabs<TValue extends string = string>({
   scrollable = true,
   sticky = false,
   className,
+  onPreviewChange,
 }: TabsProps<TValue>) {
   const resolvedValue = value ?? activeKey;
   const firstEnabledItem = items.find((item) => !item.disabled);
@@ -149,6 +151,10 @@ export function Tabs<TValue extends string = string>({
             title={item.title}
             disabled={item.disabled}
             onClick={() => onChange(itemValue)}
+            onPointerEnter={() => onPreviewChange?.(itemValue)}
+            onPointerLeave={() => onPreviewChange?.(null)}
+            onFocus={() => onPreviewChange?.(itemValue)}
+            onBlur={() => onPreviewChange?.(null)}
             onKeyDown={(event) => handleKeyDown(event, itemValue)}
           >
             {item.icon}

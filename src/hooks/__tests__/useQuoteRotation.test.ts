@@ -75,6 +75,8 @@ const CHANNELS: QuoteChannel[] = [
 const MANUAL_SETTINGS: QuoteSettingsState = {
   autoRefreshEnabled: false,
   autoRefreshIntervalSec: 30,
+  animationMode: "typewriter",
+  typingSpeed: "normal",
 };
 
 function deferred<T>() {
@@ -150,7 +152,10 @@ describe("useQuoteRotation", () => {
         immediateWasFallback: true,
         refresh: freshQuote.promise,
       });
-    const automaticSettings = { autoRefreshEnabled: true, autoRefreshIntervalSec: 30 };
+    const automaticSettings: QuoteSettingsState = {
+      ...MANUAL_SETTINGS,
+      autoRefreshEnabled: true,
+    };
     const { result } = renderHook(() => useQuoteRotation(CHANNELS, automaticSettings));
 
     runInitialAutomaticRequest();
@@ -226,7 +231,11 @@ describe("useQuoteRotation", () => {
     expect(quoteServiceMocks.startAutomaticQuote).toHaveBeenCalledTimes(1);
 
     rerender({
-      settings: { autoRefreshEnabled: true, autoRefreshIntervalSec: 5 },
+      settings: {
+        ...MANUAL_SETTINGS,
+        autoRefreshEnabled: true,
+        autoRefreshIntervalSec: 5,
+      },
     });
     act(() => {
       vi.advanceTimersByTime(29_999);

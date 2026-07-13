@@ -85,17 +85,6 @@ export const APPEARANCE_COMPONENTS: readonly AppearanceComponentDefinition[] = [
         defaultStyle: { ...PRIMARY_NUMERIC, opacity: 0.6 },
       },
       {
-        id: "status",
-        label: "暂停状态",
-        kind: "text",
-        defaultStyle: {
-          color: "#2fecc6",
-          opacity: 0.8,
-          font: TEXT_FONT,
-          fontWeight: 400,
-        },
-      },
-      {
         id: "finishedMessage",
         label: "结束提示",
         kind: "text",
@@ -108,20 +97,30 @@ export const APPEARANCE_COMPONENTS: readonly AppearanceComponentDefinition[] = [
       },
     ],
     states: [
-      { id: "warning", label: "警告状态", defaultStyle: { color: "#cf6679" } },
-      { id: "finished", label: "结束状态", defaultStyle: { color: "#cf6679" } },
+      {
+        id: "warning",
+        label: "警告状态",
+        slotIds: ["time"],
+        defaultStyle: { color: "#cf6679" },
+      },
+      {
+        id: "finished",
+        label: "结束状态",
+        slotIds: ["time", "finishedMessage"],
+        defaultStyle: { color: "#cf6679" },
+      },
     ],
   },
   {
     id: "stopwatch",
     scene: "stopwatch",
     label: "秒表",
-    description: "时间、暂停状态和里程碑",
+    description: "时间、暂停提示和里程碑",
     slots: [
       { id: "time", label: "主时间", kind: "numeric", defaultStyle: PRIMARY_NUMERIC },
       {
         id: "status",
-        label: "暂停状态",
+        label: "暂停提示",
         kind: "text",
         defaultStyle: {
           color: "#2fecc6",
@@ -143,10 +142,16 @@ export const APPEARANCE_COMPONENTS: readonly AppearanceComponentDefinition[] = [
       },
     ],
     states: [
-      { id: "running", label: "运行状态", defaultStyle: { color: "#ffffff" } },
-      { id: "paused", label: "暂停状态" },
+      {
+        id: "running",
+        label: "运行状态",
+        slotIds: ["time"],
+        defaultStyle: { color: "#ffffff" },
+      },
+      { id: "paused", label: "暂停状态", slotIds: ["time", "status"] },
     ],
     supportsSurface: true,
+    containerLabel: "秒表整体",
   },
   {
     id: "studyTime",
@@ -201,8 +206,9 @@ export const APPEARANCE_COMPONENTS: readonly AppearanceComponentDefinition[] = [
     scene: "study",
     label: "顶部信息栏",
     description: "顶栏背景、边框与阴影",
-    slots: [{ id: "surface", label: "顶栏表面", kind: "surface" }],
+    slots: [],
     supportsSurface: true,
+    containerLabel: "信息栏整体",
     defaultContainerStyle: {
       backgroundColor: "#111317",
       backgroundOpacity: 0.46,
@@ -244,12 +250,28 @@ export const APPEARANCE_COMPONENTS: readonly AppearanceComponentDefinition[] = [
       },
     ],
     states: [
-      { id: "quiet", label: "安静", defaultStyle: { color: "#7fd8bd", opacity: 1 } },
-      { id: "noisy", label: "嘈杂", defaultStyle: { color: "#ff7a88", opacity: 1 } },
-      { id: "error", label: "错误", defaultStyle: { color: "#ff9b9b", opacity: 0.76 } },
+      {
+        id: "quiet",
+        label: "安静",
+        slotIds: ["status", "subtext", "indicator"],
+        defaultStyle: { color: "#7fd8bd", opacity: 1 },
+      },
+      {
+        id: "noisy",
+        label: "嘈杂",
+        slotIds: ["status", "subtext", "indicator"],
+        defaultStyle: { color: "#ff7a88", opacity: 1 },
+      },
+      {
+        id: "error",
+        label: "错误",
+        slotIds: ["status", "subtext", "indicator"],
+        defaultStyle: { color: "#ff9b9b", opacity: 0.76 },
+      },
       {
         id: "calibrating",
         label: "校准中",
+        slotIds: ["status", "subtext", "indicator"],
         defaultStyle: { color: "#f2c46d", opacity: 1 },
       },
     ],
@@ -280,6 +302,7 @@ export const APPEARANCE_COMPONENTS: readonly AppearanceComponentDefinition[] = [
       },
     ],
     supportsSurface: true,
+    containerLabel: "课时进度整体",
     defaultContainerStyle: {
       backgroundColor: "#e8e9e0",
       backgroundOpacity: 0.045,
@@ -310,6 +333,7 @@ export const APPEARANCE_COMPONENTS: readonly AppearanceComponentDefinition[] = [
       { id: "unit", label: "单位", kind: "text", defaultStyle: PRIMARY_TEXT },
     ],
     supportsSurface: true,
+    containerLabel: "倒计时卡片",
   },
 ] as const;
 
@@ -438,6 +462,26 @@ function normalizeComponent(value: unknown): ComponentAppearance {
   };
 }
 
+function normalizeComponentForDefinition(
+  componentId: AppearanceComponentId,
+  value: unknown
+): ComponentAppearance {
+  const normalized = normalizeComponent(value);
+  if (componentId !== "studyTopDock") return normalized;
+
+  const legacySurface = normalized.slots?.surface;
+  if (!legacySurface) return normalized;
+
+  const remainingSlots = Object.fromEntries(
+    Object.entries(normalized.slots ?? {}).filter(([slotId]) => slotId !== "surface")
+  );
+  return {
+    ...normalized,
+    container: { ...normalized.container, ...legacySurface },
+    ...(Object.keys(remainingSlots).length > 0 ? { slots: remainingSlots } : { slots: undefined }),
+  };
+}
+
 export function normalizeAppearanceBackground(
   value: unknown,
   options: { allowInherit?: boolean; legacyDefaultAsInherit?: boolean } = {}
@@ -495,7 +539,10 @@ export function normalizeAppearance(value: unknown): AppearanceSettingsV2 {
     const components: Partial<Record<AppearanceComponentId, ComponentAppearance>> = {};
     Object.entries(rawScene.components ?? {}).forEach(([id, component]) => {
       if (APPEARANCE_COMPONENTS.some((definition) => definition.id === id)) {
-        components[id as AppearanceComponentId] = normalizeComponent(component);
+        components[id as AppearanceComponentId] = normalizeComponentForDefinition(
+          id as AppearanceComponentId,
+          component
+        );
       }
     });
     scenes[sceneId] = {

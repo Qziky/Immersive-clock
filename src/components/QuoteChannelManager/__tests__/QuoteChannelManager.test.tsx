@@ -33,7 +33,12 @@ describe("QuoteChannelManager", () => {
     managerMocks.useAppDispatch.mockReturnValue(managerMocks.dispatch);
     managerMocks.useAppState.mockReturnValue({
       quoteChannels: { channels: getDefaultQuoteChannels() },
-      quoteSettings: { autoRefreshEnabled: false, autoRefreshIntervalSec: 30 },
+      quoteSettings: {
+        autoRefreshEnabled: false,
+        autoRefreshIntervalSec: 30,
+        animationMode: "typewriter",
+        typingSpeed: "normal",
+      },
     });
   });
 
@@ -113,6 +118,8 @@ describe("QuoteChannelManager", () => {
     const refreshSettings: QuoteSettingsState = {
       autoRefreshEnabled: true,
       autoRefreshIntervalSec: 90,
+      animationMode: "crossfade",
+      typingSpeed: "fast",
     };
     act(() => {
       registeredSave?.(refreshSettings);
@@ -136,7 +143,7 @@ describe("QuoteChannelManager", () => {
       payload: expect.any(Array),
     });
     expect(managerMocks.dispatch).toHaveBeenNthCalledWith(2, {
-      type: "SET_QUOTE_REFRESH_SETTINGS",
+      type: "SET_QUOTE_SETTINGS",
       payload: refreshSettings,
     });
   });

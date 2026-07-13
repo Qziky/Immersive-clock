@@ -18,9 +18,11 @@ import type {
   CustomQuoteChannel,
   HitokotoCategory,
   PersistedQuoteSettings,
+  QuoteAnimationMode,
   QuoteChannel,
   QuoteChannelPreference,
   QuoteSettingsState,
+  QuoteTypingSpeed,
 } from "../types/quote";
 import { HITOKOTO_CATEGORY_LIST } from "../types/quote";
 import { DEFAULT_SCHEDULE, type StudyPeriod } from "../types/studySchedule";
@@ -154,6 +156,8 @@ export class UnsupportedSettingsVersionError extends Error {
 const DEFAULT_QUOTE_REFRESH_INTERVAL_SEC = 600;
 const MIN_QUOTE_REFRESH_INTERVAL_SEC = 30;
 const MAX_QUOTE_REFRESH_INTERVAL_SEC = 1800;
+const DEFAULT_QUOTE_ANIMATION_MODE: QuoteAnimationMode = "typewriter";
+const DEFAULT_QUOTE_TYPING_SPEED: QuoteTypingSpeed = "normal";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
@@ -178,11 +182,25 @@ function normalizeQuoteRefreshInterval(value: unknown): number {
   );
 }
 
+function normalizeQuoteAnimationMode(value: unknown): QuoteAnimationMode {
+  return value === "typewriter" || value === "crossfade" || value === "none"
+    ? value
+    : DEFAULT_QUOTE_ANIMATION_MODE;
+}
+
+function normalizeQuoteTypingSpeed(value: unknown): QuoteTypingSpeed {
+  return value === "slow" || value === "normal" || value === "fast"
+    ? value
+    : DEFAULT_QUOTE_TYPING_SPEED;
+}
+
 function createDefaultQuoteSettings(): PersistedQuoteSettings {
   const serialized = serializeQuoteChannels(getDefaultQuoteChannels());
   return {
     autoRefreshEnabled: true,
     autoRefreshIntervalSec: DEFAULT_QUOTE_REFRESH_INTERVAL_SEC,
+    animationMode: DEFAULT_QUOTE_ANIMATION_MODE,
+    typingSpeed: DEFAULT_QUOTE_TYPING_SPEED,
     channels: serialized.channels,
     customChannels: serialized.customChannels,
   };
@@ -340,6 +358,8 @@ function normalizeQuoteSettings(value: unknown, storedVersion: number): Persiste
       return {
         autoRefreshEnabled: false,
         autoRefreshIntervalSec: DEFAULT_QUOTE_REFRESH_INTERVAL_SEC,
+        animationMode: normalizeQuoteAnimationMode(source.animationMode),
+        typingSpeed: normalizeQuoteTypingSpeed(source.typingSpeed),
         ...serialized,
       };
     }
@@ -347,6 +367,8 @@ function normalizeQuoteSettings(value: unknown, storedVersion: number): Persiste
       return {
         autoRefreshEnabled: true,
         autoRefreshIntervalSec: normalizeQuoteRefreshInterval(legacyInterval),
+        animationMode: normalizeQuoteAnimationMode(source.animationMode),
+        typingSpeed: normalizeQuoteTypingSpeed(source.typingSpeed),
         ...serialized,
       };
     }
@@ -356,6 +378,8 @@ function normalizeQuoteSettings(value: unknown, storedVersion: number): Persiste
     autoRefreshEnabled:
       typeof source.autoRefreshEnabled === "boolean" ? source.autoRefreshEnabled : true,
     autoRefreshIntervalSec: normalizeQuoteRefreshInterval(source.autoRefreshIntervalSec),
+    animationMode: normalizeQuoteAnimationMode(source.animationMode),
+    typingSpeed: normalizeQuoteTypingSpeed(source.typingSpeed),
     ...serialized,
   };
 }
@@ -790,14 +814,16 @@ export function updateGeneralSettings(updates: DeepPartial<AppSettings["general"
 /** Persist the quote editor draft as one normalized v3 settings update. */
 export function saveQuoteSettings(
   channels: readonly QuoteChannel[],
-  refreshState: QuoteSettingsState
+  quoteSettings: QuoteSettingsState
 ): void {
   const serialized = serializeQuoteChannels(channels);
   updateAppSettings({
     general: {
       quote: {
-        autoRefreshEnabled: Boolean(refreshState.autoRefreshEnabled),
-        autoRefreshIntervalSec: normalizeQuoteRefreshInterval(refreshState.autoRefreshIntervalSec),
+        autoRefreshEnabled: Boolean(quoteSettings.autoRefreshEnabled),
+        autoRefreshIntervalSec: normalizeQuoteRefreshInterval(quoteSettings.autoRefreshIntervalSec),
+        animationMode: normalizeQuoteAnimationMode(quoteSettings.animationMode),
+        typingSpeed: normalizeQuoteTypingSpeed(quoteSettings.typingSpeed),
         channels: serialized.channels,
         customChannels: serialized.customChannels,
       },

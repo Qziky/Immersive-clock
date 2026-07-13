@@ -6,7 +6,7 @@ import { useComponentAppearance } from "../../contexts/AppearanceContext";
 import { useAccumulatingTimer } from "../../hooks/useTimer";
 import { formatStopwatch } from "../../utils/formatTime";
 
-import styles from "./Stopwatch.module.css";
+import { StopwatchPresentation } from "./StopwatchPresentation";
 
 /**
  * 秒表组件
@@ -43,32 +43,17 @@ export function Stopwatch() {
   const containerAppearance = useComponentAppearance("stopwatch", "surface", { kind: "surface" });
 
   return (
-    <div className={styles.stopwatch} style={containerAppearance}>
-      <div
-        className={`${styles.time} ${stopwatch.isActive ? styles.running : ""}`}
-        style={timeAppearance}
-        aria-live="polite"
-      >
-        {stopwatch.elapsedTime === 0 ? (
-          <span className={styles.placeholder} style={timeAppearance}>
-            00:00:00
-          </span>
-        ) : (
-          timeString
-        )}
-      </div>
-
-      {stopwatch.elapsedTime > 0 && !stopwatch.isActive && (
-        <div className={styles.status} style={statusAppearance}>
-          已暂停
-        </div>
-      )}
-
-      {isLongDuration && (
-        <div className={styles.milestone} style={milestoneAppearance}>
-          🎉 已超过1小时！
-        </div>
-      )}
-    </div>
+    <StopwatchPresentation
+      active={stopwatch.isActive}
+      milestoneAttributes={{ style: milestoneAppearance }}
+      placeholderAttributes={{ style: timeAppearance }}
+      rootAttributes={{ style: containerAppearance }}
+      showMilestone={isLongDuration}
+      showPausedStatus={stopwatch.elapsedTime > 0 && !stopwatch.isActive}
+      showPlaceholder={stopwatch.elapsedTime === 0}
+      statusAttributes={{ style: statusAppearance }}
+      timeAttributes={{ "aria-live": "polite", style: timeAppearance }}
+      timeText={timeString}
+    />
   );
 }

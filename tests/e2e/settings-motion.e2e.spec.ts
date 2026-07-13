@@ -63,9 +63,9 @@ test.describe("设置动效", () => {
     const dialog = await openSettings(page);
     await dialog.getByRole("button", { name: "视觉外观" }).click();
     await dialog.getByRole("button", { name: "语录", exact: true }).click();
-    await dialog.getByRole("button", { name: "基本", exact: true }).click();
+    await dialog.getByRole("button", { name: "整体样式", exact: true }).click();
 
-    const paneTitle = dialog.getByRole("heading", { name: "基本", level: 2 });
+    const paneTitle = dialog.getByRole("heading", { name: "整体样式", level: 2 });
     await expect(paneTitle).toBeVisible();
     const animatedHeader = paneTitle.locator("..");
     expect(
@@ -73,7 +73,7 @@ test.describe("设置动效", () => {
     ).toContain("settingsReveal");
 
     const backgroundSection = dialog
-      .getByRole("heading", { name: "基本背景" })
+      .getByRole("heading", { name: "整体背景" })
       .locator("xpath=ancestor::section[1]");
     const animatedSection = backgroundSection;
     const firstSetting = dialog
@@ -100,6 +100,40 @@ test.describe("设置动效", () => {
     expect(
       await colorSetting.evaluate((element) => getComputedStyle(element).animationName)
     ).toContain("settingsItemReveal");
+  });
+
+  test("秒表预览停用组件动画并正确呈现对象与状态", async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: "no-preference" });
+    await page.goto("/");
+
+    const dialog = await openSettings(page);
+    await dialog.getByRole("button", { name: "视觉外观" }).click();
+    await dialog.getByRole("button", { name: "时间显示", exact: true }).click();
+    await dialog
+      .getByRole("radiogroup", { name: "时间显示类型" })
+      .getByRole("radio", { name: "秒表", exact: true })
+      .check({ force: true });
+
+    const preview = dialog.getByLabel("秒表外观预览");
+    const previewCanvas = preview.locator(":scope > div");
+    const status = preview.getByText("已暂停", { exact: true });
+    const milestone = preview.getByText("🎉 已超过1小时！", { exact: true });
+    await expect(previewCanvas).toHaveAttribute("data-preview-frame-highlighted", "true");
+    await expect(
+      dialog
+        .getByRole("tablist", { name: "秒表调整对象" })
+        .getByRole("tab", { name: "暂停提示", exact: true })
+    ).toBeVisible();
+    await expect(status).toHaveCSS("animation-name", "none");
+    await expect(status).toHaveCSS("opacity", "0.8");
+    await expect(milestone).toHaveCSS("animation-name", "none");
+    await expect(milestone).toHaveCSS("opacity", "1");
+
+    const stateTabs = dialog.getByRole("tablist", { name: "秒表状态样式" });
+    await stateTabs.getByRole("tab", { name: "运行状态", exact: true }).click();
+    await expect(preview.getByText("已暂停", { exact: true })).toHaveCount(0);
+    await stateTabs.getByRole("tab", { name: "暂停状态", exact: true }).click();
+    await expect(preview.getByText("已暂停", { exact: true })).toHaveCSS("opacity", "0.8");
   });
 
   test("减少动效模式下立即稳定并即时卸载", async ({ page }) => {

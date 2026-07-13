@@ -5,7 +5,7 @@ import { useTimer } from "../../hooks/useTimer";
 import { formatClock } from "../../utils/formatTime";
 import { getAdjustedDate } from "../../utils/timeSync";
 
-import styles from "./Clock.module.css";
+import { ClockPresentation } from "./ClockPresentation";
 
 /**
  * 时钟组件
@@ -35,18 +35,18 @@ export function Clock() {
   const dateAppearance = useComponentAppearance("clock", "date");
 
   return (
-    <div className={styles.clock}>
-      <div
-        className={styles.time}
-        style={timeAppearance}
-        aria-live="polite"
-        aria-label={`当前时间：${timeString}`}
-      >
-        {timeString}
-      </div>
-      <div className={styles.date} style={dateAppearance} aria-label={`当前日期：${dateString}`}>
-        {dateString}
-      </div>
-    </div>
+    <ClockPresentation
+      dateAttributes={{
+        "aria-label": `当前日期：${dateString}`,
+        style: dateAppearance,
+      }}
+      dateText={dateString}
+      timeAttributes={{
+        "aria-label": `当前时间：${timeString}`,
+        "aria-live": "polite",
+        style: timeAppearance,
+      }}
+      timeText={timeString}
+    />
   );
 }

@@ -34,6 +34,41 @@
   outline: none;
 }
 
+.quoteReveal {
+  display: grid;
+  max-width: 100%;
+  min-width: 0;
+  position: relative;
+  width: 100%;
+}
+
+.quoteLayer,
+.layoutCopy {
+  grid-column: 1;
+  grid-row: 1;
+  max-width: 100%;
+  min-width: 0;
+  width: 100%;
+}
+
+.layoutCopy {
+  pointer-events: none;
+  visibility: hidden;
+}
+
+.previousLayer {
+  inset: 0;
+  position: absolute;
+}
+
+.quoteContent {
+  display: block;
+  max-width: 100%;
+  min-width: 0;
+  text-align: center;
+  width: 100%;
+}
+
 .quoteText {
   color: var(--study-text-tertiary, var(--study-muted, rgba(255, 255, 255, 0.72)));
   font-family: var(--font-ui);
@@ -43,6 +78,7 @@
   line-height: 1.55;
   max-width: 100%;
   overflow-wrap: anywhere;
+  position: relative;
   text-align: center;
   transition: color var(--transition-fast);
   white-space: normal;
@@ -59,6 +95,7 @@
   line-height: 1.55;
   margin-left: 0.45rem;
   overflow-wrap: anywhere;
+  position: relative;
   transition: color var(--transition-fast);
 }
 
@@ -72,16 +109,48 @@
   width: 1px;
 }
 
-.typing {
-  position: relative;
-}
-
 .cursor {
   animation: blink 1.2s infinite;
   color: var(--study-accent, white);
   display: inline-block;
   font-weight: 400;
   margin-left: 2px;
+  position: absolute;
+  white-space: nowrap;
+}
+
+.unrevealed {
+  visibility: hidden;
+}
+
+.fadeIn {
+  animation: quoteFadeIn var(--ui-motion-duration-slow, 240ms)
+    var(--ui-motion-ease-standard, cubic-bezier(0.2, 0, 0, 1)) both;
+}
+
+.fadeOut {
+  animation: quoteFadeOut var(--ui-motion-duration-slow, 240ms)
+    var(--ui-motion-ease-standard, cubic-bezier(0.2, 0, 0, 1)) both;
+}
+
+@keyframes quoteFadeIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes quoteFadeOut {
+  from {
+    opacity: 1;
+  }
+
+  to {
+    opacity: 0;
+  }
 }
 
 @keyframes blink {
@@ -135,5 +204,10 @@
   .cursor {
     animation: none;
     opacity: 1;
+  }
+
+  .fadeIn,
+  .fadeOut {
+    animation: none;
   }
 }

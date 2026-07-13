@@ -127,7 +127,7 @@ test.describe("弹层重设计", () => {
     ).toBe(true);
   });
 
-  test("Toast 始终显示在业务弹窗上方", async ({ page }) => {
+  test("Toast 显示在右下角且始终位于业务弹窗上方", async ({ page }) => {
     await page.goto("/");
     await showHud(page);
     await page.getByRole("button", { name: /版本 v.+点击查看更新公告/ }).click();
@@ -147,16 +147,28 @@ test.describe("弹层重设计", () => {
     });
 
     await expect(page.getByRole("alert")).toContainText("暴雨预警");
-    const layers = await page.evaluate(() => {
+    const layout = await page.evaluate(() => {
       const toastViewport = document.querySelector<HTMLElement>("[aria-label='通知']");
       const modalBackdrop = document.querySelector<HTMLElement>(
         "[data-ui-overlay-root][role='presentation']"
       );
+      const bottomChrome = document.querySelector<HTMLElement>("[aria-label='底栏工具与项目信息']");
+      const toastRect = toastViewport!.getBoundingClientRect();
+      const bottomChromeRect = bottomChrome!.getBoundingClientRect();
       return {
-        toast: Number(getComputedStyle(toastViewport!).zIndex),
-        modal: Number(getComputedStyle(modalBackdrop!).zIndex),
+        bottomGap: window.innerHeight - toastRect.bottom,
+        bottomChromeTop: bottomChromeRect.top,
+        modalLayer: Number(getComputedStyle(modalBackdrop!).zIndex),
+        rightGap: window.innerWidth - toastRect.right,
+        toastBottom: toastRect.bottom,
+        toastLayer: Number(getComputedStyle(toastViewport!).zIndex),
       };
     });
-    expect(layers.toast).toBeGreaterThan(layers.modal);
+    expect(layout.rightGap).toBeGreaterThanOrEqual(11);
+    expect(layout.rightGap).toBeLessThanOrEqual(13);
+    expect(layout.bottomGap).toBeGreaterThanOrEqual(47);
+    expect(layout.bottomGap).toBeLessThanOrEqual(49);
+    expect(layout.toastBottom).toBeLessThanOrEqual(layout.bottomChromeTop - 29);
+    expect(layout.toastLayer).toBeGreaterThan(layout.modalLayer);
   });
 });

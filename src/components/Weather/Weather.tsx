@@ -39,6 +39,8 @@ import {
 } from "../../utils/weatherStorage";
 
 import styles from "./Weather.module.css";
+import { resolveWeatherIconCode } from "./weatherDisplay";
+import { WeatherPresentation } from "./WeatherPresentation";
 
 const MINUTELY_PRECIP_POPUP_ID = "weather:minutelyPrecip";
 const MINUTELY_PRECIP_POPUP_SHOWN_KEY = "weather.minutely.popupShown";
@@ -659,67 +661,6 @@ const Weather: React.FC = () => {
   }, [study.airQualityAlertEnabled, study.sunriseSunsetAlertEnabled]);
 
   /**
-   * 将天气文本映射到图标代码
-   * 根据时间自动选择白天或夜间图标
-   */
-  const mapWeatherToIcon = useCallback((weatherText: string): string => {
-    const now = new Date();
-    const suffix = now.getHours() >= 18 || now.getHours() < 6 ? "n" : "d";
-    if (!weatherText || typeof weatherText !== "string") {
-      return `01${suffix}`; // 默认晴天
-    }
-
-    if (weatherText.includes("晴")) return `01${suffix}`;
-    if (weatherText.includes("阴")) return `04${suffix}`;
-    if (weatherText.includes("多云")) return `03${suffix}`;
-    if (weatherText.includes("云")) return `02${suffix}`;
-    if (weatherText.includes("雨")) return `09${suffix}`;
-    if (weatherText.includes("雪")) return `13${suffix}`;
-    if (weatherText.includes("雾") || weatherText.includes("霾")) return `50${suffix}`;
-    if (weatherText.includes("雷")) return `11${suffix}`;
-    return `01${suffix}`; // 默认晴天
-  }, []);
-
-  /**
-   * 获取天气描述的单字简化版本
-   */
-  const getSimplifiedWeatherText = useCallback((text: string): string => {
-    const weatherMap: { [key: string]: string } = {
-      晴: "晴",
-      多云: "云",
-      阴: "阴",
-      小雨: "雨",
-      中雨: "雨",
-      大雨: "雨",
-      暴雨: "雨",
-      雷阵雨: "雷",
-      小雪: "雪",
-      中雪: "雪",
-      大雪: "雪",
-      雾: "雾",
-      霾: "霾",
-      沙尘暴: "沙",
-      浮尘: "尘",
-      扬沙: "沙",
-    };
-
-    for (const [key, value] of Object.entries(weatherMap)) {
-      if (text.includes(key)) {
-        return value;
-      }
-    }
-
-    return text.charAt(0) || "晴";
-  }, []);
-
-  /**
-   * 获取天气图标URL
-   */
-  const getWeatherIconUrl = useCallback((iconCode: string): string => {
-    return `/weather-icons/fill/${iconCode}.svg`;
-  }, []);
-
-  /**
    * 初始化天气数据（通过小米天气 + 高德反编码）
    */
   const initializeWeather = useCallback(
@@ -738,7 +679,7 @@ const Weather: React.FC = () => {
               temperature: now.temp ?? "",
               text: now.text ?? "",
               location: locationName,
-              icon: mapWeatherToIcon(now.text ?? ""),
+              icon: resolveWeatherIconCode(now.text ?? ""),
             });
             setLoading(false); // 如果有缓存先显示，后面继续请求更新
           }
@@ -774,7 +715,7 @@ const Weather: React.FC = () => {
         const temperature = now?.temp ?? "";
         const text = now?.text ?? "";
         const locationName = result.city || "未知";
-        const icon = mapWeatherToIcon(text);
+        const icon = resolveWeatherIconCode(text);
 
         const address = result.addressInfo?.address || "";
         const ts = Date.now();
@@ -842,12 +783,7 @@ const Weather: React.FC = () => {
         setLoading(false);
       }
     },
-    [
-      mapWeatherToIcon,
-      maybeOpenErrorPopup,
-      study.airQualityAlertEnabled,
-      study.sunriseSunsetAlertEnabled,
-    ]
+    [maybeOpenErrorPopup, study.airQualityAlertEnabled, study.sunriseSunsetAlertEnabled]
   );
 
   /**
@@ -1086,27 +1022,15 @@ const Weather: React.FC = () => {
     !error && weatherData ? `${weatherData.text} ${weatherData.temperature}°C` : "--";
 
   return (
-    <div className={styles.weather} title={titleText}>
-      <div className={styles.temperature} style={temperatureAppearance}>
-        {displayTempText}
-      </div>
-      <div className={styles.divider}></div>
-      <div className={styles.icon}>
-        {displayIconCode ? (
-          <img
-            src={getWeatherIconUrl(displayIconCode)}
-            alt={displayTextRaw}
-            loading="lazy"
-            decoding="async"
-            className={styles.weatherIcon}
-            style={iconAppearance}
-          />
-        ) : null}
-      </div>
-      <div className={styles.weatherText} style={descriptionAppearance}>
-        {displayTextRaw === "--" ? "--" : getSimplifiedWeatherText(displayTextRaw)}
-      </div>
-    </div>
+    <WeatherPresentation
+      descriptionAttributes={{ style: descriptionAppearance }}
+      iconAttributes={{ style: iconAppearance }}
+      iconCode={displayIconCode}
+      temperatureAttributes={{ style: temperatureAppearance }}
+      temperatureText={displayTempText}
+      title={titleText}
+      weatherText={displayTextRaw}
+    />
   );
 };
 

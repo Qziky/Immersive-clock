@@ -265,7 +265,7 @@ const WeatherSettingsPanel: React.FC<WeatherSettingsPanelProps> = ({ onRegisterS
   return (
     <div id="weather-panel">
       <FormSection
-        title="基本设置"
+        title="提醒开关"
         variant="plain"
         description="控制天气相关提醒是否在触发时弹出。"
         hidden={isSectionHidden("alerts")}

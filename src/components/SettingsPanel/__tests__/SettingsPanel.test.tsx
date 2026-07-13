@@ -1,4 +1,5 @@
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { useEffect, useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -221,9 +222,9 @@ describe("SettingsPanel", () => {
     const appearancePanes = within(dialog).getByRole("navigation", {
       name: "视觉外观子分类",
     });
-    fireEvent.click(within(appearancePanes).getByRole("button", { name: "基本" }));
+    fireEvent.click(within(appearancePanes).getByRole("button", { name: "整体样式" }));
 
-    expect(within(dialog).getByRole("heading", { name: "基本" })).toBeInTheDocument();
+    expect(within(dialog).getByRole("heading", { name: "整体样式" })).toBeInTheDocument();
     expect(within(dialog).queryByRole("navigation", { name: "视觉外观子分类" })).toBeNull();
   });
 
@@ -270,14 +271,38 @@ describe("SettingsPanel", () => {
     fireEvent.change(screen.getByLabelText("课程草稿"), { target: { value: "晚间自习" } });
 
     fireEvent.click(navigation.getByRole("button", { name: /视觉外观/ }));
-    fireEvent.click(navigation.getByRole("button", { name: "基本" }));
+    fireEvent.click(navigation.getByRole("button", { name: "整体样式" }));
     fireEvent.click(navigation.getByRole("button", { name: /常用工作台/ }));
 
     expect(screen.getByTestId("basic-panel")).toHaveAttribute("data-section", "schedule");
     expect(screen.getByLabelText("课程草稿")).toHaveValue("晚间自习");
 
     fireEvent.click(navigation.getByRole("button", { name: /视觉外观/ }));
-    expect(screen.getByTestId("appearance-panel")).toHaveAttribute("data-section", "basic");
+    expect(screen.getByTestId("appearance-panel")).toHaveAttribute("data-section", "overview");
+  });
+
+  it("按刷新、显示、渠道顺序展示语录设置并保留点击焦点", async () => {
+    const user = userEvent.setup();
+    renderSettings();
+
+    const dialog = screen.getByRole("dialog", { name: "设置" });
+    const navigation = within(within(dialog).getByRole("complementary", { name: "设置导航" }));
+    await user.click(navigation.getByRole("button", { name: /内容语录/ }));
+
+    const quotePanes = navigation.getByRole("group", { name: "内容语录" });
+    expect(
+      within(quotePanes)
+        .getAllByRole("button")
+        .map((button) => button.textContent)
+    ).toEqual(["刷新策略", "显示效果", "语录渠道"]);
+
+    const effectsButton = within(quotePanes).getByRole("button", { name: "显示效果" });
+    await user.click(effectsButton);
+
+    expect(effectsButton).toHaveFocus();
+    expect(effectsButton).toHaveAttribute("aria-current", "page");
+    expect(screen.getByTestId("quotes-panel")).toHaveAttribute("data-section", "effects");
+    expect(within(dialog).getByRole("heading", { name: "显示效果" })).toBeInTheDocument();
   });
 
   it("统一保存会提交所有已挂载设置面板", () => {
@@ -411,13 +436,13 @@ describe("SettingsPanel", () => {
     const dialog = screen.getByRole("dialog", { name: "设置" });
     const navigation = within(within(dialog).getByRole("complementary", { name: "设置导航" }));
     fireEvent.click(navigation.getByRole("button", { name: /视觉外观/ }));
-    fireEvent.click(navigation.getByRole("button", { name: "基本" }));
+    fireEvent.click(navigation.getByRole("button", { name: "时间显示" }));
     fireEvent.click(within(dialog).getByRole("button", { name: "取消" }));
 
     const exitingDialog = screen.getByRole("dialog", { hidden: true });
     expect(exitingDialog).toHaveAttribute("data-ui-presence", "exiting");
     expect(
-      within(exitingDialog).getByRole("heading", { name: "基本", hidden: true })
+      within(exitingDialog).getByRole("heading", { name: "时间显示", hidden: true })
     ).toBeVisible();
 
     act(() => {

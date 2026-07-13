@@ -58,6 +58,35 @@ describe("appearanceModel", () => {
     expect(normalized.scenes.clock.background).toEqual({ type: "inherit" });
   });
 
+  it("将顶部信息栏旧表面样式合并到唯一容器", () => {
+    const normalized = normalizeAppearance({
+      scenes: {
+        study: {
+          background: { type: "inherit" },
+          components: {
+            studyTopDock: {
+              container: { backgroundColor: "#111111", borderWidth: 1 },
+              slots: {
+                surface: { backgroundColor: "#222222", borderRadius: 12 },
+              },
+            },
+          },
+        },
+      },
+    });
+    const topDock = normalized.scenes.study.components.studyTopDock;
+
+    expect(topDock?.container).toEqual({
+      backgroundColor: "#222222",
+      borderRadius: 12,
+      borderWidth: 1,
+    });
+    expect(topDock?.slots).toBeUndefined();
+    expect(
+      resolveAppearanceStyle(normalized, "study", "studyTopDock", "surface", "surface")
+    ).toEqual(topDock?.container);
+  });
+
   it("编辑器展示内置默认值但不把默认值写入配置", () => {
     const appearance = createDefaultAppearance();
 

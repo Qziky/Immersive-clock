@@ -59,6 +59,7 @@
 }
 
 .tabBar {
+  background: var(--ui-color-bg-raised);
   border-bottom: 1px solid var(--ui-glass-border);
   min-width: 0;
   overflow: hidden;

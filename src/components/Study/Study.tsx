@@ -18,6 +18,11 @@ import StudyStatus from "../StudyStatus";
 import { Weather } from "../Weather";
 
 import styles from "./Study.module.css";
+import { StudyCenterPresentation } from "./StudyCenterPresentation";
+import { StudyCountdownCarouselPresentation } from "./StudyCountdownCarouselPresentation";
+import { StudyCountdownItemPresentation } from "./StudyCountdownItemPresentation";
+import { StudyTimePresentation } from "./StudyTimePresentation";
+import { StudyTopDockPresentation } from "./StudyTopDockPresentation";
 
 /**
  * 自习组件
@@ -245,7 +250,9 @@ export function Study() {
 
   const backgroundSettings = resolveBackground("study");
   const containerStyle = appearanceBackgroundToCss(backgroundSettings, getBackgroundImage("study"));
-  const topDockAppearance = useComponentAppearance("studyTopDock", "surface");
+  const topDockAppearance = useComponentAppearance("studyTopDock", "surface", {
+    kind: "surface",
+  });
   const primaryTimeAppearance = useComponentAppearance("studyTime", "primary");
   const secondsAppearance = useComponentAppearance("studyTime", "seconds");
   const dateAppearance = useComponentAppearance("studyTime", "date");
@@ -315,22 +322,15 @@ export function Study() {
       instanceId: item.id,
     });
     return (
-      <div key={item.id} className={styles.carouselItem} style={itemAppearance}>
-        <span className={styles.countdownContent}>
-          <span className={styles.countdownPrefix} style={labelAppearance}>
-            距离{nameText}
-          </span>
-          <span className={styles.countdownOnly} style={labelAppearance}>
-            仅
-          </span>
-          <span className={styles.days} style={digitAppearance}>
-            {days}
-          </span>
-          <span className={styles.countdownUnit} style={unitAppearance}>
-            天
-          </span>
-        </span>
-      </div>
+      <StudyCountdownItemPresentation
+        daysAttributes={{ style: digitAppearance }}
+        daysText={String(days)}
+        eventLabel={nameText}
+        key={item.id}
+        labelAttributes={{ style: labelAppearance }}
+        rootAttributes={{ style: itemAppearance }}
+        unitAttributes={{ style: unitAppearance }}
+      />
     );
   };
 
@@ -342,65 +342,49 @@ export function Study() {
     >
       {/* 顶部：环境、课时与倒计时共用一条状态栏。 */}
       {(display.showStatusBar || display.showNoiseMonitor || display.showCountdown) && (
-        <div className={styles.topDock} style={topDockAppearance}>
-          {(display.showStatusBar || display.showNoiseMonitor) && (
-            <div className={styles.auxDock}>
-              {display.showStatusBar && (
-                <div className={styles.weatherDock}>
-                  <Weather />
-                </div>
-              )}
-              {display.showNoiseMonitor && (
-                <div className={styles.noiseDock}>
-                  <NoiseMonitor
-                    onBreathingLightClick={handleOpenHistory}
-                    onStatusClick={handleOpenHistory}
-                  />
-                </div>
-              )}
-            </div>
-          )}
-          {display.showStatusBar && (
-            <div className={styles.statusDock}>
-              <StudyStatus />
-            </div>
-          )}
-          {display.showCountdown && (
-            <div className={styles.countdownDock}>
-              <div className={styles.countdownCarousel} ref={countdownRef} aria-live="polite">
-                <div
-                  className={styles.carouselTrack}
-                  style={{ transform: `translateY(-${activeIndex * (itemHeight || 0)}px)` }}
-                >
-                  {countdownItems.map(renderItem)}
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
+        <StudyTopDockPresentation
+          countdownContent={
+            display.showCountdown ? (
+              <StudyCountdownCarouselPresentation
+                carouselAttributes={{ "aria-live": "polite" }}
+                carouselRef={countdownRef}
+                trackAttributes={{
+                  style: { transform: `translateY(-${activeIndex * (itemHeight || 0)}px)` },
+                }}
+              >
+                {countdownItems.map(renderItem)}
+              </StudyCountdownCarouselPresentation>
+            ) : undefined
+          }
+          noiseContent={
+            display.showNoiseMonitor ? (
+              <NoiseMonitor
+                onBreathingLightClick={handleOpenHistory}
+                onStatusClick={handleOpenHistory}
+              />
+            ) : undefined
+          }
+          rootAttributes={{ style: topDockAppearance }}
+          statusContent={display.showStatusBar ? <StudyStatus /> : undefined}
+          weatherContent={display.showStatusBar ? <Weather /> : undefined}
+        />
       )}
 
       {/* 居中：时间始终显示，日期可隐藏 */}
-      <div className={styles.centerTime}>
-        <div className={styles.currentTime} aria-label={`当前时间：${timeString}`}>
-          <span className={styles.timePrimary} style={primaryTimeAppearance}>
-            {primaryTime}
-          </span>
-          <span className={styles.timeSeconds} style={secondsAppearance}>
-            :{seconds}
-          </span>
-        </div>
-        {display.showDate && (
-          <div className={styles.currentDate} style={dateAppearance}>
-            {dateString}
-          </div>
-        )}
-        {display.showQuote && (
-          <div className={styles.quoteSection}>
-            <MotivationalQuote />
-          </div>
-        )}
-      </div>
+      <StudyCenterPresentation
+        quoteContent={display.showQuote ? <MotivationalQuote /> : undefined}
+        timeContent={
+          <StudyTimePresentation
+            currentTimeAttributes={{ "aria-label": `当前时间：${timeString}` }}
+            dateAttributes={{ style: dateAppearance }}
+            dateText={display.showDate ? dateString : undefined}
+            primaryAttributes={{ style: primaryTimeAppearance }}
+            primaryText={primaryTime}
+            secondsAttributes={{ style: secondsAppearance }}
+            secondsText={`:${seconds}`}
+          />
+        }
+      />
 
       {/* 噪音报告弹窗 */}
       {reportOpen && reportPeriod && (

@@ -1,0 +1,72 @@
+.preview {
+  background: rgba(8, 13, 12, 0.34);
+  border: 1px solid var(--ui-glass-border);
+  border-radius: var(--ui-radius-md);
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+  padding: 16px;
+}
+
+.previewHeader {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  min-width: 0;
+}
+
+.previewHeader > div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.previewHeader strong {
+  color: var(--ui-color-text);
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.previewHeader span {
+  color: var(--ui-color-text-subtle);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.replayButton {
+  flex: 0 0 auto;
+}
+
+.previewViewport {
+  align-items: center;
+  color: var(--ui-color-text-muted);
+  display: flex;
+  justify-content: center;
+  min-height: 86px;
+  min-width: 0;
+  overflow: hidden;
+  padding: 10px 8px;
+  text-align: center;
+}
+
+.previewQuote {
+  max-width: 100%;
+}
+
+@media (max-width: 520px) {
+  .preview {
+    padding: 14px;
+  }
+
+  .previewViewport {
+    min-height: 104px;
+    padding-inline: 0;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .preview {
+    background: var(--ui-color-bg-raised);
+  }
+}

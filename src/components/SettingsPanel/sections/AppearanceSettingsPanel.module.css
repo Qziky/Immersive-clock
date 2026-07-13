@@ -10,6 +10,111 @@
   min-width: 0;
 }
 
+.objectSelector {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.selectorHeading {
+  align-items: baseline;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+}
+
+.selectorHeading strong {
+  color: var(--ui-color-text);
+  font-size: var(--ui-font-size-md);
+}
+
+.selectorHeading span {
+  color: var(--ui-color-text-subtle);
+  font-size: var(--ui-font-size-xs);
+}
+
+.objectTabLabel {
+  align-items: center;
+  display: inline-flex;
+  gap: 7px;
+}
+
+.overrideStatus {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: space-between;
+}
+
+.stateTargets {
+  color: var(--ui-color-text-muted);
+  font-size: var(--ui-font-size-sm);
+  margin: 0;
+}
+
+.componentReset {
+  border-top: 1px solid var(--ui-glass-border);
+  padding-top: 12px;
+}
+
+.styleGroups,
+.styleGroup {
+  display: grid;
+  gap: 12px;
+}
+
+.styleGroup h4 {
+  color: var(--ui-color-text-muted);
+  font-size: var(--ui-font-size-sm);
+  font-weight: 600;
+  letter-spacing: 0;
+  margin: 0;
+}
+
+.propertyTitle {
+  align-items: center;
+  display: inline-flex;
+  gap: 7px;
+  min-width: 0;
+}
+
+.overrideDot {
+  background: var(--ui-color-accent);
+  border-radius: 50%;
+  box-shadow: 0 0 0 3px var(--ui-color-accent-soft);
+  flex: 0 0 auto;
+  height: 6px;
+  width: 6px;
+}
+
+.propertyReset {
+  border: 0;
+  height: 24px;
+  margin-left: 1px;
+  width: 24px;
+}
+
+.advancedSettings {
+  border-top: 1px solid var(--ui-glass-border);
+  padding-top: 10px;
+}
+
+.advancedSettings summary {
+  color: var(--ui-color-text-muted);
+  cursor: pointer;
+  font-size: var(--ui-font-size-sm);
+  font-weight: 600;
+  letter-spacing: 0;
+  list-style-position: inside;
+  padding: 8px 0;
+}
+
+.advancedSettings[open] summary {
+  color: var(--ui-color-text);
+  margin-bottom: 10px;
+}
+
 .colorFields {
   display: grid;
   gap: 8px;
@@ -34,6 +139,76 @@
 
 .fontPreview[data-font-role="text"] {
   font-size: 18px;
+}
+
+.appearancePreview {
+  margin: 0;
+}
+
+.previewCanvas {
+  background: #090b0c;
+  border: 1px solid var(--ui-glass-border);
+  border-radius: var(--ui-radius-md);
+  height: 220px;
+  overflow: hidden;
+  position: relative;
+}
+
+.previewCanvasActive::after {
+  border: 2px solid var(--ui-color-accent);
+  border-radius: inherit;
+  box-shadow: inset 0 0 0 5px rgba(47, 236, 198, 0.12);
+  content: "";
+  inset: 0;
+  pointer-events: none;
+  position: absolute;
+  z-index: 1;
+}
+
+.previewStage {
+  left: 0;
+  min-height: 0 !important;
+  min-width: 0 !important;
+  position: absolute;
+  top: 0;
+  transform-origin: top left;
+}
+
+.previewContentGroup {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  text-align: center;
+}
+
+.previewTarget {
+  outline: 2px solid transparent;
+  outline-offset: 4px;
+  transition:
+    outline-color var(--ui-transition-fast),
+    box-shadow var(--ui-transition-fast);
+}
+
+.previewTargetActive {
+  box-shadow: 0 0 0 5px rgba(47, 236, 198, 0.12);
+  outline-color: var(--ui-color-accent);
+  outline-offset: 5px;
+}
+
+.previewTargetTight.previewTargetActive {
+  outline-offset: -3px;
+}
+
+.previewContextHidden {
+  visibility: hidden;
+}
+
+.previewStage *,
+.previewStage *::before,
+.previewStage *::after {
+  animation: none !important;
+  pointer-events: none !important;
+  transition: none !important;
 }
 
 .resourceList {
@@ -98,5 +273,15 @@
   .resourceRow {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .previewCanvas {
+    height: 180px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .previewTarget {
+    transition: none;
   }
 }

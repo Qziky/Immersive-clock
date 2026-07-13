@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
@@ -120,5 +120,32 @@ describe("Tabs", () => {
 
     expect(screen.getByRole("tab", { name: "时钟" })).toHaveAttribute("tabindex", "0");
     expect(screen.getByRole("tab", { name: "禁用" })).toHaveAttribute("tabindex", "-1");
+  });
+
+  it("reports pointer and keyboard preview targets", () => {
+    const onPreviewChange = vi.fn();
+
+    render(
+      <Tabs
+        value="clock"
+        items={[
+          { value: "clock", label: "时钟" },
+          { value: "study", label: "自习" },
+        ]}
+        onChange={vi.fn()}
+        onPreviewChange={onPreviewChange}
+      />
+    );
+
+    const studyTab = screen.getByRole("tab", { name: "自习" });
+    fireEvent.pointerEnter(studyTab);
+    expect(onPreviewChange).toHaveBeenLastCalledWith("study");
+    fireEvent.pointerLeave(studyTab);
+    expect(onPreviewChange).toHaveBeenLastCalledWith(null);
+
+    fireEvent.focus(studyTab);
+    expect(onPreviewChange).toHaveBeenLastCalledWith("study");
+    fireEvent.blur(studyTab);
+    expect(onPreviewChange).toHaveBeenLastCalledWith(null);
   });
 });

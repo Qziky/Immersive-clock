@@ -4,6 +4,10 @@ export type QuoteLanguage = "zh" | "en";
 
 export type QuoteOrderMode = "random" | "sequential";
 
+export type QuoteAnimationMode = "typewriter" | "crossfade" | "none";
+
+export type QuoteTypingSpeed = "slow" | "normal" | "fast";
+
 export type HitokotoCategory =
   | "a"
   | "b"
@@ -103,6 +107,8 @@ export interface CustomQuoteChannel {
 export interface PersistedQuoteSettings {
   autoRefreshEnabled: boolean;
   autoRefreshIntervalSec: number;
+  animationMode: QuoteAnimationMode;
+  typingSpeed: QuoteTypingSpeed;
   channels: QuoteChannelPreference[];
   customChannels: CustomQuoteChannel[];
 }
@@ -114,4 +120,6 @@ export interface QuoteChannelState {
 export interface QuoteSettingsState {
   autoRefreshEnabled: boolean;
   autoRefreshIntervalSec: number;
+  animationMode: QuoteAnimationMode;
+  typingSpeed: QuoteTypingSpeed;
 }

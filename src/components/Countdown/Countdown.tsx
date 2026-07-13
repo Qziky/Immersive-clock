@@ -8,7 +8,7 @@ import { useTimer } from "../../hooks/useTimer";
 import { formatTimer } from "../../utils/formatTime";
 import { nowMs } from "../../utils/timeSource";
 
-import styles from "./Countdown.module.css";
+import { CountdownPresentation } from "./CountdownPresentation";
 
 /**
  * 倒计时组件
@@ -166,35 +166,24 @@ export function Countdown() {
   });
 
   return (
-    <div className={styles.countdown}>
-      <div
-        className={`${styles.time} ${isWarning ? styles.warning : ""} ${
-          isFinished ? styles.finished : ""
-        } ${styles.clickable}`}
-        onDoubleClick={handleTimeDoubleClick}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onKeyDown={handleKeyDown}
-        role="button"
-        tabIndex={0}
-        aria-label={`倒计时时间：${timeString}。双击或双触设置倒计时时间`}
-        aria-live="polite"
-        style={{ ...timeAppearance, touchAction: "manipulation" }}
-      >
-        {countdown.currentTime === 0 && countdown.initialTime === 0 ? (
-          <span className={styles.placeholder} style={placeholderAppearance}>
-            00:00:00
-          </span>
-        ) : (
-          timeString
-        )}
-      </div>
-
-      {isFinished && (
-        <div className={styles.finishedMessage} style={finishedAppearance}>
-          时间到
-        </div>
-      )}
-    </div>
+    <CountdownPresentation
+      finished={isFinished}
+      finishedMessageAttributes={{ style: finishedAppearance }}
+      placeholderAttributes={{ style: placeholderAppearance }}
+      showPlaceholder={countdown.currentTime === 0 && countdown.initialTime === 0}
+      timeAttributes={{
+        "aria-label": `倒计时时间：${timeString}。双击或双触设置倒计时时间`,
+        "aria-live": "polite",
+        onDoubleClick: handleTimeDoubleClick,
+        onKeyDown: handleKeyDown,
+        onTouchMove: handleTouchMove,
+        onTouchStart: handleTouchStart,
+        role: "button",
+        style: { ...timeAppearance, touchAction: "manipulation" },
+        tabIndex: 0,
+      }}
+      timeText={timeString}
+      warning={isWarning}
+    />
   );
 }

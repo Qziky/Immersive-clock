@@ -180,9 +180,11 @@ export interface StudyState {
 export type {
   HitokotoCategory,
   Quote,
+  QuoteAnimationMode,
   QuoteChannel,
   QuoteChannelState,
   QuoteSettingsState,
+  QuoteTypingSpeed,
 } from "./quote";
 export { HITOKOTO_CATEGORIES, HITOKOTO_CATEGORY_LIST } from "./quote";
 
@@ -233,7 +235,7 @@ export type AppAction =
   | { type: "SET_CUSTOM_COUNTDOWN"; payload: { name: string; date: string } }
   | { type: "UPDATE_QUOTE_CHANNELS"; payload: import("./quote").QuoteChannel[] }
   | {
-      type: "SET_QUOTE_REFRESH_SETTINGS";
+      type: "SET_QUOTE_SETTINGS";
       payload: import("./quote").QuoteSettingsState;
     }
   | { type: "SHOW_ANNOUNCEMENT" }

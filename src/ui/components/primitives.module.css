@@ -1034,11 +1034,10 @@
 .slider::-webkit-slider-thumb {
   appearance: none;
   background: linear-gradient(180deg, var(--ui-color-accent), var(--ui-color-accent-strong));
-  border: 2px solid var(--ui-color-bg);
+  border: 1px solid rgba(5, 75, 63, 0.72);
   border-radius: 50%;
   box-shadow:
-    0 4px 12px rgba(47, 236, 198, 0.24),
-    0 0 0 1px rgba(47, 236, 198, 0.35),
+    0 2px 6px rgba(47, 236, 198, 0.18),
     var(--ui-glass-highlight);
   height: var(--ui-slider-thumb-size);
   margin-top: calc((var(--ui-slider-track-height) - var(--ui-slider-thumb-size)) / 2);
@@ -1066,11 +1065,10 @@
 
 .slider::-moz-range-thumb {
   background: linear-gradient(180deg, var(--ui-color-accent), var(--ui-color-accent-strong));
-  border: 2px solid var(--ui-color-bg);
+  border: 1px solid rgba(5, 75, 63, 0.72);
   border-radius: 50%;
   box-shadow:
-    0 4px 12px rgba(47, 236, 198, 0.24),
-    0 0 0 1px rgba(47, 236, 198, 0.35),
+    0 2px 6px rgba(47, 236, 198, 0.18),
     var(--ui-glass-highlight);
   height: var(--ui-slider-thumb-size);
   transition:
@@ -1090,18 +1088,16 @@
 .slider:hover:not(:disabled)::-webkit-slider-thumb,
 .slider:focus-visible::-webkit-slider-thumb {
   box-shadow:
-    0 5px 16px rgba(47, 236, 198, 0.3),
-    0 0 0 4px rgba(47, 236, 198, 0.12),
-    0 0 0 1px rgba(47, 236, 198, 0.42),
+    0 3px 8px rgba(47, 236, 198, 0.22),
+    0 0 0 2px rgba(47, 236, 198, 0.1),
     var(--ui-glass-highlight);
 }
 
 .slider:hover:not(:disabled)::-moz-range-thumb,
 .slider:focus-visible::-moz-range-thumb {
   box-shadow:
-    0 5px 16px rgba(47, 236, 198, 0.3),
-    0 0 0 4px rgba(47, 236, 198, 0.12),
-    0 0 0 1px rgba(47, 236, 198, 0.42),
+    0 3px 8px rgba(47, 236, 198, 0.22),
+    0 0 0 2px rgba(47, 236, 198, 0.1),
     var(--ui-glass-highlight);
 }
 
@@ -1175,6 +1171,10 @@
 
 .tabsScrollable {
   overflow-x: auto;
+}
+
+.tabsScrollable > .tabButton {
+  flex: 0 0 auto;
 }
 
 .tabsStatic {
@@ -1362,7 +1362,7 @@
   background: var(--ui-glass-surface-strong);
   border: 1px solid var(--ui-glass-border);
   border-radius: var(--ui-radius-lg);
-  box-shadow: var(--ui-shadow-panel);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22);
   color: var(--ui-color-text);
   display: grid;
   gap: var(--ui-space-3);
@@ -1460,14 +1460,13 @@
 }
 
 .toastViewport {
+  bottom: max(48px, calc(env(safe-area-inset-bottom) + 12px));
   display: grid;
   gap: var(--ui-space-2);
   max-width: min(420px, calc(100vw - 24px));
   position: fixed;
   right: max(12px, env(safe-area-inset-right));
-  top: 12px;
   width: 420px;
-  padding-top: env(safe-area-inset-top);
   z-index: var(--ui-z-toast);
 }
 
@@ -1580,7 +1579,6 @@
     opacity var(--ui-transition-fast);
 }
 
-.settingItem:hover,
 .settingItem:focus-within {
   background: var(--ui-color-bg-muted);
   border-color: var(--ui-color-border-strong);
@@ -2190,7 +2188,7 @@
 @keyframes uiToastIn {
   from {
     opacity: 0;
-    transform: translateY(calc(var(--ui-motion-distance-lg) * -1)) scale(0.98);
+    transform: translateY(var(--ui-motion-distance-lg)) scale(0.98);
   }
 
   to {

@@ -13,9 +13,10 @@ export interface RadioOption<TValue extends string = string> {
 
 export interface RadioGroupProps<TValue extends string = string> {
   value: TValue;
-  options: Array<RadioOption<TValue>>;
+  options: readonly RadioOption<TValue>[];
   onChange: (value: TValue) => void;
   label?: string;
+  ariaLabel?: string;
   name?: string;
   error?: ReactNode;
   className?: string;
@@ -27,6 +28,7 @@ export function RadioGroup<TValue extends string = string>({
   options,
   onChange,
   label,
+  ariaLabel,
   name,
   error,
   className,
@@ -42,7 +44,7 @@ export function RadioGroup<TValue extends string = string>({
       <div
         className={classNames(styles.radioGroup, segmented && styles.radioGroupSegmented)}
         role="radiogroup"
-        aria-label={label}
+        aria-label={ariaLabel ?? label}
       >
         {options.map((option) => (
           <label

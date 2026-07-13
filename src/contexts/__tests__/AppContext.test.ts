@@ -53,6 +53,8 @@ describe("appReducer", () => {
       quoteSettings: {
         autoRefreshEnabled: false,
         autoRefreshIntervalSec: 600,
+        animationMode: "typewriter",
+        typingSpeed: "normal",
       },
       announcement: {
         isVisible: false,
@@ -203,6 +205,8 @@ describe("appReducer", () => {
             quote: {
               autoRefreshEnabled: false,
               autoRefreshIntervalSec: 90,
+              animationMode: "crossfade",
+              typingSpeed: "fast",
               channels: [{ id: "hitokoto-api", enabled: false, weight: 23 }],
               customChannels: [
                 {
@@ -224,6 +228,8 @@ describe("appReducer", () => {
       expect(initialState.quoteSettings).toEqual({
         autoRefreshEnabled: false,
         autoRefreshIntervalSec: 90,
+        animationMode: "crossfade",
+        typingSpeed: "fast",
       });
       expect(initialState.quoteChannels.channels).toEqual(
         expect.arrayContaining([
@@ -255,22 +261,26 @@ describe("appReducer", () => {
       setItemSpy.mockRestore();
     });
 
-    it("SET_QUOTE_REFRESH_SETTINGS 只更新完整刷新状态且不写入存储", () => {
+    it("SET_QUOTE_SETTINGS 只更新完整语录设置且不写入存储", () => {
       const setItemSpy = vi.spyOn(Storage.prototype, "setItem");
-      const refreshSettings = {
+      const quoteSettings = {
         autoRefreshEnabled: true,
         autoRefreshIntervalSec: 1800,
+        animationMode: "none" as const,
+        typingSpeed: "slow" as const,
       };
 
       const newState = appReducer(state, {
-        type: "SET_QUOTE_REFRESH_SETTINGS",
-        payload: refreshSettings,
+        type: "SET_QUOTE_SETTINGS",
+        payload: quoteSettings,
       });
 
-      expect(newState.quoteSettings).toEqual(refreshSettings);
+      expect(newState.quoteSettings).toEqual(quoteSettings);
       expect(state.quoteSettings).toEqual({
         autoRefreshEnabled: false,
         autoRefreshIntervalSec: 600,
+        animationMode: "typewriter",
+        typingSpeed: "normal",
       });
       expect(setItemSpy).not.toHaveBeenCalled();
       setItemSpy.mockRestore();

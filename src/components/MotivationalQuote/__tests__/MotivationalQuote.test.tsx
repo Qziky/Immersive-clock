@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { Quote } from "../../../types/quote";
@@ -33,8 +33,6 @@ const POEM_QUOTE: Quote = {
   fetchedAt: 1,
 };
 
-const TYPEWRITER_INTERVAL_MS = 120;
-
 function mockReducedMotion(matches: boolean) {
   vi.stubGlobal(
     "matchMedia",
@@ -57,9 +55,15 @@ function mockReducedMotion(matches: boolean) {
 describe("MotivationalQuote", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockReducedMotion(true);
     componentMocks.useAppState.mockReturnValue({
       quoteChannels: { channels: [] },
-      quoteSettings: { autoRefreshEnabled: false, autoRefreshIntervalSec: 30 },
+      quoteSettings: {
+        animationMode: "typewriter",
+        autoRefreshEnabled: false,
+        autoRefreshIntervalSec: 30,
+        typingSpeed: "normal",
+      },
     });
     componentMocks.useComponentAppearance.mockReturnValue({ color: "rgb(1, 2, 3)" });
     componentMocks.useQuoteRotation.mockReturnValue({
@@ -70,13 +74,11 @@ describe("MotivationalQuote", () => {
   });
 
   afterEach(() => {
-    vi.useRealTimers();
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
   });
 
   it("分别渲染正文和来源，并由按钮触发刷新", () => {
-    mockReducedMotion(true);
     render(<MotivationalQuote />);
 
     const quoteText = screen.getByText(POEM_QUOTE.text);
@@ -90,8 +92,7 @@ describe("MotivationalQuote", () => {
     expect(componentMocks.refresh).toHaveBeenCalledTimes(1);
   });
 
-  it("刷新期间暴露 busy 状态", () => {
-    mockReducedMotion(true);
+  it("刷新期间保留按钮焦点语义并暴露 busy 状态", () => {
     componentMocks.useQuoteRotation.mockReturnValue({
       quote: POEM_QUOTE,
       isRefreshing: true,
@@ -100,48 +101,28 @@ describe("MotivationalQuote", () => {
 
     render(<MotivationalQuote />);
 
-    expect(screen.getByRole("button", { name: "刷新语录" })).toHaveAttribute("aria-busy", "true");
+    const refreshButton = screen.getByRole("button", { name: "刷新语录" });
+    expect(refreshButton).toHaveAttribute("aria-busy", "true");
+    expect(refreshButton).toHaveAttribute("title", "正在刷新语录");
   });
 
-  it("减少动效时立即显示完整正文且不启动打字定时器", () => {
-    mockReducedMotion(true);
-    const setIntervalSpy = vi.spyOn(window, "setInterval");
-
-    render(<MotivationalQuote />);
-
-    expect(screen.getByText(POEM_QUOTE.text)).toBeInTheDocument();
-    expect(screen.queryByText("|")).not.toBeInTheDocument();
-    expect(setIntervalSpy).not.toHaveBeenCalled();
-  });
-
-  it("正文完成后继续逐字显示来源", () => {
-    mockReducedMotion(false);
-    vi.useFakeTimers();
-
-    render(<MotivationalQuote />);
-
-    const visualQuote = screen
-      .getByRole("button", { name: "刷新语录" })
-      .querySelector('[aria-hidden="true"]');
-    expect(visualQuote).toHaveTextContent("|");
-    expect(visualQuote).not.toHaveTextContent("李白");
-
-    act(() => {
-      vi.advanceTimersByTime(Array.from(POEM_QUOTE.text).length * TYPEWRITER_INTERVAL_MS);
+  it("将设置中的动画模式和速度传给展示层", () => {
+    componentMocks.useAppState.mockReturnValue({
+      quoteChannels: { channels: [] },
+      quoteSettings: {
+        animationMode: "none",
+        autoRefreshEnabled: false,
+        autoRefreshIntervalSec: 30,
+        typingSpeed: "fast",
+      },
     });
-    expect(visualQuote).toHaveTextContent(`${POEM_QUOTE.text}|`);
-    expect(visualQuote).not.toHaveTextContent("李白");
 
-    act(() => {
-      vi.advanceTimersByTime(TYPEWRITER_INTERVAL_MS);
-    });
-    expect(visualQuote).toHaveTextContent(`${POEM_QUOTE.text}—|`);
+    const { container } = render(<MotivationalQuote />);
 
-    const attribution = "—— 唐 · 李白 · 静夜思";
-    act(() => {
-      vi.advanceTimersByTime((Array.from(attribution).length - 1) * TYPEWRITER_INTERVAL_MS);
-    });
-    expect(visualQuote).toHaveTextContent(`${POEM_QUOTE.text}${attribution}`);
-    expect(visualQuote).not.toHaveTextContent("|");
+    expect(container.querySelector('[data-quote-reveal="true"]')).toHaveAttribute(
+      "data-animation-mode",
+      "none"
+    );
+    expect(container.querySelector("[data-quote-layout-copy]")).not.toBeInTheDocument();
   });
 });

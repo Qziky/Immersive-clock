@@ -34,7 +34,7 @@ import { logger } from "../../utils/logger";
 import styles from "./QuoteChannelManager.module.css";
 
 interface QuoteChannelManagerProps {
-  onRegisterSave?: (save: (refreshSettings: QuoteSettingsState) => void) => void;
+  onRegisterSave?: (save: (quoteSettings: QuoteSettingsState) => void) => void;
 }
 
 const ORDER_MODE_OPTIONS = [
@@ -243,10 +243,10 @@ export function QuoteChannelManager({ onRegisterSave }: QuoteChannelManagerProps
   );
 
   useEffect(() => {
-    onRegisterSave?.((refreshSettings) => {
-      saveQuoteSettings(channels, refreshSettings);
+    onRegisterSave?.((quoteSettings) => {
+      saveQuoteSettings(channels, quoteSettings);
       dispatch({ type: "UPDATE_QUOTE_CHANNELS", payload: cloneChannels(channels) });
-      dispatch({ type: "SET_QUOTE_REFRESH_SETTINGS", payload: refreshSettings });
+      dispatch({ type: "SET_QUOTE_SETTINGS", payload: quoteSettings });
     });
   }, [channels, dispatch, onRegisterSave]);
 

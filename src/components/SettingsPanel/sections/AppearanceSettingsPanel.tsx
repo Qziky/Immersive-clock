@@ -24,6 +24,7 @@ import type {
 import {
   Button as FormButton,
   Dropdown,
+  type DropdownGroup,
   FormSection,
   InfoPanel,
   Inline as FormButtonGroup,
@@ -33,7 +34,7 @@ import {
   SettingItem,
   Slider as FormSlider,
   StatusPill,
-  Switch as FormSwitch,
+  Tabs,
   useFeedback,
 } from "../../../ui";
 import {
@@ -52,9 +53,11 @@ import {
 } from "../../../utils/appearanceModel";
 import { importFontFile, removeImportedFont } from "../../../utils/studyFontStorage";
 
+import { AppearancePreview } from "./AppearancePreview";
 import styles from "./AppearanceSettingsPanel.module.css";
+import { AppearanceStyleFields } from "./AppearanceStyleFields";
 
-export type AppearanceSettingsSection = "basic" | AppearanceComponentId;
+export type AppearanceSettingsSection = "overview" | "time" | AppearanceComponentId;
 
 interface AppearanceSettingsPanelProps {
   section?: AppearanceSettingsSection;
@@ -67,8 +70,7 @@ const SCENE_LABELS: Record<AppearanceSceneId, string> = {
   study: "自习",
 };
 
-const BASIC_COMPONENT_OPTIONS = [
-  { label: "全局", value: "common" },
+const TIME_COMPONENT_OPTIONS = [
   { label: "时钟", value: "clock" },
   { label: "倒计时", value: "countdown" },
   { label: "秒表", value: "stopwatch" },
@@ -185,8 +187,8 @@ function BackgroundEditor({
   onError,
 }: BackgroundEditorProps) {
   const options = [
-    ...(allowInherit ? [{ label: "继承基本设置", value: "inherit" }] : []),
-    { label: allowInherit ? "页面默认" : "应用默认", value: allowInherit ? "builtin" : "default" },
+    ...(allowInherit ? [{ label: "跟随整体", value: "inherit" }] : []),
+    { label: "应用预设", value: allowInherit ? "builtin" : "default" },
     { label: "纯黑", value: "black" },
     { label: "深灰", value: "dark" },
     { label: "纯色", value: "color" },
@@ -272,7 +274,7 @@ function BackgroundEditor({
   );
 }
 
-export function AppearanceSettingsPanel({ section = "basic" }: AppearanceSettingsPanelProps) {
+export function AppearanceSettingsPanel({ section = "overview" }: AppearanceSettingsPanelProps) {
   const { mode, study } = useAppState();
   const {
     activeAppearance,
@@ -282,22 +284,24 @@ export function AppearanceSettingsPanel({ section = "basic" }: AppearanceSetting
     resetAppearance,
   } = useAppearance();
   const { confirm, notify } = useFeedback();
-  const isBasic = section === "basic";
-  const [basicView, setBasicView] =
-    useState<(typeof BASIC_COMPONENT_OPTIONS)[number]["value"]>("common");
-  const isBasicCommon = isBasic && basicView === "common";
-  const componentId: AppearanceComponentId = isBasic
-    ? basicView === "common"
-      ? "clock"
-      : basicView
-    : section;
+  const isOverview = section === "overview";
+  const isTime = section === "time";
+  const [timeView, setTimeView] =
+    useState<(typeof TIME_COMPONENT_OPTIONS)[number]["value"]>("clock");
+  const componentId: AppearanceComponentId = isOverview ? "clock" : isTime ? timeView : section;
   const definition =
     APPEARANCE_COMPONENTS.find((item) => item.id === componentId) ?? APPEARANCE_COMPONENTS[0];
   const scene = definition.scene;
   const slotOptions = useMemo(
     () => [
       ...(definition.supportsSurface
-        ? [{ label: "组件表面", value: "__container", kind: "surface" as const }]
+        ? [
+            {
+              label: definition.containerLabel ?? "整体容器",
+              value: "__container",
+              kind: "surface" as const,
+            },
+          ]
         : []),
       ...definition.slots.map((item) => ({
         label: item.label,
@@ -308,7 +312,11 @@ export function AppearanceSettingsPanel({ section = "basic" }: AppearanceSetting
     [definition]
   );
   const [slot, setSlot] = useState(slotOptions[0]?.value ?? "");
-  const [state, setState] = useState("");
+  const [hoveredSlot, setHoveredSlot] = useState<string | null>(null);
+  const [selectedState, setSelectedState] = useState(definition.states?.[0]?.id ?? "");
+  const [hoveredState, setHoveredState] = useState<string | null>(null);
+  const [previewMode, setPreviewMode] = useState<"object" | "state">("object");
+  const [instanceScope, setInstanceScope] = useState<"all" | "specific">("all");
   const [instanceId, setInstanceId] = useState("");
   const [fonts, setFonts] = useState<AppearanceFontMetadata[]>([]);
   const [backgroundAssets, setBackgroundAssets] = useState<AppearanceBackgroundMetadata[]>([]);
@@ -328,7 +336,7 @@ export function AppearanceSettingsPanel({ section = "basic" }: AppearanceSetting
     scene,
     definition.id,
     slot,
-    state,
+    "",
     instanceId
   );
   const currentStyle = resolveAppearanceEditorStyle(
@@ -337,11 +345,36 @@ export function AppearanceSettingsPanel({ section = "basic" }: AppearanceSetting
     definition.id,
     slot,
     kind,
-    { state: state || undefined, instanceId: instanceId || undefined }
+    { instanceId: instanceId || undefined }
   );
+  const selectedStateDefinition = definition.states?.find((item) => item.id === selectedState);
+  const firstStateSlot = definition.slots.find(
+    (item) => item.id === selectedStateDefinition?.slotIds[0]
+  );
+  const stateKind: AppearanceSlotKind = firstStateSlot?.kind ?? "text";
+  const stateOverrideStyle = selectedState
+    ? readStyle(activeAppearance, scene, definition.id, "", selectedState, instanceId)
+    : {};
+  const stateStyle = selectedState
+    ? resolveAppearanceEditorStyle(
+        activeAppearance,
+        scene,
+        definition.id,
+        firstStateSlot?.id ?? definition.slots[0]?.id ?? "",
+        stateKind,
+        { instanceId: instanceId || undefined, state: selectedState }
+      )
+    : {};
+  const stateSupportsTypography = (selectedStateDefinition?.slotIds ?? [])
+    .map((slotId) => definition.slots.find((item) => item.id === slotId)?.kind)
+    .filter((value): value is AppearanceSlotKind => Boolean(value))
+    .every((slotKind) => slotKind === "text" || slotKind === "numeric");
   const currentBackground = resolveAppearanceBackground(activeAppearance, scene);
   const pageBackground = activeAppearance.scenes[scene].background;
-  const isInheriting = Object.keys(currentOverrideStyle).length === 0;
+  const currentOverrideCount = Object.keys(currentOverrideStyle).length;
+  const stateOverrideCount = Object.keys(stateOverrideStyle).length;
+  const previewStateId = previewMode === "state" ? (hoveredState ?? selectedState) : undefined;
+  const selectedInstance = countdownItems.find((item) => item.id === instanceId);
   const referencedResources = useMemo(
     () => collectAppearanceResourceIds(activeAppearance),
     [activeAppearance]
@@ -373,50 +406,53 @@ export function AppearanceSettingsPanel({ section = "basic" }: AppearanceSetting
   }, [beginAppearancePreview, mode]);
 
   useEffect(() => {
-    setPreviewScene(isBasicCommon ? mode : scene);
-  }, [isBasicCommon, mode, scene, setPreviewScene]);
+    setPreviewScene(isOverview ? mode : scene);
+  }, [isOverview, mode, scene, setPreviewScene]);
 
   useEffect(() => {
     setSlot(definition.supportsSurface ? "__container" : (definition.slots[0]?.id ?? ""));
-    setState("");
+    setHoveredSlot(null);
+    setSelectedState(definition.states?.[0]?.id ?? "");
+    setHoveredState(null);
+    setPreviewMode("object");
+    setInstanceScope("all");
     setInstanceId("");
-  }, [definition.id, definition.slots, definition.supportsSurface]);
+  }, [definition]);
+
+  const styleOwnerPath = (): string[] =>
+    instanceId
+      ? ["instances", "studyCountdown", instanceId]
+      : ["scenes", scene, "components", definition.id];
 
   const stylePath = (property?: string): string[] => {
-    const branch = state
-      ? ["states", state]
-      : slot === "__container"
-        ? ["container"]
-        : ["slots", slot];
+    const branch = slot === "__container" ? ["container"] : ["slots", slot];
     const ownerPath = instanceId
       ? ["instances", "studyCountdown", instanceId]
       : ["scenes", scene, "components", definition.id];
     return [...ownerPath, ...branch, ...(property ? [property] : [])];
   };
 
+  const stateStylePath = (property?: string): string[] => [
+    ...styleOwnerPath(),
+    "states",
+    selectedState,
+    ...(property ? [property] : []),
+  ];
+
   const updateStyle = (property: keyof AppearanceStyle, value: unknown) => {
     updateAppearanceDraft(stylePath(property), value);
   };
 
-  const handleSceneReset = async () => {
-    if (
-      await confirm({
-        title: "重置当前页面外观",
-        description: `将清除${SCENE_LABELS[scene]}页面的全部组件和背景覆盖。`,
-        confirmLabel: "重置页面",
-        variant: "danger",
-      })
-    ) {
-      resetAppearance({ type: "scene", scene });
-    }
+  const updateStateStyle = (property: keyof AppearanceStyle, value: unknown) => {
+    updateAppearanceDraft(stateStylePath(property), value);
   };
 
   const handleGlobalReset = async () => {
     if (
       await confirm({
-        title: "重置基本外观",
-        description: "将清除基本字体和背景设置，组件与页面覆盖会保留。",
-        confirmLabel: "重置基本",
+        title: "恢复整体样式",
+        description: "将恢复所有页面共用的字体和背景，页面与组件的单独调整不受影响。",
+        confirmLabel: "恢复整体样式",
         variant: "danger",
       })
     ) {
@@ -428,7 +464,7 @@ export function AppearanceSettingsPanel({ section = "basic" }: AppearanceSetting
     if (
       await confirm({
         title: "重置全部外观",
-        description: "基本设置、四个页面的组件和背景外观都会恢复默认。",
+        description: "整体样式、页面背景和所有组件的单独调整都将恢复为应用预设。",
         confirmLabel: "全部重置",
         variant: "danger",
       })
@@ -456,7 +492,7 @@ export function AppearanceSettingsPanel({ section = "basic" }: AppearanceSetting
     }
   };
 
-  const fontGroups = [
+  const fontGroups: DropdownGroup[] = [
     { label: "内置字体", options: BUILT_IN_FONTS },
     {
       label: "已导入字体",
@@ -503,7 +539,7 @@ export function AppearanceSettingsPanel({ section = "basic" }: AppearanceSetting
     notify({
       variant: "success",
       title: "背景已应用到草稿",
-      description: "保存设置后将作为基本背景使用。",
+      description: "保存设置后将作为整体背景使用。",
     });
   };
 
@@ -540,29 +576,59 @@ export function AppearanceSettingsPanel({ section = "basic" }: AppearanceSetting
     }
   };
 
+  const objectTabs = slotOptions.map((item) => {
+    const override = readStyle(activeAppearance, scene, definition.id, item.value, "", instanceId);
+    const adjusted = Object.keys(override).length > 0;
+    return {
+      value: item.value,
+      ariaLabel: `${item.label}${adjusted ? "，已单独调整" : ""}`,
+      label: (
+        <span className={styles.objectTabLabel}>
+          {item.label}
+          {adjusted ? <span className={styles.overrideDot} aria-hidden="true" /> : null}
+        </span>
+      ),
+    };
+  });
+  const objectStatus =
+    currentOverrideCount > 0
+      ? `已单独调整 ${currentOverrideCount} 项`
+      : instanceId
+        ? "使用所有事件的样式"
+        : kind === "text" || kind === "numeric"
+          ? "使用整体样式"
+          : "使用应用预设";
+  const stateTargetLabels = (selectedStateDefinition?.slotIds ?? [])
+    .map((slotId) => definition.slots.find((item) => item.id === slotId)?.label)
+    .filter((label): label is string => Boolean(label));
+  const stateTabs = (definition.states ?? []).map((item) => ({
+    value: item.id,
+    label: item.label,
+    ariaLabel: `${item.label}${Object.keys(readStyle(activeAppearance, scene, definition.id, "", item.id, instanceId)).length > 0 ? "，已单独调整" : ""}`,
+  }));
+  const resetCurrentComponent = () =>
+    instanceId
+      ? resetAppearance({
+          type: "property",
+          path: ["instances", "studyCountdown", instanceId],
+        })
+      : resetAppearance({ type: "component", scene, componentId: definition.id });
+  const handleInstanceScopeChange = (value: string) => {
+    const scope = value === "specific" ? "specific" : "all";
+    setInstanceScope(scope);
+    setInstanceId(scope === "specific" ? (countdownItems[0]?.id ?? "") : "");
+    setPreviewMode("object");
+  };
+
   return (
     <div className={styles.panel}>
-      {isBasic && (
-        <FormSection
-          title="应用范围"
-          description="全局设置作为默认样式，时钟、倒计时、秒表和自习时间可分别覆盖。"
-        >
-          <FormSegmented
-            value={basicView}
-            options={BASIC_COMPONENT_OPTIONS.map((item) => ({ ...item }))}
-            onChange={(value) =>
-              setBasicView(value as (typeof BASIC_COMPONENT_OPTIONS)[number]["value"])
-            }
-          />
-        </FormSection>
-      )}
-
-      {isBasicCommon && (
+      {isOverview ? (
         <>
-          <FormSection
-            title="字体设置"
-            description="设置全局字体方案；组件中单独设置的字体优先级更高。"
-          >
+          <FormSection title="实时预览" description="这里展示所有页面共用的字体与整体背景。">
+            <AppearancePreview overview />
+          </FormSection>
+
+          <FormSection title="字体设置" description="没有单独调整的文字会使用这里的字体。">
             <SettingGrid className={styles.editorGrid} columns={2}>
               {(["numeric", "text"] as const).map((category) => (
                 <SettingItem
@@ -585,7 +651,7 @@ export function AppearanceSettingsPanel({ section = "basic" }: AppearanceSetting
                   </div>
                   <Dropdown
                     label={category === "numeric" ? "主显示字体" : "信息字体"}
-                    placeholder="使用应用默认字体"
+                    placeholder="使用应用预设"
                     value={fontValue(activeAppearance.global[category]?.font)}
                     groups={fontGroups}
                     onChange={(value) =>
@@ -602,15 +668,15 @@ export function AppearanceSettingsPanel({ section = "basic" }: AppearanceSetting
 
           <BackgroundEditor
             assets={backgroundAssets}
-            title="基本背景"
-            description="作为四个内容页面的默认背景；页面单独设置后优先使用页面背景。"
+            title="整体背景"
+            description="所有页面默认使用此背景；页面仍可进行单独调整。"
             background={activeAppearance.global.background}
             path={["global", "background"]}
             onUpdate={updateAppearanceDraft}
             onError={reportBackgroundError}
           />
 
-          <FormSection title="字体资源" description="导入字体后，可在基本设置或任一组件中选择。">
+          <FormSection title="字体资源" description="导入字体后，可用于整体样式或任一组件。">
             <SettingGrid className={styles.editorGrid} columns={2}>
               <FormInput
                 label="字体名称"
@@ -724,229 +790,128 @@ export function AppearanceSettingsPanel({ section = "basic" }: AppearanceSetting
               </figure>
             ) : null}
           </FormSection>
-        </>
-      )}
 
-      {!isBasicCommon && (
+          <FormSection title="恢复外观" description="恢复操作只修改草稿，保存后才会生效。">
+            <FormButtonGroup align="left">
+              <FormButton
+                variant="secondary"
+                icon={<RotateCcw size={16} />}
+                onClick={handleGlobalReset}
+              >
+                恢复整体样式
+              </FormButton>
+              <FormButton variant="danger" icon={<Trash2 size={16} />} onClick={handleAllReset}>
+                重置全部外观
+              </FormButton>
+            </FormButtonGroup>
+          </FormSection>
+        </>
+      ) : (
         <>
+          {isTime ? (
+            <FormSection title="显示内容" description="分别调整四个主要时间页面的显示样式。">
+              <FormSegmented
+                ariaLabel="时间显示类型"
+                value={timeView}
+                options={TIME_COMPONENT_OPTIONS}
+                onChange={(value) => setTimeView(value)}
+              />
+            </FormSection>
+          ) : null}
+
           <FormSection title={definition.label} description={definition.description}>
             <div className={styles.editor}>
-              <SettingGrid className={styles.editorGrid} columns={2}>
-                {definition.id === "studyCountdown" && countdownItems.length > 0 && (
-                  <SettingItem icon={<Brush size={18} />} title="倒计时实例">
-                    <Dropdown
-                      label="选择实例"
-                      value={instanceId}
+              <AppearancePreview
+                componentId={definition.id}
+                hoveredSlot={previewMode === "object" ? hoveredSlot : null}
+                instanceId={instanceId}
+                instanceLabel={
+                  selectedInstance?.name ||
+                  (selectedInstance?.kind === "gaokao" ? "高考" : selectedInstance?.id)
+                }
+                selectedSlot={slot}
+                stateId={previewStateId}
+              />
+
+              {definition.id === "studyCountdown" && countdownItems.length > 0 ? (
+                <SettingGrid className={styles.editorGrid} columns={2}>
+                  <SettingItem icon={<Brush size={18} />} title="应用到">
+                    <FormSegmented
+                      value={instanceScope}
                       options={[
-                        { label: "组件默认样式", value: "" },
-                        ...countdownItems.map((item) => ({
+                        { label: "所有事件", value: "all" },
+                        { label: "指定事件", value: "specific" },
+                      ]}
+                      onChange={handleInstanceScopeChange}
+                    />
+                  </SettingItem>
+                  {instanceScope === "specific" ? (
+                    <SettingItem icon={<Brush size={18} />} title="选择事件">
+                      <Dropdown
+                        label="指定事件"
+                        value={instanceId}
+                        options={countdownItems.map((item) => ({
                           label: item.name || (item.kind === "gaokao" ? "高考倒计时" : item.id),
                           value: item.id,
-                        })),
-                      ]}
-                      onChange={(value) => {
-                        setInstanceId(String(value));
-                        setState("");
-                      }}
-                    />
-                  </SettingItem>
-                )}
-                <SettingItem icon={<Brush size={18} />} title="子元素">
-                  <Dropdown
-                    label="选择子元素"
-                    value={slot}
-                    options={slotOptions.map((item) => ({ label: item.label, value: item.value }))}
-                    onChange={(value) => {
-                      setSlot(String(value));
-                      setState("");
-                    }}
-                  />
-                </SettingItem>
-                {definition.states && (
-                  <SettingItem icon={<Palette size={18} />} title="状态覆盖">
-                    <Dropdown
-                      label="选择状态"
-                      value={state}
-                      options={[
-                        { label: "默认状态", value: "" },
-                        ...definition.states.map((item) => ({
-                          label: item.label,
-                          value: item.id,
-                        })),
-                      ]}
-                      onChange={(value) => setState(String(value))}
-                    />
-                  </SettingItem>
-                )}
-              </SettingGrid>
-
-              <InfoPanel tone="info">
-                {isInheriting
-                  ? "当前控件展示的是实际生效的内置或基本设置继承值；修改后才会创建组件覆盖。"
-                  : "当前子元素包含组件覆盖；未覆盖的属性继续显示继承后的实际值。"}
-              </InfoPanel>
-
-              {kind !== "surface" && (
-                <SettingGrid className={styles.editorGrid} columns={2}>
-                  <SettingItem icon={<Palette size={18} />} title="颜色">
-                    <div className={styles.colorFields}>
-                      <FormInput
-                        label="色板"
-                        type="color"
-                        value={currentStyle.color ?? "#ffffff"}
-                        onChange={(event) => updateStyle("color", event.target.value)}
+                        }))}
+                        onChange={(value) => {
+                          setInstanceId(String(value));
+                          setPreviewMode("object");
+                        }}
                       />
-                      <FormInput
-                        label="颜色代码"
-                        value={currentStyle.color ?? ""}
-                        placeholder="无默认颜色"
-                        onChange={(event) => updateStyle("color", event.target.value || undefined)}
-                      />
-                    </div>
-                  </SettingItem>
-                  <SettingItem icon={<Palette size={18} />} title="透明度">
-                    <FormSlider
-                      label="透明度"
-                      min={0}
-                      max={1}
-                      step={0.01}
-                      value={currentStyle.opacity ?? 1}
-                      onChange={(value) => updateStyle("opacity", value)}
-                      formatValue={(value) => `${Math.round(value * 100)}%`}
-                    />
-                  </SettingItem>
+                    </SettingItem>
+                  ) : null}
                 </SettingGrid>
-              )}
+              ) : null}
 
-              {(kind === "text" || kind === "numeric") && (
-                <SettingGrid className={styles.editorGrid} columns={2}>
-                  <SettingItem icon={<Type size={18} />} title="字体">
-                    <Dropdown
-                      label="字体"
-                      placeholder="跟随基本设置"
-                      value={fontValue(currentStyle.font)}
-                      groups={fontGroups}
-                      onChange={(value) => updateStyle("font", fontFromValue(String(value), fonts))}
-                    />
-                  </SettingItem>
-                  <SettingItem icon={<Type size={18} />} title="字重与字形">
-                    <FormSlider
-                      label="字重"
-                      min={100}
-                      max={900}
-                      step={100}
-                      value={currentStyle.fontWeight ?? 400}
-                      onChange={(value) => updateStyle("fontWeight", value)}
-                    />
-                    <FormSwitch
-                      checked={currentStyle.fontStyle === "italic"}
-                      onCheckedChange={(checked) =>
-                        updateStyle("fontStyle", checked ? "italic" : undefined)
-                      }
-                      aria-label="使用斜体"
-                    />
-                  </SettingItem>
-                  <SettingItem icon={<FileText size={18} />} title="字间距">
-                    <FormSlider
-                      label="字间距"
-                      min={0}
-                      max={12}
-                      step={0.25}
-                      value={currentStyle.letterSpacing ?? 0}
-                      onChange={(value) => updateStyle("letterSpacing", value)}
-                      formatValue={(value) => `${value}px`}
-                    />
-                  </SettingItem>
-                  <SettingItem icon={<Brush size={18} />} title="文字阴影">
-                    <FormSwitch
-                      checked={Boolean(currentStyle.textShadow)}
-                      onCheckedChange={(checked) =>
-                        updateStyle(
-                          "textShadow",
-                          checked
-                            ? { color: "#000000", blur: 12, offsetX: 0, offsetY: 4 }
-                            : undefined
-                        )
-                      }
-                      aria-label="启用文字阴影"
-                    />
-                  </SettingItem>
-                </SettingGrid>
-              )}
+              <div className={styles.objectSelector}>
+                <div className={styles.selectorHeading}>
+                  <strong>调整对象</strong>
+                  <span>选择画面中需要调整的内容</span>
+                </div>
+                <Tabs
+                  label={`${definition.label}调整对象`}
+                  size="sm"
+                  value={slot}
+                  items={objectTabs}
+                  onChange={(value) => {
+                    setSlot(value);
+                    setPreviewMode("object");
+                  }}
+                  onPreviewChange={(value) => {
+                    setHoveredSlot(value);
+                    if (value) setPreviewMode("object");
+                  }}
+                />
+              </div>
 
-              {kind === "icon" && (
-                <SettingItem icon={<Brush size={18} />} title="图标效果">
-                  <FormSegmented
-                    value={currentStyle.filter ?? "none"}
-                    options={[
-                      { label: "默认", value: "none" },
-                      { label: "灰度", value: "grayscale" },
-                      { label: "复古", value: "sepia" },
-                    ]}
-                    onChange={(value) => updateStyle("filter", value)}
-                  />
-                </SettingItem>
-              )}
+              <div className={styles.overrideStatus}>
+                <StatusPill tone={currentOverrideCount > 0 ? "accent" : "neutral"}>
+                  {objectStatus}
+                </StatusPill>
+                {currentOverrideCount > 0 ? (
+                  <FormButton
+                    size="sm"
+                    variant="secondary"
+                    icon={<RotateCcw size={14} />}
+                    onClick={() => resetAppearance({ type: "property", path: stylePath() })}
+                  >
+                    恢复此对象
+                  </FormButton>
+                ) : null}
+              </div>
 
-              {kind === "surface" && (
-                <SettingGrid className={styles.editorGrid} columns={2}>
-                  <SettingItem icon={<Palette size={18} />} title="背景颜色">
-                    <FormInput
-                      label="组件背景颜色"
-                      type="color"
-                      value={currentStyle.backgroundColor ?? "#111317"}
-                      onChange={(event) => updateStyle("backgroundColor", event.target.value)}
-                    />
-                    <FormSlider
-                      label="组件背景透明度"
-                      min={0}
-                      max={1}
-                      step={0.01}
-                      value={currentStyle.backgroundOpacity ?? 1}
-                      onChange={(value) => updateStyle("backgroundOpacity", value)}
-                    />
-                  </SettingItem>
-                  <SettingItem icon={<Brush size={18} />} title="边框">
-                    <FormInput
-                      label="边框颜色"
-                      type="color"
-                      value={currentStyle.borderColor ?? "#ffffff"}
-                      onChange={(event) => updateStyle("borderColor", event.target.value)}
-                    />
-                    <FormSlider
-                      label="边框宽度"
-                      min={0}
-                      max={8}
-                      step={1}
-                      value={currentStyle.borderWidth ?? 0}
-                      onChange={(value) => updateStyle("borderWidth", value)}
-                      formatValue={(value) => `${value}px`}
-                    />
-                  </SettingItem>
-                  <SettingItem icon={<Brush size={18} />} title="圆角">
-                    <FormSlider
-                      label="圆角"
-                      min={0}
-                      max={32}
-                      step={1}
-                      value={currentStyle.borderRadius ?? 0}
-                      onChange={(value) => updateStyle("borderRadius", value)}
-                      formatValue={(value) => `${value}px`}
-                    />
-                  </SettingItem>
-                  <SettingItem icon={<Brush size={18} />} title="背景模糊">
-                    <FormSlider
-                      label="模糊"
-                      min={0}
-                      max={40}
-                      step={1}
-                      value={currentStyle.backdropBlur ?? 0}
-                      onChange={(value) => updateStyle("backdropBlur", value)}
-                      formatValue={(value) => `${value}px`}
-                    />
-                  </SettingItem>
-                </SettingGrid>
-              )}
+              <AppearanceStyleFields
+                fontGroups={fontGroups}
+                kind={kind}
+                overrideStyle={currentOverrideStyle}
+                style={currentStyle}
+                onFontChange={(value) => updateStyle("font", fontFromValue(value, fonts))}
+                onReset={(property) =>
+                  resetAppearance({ type: "property", path: stylePath(property) })
+                }
+                onUpdate={updateStyle}
+              />
 
               {colorContrastWarning && (
                 <InfoPanel tone="warning">
@@ -954,59 +919,86 @@ export function AppearanceSettingsPanel({ section = "basic" }: AppearanceSetting
                 </InfoPanel>
               )}
 
-              <FormButtonGroup align="left">
+              <FormButtonGroup align="left" className={styles.componentReset}>
                 <FormButton
                   variant="secondary"
                   icon={<RotateCcw size={16} />}
-                  onClick={() => resetAppearance({ type: "property", path: stylePath() })}
+                  onClick={resetCurrentComponent}
                 >
-                  重置当前子元素
-                </FormButton>
-                <FormButton
-                  variant="secondary"
-                  icon={<RotateCcw size={16} />}
-                  onClick={() =>
-                    instanceId
-                      ? resetAppearance({
-                          type: "property",
-                          path: ["instances", "studyCountdown", instanceId],
-                        })
-                      : resetAppearance({ type: "component", scene, componentId: definition.id })
-                  }
-                >
-                  {instanceId ? "重置实例" : "重置组件"}
+                  {instanceId ? "恢复此事件样式" : `恢复${definition.label}样式`}
                 </FormButton>
               </FormButtonGroup>
             </div>
           </FormSection>
 
-          <BackgroundEditor
-            assets={backgroundAssets}
-            title={`${SCENE_LABELS[scene]}页面背景`}
-            description="此页面设置高于基本背景；选择继承基本设置可恢复统一背景。"
-            background={pageBackground}
-            path={["scenes", scene, "background"]}
-            allowInherit
-            onUpdate={updateAppearanceDraft}
-            onError={reportBackgroundError}
-          />
+          {definition.states?.length ? (
+            <FormSection
+              title="状态样式"
+              description="为组件在特定运行状态下设置统一的颜色与显示效果。"
+            >
+              <div className={styles.editor}>
+                <Tabs
+                  label={`${definition.label}状态样式`}
+                  size="sm"
+                  value={selectedState}
+                  items={stateTabs}
+                  onChange={(value) => {
+                    setSelectedState(value);
+                    setPreviewMode("state");
+                  }}
+                  onPreviewChange={(value) => {
+                    setHoveredState(value);
+                    if (value) setPreviewMode("state");
+                  }}
+                />
+                <p className={styles.stateTargets}>作用于：{stateTargetLabels.join("、")}</p>
+                <div className={styles.overrideStatus}>
+                  <StatusPill tone={stateOverrideCount > 0 ? "accent" : "neutral"}>
+                    {stateOverrideCount > 0
+                      ? `已单独调整 ${stateOverrideCount} 项`
+                      : "使用应用预设"}
+                  </StatusPill>
+                  {stateOverrideCount > 0 ? (
+                    <FormButton
+                      size="sm"
+                      variant="secondary"
+                      icon={<RotateCcw size={14} />}
+                      onClick={() => resetAppearance({ type: "property", path: stateStylePath() })}
+                    >
+                      恢复此状态
+                    </FormButton>
+                  ) : null}
+                </div>
+                <AppearanceStyleFields
+                  fontGroups={fontGroups}
+                  kind={stateKind}
+                  overrideStyle={stateOverrideStyle}
+                  simpleOnly={!stateSupportsTypography}
+                  style={stateStyle}
+                  onFontChange={(value) => updateStateStyle("font", fontFromValue(value, fonts))}
+                  onReset={(property) =>
+                    resetAppearance({ type: "property", path: stateStylePath(property) })
+                  }
+                  onUpdate={updateStateStyle}
+                />
+              </div>
+            </FormSection>
+          ) : null}
+
+          {isTime ? (
+            <BackgroundEditor
+              assets={backgroundAssets}
+              title={`${SCENE_LABELS[scene]}页面背景`}
+              description="当前页面可使用整体背景、应用预设或单独设置的背景。"
+              background={pageBackground}
+              path={["scenes", scene, "background"]}
+              allowInherit
+              onUpdate={updateAppearanceDraft}
+              onError={reportBackgroundError}
+            />
+          ) : null}
         </>
       )}
-
-      <FormSection title="重置外观" description="重置只修改草稿，点击保存后才会生效。">
-        <FormButtonGroup align="left">
-          <FormButton
-            variant="secondary"
-            icon={<RotateCcw size={16} />}
-            onClick={isBasicCommon ? handleGlobalReset : handleSceneReset}
-          >
-            {isBasicCommon ? "重置基本设置" : "重置当前页面"}
-          </FormButton>
-          <FormButton variant="danger" icon={<Trash2 size={16} />} onClick={handleAllReset}>
-            重置全部外观
-          </FormButton>
-        </FormButtonGroup>
-      </FormSection>
     </div>
   );
 }

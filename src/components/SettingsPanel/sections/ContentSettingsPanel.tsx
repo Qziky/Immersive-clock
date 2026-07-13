@@ -1,16 +1,26 @@
-import { RotateCw } from "lucide-react";
+import { Gauge, RefreshCw, RotateCw, Sparkles } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { useAppState } from "../../../contexts/AppContext";
-import type { QuoteSettingsState } from "../../../types";
+import type {
+  Quote,
+  QuoteAnimationMode,
+  QuoteSettingsState,
+  QuoteTypingSpeed,
+} from "../../../types";
 import {
   FormSection,
+  IconButton,
   InfoPanel,
+  RadioGroup,
   SettingItem,
   Slider as FormSlider,
   Switch as FormSwitch,
 } from "../../../ui";
+import { QuoteReveal } from "../../MotivationalQuote";
 import { QuoteChannelManager } from "../../QuoteChannelManager";
+
+import styles from "./ContentSettingsPanel.module.css";
 
 /**
  * 内容设置分段组件属性
@@ -20,7 +30,43 @@ export interface ContentSettingsPanelProps {
   section?: ContentSettingsSection;
 }
 
-export type ContentSettingsSection = "refresh" | "channels";
+export type ContentSettingsSection = "refresh" | "effects" | "channels";
+
+const ANIMATION_MODE_OPTIONS = [
+  { value: "typewriter", label: "自然打字" },
+  { value: "crossfade", label: "平滑显示" },
+  { value: "none", label: "直接显示" },
+] satisfies Array<{ value: QuoteAnimationMode; label: string }>;
+
+const TYPING_SPEED_OPTIONS = [
+  { value: "slow", label: "慢速" },
+  { value: "normal", label: "标准" },
+  { value: "fast", label: "快速" },
+] satisfies Array<{ value: QuoteTypingSpeed; label: string }>;
+
+const DISABLED_TYPING_SPEED_OPTIONS = TYPING_SPEED_OPTIONS.map((option) => ({
+  ...option,
+  disabled: true,
+}));
+
+const PREVIEW_QUOTES: readonly [Quote, Quote] = [
+  {
+    id: "quote-animation-preview-focus",
+    text: "专注于眼前的一小步，时间会给出答案。",
+    author: "语录预览",
+    providerId: "local",
+    language: "zh",
+    fetchedAt: 0,
+  },
+  {
+    id: "quote-animation-preview-patience",
+    text: "慢慢来，比较快。",
+    origin: "留给自己的提醒",
+    providerId: "local",
+    language: "zh",
+    fetchedAt: 0,
+  },
+];
 
 function formatRefreshIntervalText(seconds: number): string {
   if (seconds < 60) return `${seconds}秒`;
@@ -38,6 +84,14 @@ export function ContentSettingsPanel({ onRegisterSave, section }: ContentSetting
   const { quoteSettings } = useAppState();
   const [draftInterval, setDraftInterval] = useState<number>(quoteSettings.autoRefreshIntervalSec);
   const [draftEnabled, setDraftEnabled] = useState(quoteSettings.autoRefreshEnabled);
+  const [draftAnimationMode, setDraftAnimationMode] = useState<QuoteAnimationMode>(
+    quoteSettings.animationMode
+  );
+  const [draftTypingSpeed, setDraftTypingSpeed] = useState<QuoteTypingSpeed>(
+    quoteSettings.typingSpeed
+  );
+  const [previewIndex, setPreviewIndex] = useState(0);
+  const [previewReplayKey, setPreviewReplayKey] = useState(0);
   const channelSaveRef = useRef<((settings: QuoteSettingsState) => void) | null>(null);
 
   useEffect(() => {
@@ -45,9 +99,26 @@ export function ContentSettingsPanel({ onRegisterSave, section }: ContentSetting
       channelSaveRef.current?.({
         autoRefreshEnabled: draftEnabled,
         autoRefreshIntervalSec: draftInterval,
+        animationMode: draftAnimationMode,
+        typingSpeed: draftTypingSpeed,
       });
     });
-  }, [draftEnabled, draftInterval, onRegisterSave]);
+  }, [draftAnimationMode, draftEnabled, draftInterval, draftTypingSpeed, onRegisterSave]);
+
+  const replayPreview = () => {
+    setPreviewIndex((current) => (current + 1) % PREVIEW_QUOTES.length);
+    setPreviewReplayKey((current) => current + 1);
+  };
+
+  const handleAnimationModeChange = (mode: QuoteAnimationMode) => {
+    setDraftAnimationMode(mode);
+    replayPreview();
+  };
+
+  const handleTypingSpeedChange = (speed: QuoteTypingSpeed) => {
+    setDraftTypingSpeed(speed);
+    replayPreview();
+  };
 
   const isSectionHidden = (candidate: ContentSettingsSection) =>
     section ? section !== candidate : undefined;
@@ -93,6 +164,75 @@ export function ContentSettingsPanel({ onRegisterSave, section }: ContentSetting
         </SettingItem>
         <InfoPanel tone="neutral" title="刷新策略">
           自动轮换会优先显示缓存或本地内容，并在后台补充在线句子；手动刷新会优先请求在线服务。
+        </InfoPanel>
+      </FormSection>
+
+      <FormSection
+        title="语录显示效果"
+        variant="plain"
+        description="选择语录出现时的呈现方式，并在保存前即时预览。"
+        hidden={isSectionHidden("effects")}
+      >
+        <SettingItem
+          icon={<Sparkles size={18} />}
+          title="出现动画"
+          description="自然打字更有节奏感，平滑显示适合安静过渡，也可以直接显示完整内容。"
+        >
+          <RadioGroup<QuoteAnimationMode>
+            label="出现动画"
+            name="quote-animation-mode"
+            value={draftAnimationMode}
+            options={ANIMATION_MODE_OPTIONS}
+            onChange={handleAnimationModeChange}
+          />
+        </SettingItem>
+
+        <SettingItem
+          icon={<Gauge size={18} />}
+          title="打字速度"
+          description="仅用于自然打字；切换其他效果时会保留当前速度。"
+          disabled={draftAnimationMode !== "typewriter"}
+        >
+          <RadioGroup<QuoteTypingSpeed>
+            label="打字速度"
+            name="quote-typing-speed"
+            value={draftTypingSpeed}
+            options={
+              draftAnimationMode === "typewriter"
+                ? TYPING_SPEED_OPTIONS
+                : DISABLED_TYPING_SPEED_OPTIONS
+            }
+            onChange={handleTypingSpeedChange}
+          />
+        </SettingItem>
+
+        <div className={styles.preview} data-testid="quote-animation-preview">
+          <div className={styles.previewHeader}>
+            <div>
+              <strong>即时预览</strong>
+              <span>保存后应用到自习页面</span>
+            </div>
+            <IconButton
+              className={styles.replayButton}
+              aria-label="重播语录动画预览"
+              title="重播语录动画预览"
+              icon={<RefreshCw size={17} aria-hidden="true" />}
+              onClick={replayPreview}
+            />
+          </div>
+          <div className={styles.previewViewport} aria-hidden="true">
+            <QuoteReveal
+              className={styles.previewQuote}
+              quote={PREVIEW_QUOTES[previewIndex]}
+              animationMode={draftAnimationMode}
+              typingSpeed={draftTypingSpeed}
+              replayKey={previewReplayKey}
+            />
+          </div>
+        </div>
+
+        <InfoPanel tone="neutral" title="动效偏好">
+          系统开启“减少动态效果”时，语录会直接完整显示，不播放出现动画。
         </InfoPanel>
       </FormSection>
 
