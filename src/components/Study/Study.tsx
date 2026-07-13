@@ -316,17 +316,19 @@ export function Study() {
     });
     return (
       <div key={item.id} className={styles.carouselItem} style={itemAppearance}>
-        <span className={styles.countdownPrefix} style={labelAppearance}>
-          距离{nameText}
-        </span>
-        <span className={styles.countdownOnly} style={labelAppearance}>
-          仅
-        </span>
-        <span className={styles.days} style={digitAppearance}>
-          {days}
-        </span>
-        <span className={styles.countdownUnit} style={unitAppearance}>
-          天
+        <span className={styles.countdownContent}>
+          <span className={styles.countdownPrefix} style={labelAppearance}>
+            距离{nameText}
+          </span>
+          <span className={styles.countdownOnly} style={labelAppearance}>
+            仅
+          </span>
+          <span className={styles.days} style={digitAppearance}>
+            {days}
+          </span>
+          <span className={styles.countdownUnit} style={unitAppearance}>
+            天
+          </span>
         </span>
       </div>
     );

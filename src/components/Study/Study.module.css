@@ -185,12 +185,17 @@
   align-items: center;
   color: inherit;
   display: flex;
-  gap: 0.26rem;
   justify-content: flex-end;
   line-height: 1;
   min-height: var(--study-rail-item-height);
   overflow: visible;
   white-space: nowrap;
+}
+
+.countdownContent {
+  align-items: baseline;
+  display: inline-flex;
+  gap: 0.26rem;
 }
 
 .countdownPrefix,
@@ -203,6 +208,7 @@
   color: var(--study-data-accent);
   font-family: var(--font-main);
   font-size: 1.12em;
+  font-variant-numeric: tabular-nums;
   font-weight: 700;
   text-shadow: 0 0 18px var(--study-accent-soft);
 }

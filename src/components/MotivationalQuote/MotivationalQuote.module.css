@@ -23,7 +23,9 @@
 }
 
 .motivationalQuote:hover .quoteText,
-.motivationalQuote:focus-visible .quoteText {
+.motivationalQuote:hover .quoteAttribution,
+.motivationalQuote:focus-visible .quoteText,
+.motivationalQuote:focus-visible .quoteAttribution {
   color: var(--study-ink, rgba(255, 255, 255, 0.92));
 }
 
@@ -57,6 +59,7 @@
   line-height: 1.55;
   margin-left: 0.45rem;
   overflow-wrap: anywhere;
+  transition: color var(--transition-fast);
 }
 
 .screenReaderStatus {
@@ -124,7 +127,8 @@
 
 @media (prefers-reduced-motion: reduce) {
   .motivationalQuote,
-  .quoteText {
+  .quoteText,
+  .quoteAttribution {
     transition: none;
   }
 

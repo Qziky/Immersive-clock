@@ -162,6 +162,17 @@ test("在线语录：通过拦截的今日诗词 SDK 展示正文与完整来源
   const quoteButton = page.getByRole("button", { name: "刷新语录" });
   await expect(quoteButton).toContainText("但愿人长久，千里共婵娟。");
   await expect(quoteButton).toContainText("宋 · 苏轼 · 水调歌头");
+
+  const quoteText = page.getByText("但愿人长久，千里共婵娟。", { exact: true });
+  const attribution = page.getByText("—— 宋 · 苏轼 · 水调歌头", { exact: true });
+  const attributionColor = await attribution.evaluate((element) => getComputedStyle(element).color);
+  await quoteButton.hover();
+  await expect
+    .poll(() => attribution.evaluate((element) => getComputedStyle(element).color))
+    .not.toBe(attributionColor);
+  expect(await attribution.evaluate((element) => getComputedStyle(element).color)).toBe(
+    await quoteText.evaluate((element) => getComputedStyle(element).color)
+  );
   expect(sdkRequests).toBeGreaterThan(0);
 });
 

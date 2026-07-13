@@ -36,7 +36,7 @@
   - 7 天缓存/最近记录、独立冷却、跨源去重、运行时版本迁移与顺序游标：`src/services/quotes/__tests__/runtimeStorage.test.ts` → `src/services/quotes/runtimeStorage.ts`
   - 内置频道注册、偏好覆盖和自定义频道序列化：`src/services/quotes/__tests__/quoteRegistry.test.ts` → `src/services/quotes/quoteRegistry.ts`
   - 首次有效远程替换、配置变化、自动/手动刷新、latest-wins 与卸载取消：`src/hooks/__tests__/useQuoteRotation.test.ts` → `src/hooks/useQuoteRotation.ts`
-  - 正文/来源展示与连续打字动画、频道草稿保存、一言 12 分类选择和展开控件语义状态：`src/components/MotivationalQuote/__tests__/MotivationalQuote.test.tsx` + `src/components/QuoteChannelManager/__tests__/QuoteChannelManager.test.tsx`
+  - 正文/来源展示、连续打字动画与悬停反馈、频道草稿保存、一言 12 分类选择和展开控件语义状态：`src/components/MotivationalQuote/__tests__/MotivationalQuote.test.tsx` + `src/components/QuoteChannelManager/__tests__/QuoteChannelManager.test.tsx` + `tests/e2e/quotes.e2e.spec.ts`
 - **天气**
   - 天气服务主流程与多分支回归：[weatherService.flow.test.ts](file:///d:/Desktop/Immersive-clock/src/services/__tests__/weatherService.flow.test.ts) + [weatherService.test.ts](file:///d:/Desktop/Immersive-clock/src/services/__tests__/weatherService.test.ts) → [weatherService.ts](file:///d:/Desktop/Immersive-clock/src/services/weatherService.ts)
   - 天气缓存（TTL/合并/清理）：[weatherStorage.test.ts](file:///d:/Desktop/Immersive-clock/src/utils/__tests__/weatherStorage.test.ts) → [weatherStorage.ts](file:///d:/Desktop/Immersive-clock/src/utils/weatherStorage.ts)
