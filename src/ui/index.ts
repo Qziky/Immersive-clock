@@ -35,6 +35,9 @@ export type { FormSectionProps, TextareaProps } from "./components/FormComponent
 export { FormSection, Textarea } from "./components/FormComponents";
 export type { IconButtonProps } from "./components/IconButton";
 export { IconButton } from "./components/IconButton";
+export { APP_ICON_SIZES, AppIcon } from "./icons/AppIcon";
+export type { AppIconProps, AppIconSize } from "./icons/AppIcon";
+export type { AppIconName } from "./icons/appIconRegistry";
 export type { InputProps } from "./components/Input";
 export { Input } from "./components/Input";
 export type { GridProps, InlineProps, StackProps } from "./components/Layout";

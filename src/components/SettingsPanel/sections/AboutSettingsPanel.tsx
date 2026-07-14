@@ -1,13 +1,3 @@
-import {
-  Bell,
-  Bug,
-  Copy,
-  Download,
-  File as FileIcon,
-  Globe,
-  Info,
-  ShieldAlert,
-} from "lucide-react";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 
 import pkg from "../../../../package.json";
@@ -165,16 +155,16 @@ const AboutSettingsPanel: React.FC<AboutSettingsPanelProps> = ({ onRegisterSave,
         hidden={isSectionHidden("project")}
       >
         <SettingGrid columns={2}>
-          <MetricCard icon={<Info size={16} />} label="版本" value={`v${version}`} tone="accent" />
-          <MetricCard icon={<Info size={16} />} label="授权" value={`${license} License`} />
+          <MetricCard icon="feature.about" label="版本" value={`v${version}`} />
+          <MetricCard icon="feature.license" label="授权" value={`${license} License`} />
         </SettingGrid>
         <SettingGrid>
-          <SettingItem icon={<Globe size={18} />} title="作者网站" description={authorSite}>
+          <SettingItem icon="feature.authorWebsite" title="作者网站" description={authorSite}>
             <a href={authorSite} target="_blank" rel="noopener noreferrer">
               {authorSite}
             </a>
           </SettingItem>
-          <SettingItem icon={<FileIcon size={18} />} title="开源地址" description={repoUrl}>
+          <SettingItem icon="feature.sourceCode" title="开源地址" description={repoUrl}>
             <a href={repoUrl} target="_blank" rel="noopener noreferrer">
               {repoUrl}
             </a>
@@ -200,7 +190,7 @@ const AboutSettingsPanel: React.FC<AboutSettingsPanelProps> = ({ onRegisterSave,
       >
         <SettingGrid columns={2}>
           <SettingItem
-            icon={<Bell size={18} />}
+            icon="status.error"
             title="错误弹窗提示"
             description="出现关键错误时弹出提示。"
             control={
@@ -212,7 +202,7 @@ const AboutSettingsPanel: React.FC<AboutSettingsPanelProps> = ({ onRegisterSave,
             }
           />
           <SettingItem
-            icon={<ShieldAlert size={18} />}
+            icon="feature.privacy"
             title="记录方式"
             description="关闭、仅内存或持久化保存错误记录。"
             tone={draftErrorCenterMode === "off" ? "neutral" : "accent"}
@@ -233,7 +223,7 @@ const AboutSettingsPanel: React.FC<AboutSettingsPanelProps> = ({ onRegisterSave,
         {isErrorCenterActive ? (
           <>
             <SettingItem
-              icon={<Bug size={18} />}
+              icon="feature.diagnostics"
               title="记录筛选"
               description="查看最近 50 条记录，可按级别过滤。"
               control={
@@ -260,7 +250,7 @@ const AboutSettingsPanel: React.FC<AboutSettingsPanelProps> = ({ onRegisterSave,
                 variant="secondary"
                 size="md"
                 onClick={handleCopyErrorSummary}
-                icon={<Copy size={16} />}
+                icon="action.copy"
               >
                 复制摘要
               </FormButton>
@@ -268,7 +258,7 @@ const AboutSettingsPanel: React.FC<AboutSettingsPanelProps> = ({ onRegisterSave,
                 variant="secondary"
                 size="md"
                 onClick={handleExportErrorRecords}
-                icon={<Download size={16} />}
+                icon="action.download"
               >
                 导出记录
               </FormButton>

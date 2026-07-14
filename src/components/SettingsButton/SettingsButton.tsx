@@ -1,4 +1,3 @@
-import { Settings as SettingsIcon } from "lucide-react";
 import React, { useState, useEffect, useCallback } from "react";
 
 import { IconButton } from "../../ui";
@@ -85,7 +84,8 @@ export function SettingsButton({ onClick, isVisible = true }: SettingsButtonProp
       onMouseEnter={resetFadeState}
       aria-label="打开设置"
       title="设置"
-      icon={<SettingsIcon size={20} aria-hidden="true" />}
+      icon="action.configure"
+      size="lg"
     />
   );
 }

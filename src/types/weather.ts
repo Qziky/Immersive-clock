@@ -92,30 +92,54 @@ export interface XiaomiWeatherAllResponse {
     uvIndex?: string | number;
   };
   forecastDaily?: {
-    precipitationProbability?: { value?: Array<string | number>; status?: number; pubTime?: number | string };
+    precipitationProbability?: {
+      value?: Array<string | number>;
+      status?: number;
+      pubTime?: number | string;
+    };
     temperature?: { value?: XiaomiRangeValue[]; status?: number; pubTime?: number | string };
     weather?: { value?: XiaomiRangeValue[]; status?: number; pubTime?: number | string };
     sunRiseSet?: { value?: XiaomiRangeValue[]; status?: number; pubTime?: number | string };
     aqi?: { value?: XiaomiRangeValue[]; status?: number; pubTime?: number | string };
-    wind?: { value?: Array<{ direction?: XiaomiRangeValue; speed?: XiaomiRangeValue }>; status?: number; pubTime?: number | string };
+    wind?: {
+      value?: Array<{ direction?: XiaomiRangeValue; speed?: XiaomiRangeValue }>;
+      status?: number;
+      pubTime?: number | string;
+    };
   };
   forecastHourly?: {
     temperature?: { value?: XiaomiValueUnit[]; status?: number; pubTime?: number | string };
     weather?: { value?: Array<string | number>; status?: number; pubTime?: number | string };
     aqi?: { value?: Array<string | number>; status?: number; pubTime?: number | string };
-    wind?: { value?: Array<{ direction?: XiaomiValueUnit; speed?: XiaomiValueUnit }>; status?: number; pubTime?: number | string };
+    wind?: {
+      value?: Array<{ direction?: XiaomiValueUnit; speed?: XiaomiValueUnit }>;
+      status?: number;
+      pubTime?: number | string;
+    };
   };
   minutely?: {
     description?: string;
     pubTime?: number | string;
-    value?: Array<string | number>;
+    value?: Array<
+      | string
+      | number
+      | { value?: string | number; precip?: string | number; fxTime?: number | string }
+    >;
+    fxTime?: Array<number | string>;
+    interval?: number;
     rainRemainingMinutes?: number;
     status?: number;
   };
   precipitation?: {
     description?: string;
     pubTime?: number | string;
-    value?: Array<string | number>;
+    value?: Array<
+      | string
+      | number
+      | { value?: string | number; precip?: string | number; fxTime?: number | string }
+    >;
+    fxTime?: Array<number | string>;
+    interval?: number;
     rainRemainingMinutes?: number;
     status?: number;
   };
@@ -152,7 +176,14 @@ export interface XiaomiMinutelyResponse {
   precipitation?: {
     description?: string;
     pubTime?: number | string;
-    value?: Array<string | number>;
+    value?: Array<
+      | string
+      | number
+      | { value?: string | number; precip?: string | number; fxTime?: number | string }
+    >;
+    /** 部分供应商直接返回每个槽位的时间戳；没有时使用 pubTime + 推导间隔。 */
+    fxTime?: Array<number | string>;
+    interval?: number;
     rainRemainingMinutes?: number;
   };
   error?: string;

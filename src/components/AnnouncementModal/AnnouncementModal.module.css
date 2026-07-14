@@ -26,8 +26,6 @@
 .announcementModal > header button {
   border-radius: var(--ui-radius-md);
   color: var(--ui-color-text-muted);
-  height: 36px;
-  width: 36px;
 }
 
 .announcementModal > header button:hover {

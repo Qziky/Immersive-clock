@@ -167,26 +167,12 @@
 
 /* 指引按钮 */
 .tourButton {
-  align-items: center;
-  background: transparent;
-  border: none;
   color: inherit;
-  cursor: pointer;
-  display: inline-flex;
-  font: inherit;
-  font-weight: 500;
-  height: 100%;
-  justify-content: center;
-  letter-spacing: 0.02em;
-  line-height: 1;
-  min-width: 0;
-  padding: 0;
   pointer-events: auto;
   transition:
     color 0.18s ease,
     opacity 0.18s ease,
     transform 0.18s ease;
-  width: 18px;
   z-index: 1;
 }
 
@@ -197,7 +183,8 @@
 
 .tourButton:focus-visible {
   color: var(--bottom-chrome-hover);
-  outline: none;
+  outline: var(--ui-focus-ring);
+  outline-offset: var(--ui-focus-ring-offset);
 }
 
 .tourButton:active {
@@ -226,8 +213,8 @@
   }
 
   .tourButton {
-    letter-spacing: 0;
-    width: 16px;
+    min-height: 44px;
+    min-width: 44px;
   }
 }
 

@@ -1,14 +1,8 @@
-import {
-  BookOpen as StudyIcon,
-  Clock as ClockIcon,
-  Timer as CountdownIcon,
-  TimerReset as WatchIcon,
-} from "lucide-react";
 import React, { useCallback } from "react";
 
 import { useAppDispatch, useAppState } from "../../contexts/AppContext";
 import type { AppMode } from "../../types";
-import { Tabs } from "../../ui";
+import { Tabs, type AppIconName } from "../../ui";
 
 import styles from "./ModeSelector.module.css";
 
@@ -45,25 +39,25 @@ export function ModeSelector({ onModeChange }: ModeSelectorProps) {
     {
       key: "clock" as AppMode,
       label: "时钟",
-      icon: ClockIcon,
+      icon: "mode.clock" as AppIconName,
       description: "显示当前时间",
     },
     {
       key: "countdown" as AppMode,
       label: "倒计时",
-      icon: CountdownIcon,
+      icon: "mode.countdown" as AppIconName,
       description: "设置倒计时",
     },
     {
       key: "stopwatch" as AppMode,
       label: "秒表",
-      icon: WatchIcon,
+      icon: "mode.stopwatch" as AppIconName,
       description: "秒表功能",
     },
     {
       key: "study" as AppMode,
       label: "自习",
-      icon: StudyIcon,
+      icon: "mode.study" as AppIconName,
       description: "自习模式",
     },
   ];
@@ -75,16 +69,17 @@ export function ModeSelector({ onModeChange }: ModeSelectorProps) {
       value={mode}
       label="选择时钟模式"
       variant="underlined"
+      size="lg"
       scrollable={false}
       onChange={handleModeChange}
-      items={modes.map(({ key, label, icon: Icon, description }) => ({
+      items={modes.map(({ key, label, icon, description }) => ({
         value: key,
         id: key === "study" ? "mode-tab-study" : undefined,
         className: styles.modeButton,
         ariaControls: `${key}-panel`,
         ariaLabel: `${label} - ${description}`,
         title: description,
-        icon: <Icon className={styles.icon} size={20} aria-hidden={true} />,
+        icon,
         label: <span className={styles.label}>{label}</span>,
       }))}
     />

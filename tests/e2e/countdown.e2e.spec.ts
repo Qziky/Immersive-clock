@@ -21,7 +21,7 @@ test("倒计时：设置 10 分钟并开始/暂停/重置", async ({ page }) => 
   await showHud(page);
 
   const timeArea = page.locator("#countdown-panel").getByRole("button", {
-    name: "双击或双触设置倒计时时间",
+    name: "单击设置倒计时时间",
   });
   await expect(timeArea).toContainText("10:00");
 
@@ -35,6 +35,9 @@ test("倒计时：设置 10 分钟并开始/暂停/重置", async ({ page }) => 
 
   await toolbar.getByRole("button", { name: "重置倒计时" }).click();
   await expect(timeArea).toContainText("10:00");
+
+  await timeArea.click();
+  await expect(dialog).toBeVisible();
 });
 
 test("倒计时：320×568 下末项可滚动到固定底栏上方", async ({ page }) => {

@@ -1,11 +1,3 @@
-import {
-  Cloud as CloudIcon,
-  File as FileIcon,
-  Pencil as EditIcon,
-  RotateCcw as ResetIcon,
-  Settings as SettingsIcon,
-  Trash2 as TrashIcon,
-} from "lucide-react";
 import { type ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { useAppDispatch, useAppState } from "../../contexts/AppContext";
@@ -17,6 +9,7 @@ import {
   type QuoteSettingsState,
 } from "../../types";
 import {
+  AppIcon,
   Button as FormButton,
   FormSection,
   IconButton as FormIconButton,
@@ -276,7 +269,7 @@ export function QuoteChannelManager({ onRegisterSave }: QuoteChannelManagerProps
             setImportError(null);
             fileInputRef.current?.click();
           }}
-          icon={<FileIcon size={16} />}
+          icon="action.upload"
         >
           导入 TXT
         </FormButton>
@@ -302,7 +295,10 @@ export function QuoteChannelManager({ onRegisterSave }: QuoteChannelManagerProps
               data-ui-motion-item
             >
               <span className={styles.channelIcon} aria-hidden="true">
-                {channel.kind === "remote" ? <CloudIcon size={18} /> : <FileIcon size={18} />}
+                <AppIcon
+                  name={channel.kind === "remote" ? "feature.remoteContent" : "feature.localContent"}
+                  size="lg"
+                />
               </span>
 
               <div className={styles.channelSummary}>
@@ -323,7 +319,7 @@ export function QuoteChannelManager({ onRegisterSave }: QuoteChannelManagerProps
                       {channel.language === "zh" ? "中文" : "English"}
                     </StatusPill>
                   )}
-                  <StatusPill tone={channel.enabled ? "success" : "warning"}>
+                  <StatusPill tone={channel.enabled ? "accent" : "neutral"}>
                     {channel.enabled ? "已启用" : "已停用"}
                   </StatusPill>
                 </div>
@@ -352,23 +348,23 @@ export function QuoteChannelManager({ onRegisterSave }: QuoteChannelManagerProps
                           current === channel.id ? null : channel.id
                         )
                       }
-                      active={isCategoryExpanded}
+                      pressed={isCategoryExpanded}
                       title="分类设置"
                       aria-label="分类设置"
                       aria-expanded={isCategoryExpanded}
                       aria-controls={categoryDetailsId}
-                      icon={<SettingsIcon size={16} />}
+                      icon="action.configure"
                     />
                   )}
                   {channel.kind === "local" && (
                     <FormIconButton
                       onClick={() => handleToggleEditorExpanded(channel.id)}
-                      active={isEditorExpanded}
+                      pressed={isEditorExpanded}
                       title="编辑语录"
                       aria-label="编辑语录"
                       aria-expanded={isEditorExpanded}
                       aria-controls={editorDetailsId}
-                      icon={<EditIcon size={16} />}
+                      icon="action.edit"
                     />
                   )}
                 </div>
@@ -438,23 +434,23 @@ export function QuoteChannelManager({ onRegisterSave }: QuoteChannelManagerProps
                             }
                             options={ORDER_MODE_OPTIONS}
                           />
-                          <FormButton
-                            variant="secondary"
+                          <FormIconButton
+                            variant="default"
                             size="sm"
                             title="恢复默认内容"
                             aria-label="恢复默认内容"
-                            icon={<ResetIcon size={16} />}
+                            icon="action.restoreSaved"
                             disabled={!defaultQuotesMap[channel.id]}
                             onClick={() => handleRestoreDefaultAll(channel.id)}
                           />
                           {!channel.builtIn && (
-                            <FormButton
+                            <FormIconButton
                               onClick={() => handleDeleteChannel(channel.id)}
                               variant="danger"
                               size="sm"
                               title="删除语录源"
                               aria-label="删除语录源"
-                              icon={<TrashIcon size={16} />}
+                              icon="action.delete"
                             />
                           )}
                         </div>

@@ -1,5 +1,6 @@
 import type { ButtonHTMLAttributes, ReactNode } from "react";
 
+import { AppIcon, type AppIconName } from "../icons/AppIcon";
 import { classNames } from "../utils/classNames";
 
 import styles from "./primitives.module.css";
@@ -7,7 +8,7 @@ import styles from "./primitives.module.css";
 export interface ListItemProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   title: string;
   description?: string;
-  icon?: ReactNode;
+  icon?: AppIconName;
   trailing?: ReactNode;
 }
 
@@ -26,7 +27,11 @@ export function ListItem({
       type={type}
       {...props}
     >
-      {icon && <span className={styles.listItemIcon}>{icon}</span>}
+      {icon && (
+        <span className={styles.listItemIcon}>
+          <AppIcon name={icon} />
+        </span>
+      )}
       <span className={styles.listItemContent}>
         <span className={styles.listItemTitle}>{title}</span>
         {description && <span className={styles.listItemDescription}>{description}</span>}

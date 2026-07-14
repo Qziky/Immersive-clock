@@ -1,15 +1,19 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 
 import { useComponentAppearance } from "../../contexts/AppearanceContext";
-import type { StudyTimeProgressMode } from "../../types";
+import { useMinutelyWeatherSnapshot } from "../../hooks/useMinutelyWeatherSnapshot";
+import type { StudyInfoCarouselSettings, StudyTimeProgressMode } from "../../types";
 import { DEFAULT_SCHEDULE, StudyPeriod } from "../../types/studySchedule";
+import { getAppSettings, getDefaultStudyInfoCarousel } from "../../utils/appSettings";
 import { logger } from "../../utils/logger";
 import { subscribeSettingsEvent, SETTINGS_EVENTS } from "../../utils/settingsEvents";
 import { readStudySchedule } from "../../utils/studyScheduleStorage";
 import { getAdjustedDate } from "../../utils/timeSync";
 
 import { getDayGreeting } from "./dayGreeting";
+import { resolveStudyInfoSignals, type StudyInfoWeatherSnapshot } from "./studyInfoSignals";
 import { StudyStatusPresentation } from "./StudyStatusPresentation";
+import { useStudyInfoCarousel } from "./useStudyInfoCarousel";
 
 // 当前状态类型
 export type StudyStatusType = {
@@ -142,6 +146,14 @@ interface StudyStatusProps {
   mode?: StudyTimeProgressMode;
 }
 
+function readInfoCarouselSettings(): StudyInfoCarouselSettings {
+  try {
+    return getAppSettings().study.infoCarousel ?? getDefaultStudyInfoCarousel();
+  } catch {
+    return getDefaultStudyInfoCarousel();
+  }
+}
+
 /**
  * 计划进度组件
  * 功能：按设置显示今日 24 小时进度或课时进度
@@ -155,6 +167,12 @@ const StudyStatus: React.FC<StudyStatusProps> = ({ mode = "day" }) => {
   const fillAppearance = useComponentAppearance("studyStatus", "fill", { kind: "surface" });
   const [schedule, setSchedule] = useState<StudyPeriod[]>(DEFAULT_SCHEDULE);
   const [currentTime, setCurrentTime] = useState<Date>(getAdjustedDate);
+  const [infoCarouselSettings, setInfoCarouselSettings] =
+    useState<StudyInfoCarouselSettings>(readInfoCarouselSettings);
+  const rainSourceEnabled = infoCarouselSettings.items.some(
+    (item) => item.source === "rain" && item.enabled
+  );
+  const minutelyWeather = useMinutelyWeatherSnapshot(rainSourceEnabled);
 
   const normalizeSchedule = useCallback((input: StudyPeriod[]): StudyPeriod[] => {
     return input.map((p, index) => {
@@ -189,18 +207,29 @@ const StudyStatus: React.FC<StudyStatusProps> = ({ mode = "day" }) => {
 
   // 组件初始化时加载课程表
   useEffect(() => {
+    let settingsSavedTimer: number | undefined;
     loadSchedule();
+    setInfoCarouselSettings(readInfoCarouselSettings());
     const offSchedule = subscribeSettingsEvent(SETTINGS_EVENTS.StudyScheduleUpdated, () =>
       loadSchedule()
     );
-    const offSaved = subscribeSettingsEvent(SETTINGS_EVENTS.SettingsSaved, () => loadSchedule());
+    const offSaved = subscribeSettingsEvent(SETTINGS_EVENTS.SettingsSaved, () => {
+      if (settingsSavedTimer !== undefined) window.clearTimeout(settingsSavedTimer);
+      settingsSavedTimer = window.setTimeout(() => {
+        settingsSavedTimer = undefined;
+        loadSchedule();
+        setInfoCarouselSettings(readInfoCarouselSettings());
+      }, 0);
+    });
     const onStorage = (e: StorageEvent) => {
       if (e.key === "AppSettings" || e.key === "study-schedule" || e.key === "studySchedule") {
         loadSchedule();
+        if (e.key === "AppSettings") setInfoCarouselSettings(readInfoCarouselSettings());
       }
     };
     window.addEventListener("storage", onStorage);
     return () => {
+      if (settingsSavedTimer !== undefined) window.clearTimeout(settingsSavedTimer);
       offSchedule();
       offSaved();
       window.removeEventListener("storage", onStorage);
@@ -228,6 +257,48 @@ const StudyStatus: React.FC<StudyStatusProps> = ({ mode = "day" }) => {
   const remainingTimeText = formatRemainingTime(currentStatus.remainingSeconds);
   const progressLabel = mode === "day" ? "今日进度" : `${currentStatus.statusText}进度`;
 
+  const weatherSnapshot = useMemo<StudyInfoWeatherSnapshot | undefined>(() => {
+    if (!rainSourceEnabled) return undefined;
+    return {
+      stats: minutelyWeather.stats,
+      freshness: minutelyWeather.freshness,
+      sourceUpdatedAt: minutelyWeather.sourceUpdatedAt,
+      phase: minutelyWeather.phase ?? "unknown",
+      stale: minutelyWeather.stale,
+    };
+  }, [minutelyWeather, rainSourceEnabled]);
+
+  const infoSignals = useMemo(
+    () =>
+      resolveStudyInfoSignals({
+        now: currentTime,
+        progress: {
+          stageText: currentStatus.stageText,
+          stageAriaText: currentStatus.stageAriaText,
+          remainingTimeText: hasProgress ? remainingTimeText : undefined,
+          statusText: currentStatus.statusText,
+          hasProgress,
+        },
+        schedule,
+        weather: weatherSnapshot,
+        settings: infoCarouselSettings,
+      }),
+    [
+      currentStatus,
+      currentTime,
+      hasProgress,
+      infoCarouselSettings,
+      remainingTimeText,
+      schedule,
+      weatherSnapshot,
+    ]
+  );
+  const infoCarousel = useStudyInfoCarousel({
+    signals: infoSignals,
+    autoRotate: infoCarouselSettings.autoRotate,
+    intervalSec: infoCarouselSettings.intervalSec,
+  });
+
   return (
     <StudyStatusPresentation
       fillAttributes={{ style: fillAppearance }}
@@ -235,6 +306,7 @@ const StudyStatus: React.FC<StudyStatusProps> = ({ mode = "day" }) => {
       progress={currentStatus.progress}
       progressAttributes={{ style: progressAppearance }}
       progressText={`${displayedProgress}%`}
+      hasProgress={hasProgress}
       remainingTimeText={hasProgress ? remainingTimeText : undefined}
       rootAttributes={{
         "aria-label": progressLabel,
@@ -249,6 +321,11 @@ const StudyStatus: React.FC<StudyStatusProps> = ({ mode = "day" }) => {
       }}
       stageText={hasProgress ? currentStatus.stageText : undefined}
       statusText={currentStatus.statusText}
+      infoCanAdvance={infoCarousel.canAdvance}
+      infoSignal={infoCarousel.currentSignal}
+      infoSignalManaged
+      onInfoNext={infoCarousel.next}
+      onInfoPauseChange={infoCarousel.setPaused}
     />
   );
 };

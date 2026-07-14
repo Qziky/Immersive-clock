@@ -1,14 +1,3 @@
-import {
-  Database,
-  Download,
-  File as FileIcon,
-  HardDrive,
-  History,
-  RotateCcw,
-  ShieldAlert,
-  Trash2,
-  Upload,
-} from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import {
@@ -42,6 +31,7 @@ import {
   SettingItem,
   StatusPill,
   useFeedback,
+  type AppIconName,
 } from "../../../ui";
 
 import styles from "./DataSettingsPanel.module.css";
@@ -82,7 +72,7 @@ const CLEANUP_ITEMS: Array<{
   confirmLabel: string;
   buttonLabel: string;
   tone: "neutral" | "warning" | "danger";
-  icon: React.ReactNode;
+  icon: AppIconName;
 }> = [
   {
     scope: "cache",
@@ -93,7 +83,7 @@ const CLEANUP_ITEMS: Array<{
     confirmLabel: "清理缓存",
     buttonLabel: "清理临时缓存",
     tone: "neutral",
-    icon: <HardDrive size={18} />,
+    icon: "feature.storage",
   },
   {
     scope: "noiseHistory",
@@ -104,7 +94,7 @@ const CLEANUP_ITEMS: Array<{
     confirmLabel: "删除历史",
     buttonLabel: "清理噪音历史",
     tone: "danger",
-    icon: <History size={18} />,
+    icon: "feature.noiseHistory",
   },
   {
     scope: "diagnostics",
@@ -115,7 +105,7 @@ const CLEANUP_ITEMS: Array<{
     confirmLabel: "删除记录",
     buttonLabel: "清理诊断记录",
     tone: "danger",
-    icon: <ShieldAlert size={18} />,
+    icon: "feature.diagnostics",
   },
   {
     scope: "unusedAssets",
@@ -126,7 +116,7 @@ const CLEANUP_ITEMS: Array<{
     confirmLabel: "清理资源",
     buttonLabel: "清理未使用资源",
     tone: "warning",
-    icon: <FileIcon size={18} />,
+    icon: "feature.file",
   },
 ];
 
@@ -498,28 +488,26 @@ export function DataSettingsPanel({
       >
         <SettingGrid>
           <MetricCard
-            icon={<Database size={16} />}
+            icon="feature.data"
             label="应用数据"
             value={formatBytes(overview?.appDataBytes)}
             meta={`${overview?.domains.length ?? 0} 个数据分类`}
-            tone="accent"
           />
           <MetricCard
-            icon={<History size={16} />}
+            icon="feature.userData"
             label="用户数据"
             value={formatBytes(overview?.userDataBytes)}
             meta="设置、资源与历史"
-            tone="info"
           />
           <MetricCard
-            icon={<HardDrive size={16} />}
+            icon="feature.storage"
             label="可清理缓存"
             value={formatBytes(overview?.cacheBytes)}
             meta="可按需重新生成"
             tone="neutral"
           />
           <MetricCard
-            icon={<HardDrive size={16} />}
+            icon="feature.storage"
             label="浏览器存储"
             value={formatBytes(storageUsage)}
             meta={
@@ -544,7 +532,7 @@ export function DataSettingsPanel({
             <Inline gap="sm" align="left">
               <Button
                 size="sm"
-                icon={<Download size={15} />}
+                icon="action.download"
                 disabled={isBusy}
                 onClick={handleDownloadQuarantinedSettings}
               >
@@ -553,7 +541,7 @@ export function DataSettingsPanel({
               <Button
                 variant="danger"
                 size="sm"
-                icon={<Trash2 size={15} />}
+                icon="action.delete"
                 loading={operation === "discardQuarantine"}
                 disabled={isBusy}
                 onClick={handleDiscardQuarantinedSettings}
@@ -594,7 +582,7 @@ export function DataSettingsPanel({
         <Inline align="left">
           <Button
             variant="primary"
-            icon={<Download size={16} />}
+            icon="action.download"
             loading={operation === "backup"}
             disabled={isBusy}
             onClick={handleCreateBackup}
@@ -632,20 +620,19 @@ export function DataSettingsPanel({
           <div className={styles.preview} aria-label="备份预检摘要">
             <SettingGrid>
               <MetricCard
-                icon={<Upload size={16} />}
+                icon="feature.backup"
                 label="备份范围"
                 value={preview.scope === "full" ? "完整" : "设置资源"}
                 meta={`格式 ${preparedBackup.sourceFormat}`}
-                tone="accent"
               />
               <MetricCard
-                icon={<FileIcon size={16} />}
+                icon="feature.file"
                 label="内容数量"
                 value={preview.totalItems}
                 meta={formatBytes(preview.totalBytes)}
               />
               <MetricCard
-                icon={<Database size={16} />}
+                icon="feature.data"
                 label="备份协议"
                 value={`v${preview.backupVersion}`}
                 meta={`${formatDate(preview.exportedAt)} · 应用 ${preview.appVersion || "未知"}`}
@@ -654,7 +641,7 @@ export function DataSettingsPanel({
 
             <div className={styles.domainSummary} aria-label="备份包含的数据分类">
               {preview.domains.map((domain) => (
-                <StatusPill key={domain.id} tone="info">
+                <StatusPill key={domain.id} tone="neutral">
                   {domainLabels.get(domain.id) ?? domain.id} · {domain.itemCount} 项 ·{" "}
                   {formatBytes(domain.bytes)}
                 </StatusPill>
@@ -697,7 +684,7 @@ export function DataSettingsPanel({
             <Inline align="left">
               <Button
                 variant="primary"
-                icon={<Upload size={16} />}
+                icon="action.upload"
                 loading={operation === "restore"}
                 disabled={isBusy}
                 onClick={handleRestore}
@@ -766,7 +753,7 @@ export function DataSettingsPanel({
       >
         <SettingGrid>
           <SettingItem
-            icon={<RotateCcw size={18} />}
+            icon="action.reset"
             title="恢复默认设置"
             description="重置显示等偏好，保留课表、倒计时、语录内容、历史和自定义资源。"
             tone="warning"
@@ -784,7 +771,7 @@ export function DataSettingsPanel({
             }
           />
           <SettingItem
-            icon={<Trash2 size={18} />}
+            icon="action.delete"
             title="删除全部本地数据"
             description="永久删除本应用在当前设备上的设置、记录、资源和缓存。"
             tone="danger"

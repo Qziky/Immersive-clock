@@ -6,10 +6,13 @@ import {
   APP_SETTINGS_KEY,
   APP_SETTINGS_QUARANTINE_KEY,
   CURRENT_SETTINGS_VERSION,
+  MAX_STUDY_INFO_ITEMS,
+  consumeStudyInfoLimitAdjustedNotice,
   getAppSettings,
   getQuarantinedAppSettings,
   migrateStoredAppSettings,
   normalizeAppSettings,
+  normalizeStudyInfoCarousel,
   resetAppSettingsPreservingUserContent,
   saveQuoteSettings,
   updateTimeSyncSettings,
@@ -83,6 +86,107 @@ describe("appSettings", () => {
       ])
     );
     expect(s.general.quote.customChannels).toEqual([]);
+    expect(s.study.infoCarousel).toMatchObject({ autoRotate: true, intervalSec: 6 });
+    expect(s.study.infoCarousel.items.map((item) => item.source)).toEqual([
+      "progress",
+      "nextSchedule",
+      "rain",
+    ]);
+  });
+
+  it("normalizeStudyInfoCarousel 会补齐内置来源、去重并限制 20 条", () => {
+    consumeStudyInfoLimitAdjustedNotice();
+    const customItems = Array.from({ length: MAX_STUDY_INFO_ITEMS + 5 }, (_, index) => ({
+      id: `custom-${index}`,
+      source: "custom",
+      enabled: true,
+      order: index,
+      text: `消息 ${index}`,
+    }));
+    const normalized = normalizeStudyInfoCarousel({
+      autoRotate: false,
+      intervalSec: 99,
+      items: [
+        ...customItems,
+        { id: "progress-default", source: "progress", enabled: false, order: 99 },
+        { id: "progress-duplicate", source: "progress", enabled: true, order: 1 },
+      ],
+    });
+
+    expect(normalized.autoRotate).toBe(false);
+    expect(normalized.intervalSec).toBe(30);
+    expect(normalized.items).toHaveLength(customItems.length + 3);
+    expect(normalized.items.filter((item) => item.enabled)).toHaveLength(MAX_STUDY_INFO_ITEMS);
+    expect(normalized.items.filter((item) => item.source !== "custom")).toHaveLength(3);
+    expect(normalized.items.find((item) => item.source === "progress")?.enabled).toBe(false);
+    expect(normalized.items.find((item) => item.source === "nextSchedule")?.enabled).toBe(true);
+    expect(normalized.items.find((item) => item.source === "rain")?.enabled).toBe(true);
+    expect(normalized.items.find((item) => item.id === "custom-17")?.enabled).toBe(true);
+    expect(normalized.items.find((item) => item.id === "custom-18")).toMatchObject({
+      enabled: false,
+      text: "消息 18",
+    });
+    expect(new Set(normalized.items.map((item) => item.id)).size).toBe(normalized.items.length);
+    expect(consumeStudyInfoLimitAdjustedNotice()).toBe(false);
+  });
+
+  it("normalizeStudyInfoCarousel 按首次出现稳定去除重复 ID", () => {
+    const normalized = normalizeStudyInfoCarousel({
+      items: [
+        { id: "custom-shared", source: "custom", enabled: true, order: 0, text: "保留我" },
+        { id: "custom-shared", source: "custom", enabled: true, order: 1, text: "重复项" },
+      ],
+    });
+
+    expect(normalized.items.filter((item) => item.id === "custom-shared")).toEqual([
+      expect.objectContaining({ text: "保留我" }),
+    ]);
+  });
+
+  it("启动迁移只提示一次被调整的旧轮播配置", () => {
+    consumeStudyInfoLimitAdjustedNotice();
+    localStorage.setItem(
+      APP_SETTINGS_KEY,
+      JSON.stringify({
+        version: 3,
+        study: {
+          infoCarousel: {
+            autoRotate: true,
+            intervalSec: 6,
+            items: Array.from({ length: MAX_STUDY_INFO_ITEMS + 1 }, (_, index) => ({
+              id: `legacy-${index}`,
+              source: "custom",
+              enabled: true,
+              order: index,
+              text: `旧消息 ${index}`,
+            })),
+          },
+        },
+      })
+    );
+
+    migrateStoredAppSettings();
+
+    expect(consumeStudyInfoLimitAdjustedNotice()).toBe(true);
+    expect(consumeStudyInfoLimitAdjustedNotice()).toBe(false);
+    expect(getAppSettings().study.infoCarousel.items.filter((item) => item.enabled)).toHaveLength(
+      MAX_STUDY_INFO_ITEMS
+    );
+  });
+
+  it("normalizeStudyInfoCarousel 会约束非法间隔和空白自定义消息", () => {
+    const normalized = normalizeStudyInfoCarousel({
+      intervalSec: 0,
+      items: [{ id: "custom-empty", source: "custom", enabled: true, order: 0, text: "   " }],
+    });
+
+    expect(normalized.intervalSec).toBe(3);
+    expect(normalized.items.some((item) => item.id === "custom-empty")).toBe(false);
+    expect(normalized.items.map((item) => item.source)).toEqual([
+      "progress",
+      "nextSchedule",
+      "rain",
+    ]);
   });
 
   it("getAppSettings 能对 study.display 做深合并，避免缺字段", () => {
@@ -166,6 +270,7 @@ describe("appSettings", () => {
 
     updateStudySettings({
       display: { showCountdown: false },
+      infoCarousel: { autoRotate: false },
       alerts: { minutelyPrecip: true },
       background: { colorAlpha: 0.8 },
     });
@@ -174,6 +279,9 @@ describe("appSettings", () => {
     expect(s.study.display.showQuote).toBe(false);
     expect(s.study.display.showCountdown).toBe(false);
     expect(s.study.display.showTime).toBe(true);
+    expect(s.study.infoCarousel.autoRotate).toBe(false);
+    expect(s.study.infoCarousel.intervalSec).toBe(6);
+    expect(s.study.infoCarousel.items).toHaveLength(3);
     expect(s.study.style.digitOpacity).toBe(0.5);
     expect(s.study.alerts.weatherAlert).toBe(true);
     expect(s.study.alerts.minutelyPrecip).toBe(true);
@@ -570,6 +678,20 @@ describe("appSettings", () => {
         order: 0,
       },
     ];
+    current.study.infoCarousel = {
+      autoRotate: false,
+      intervalSec: 24,
+      items: [
+        { id: "progress-default", source: "progress", enabled: false, order: 0 },
+        {
+          id: "custom-review",
+          source: "custom",
+          enabled: false,
+          order: 7,
+          text: "完成今日复盘",
+        },
+      ],
+    };
     current.study.schedule = [
       { id: "morning", startTime: "08:00", endTime: "09:00", name: "数学" },
     ];
@@ -585,6 +707,18 @@ describe("appSettings", () => {
     expect(reset.general.quote.customChannels[0]?.quotes).toEqual(["保留内容"]);
     expect(reset.study.countdownItems[0]?.name).toBe("考试");
     expect(reset.study.schedule[0]?.name).toBe("数学");
+    expect(reset.study.infoCarousel.autoRotate).toBe(true);
+    expect(reset.study.infoCarousel.intervalSec).toBe(6);
+    expect(reset.study.infoCarousel.items.find((item) => item.source === "progress")?.enabled).toBe(
+      true
+    );
+    expect(
+      reset.study.infoCarousel.items.find((item) => item.id === "custom-review")
+    ).toMatchObject({
+      enabled: false,
+      order: 7,
+      text: "完成今日复盘",
+    });
     expect(reset.appearance.global.background.type).toBe("default");
   });
 

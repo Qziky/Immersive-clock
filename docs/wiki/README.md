@@ -9,6 +9,7 @@ README、使用说明和专题技术文档，帮助你快速理解项目结构�
 - [架构总览](architecture.md)：React、Vite、PWA、Electron 的整体关系和运行入口。
 - [功能模块](feature-modules.md)：时钟、倒计时、自习、天气、噪音、公告等模块的职责边界。
 - [开发指南](development.md)：本地环境、常用脚本、目录约定和编码规范。
+- [图标系统](icon-system.md)：语义命名、尺寸、颜色、交互和无障碍规范。
 - [测试指南](testing.md)：Vitest、Playwright 覆盖范围和新增测试建议。
 - [发布与部署](release-deployment.md)：Web/PWA、Electron、Docker、Vercel、EdgeOne 的构建入口。
 - [排障手册](troubleshooting.md)：开发期常见问题和排查路径。

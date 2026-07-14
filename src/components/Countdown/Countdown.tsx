@@ -22,8 +22,6 @@ export function Countdown() {
   const [playFinal] = useAudio("/ding.mp3");
   // 最后5秒逐秒提示音
   const [playTick] = useAudio("/ding-1.mp3");
-  const lastTouchTime = useRef<number>(0);
-  const touchCount = useRef<number>(0);
   const [displayTime, setDisplayTime] = useState<number>(countdown.currentTime);
   const hasFinishedRef = useRef<boolean>(false);
   const lastBeepSecondRef = useRef<number>(-1);
@@ -94,51 +92,11 @@ export function Countdown() {
   }, [dispatch]);
 
   /**
-   * 双击时间显示区域打开设置模态框（鼠标事件）
+   * 单击时间显示区域打开设置模态框
    */
-  const handleTimeDoubleClick = useCallback(() => {
+  const handleTimeClick = useCallback(() => {
     openModal();
   }, [openModal]);
-
-  /**
-   * 处理触摸开始事件，实现自定义双击检测
-   */
-  const handleTouchStart = useCallback(
-    (e: React.TouchEvent) => {
-      // 阻止默认的缩放行为
-      if (e.touches.length > 1) {
-        e.preventDefault();
-        return;
-      }
-
-      const now = Date.now();
-      const timeDiff = now - lastTouchTime.current;
-
-      // 如果两次触摸间隔小于300ms，认为是双击
-      if (timeDiff < 300 && timeDiff > 0) {
-        touchCount.current += 1;
-        if (touchCount.current === 2) {
-          e.preventDefault(); // 阻止默认行为
-          openModal();
-          touchCount.current = 0;
-          return;
-        }
-      } else {
-        touchCount.current = 1;
-      }
-
-      lastTouchTime.current = now;
-    },
-    [openModal]
-  );
-
-  /**
-   * 处理触摸移动事件，防止意外触发
-   */
-  const handleTouchMove = useCallback((_e: React.TouchEvent) => {
-    // 如果有移动，重置触摸计数
-    touchCount.current = 0;
-  }, []);
 
   /**
    * 处理键盘事件
@@ -172,12 +130,10 @@ export function Countdown() {
       placeholderAttributes={{ style: placeholderAppearance }}
       showPlaceholder={countdown.currentTime === 0 && countdown.initialTime === 0}
       timeAttributes={{
-        "aria-label": `倒计时时间：${timeString}。双击或双触设置倒计时时间`,
+        "aria-label": `倒计时时间：${timeString}。单击设置倒计时时间`,
         "aria-live": "polite",
-        onDoubleClick: handleTimeDoubleClick,
+        onClick: handleTimeClick,
         onKeyDown: handleKeyDown,
-        onTouchMove: handleTouchMove,
-        onTouchStart: handleTouchStart,
         role: "button",
         style: { ...timeAppearance, touchAction: "manipulation" },
         tabIndex: 0,

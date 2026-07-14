@@ -1,5 +1,6 @@
 import type { KeyboardEvent, ReactNode } from "react";
 
+import { AppIcon, type AppIconName, type AppIconSize } from "../icons/AppIcon";
 import { classNames } from "../utils/classNames";
 
 import styles from "./primitives.module.css";
@@ -9,7 +10,7 @@ export interface TabItem<TValue extends string = string> {
   key?: TValue;
   id?: string;
   label: ReactNode;
-  icon?: ReactNode;
+  icon?: AppIconName;
   disabled?: boolean;
   ariaControls?: string;
   ariaLabel?: string;
@@ -50,6 +51,12 @@ const sizeClassMap: Record<NonNullable<TabsProps["size"]>, string> = {
   sm: styles.tabButtonSm,
   md: styles.tabButtonMd,
   lg: styles.tabButtonLg,
+};
+
+const iconSizeMap: Record<NonNullable<TabsProps["size"]>, AppIconSize> = {
+  sm: "sm",
+  md: "md",
+  lg: "lg",
 };
 
 export function Tabs<TValue extends string = string>({
@@ -157,7 +164,7 @@ export function Tabs<TValue extends string = string>({
             onBlur={() => onPreviewChange?.(null)}
             onKeyDown={(event) => handleKeyDown(event, itemValue)}
           >
-            {item.icon}
+            {item.icon && <AppIcon name={item.icon} size={iconSizeMap[size]} />}
             <span>{item.label}</span>
           </button>
         );

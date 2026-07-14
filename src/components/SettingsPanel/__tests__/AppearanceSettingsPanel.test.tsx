@@ -266,10 +266,7 @@ describe("AppearanceSettingsPanel", () => {
     );
     expect(within(preview).getByText("26°")).toHaveClass(weatherStyles.temperature);
     expect(within(preview).getByText("晴")).toHaveClass(weatherStyles.weatherText);
-    expect(within(preview).getByAltText("晴朗")).toHaveAttribute(
-      "src",
-      "/weather-icons/fill/01d.svg"
-    );
+    expect(preview.querySelector('[data-app-icon="weather.clearDay"]')).toBeInTheDocument();
 
     fireEvent.click(within(contentSelector).getByRole("radio", { name: "计划进度" }));
     const progressPreview = screen.getByLabelText("计划进度外观预览");

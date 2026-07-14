@@ -1,7 +1,9 @@
 import { act, cleanup, render, screen } from "@testing-library/react";
 import React from "react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import type { MinutelyWeatherSnapshot } from "../../../services/minutelyWeatherRuntime";
+import { broadcastSettingsEvent, SETTINGS_EVENTS } from "../../../utils/settingsEvents";
 import { getDayGreeting } from "../dayGreeting";
 import StudyStatus, {
   calculateDayProgress,
@@ -13,22 +15,35 @@ import StudyStatus, {
 const mocks = vi.hoisted(() => ({
   getAdjustedDate: vi.fn(),
   readStudySchedule: vi.fn(),
+  minutelySnapshot: {
+    cache: null,
+    stats: null,
+    phase: null,
+    location: null,
+    status: "idle",
+    freshness: "unknown",
+    stale: false,
+    fetchedAt: null,
+    sourceUpdatedAt: null,
+    updatedAt: 0,
+    error: null,
+  } as MinutelyWeatherSnapshot,
+  useMinutelyWeatherSnapshot: vi.fn(),
 }));
 
 vi.mock("../../../contexts/AppearanceContext", () => ({
   useComponentAppearance: () => ({}),
 }));
 
-vi.mock("../../../utils/logger", () => ({
-  logger: { error: vi.fn() },
+vi.mock("../../../hooks/useMinutelyWeatherSnapshot", () => ({
+  useMinutelyWeatherSnapshot: (enabled: boolean) => {
+    mocks.useMinutelyWeatherSnapshot(enabled);
+    return mocks.minutelySnapshot;
+  },
 }));
 
-vi.mock("../../../utils/settingsEvents", () => ({
-  SETTINGS_EVENTS: {
-    SettingsSaved: "settings-saved",
-    StudyScheduleUpdated: "study-schedule-updated",
-  },
-  subscribeSettingsEvent: () => () => undefined,
+vi.mock("../../../utils/logger", () => ({
+  logger: { error: vi.fn() },
 }));
 
 vi.mock("../../../utils/studyScheduleStorage", () => ({
@@ -48,8 +63,26 @@ function atTime(hours: number, minutes: number, seconds = 0): Date {
   return new Date(2026, 6, 13, hours, minutes, seconds);
 }
 
+beforeEach(() => {
+  localStorage.clear();
+  mocks.minutelySnapshot = {
+    cache: null,
+    stats: null,
+    phase: null,
+    location: null,
+    status: "idle",
+    freshness: "unknown",
+    stale: false,
+    fetchedAt: null,
+    sourceUpdatedAt: null,
+    updatedAt: 0,
+    error: null,
+  };
+});
+
 afterEach(() => {
   cleanup();
+  localStorage.clear();
   vi.useRealTimers();
   vi.clearAllMocks();
 });
@@ -179,5 +212,127 @@ describe("StudyStatus 界面", () => {
     expect(progressbar).toHaveAttribute("aria-valuenow", "90");
     expect(progressbar).toHaveAttribute("aria-valuetext", "准备收尾，还剩 7 分钟");
     expect(screen.queryByText("今日进度")).not.toBeInTheDocument();
+  });
+
+  it("隐藏天气组件后仍订阅共享快照并显示中央降雨信息", () => {
+    const current = atTime(22, 0);
+    const rainStartAt = current.getTime() + 10 * 60 * 1000;
+    const rainEndAt = rainStartAt + 18 * 60 * 1000;
+    mocks.readStudySchedule.mockReturnValue(schedule);
+    mocks.getAdjustedDate.mockImplementation(() => current);
+    mocks.minutelySnapshot = {
+      cache: null,
+      stats: {
+        hasRain: true,
+        probability: 100,
+        intensityLabel: "小雨",
+        startInMinutes: 10,
+        durationMinutes: 18,
+        remainingMinutes: null,
+        expectedAmountMm: 0.4,
+        summary: "",
+        isRainingNow: false,
+        nextRainStartAt: rainStartAt,
+        rainStartAt,
+        rainEndAt,
+        leadMinutes: 10,
+        hasReliableTimestamps: true,
+      },
+      phase: "PRE_RAIN",
+      location: "121.50,31.20",
+      status: "ready",
+      freshness: "fresh",
+      stale: false,
+      fetchedAt: current.getTime(),
+      sourceUpdatedAt: current.getTime(),
+      updatedAt: current.getTime(),
+      error: null,
+    };
+    localStorage.setItem(
+      "AppSettings",
+      JSON.stringify({
+        version: 3,
+        study: {
+          display: { showStatusBar: true, showWeather: false },
+          infoCarousel: {
+            autoRotate: false,
+            intervalSec: 6,
+            items: [
+              { id: "progress-default", source: "progress", enabled: false, order: 0 },
+              {
+                id: "next-schedule-default",
+                source: "nextSchedule",
+                enabled: false,
+                order: 1,
+              },
+              { id: "rain-default", source: "rain", enabled: true, order: 2 },
+            ],
+          },
+        },
+      })
+    );
+
+    render(<StudyStatus />);
+
+    expect(mocks.useMinutelyWeatherSnapshot).toHaveBeenCalledWith(true);
+    expect(screen.getByText("预计 10 分钟后下雨")).toBeInTheDocument();
+    expect(screen.getByText("预计持续 18 分钟")).toBeInTheDocument();
+    expect(screen.queryByLabelText("天气")).not.toBeInTheDocument();
+  });
+
+  it("当天没有后续课时且只有进度信息时不暴露无效果按钮", () => {
+    mocks.readStudySchedule.mockReturnValue(schedule);
+    mocks.getAdjustedDate.mockImplementation(() => atTime(22, 0));
+
+    render(<StudyStatus />);
+
+    expect(screen.getByText("夜深啦 (。-ω-)zzz")).toBeInTheDocument();
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
+  });
+
+  it("设置保存事件早于持久化时在下一任务读取最新中央信息配置", () => {
+    vi.useFakeTimers();
+    mocks.readStudySchedule.mockReturnValue(schedule);
+    mocks.getAdjustedDate.mockImplementation(() => atTime(22, 0));
+
+    render(<StudyStatus />);
+    expect(screen.getByText("夜深啦 (。-ω-)zzz")).toBeInTheDocument();
+
+    act(() => {
+      broadcastSettingsEvent(SETTINGS_EVENTS.SettingsSaved);
+      localStorage.setItem(
+        "AppSettings",
+        JSON.stringify({
+          version: 3,
+          study: {
+            infoCarousel: {
+              autoRotate: false,
+              intervalSec: 6,
+              items: [
+                { id: "progress-default", source: "progress", enabled: false, order: 0 },
+                {
+                  id: "next-schedule-default",
+                  source: "nextSchedule",
+                  enabled: false,
+                  order: 1,
+                },
+                { id: "rain-default", source: "rain", enabled: false, order: 2 },
+                {
+                  id: "custom-saved",
+                  source: "custom",
+                  enabled: true,
+                  order: 3,
+                  text: "保存后立即显示",
+                },
+              ],
+            },
+          },
+        })
+      );
+    });
+
+    expect(screen.queryByLabelText("保存后立即显示")).not.toBeInTheDocument();
+    act(() => vi.advanceTimersByTime(0));
+    expect(screen.getByLabelText("保存后立即显示")).toBeInTheDocument();
   });
 });

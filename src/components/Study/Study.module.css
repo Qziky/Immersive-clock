@@ -409,6 +409,12 @@
   }
 }
 
+@media (max-width: 360px) and (max-height: 600px) {
+  .currentTime {
+    font-size: 3.5rem;
+  }
+}
+
 @media (max-height: 600px) and (min-width: 600px) {
   .topDock {
     grid-template-areas: "environment status countdown";

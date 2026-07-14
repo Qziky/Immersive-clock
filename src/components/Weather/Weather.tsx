@@ -2,14 +2,14 @@ import React, { useState, useEffect, useCallback, useRef } from "react";
 
 import { useAppState } from "../../contexts/AppContext";
 import { useComponentAppearance } from "../../contexts/AppearanceContext";
+import { useMinutelyWeatherSnapshot } from "../../hooks/useMinutelyWeatherSnapshot";
 import { buildLocationFlow } from "../../services/locationService";
 import {
-  buildWeatherFlow,
-  fetchWeatherAlertsByCoords,
-  fetchMinutelyPrecip,
-} from "../../services/weatherService";
+  getMinutelyWeatherSnapshot,
+  refreshMinutelyWeather,
+} from "../../services/minutelyWeatherRuntime";
+import { buildWeatherFlow, fetchWeatherAlertsByCoords } from "../../services/weatherService";
 import type { WeatherFlowOptions } from "../../services/weatherService";
-import type { MinutelyPrecipResponse } from "../../types/weather";
 import { getAppSettings } from "../../utils/appSettings";
 import { logger } from "../../utils/logger";
 import {
@@ -23,15 +23,12 @@ import type {
   MinutelyRainStats,
 } from "../../utils/minutelyPrecipLogic";
 import { SETTINGS_EVENTS, subscribeSettingsEvent } from "../../utils/settingsEvents";
-import { getAdjustedDate } from "../../utils/timeSync";
+import { getAdjustedDate, getAdjustedNowMs } from "../../utils/timeSync";
 import {
   getWeatherCache,
   updateWeatherNowSnapshot,
-  updateMinutelyCache,
   getValidMinutely,
   getValidCoords,
-  updateMinutelyLastFetch,
-  updateMinutelyCriticalFetch,
   updateAlertTag,
   updateDaily3dCache,
   updateAirQualityCache,
@@ -54,7 +51,6 @@ const SUNSET_REMINDER_KEY_PREFIX = "weather.sunset.reminded.";
 
 const MINUTELY_PRECIP_MANUAL_REFRESH_EVENT = "weatherMinutelyPrecipRefresh";
 const MINUTELY_PRECIP_DIFF_THRESHOLD_PROB = 10;
-const MINUTELY_PRECIP_LOCAL_TICK_MS = 30 * 1000;
 const WEATHER_LOCATION_REFRESH_EVENT = "weatherLocationRefresh";
 const WEATHER_LOCATION_REFRESH_DONE_EVENT = "weatherLocationRefreshDone";
 
@@ -195,12 +191,13 @@ const Weather: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const { study } = useAppState();
+  // 与自习中央信息区共享同一份分钟降水快照；Weather 隐藏时由订阅者继续驱动 runtime。
+  const sharedMinutelySnapshot = useMinutelyWeatherSnapshot(true);
   const showErrorPopupRef = useRef<boolean>(false);
   const lastErrorPopupAtRef = useRef<number>(0);
   const lastErrorPopupSignatureRef = useRef<string>("");
   const minutelyPopupHasRainRef = useRef<boolean | null>(null);
   const minutelyPhaseRef = useRef<MinutelyRainPhase | null>(null);
-  const lastCriticalMinutelyFetchAtRef = useRef<number>(0);
   const [autoRefreshIntervalMin, setAutoRefreshIntervalMin] = useState<number>(() => {
     return clampInt(getAppSettings().general.weather.autoRefreshIntervalMin, 15, 180);
   });
@@ -254,6 +251,7 @@ const Weather: React.FC = () => {
   }, []);
 
   const readMinutelyCache = useCallback((): MinutelyPrecipCacheLike | null => {
+    if (sharedMinutelySnapshot.cache) return sharedMinutelySnapshot.cache;
     const coords = getValidCoords();
     if (coords) {
       const location = `${coords.lon.toFixed(2)},${coords.lat.toFixed(2)}`;
@@ -270,15 +268,7 @@ const Weather: React.FC = () => {
       }
     }
     return null;
-  }, []);
-
-  const writeMinutelyCache = useCallback((data: MinutelyPrecipResponse, fetchedAt: number) => {
-    const coords = getValidCoords();
-    if (coords) {
-      const location = `${coords.lon.toFixed(2)},${coords.lat.toFixed(2)}`;
-      updateMinutelyCache(location, data, fetchedAt);
-    }
-  }, []);
+  }, [sharedMinutelySnapshot.cache]);
 
   /**
    * 构建分钟级降水弹窗内容（函数级中文注释：区分“将要下雨”与“正在下雨”，并展示开始/结束时间）
@@ -289,7 +279,7 @@ const Weather: React.FC = () => {
       stats: MinutelyRainStats,
       opts?: { showUpdatedHint?: boolean }
     ): React.ReactNode => {
-      const nowMs = Date.now();
+      const nowMs = getAdjustedNowMs();
       const pulledAtMs = cache.fetchedAt ?? nowMs;
       const pulledAtText = formatTimestampHm(pulledAtMs);
       const rainEndText = stats.rainEndAt ? formatTimestampHm(stats.rainEndAt) : "--:--";
@@ -298,21 +288,27 @@ const Weather: React.FC = () => {
         : "--:--";
 
       if (stats.isRainingNow) {
-        const line1 = `正在${stats.intensityLabel}，预计${rainEndText}前后结束。`;
+        const line1 = stats.rainEndAt
+          ? `正在${stats.intensityLabel}，预计${rainEndText}前后结束。`
+          : `正在${stats.intensityLabel}，未来两小时仍可能有雨。`;
         return (
           <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
             <div>{line1}</div>
             <div>
               降水概率：{stats.probability}% 预计累计：{stats.expectedAmountMm.toFixed(1)}mm
             </div>
-            <div>剩余时长：约{stats.remainingMinutes ?? 0}分钟</div>
+            {stats.remainingMinutes != null ? (
+              <div>剩余时长：约{stats.remainingMinutes}分钟</div>
+            ) : null}
             <div style={{ opacity: 0.8, fontSize: "0.72rem" }}>数据拉取时间：{pulledAtText}</div>
           </div>
         );
       }
 
       const summary = stats.hasRain
-        ? `预计${rainStartText}开始${stats.intensityLabel}，持续约${stats.durationMinutes ?? "--"}分钟。`
+        ? stats.durationMinutes != null
+          ? `预计${rainStartText}开始${stats.intensityLabel}，持续约${stats.durationMinutes}分钟。`
+          : `预计${rainStartText}开始${stats.intensityLabel}，未来两小时仍可能有雨。`
         : "未来两小时暂无降水。";
       return (
         <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
@@ -369,8 +365,9 @@ const Weather: React.FC = () => {
       }
     ) => {
       if (!study?.minutelyPrecipEnabled) return;
-      const nowMs = Date.now();
+      const nowMs = getAdjustedNowMs();
       const stats = computeMinutelyRainStats(cache, nowMs);
+      if (stats.hasReliableTimestamps === false) return;
       const phase = resolveMinutelyRainPhase(stats, minutelyPhaseRef.current);
       minutelyPhaseRef.current = phase;
 
@@ -438,19 +435,6 @@ const Weather: React.FC = () => {
   );
 
   /**
-   * 从缓存重算分钟级状态（函数级中文注释：不调用 API，仅按本地时间推进分钟级提醒）
-   */
-  const recomputeMinutelyPrecipLocally = useCallback(
-    (opts?: { allowOpen?: boolean; showUpdatedHint?: boolean; forceRainingPopup?: boolean }) => {
-      if (!study?.minutelyPrecipEnabled) return;
-      const cache = readMinutelyCache();
-      if (!cache) return;
-      evaluateMinutelyState(cache, opts);
-    },
-    [evaluateMinutelyState, readMinutelyCache, study?.minutelyPrecipEnabled]
-  );
-
-  /**
    * 刷新分钟级降水数据（函数级中文注释：采用“缓存优先 + 关键时刻加密请求”的策略）
    */
   const refreshMinutelyPrecip = useCallback(
@@ -463,8 +447,10 @@ const Weather: React.FC = () => {
       }
     ) => {
       if (!study?.minutelyPrecipEnabled) return;
+      void locationParam;
 
-      const nowMs = Date.now();
+      const nowWallMs = Date.now();
+      const nowMs = getAdjustedNowMs();
       const minutelyApiIntervalMs = clampInt(autoRefreshIntervalMin, 15, 180) * 60 * 1000;
 
       const existing = readMinutelyCache();
@@ -474,63 +460,46 @@ const Weather: React.FC = () => {
 
       const weatherCache = getWeatherCache();
       const lastFetchAt = weatherCache.minutely?.lastApiFetchAt || 0;
-      const lastCriticalFetchAt =
-        weatherCache.minutely?.lastCriticalFetchAt || lastCriticalMinutelyFetchAtRef.current || 0;
-      let shouldRequestApi = !!opts?.forceApi;
+      const lastCriticalFetchAt = weatherCache.minutely?.lastCriticalFetchAt || 0;
+      let forceApi = !!opts?.forceApi;
       let triggeredByCriticalWindow = false;
-      if (!shouldRequestApi) {
-        if (!existing || lastFetchAt <= 0 || nowMs - lastFetchAt >= minutelyApiIntervalMs) {
-          shouldRequestApi = true;
-        } else {
-          const existingStats = computeMinutelyRainStats(existing, nowMs);
+      if (!forceApi && existing && lastFetchAt > 0) {
+        const existingStats = computeMinutelyRainStats(existing, nowMs);
+        if (existingStats.hasReliableTimestamps !== false) {
           const phase = resolveMinutelyRainPhase(existingStats, minutelyPhaseRef.current);
-          const allowCritical = shouldTriggerCriticalRefresh({
+          triggeredByCriticalWindow = shouldTriggerCriticalRefresh({
             phase,
             leadMinutes: existingStats.leadMinutes,
             remainingMinutes: existingStats.remainingMinutes,
-            nowMs,
+            nowMs: nowWallMs,
             lastApiFetchAt: lastFetchAt,
             lastCriticalFetchAt,
             baseIntervalMs: minutelyApiIntervalMs,
           });
-          if (allowCritical) {
-            shouldRequestApi = true;
-            triggeredByCriticalWindow = true;
-          }
+          forceApi = triggeredByCriticalWindow;
         }
       }
-      if (!shouldRequestApi) return;
 
-      const minResp = await fetchMinutelyPrecip(locationParam);
-      if (minResp.error || minResp.code !== "200") return;
-      updateMinutelyLastFetch(nowMs);
-      if (triggeredByCriticalWindow) {
-        lastCriticalMinutelyFetchAtRef.current = nowMs;
-        updateMinutelyCriticalFetch(nowMs);
-      }
-
-      const incomingCache: MinutelyPrecipCacheLike = {
-        updateTime: minResp.updateTime,
-        summary: minResp.summary,
-        minutely: minResp.minutely,
-        fetchedAt: nowMs,
-      };
+      await refreshMinutelyWeather({
+        force: forceApi,
+        markCritical: triggeredByCriticalWindow,
+      });
+      const sharedSnapshot = getMinutelyWeatherSnapshot();
+      const incomingCache = sharedSnapshot.cache;
+      if (!incomingCache || sharedSnapshot.freshness !== "fresh") return;
 
       const incomingStats = computeMinutelyRainStats(incomingCache, nowMs);
-      const shouldWriteByDiff =
+      const changedMeaningfully =
         !!existing &&
         Math.abs(
           computeMinutelyRainStats(existing, nowMs).probability - incomingStats.probability
         ) >= MINUTELY_PRECIP_DIFF_THRESHOLD_PROB;
-      if (!existing || opts?.forceApi || shouldWriteByDiff || incomingStats.hasRain) {
-        writeMinutelyCache(minResp, nowMs);
-      }
       if (existing) {
         const existingStats = computeMinutelyRainStats(existing, nowMs);
         const becameRaining = !existingStats.isRainingNow && incomingStats.isRainingNow;
         evaluateMinutelyState(incomingCache, {
           allowOpen: opts?.allowOpen,
-          showUpdatedHint: !!opts?.showUpdatedHint || shouldWriteByDiff,
+          showUpdatedHint: !!opts?.showUpdatedHint || changedMeaningfully,
           forceRainingPopup: becameRaining,
         });
       } else {
@@ -540,13 +509,7 @@ const Weather: React.FC = () => {
         });
       }
     },
-    [
-      autoRefreshIntervalMin,
-      evaluateMinutelyState,
-      readMinutelyCache,
-      study?.minutelyPrecipEnabled,
-      writeMinutelyCache,
-    ]
+    [autoRefreshIntervalMin, evaluateMinutelyState, readMinutelyCache, study?.minutelyPrecipEnabled]
   );
 
   const tickWeatherReminders = useCallback(() => {
@@ -659,6 +622,32 @@ const Weather: React.FC = () => {
       }
     }
   }, [study.airQualityAlertEnabled, study.sunriseSunsetAlertEnabled]);
+
+  // runtime 负责统一的 30 秒本地重算；Weather 只消费快照并推进弹窗状态机。
+  useEffect(() => {
+    if (
+      study.minutelyPrecipEnabled &&
+      sharedMinutelySnapshot.freshness === "fresh" &&
+      sharedMinutelySnapshot.cache
+    ) {
+      evaluateMinutelyState(sharedMinutelySnapshot.cache, { allowOpen: true });
+    } else if (study.minutelyPrecipEnabled && safeReadSessionFlag(MINUTELY_PRECIP_POPUP_OPEN_KEY)) {
+      safeWriteSessionFlag(MINUTELY_PRECIP_POPUP_OPEN_KEY, false);
+      window.dispatchEvent(
+        new CustomEvent("messagePopup:close", {
+          detail: { id: MINUTELY_PRECIP_POPUP_ID, dismiss: false },
+        })
+      );
+    }
+    tickWeatherReminders();
+  }, [
+    evaluateMinutelyState,
+    sharedMinutelySnapshot.cache,
+    sharedMinutelySnapshot.freshness,
+    sharedMinutelySnapshot.updatedAt,
+    study.minutelyPrecipEnabled,
+    tickWeatherReminders,
+  ]);
 
   /**
    * 初始化天气数据（通过小米天气 + 高德反编码）
@@ -926,14 +915,9 @@ const Weather: React.FC = () => {
   useEffect(() => {
     void initializeWeather();
     tickWeatherReminders();
-    recomputeMinutelyPrecipLocally({ allowOpen: true });
 
     const intervalMs = clampInt(autoRefreshIntervalMin, 15, 180) * 60 * 1000;
     const interval = setInterval(() => void initializeWeather(), intervalMs);
-    const localMinutelyTickInterval = setInterval(() => {
-      recomputeMinutelyPrecipLocally({ allowOpen: true });
-      tickWeatherReminders();
-    }, MINUTELY_PRECIP_LOCAL_TICK_MS);
 
     // 监听天气刷新事件
     const handleWeatherRefresh = (e: Event) => {
@@ -985,7 +969,6 @@ const Weather: React.FC = () => {
 
     return () => {
       clearInterval(interval);
-      clearInterval(localMinutelyTickInterval);
       window.removeEventListener("weatherRefresh", handleWeatherRefresh);
       window.removeEventListener(WEATHER_LOCATION_REFRESH_EVENT, handleLocationRefresh);
       window.removeEventListener(
@@ -1000,7 +983,6 @@ const Weather: React.FC = () => {
     refreshLocationOnly,
     handleAlertsAndPrecip,
     refreshMinutelyPrecip,
-    recomputeMinutelyPrecipLocally,
     tickWeatherReminders,
   ]);
 

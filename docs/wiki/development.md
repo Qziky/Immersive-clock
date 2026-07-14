@@ -57,6 +57,8 @@ npm run test:e2e
 - 使用语义化 HTML，并补充必要的 `aria-*` 属性。
 - 命名遵循：组件和接口 PascalCase，函数和变量 camelCase，常量 UPPER_SNAKE_CASE。
 - 避免直接使用 `console.log`，使用 `src/utils/logger.ts`。
+- 功能图标使用 `src/ui` 导出的 `AppIcon` 或组件语义 `icon` 属性，禁止业务代码直接导入
+  `lucide-react`；完整规则见 [图标系统](icon-system.md)。
 - Prettier 规则为 2 空格、双引号、分号、尾随逗号、100 字符行宽。
 
 ## 导入顺序
@@ -77,6 +79,7 @@ npm run test:e2e
 4. 涉及天气、噪音、时间同步等边界能力时，把副作用留在 service/hook 中，保持 UI 组件可读。
 5. 添加或调整测试，优先覆盖改变的业务规则或用户流程。
 6. 运行最窄范围验证，并在 PR 中说明测试结果。
+7. 修改或新增图标语义时，同步检查 `/design-system` 图标矩阵与图标契约测试。
 
 ## 文档维护
 

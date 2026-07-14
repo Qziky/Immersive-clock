@@ -294,6 +294,76 @@ describe("appReducer", () => {
     });
   });
 
+  describe("中央信息轮播", () => {
+    it("初始化会从 AppSettings 重载已保存配置", () => {
+      localStorage.setItem(
+        APP_SETTINGS_KEY,
+        JSON.stringify({
+          version: 3,
+          study: {
+            infoCarousel: {
+              autoRotate: false,
+              intervalSec: 9,
+              items: [
+                {
+                  id: "custom-reload",
+                  source: "custom",
+                  enabled: true,
+                  order: 3,
+                  text: "重载后仍显示",
+                },
+              ],
+            },
+          },
+        })
+      );
+
+      expect(getInitialState().study.infoCarousel).toMatchObject({
+        autoRotate: false,
+        intervalSec: 9,
+        items: expect.arrayContaining([
+          expect.objectContaining({ id: "custom-reload", text: "重载后仍显示" }),
+          expect.objectContaining({ source: "progress" }),
+        ]),
+      });
+    });
+
+    it("SET_INFO_CAROUSEL 会归一化并同步到状态和存储", () => {
+      const newState = appReducer(state, {
+        type: "SET_INFO_CAROUSEL",
+        payload: {
+          autoRotate: false,
+          intervalSec: 90,
+          items: [
+            {
+              id: "custom-focus",
+              source: "custom",
+              enabled: true,
+              order: 0,
+              text: "  保持专注  ",
+            },
+          ],
+        },
+      });
+
+      expect(newState.study.infoCarousel).toMatchObject({
+        autoRotate: false,
+        intervalSec: 30,
+      });
+      expect(newState.study.infoCarousel?.items).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ id: "custom-focus", text: "保持专注" }),
+          expect.objectContaining({ source: "progress" }),
+          expect.objectContaining({ source: "nextSchedule" }),
+          expect.objectContaining({ source: "rain" }),
+        ])
+      );
+      expect(JSON.parse(localStorage.getItem(APP_SETTINGS_KEY) ?? "{}").study.infoCarousel).toEqual(
+        newState.study.infoCarousel
+      );
+    });
+  });
+
   describe("模态框管理", () => {
     it("OPEN_MODAL 应该打开模态框", () => {
       const action: AppAction = { type: "OPEN_MODAL" };

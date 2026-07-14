@@ -38,6 +38,7 @@
 }
 
 .milestone {
+  align-items: center;
   font-family: var(--font-ui);
   font-size: clamp(1.2rem, 3vw, 1.8rem);
   font-weight: 500;
@@ -47,6 +48,8 @@
   background: rgba(3, 218, 198, 0.1);
   border-radius: var(--border-radius-lg);
   border: 1px solid rgba(3, 218, 198, 0.3);
+  display: inline-flex;
+  gap: var(--spacing-sm);
   animation: milestone-appear 0.8s ease-out;
 }
 

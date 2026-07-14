@@ -1,6 +1,6 @@
-import { AlertCircle, CheckCircle2, Info, TriangleAlert } from "lucide-react";
 import type { ReactNode } from "react";
 
+import { AppIcon, type AppIconName } from "../icons/AppIcon";
 import { classNames } from "../utils/classNames";
 
 import styles from "./primitives.module.css";
@@ -20,17 +20,17 @@ const variantClassMap: Record<AlertVariant, string> = {
   danger: styles.alertDanger,
 };
 
-const iconMap: Record<AlertVariant, ReactNode> = {
-  success: <CheckCircle2 size={16} aria-hidden="true" />,
-  info: <Info size={16} aria-hidden="true" />,
-  warning: <TriangleAlert size={16} aria-hidden="true" />,
-  danger: <AlertCircle size={16} aria-hidden="true" />,
+const iconMap: Record<AlertVariant, AppIconName> = {
+  success: "status.success",
+  info: "status.info",
+  warning: "status.warning",
+  danger: "status.error",
 };
 
 export function Alert({ variant = "info", children, className }: AlertProps) {
   return (
     <div className={classNames(styles.alert, variantClassMap[variant], className)} role="status">
-      {iconMap[variant]}
+      <AppIcon name={iconMap[variant]} />
       <span>{children}</span>
     </div>
   );

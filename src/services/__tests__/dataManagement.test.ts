@@ -262,6 +262,40 @@ describe("dataManagement", () => {
     expect(backup.manifest.map((entry) => entry.id)).toEqual(["settings", "assets"]);
   });
 
+  it("备份恢复会保留中央信息轮播与自定义消息", async () => {
+    const settings = settingsWithBackground();
+    settings.study.infoCarousel = {
+      autoRotate: false,
+      intervalSec: 12,
+      items: [
+        { id: "progress-default", source: "progress", enabled: true, order: 0 },
+        { id: "next-schedule-default", source: "nextSchedule", enabled: false, order: 1 },
+        { id: "rain-default", source: "rain", enabled: true, order: 2 },
+        {
+          id: "custom-review",
+          source: "custom",
+          enabled: true,
+          order: 3,
+          text: "完成今日复盘",
+        },
+      ],
+    };
+    localStorage.setItem(APP_SETTINGS_KEY, JSON.stringify(settings));
+
+    const prepared = await prepareBackup(JSON.stringify(await createBackup("settings-and-assets")));
+    localStorage.setItem(APP_SETTINGS_KEY, JSON.stringify(settingsWithBackground()));
+    await restoreBackup(prepared);
+
+    expect(getAppSettings().study.infoCarousel).toMatchObject({
+      autoRotate: false,
+      intervalSec: 12,
+      items: expect.arrayContaining([
+        expect.objectContaining({ id: "next-schedule-default", enabled: false }),
+        expect.objectContaining({ id: "custom-review", text: "完成今日复盘" }),
+      ]),
+    });
+  });
+
   it("创建备份超过 150MB 时拒绝导出", async () => {
     localStorage.setItem(APP_SETTINGS_KEY, JSON.stringify(settingsWithBackground()));
     const encoded = new Uint8Array(new ArrayBuffer(0));
@@ -302,12 +336,15 @@ describe("dataManagement", () => {
       assets: [],
     });
     const plainSettings = await prepareBackup(settings);
+    const plainGeneral = plainSettings.backup.domains.settings.data.general as {
+      quote: Record<string, unknown>;
+    };
 
     expect(legacyBundle.sourceFormat).toBe("immersive-clock-settings-v2");
     expect(legacyBundle.preview.warnings[0]).toContain("v2");
     expect(plainSettings.sourceFormat).toBe("legacy-app-settings");
     expect(plainSettings.preview.hasNoiseHistory).toBe(false);
-    expect(plainSettings.backup.domains.settings.data.general.quote).toMatchObject({
+    expect(plainGeneral.quote).toMatchObject({
       animationMode: "typewriter",
       typingSpeed: "normal",
       typewriterBackspaceEnabled: true,
@@ -555,6 +592,13 @@ describe("dataManagement", () => {
         order: 0,
       },
     ];
+    settings.study.infoCarousel.items.push({
+      id: "custom-reset",
+      source: "custom",
+      enabled: false,
+      order: 3,
+      text: "保留自定义消息",
+    });
     settings.general.quote.customChannels = [
       {
         id: "local-custom",
@@ -574,6 +618,15 @@ describe("dataManagement", () => {
 
     expect(reset.study.schedule).toEqual(settings.study.schedule);
     expect(reset.study.countdownItems).toEqual(settings.study.countdownItems);
+    expect(reset.study.infoCarousel.items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "custom-reset",
+          enabled: false,
+          text: "保留自定义消息",
+        }),
+      ])
+    );
     expect(reset.general.quote.customChannels).toEqual(settings.general.quote.customChannels);
     expect(reset.appearance.global.background.type).toBe("default");
     expect(dataState.assets).toHaveLength(1);

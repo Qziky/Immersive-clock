@@ -153,7 +153,10 @@ function weatherIcon(code: unknown): string | undefined {
   return key.padStart(3, "0");
 }
 
-async function resolveXiaomiLocation(coords: Coords, city?: string | null): Promise<XiaomiResolvedLocation | null> {
+async function resolveXiaomiLocation(
+  coords: Coords,
+  city?: string | null
+): Promise<XiaomiResolvedLocation | null> {
   const byCoords = await fetchXiaomiCityByCoords(coords.lat, coords.lon);
   const key = byCoords?.locationKey || byCoords?.key;
   if (key) {
@@ -306,20 +309,89 @@ function adaptWeatherAlerts(data: XiaomiWeatherAllResponse): WeatherAlertRespons
   };
 }
 
-function adaptMinutely(data: XiaomiMinutelyResponse | XiaomiWeatherAllResponse): MinutelyPrecipResponse {
+function parseMinutelyTimestamp(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && value.trim()) {
+    const parsed = Date.parse(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+}
+
+function inferMinutelyIntervalMs(times: Array<number | null>, fallbackMs = 60 * 1000): number {
+  const samples: number[] = [];
+  for (let i = 0; i < times.length; i += 1) {
+    const current = times[i];
+    if (current == null) continue;
+    for (let j = i + 1; j < times.length; j += 1) {
+      const next = times[j];
+      if (next == null) continue;
+      const delta = next - current;
+      if (delta > 0) samples.push(delta / (j - i));
+      break;
+    }
+  }
+  if (samples.length === 0) return fallbackMs;
+  samples.sort((a, b) => a - b);
+  const middle = Math.floor(samples.length / 2);
+  const median =
+    samples.length % 2 === 0 ? (samples[middle - 1] + samples[middle]) / 2 : samples[middle];
+  return Math.max(30 * 1000, Math.min(60 * 60 * 1000, Math.round(median)));
+}
+
+function normalizeMinutelyIntervalMs(value: unknown): number {
+  if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) return 60 * 1000;
+  // 供应商有时以毫秒、秒或分钟表达 interval；按数量级兼容三种形态。
+  if (value >= 100_000) return Math.round(value);
+  if (value >= 1_000) return Math.round(value * 1000);
+  return Math.round(value * 60 * 1000);
+}
+
+/**
+ * 将小米分钟降水响应转换为应用统一格式。若响应带有 fxTime，则完整保留真实
+ * 时间轴；只有 pubTime 时才按服务端提供的 interval（默认 1 分钟）推导，绝不
+ * 使用客户端当前时间伪造“刚刚更新”的时间戳。
+ */
+export function adaptMinutely(
+  data: XiaomiMinutelyResponse | XiaomiWeatherAllResponse
+): MinutelyPrecipResponse {
   if (data.error) return { error: data.error };
   const precipitation = data.precipitation ?? ("minutely" in data ? data.minutely : undefined);
-  const updateTime = normalizeTimestamp(precipitation?.pubTime) || new Date().toISOString();
-  const baseMs = Date.parse(updateTime);
+  const updateTime = normalizeTimestamp(precipitation?.pubTime);
+  const rawValues = precipitation?.value || [];
+  const explicitTimes = rawValues.map((value, index) => {
+    const itemTime =
+      typeof value === "object" && value != null
+        ? parseMinutelyTimestamp((value as { fxTime?: unknown }).fxTime)
+        : null;
+    const arrayTime = Array.isArray(precipitation?.fxTime)
+      ? parseMinutelyTimestamp(precipitation.fxTime[index])
+      : null;
+    return arrayTime ?? itemTime;
+  });
+  const baseMs = parseMinutelyTimestamp(updateTime);
+  const intervalMs = inferMinutelyIntervalMs(
+    explicitTimes,
+    normalizeMinutelyIntervalMs(precipitation?.interval)
+  );
   return {
     code: data.status == null || data.status === 0 ? "200" : String(data.status),
     updateTime,
     summary: precipitation?.description,
-    minutely: (precipitation?.value || []).map((value: string | number, index: number) => ({
-      fxTime: new Date((Number.isFinite(baseMs) ? baseMs : Date.now()) + index * 60 * 1000).toISOString(),
-      precip: valueToString(value) || "0",
-      type: "rain",
-    })),
+    minutely: rawValues.map((value, index) => {
+      const primitive =
+        typeof value === "object" && value != null
+          ? ((value as { value?: string | number; precip?: string | number }).value ??
+            (value as { precip?: string | number }).precip)
+          : value;
+      const explicit = explicitTimes[index];
+      const inferred = explicit ?? (baseMs != null ? baseMs + index * intervalMs : null);
+      return {
+        ...(inferred != null ? { fxTime: new Date(inferred).toISOString() } : {}),
+        precip: valueToString(primitive) || "0",
+        type: "rain",
+      };
+    }),
   };
 }
 
@@ -333,7 +405,9 @@ function adaptHourly72h(data: XiaomiWeatherAllResponse): WeatherHourly72hRespons
     code: data.status == null || data.status === 0 ? "200" : String(data.status),
     updateTime: pubTime,
     hourly: temperatures.slice(0, 72).map((temperature, index) => ({
-      fxTime: new Date((Number.isFinite(baseMs) ? baseMs : Date.now()) + index * 60 * 60 * 1000).toISOString(),
+      fxTime: new Date(
+        (Number.isFinite(baseMs) ? baseMs : Date.now()) + index * 60 * 60 * 1000
+      ).toISOString(),
       temp: valueToString(temperature.value),
       icon: weatherIcon(weather[index]),
       text: weatherText(weather[index]),

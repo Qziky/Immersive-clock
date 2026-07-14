@@ -1,14 +1,3 @@
-import {
-  BarChart3 as BarChartIcon,
-  BellRing as BellRingIcon,
-  Gauge as GaugeIcon,
-  History as HistoryIcon,
-  Mic2 as MicIcon,
-  SlidersHorizontal as SlidersIcon,
-  Volume2 as VolumeIcon,
-  VolumeX as VolumeMuteIcon,
-  Waves as WavesIcon,
-} from "lucide-react";
 import React, { useCallback, useEffect, useState } from "react";
 
 import { DEFAULT_NOISE_REPORT_RETENTION_DAYS } from "../../../constants/noiseReport";
@@ -386,10 +375,9 @@ export const StudySettingsPanel: React.FC<StudySettingsPanelProps> = ({
       >
         <SettingGrid columns={2}>
           <SettingItem
-            icon={<GaugeIcon size={18} />}
+            icon="feature.studyThreshold"
             title="判定阈值"
             description="环境声音超过此值时显示为“吵闹”。"
-            tone="warning"
           >
             <FormSlider
               value={draftMaxNoiseLevel}
@@ -404,10 +392,9 @@ export const StudySettingsPanel: React.FC<StudySettingsPanelProps> = ({
           </SettingItem>
 
           <SettingItem
-            icon={<SlidersIcon size={18} />}
+            icon="feature.noiseSmoothing"
             title="噪音数值平滑"
             description="数值越大，分贝数字跳动越平缓。"
-            tone="info"
           >
             <FormSlider
               value={draftAvgWindowSec}
@@ -421,10 +408,9 @@ export const StudySettingsPanel: React.FC<StudySettingsPanelProps> = ({
             />
           </SettingItem>
           <SettingItem
-            icon={<BarChartIcon size={18} />}
+            icon="feature.studyMetrics"
             title="显示实时分贝"
             description="在自习页展示当前环境实时分贝。"
-            tone="accent"
             control={
               <FormSwitch
                 checked={draftShowRealtimeDb}
@@ -434,10 +420,9 @@ export const StudySettingsPanel: React.FC<StudySettingsPanelProps> = ({
             }
           />
           <SettingItem
-            icon={<BellRingIcon size={18} />}
+            icon="feature.notification"
             title="超过阈值播放提示音"
             description="仅在超过判定阈值时触发提示音。"
-            tone="warning"
             control={
               <FormSwitch
                 checked={draftAlertSoundEnabled}
@@ -457,12 +442,12 @@ export const StudySettingsPanel: React.FC<StudySettingsPanelProps> = ({
       >
         <div data-tour="noise-calibration">
           <SettingItem
-            icon={<MicIcon size={18} />}
+            icon="feature.microphone"
             title="基准噪音值"
             description="校准需要麦克风权限，保存后才会应用到噪音控制。"
-            tone={baselineRms > 0 ? "success" : "danger"}
+            tone={baselineRms > 0 ? "success" : "warning"}
             control={
-              <StatusPill tone={baselineRms > 0 ? "success" : "danger"}>
+              <StatusPill tone={baselineRms > 0 ? "success" : "warning"}>
                 {baselineRms > 0 ? "已校准" : "未校准"}
                 {isCalibrating && ` ${calibrationProgress}%`}
               </StatusPill>
@@ -489,7 +474,7 @@ export const StudySettingsPanel: React.FC<StudySettingsPanelProps> = ({
               variant="secondary"
               onClick={handleRecalibrate}
               disabled={isCalibrating}
-              icon={<VolumeIcon size={16} />}
+              icon="action.calibrateMicrophone"
             >
               {noiseBaseline > 0 ? "重新校准" : "开始校准"}
             </FormButton>
@@ -497,7 +482,7 @@ export const StudySettingsPanel: React.FC<StudySettingsPanelProps> = ({
               variant="danger"
               onClick={handleClearNoiseBaseline}
               disabled={noiseBaseline === 0 && baselineRms === 0}
-              icon={<VolumeMuteIcon size={16} />}
+              icon="action.clearCalibration"
             >
               清除校准
             </FormButton>
@@ -513,10 +498,9 @@ export const StudySettingsPanel: React.FC<StudySettingsPanelProps> = ({
       >
         <SettingGrid columns={2}>
           <SettingItem
-            icon={<WavesIcon size={18} />}
+            icon="feature.noiseReport"
             title="自动弹出报告"
             description="学习结束后自动显示噪音分析报告。"
-            tone="accent"
             control={
               <FormSwitch
                 checked={autoPopupReport}
@@ -526,7 +510,7 @@ export const StudySettingsPanel: React.FC<StudySettingsPanelProps> = ({
             }
           />
           <SettingItem
-            icon={<HistoryIcon size={18} />}
+            icon="feature.noiseHistory"
             title="历史保存天数"
             description="实际最大范围会按本地可用容量裁剪。"
           >

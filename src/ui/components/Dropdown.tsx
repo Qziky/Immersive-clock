@@ -1,8 +1,8 @@
-import { Check, ChevronDown, Search } from "lucide-react";
-import type { CSSProperties, ReactNode } from "react";
+import type { CSSProperties } from "react";
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
+import { AppIcon, type AppIconName } from "../icons/AppIcon";
 import type { UiMotionMode } from "../types";
 import { classNames } from "../utils/classNames";
 import { useOverlayLayer } from "../utils/overlayStack";
@@ -18,7 +18,7 @@ export interface DropdownOption {
   label: string;
   description?: string;
   disabled?: boolean;
-  icon?: ReactNode;
+  icon?: AppIconName;
 }
 
 export interface DropdownGroup {
@@ -248,7 +248,7 @@ export function Dropdown({
           >
             {searchable && (
               <label className={styles.dropdownSearch}>
-                <Search size={14} aria-hidden="true" />
+                <AppIcon name="action.search" size="sm" />
                 <input
                   autoFocus
                   value={query}
@@ -287,13 +287,15 @@ export function Dropdown({
                         aria-selected={selected}
                       >
                         {option.icon && (
-                          <span className={styles.dropdownOptionIcon}>{option.icon}</span>
+                          <span className={styles.dropdownOptionIcon}>
+                            <AppIcon name={option.icon} />
+                          </span>
                         )}
                         <span className={styles.dropdownOptionText}>
                           <span>{option.label}</span>
                           {option.description && <small>{option.description}</small>}
                         </span>
-                        {selected && <Check size={14} aria-hidden="true" />}
+                        {selected && <AppIcon name="status.selected" size="sm" />}
                       </button>
                     );
                   })}
@@ -343,7 +345,7 @@ export function Dropdown({
         aria-labelledby={label ? `${generatedId}-label` : undefined}
       >
         <span className={styles.dropdownValue}>{displayText}</span>
-        <ChevronDown className={styles.dropdownChevron} size={14} aria-hidden="true" />
+        <AppIcon className={styles.dropdownChevron} name="action.expand" size="sm" />
       </button>
       {error && (
         <span className={styles.errorText} id={errorId}>

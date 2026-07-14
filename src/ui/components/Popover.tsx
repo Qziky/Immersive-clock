@@ -1,8 +1,8 @@
-import { ChevronDown, Check } from "lucide-react";
 import type { CSSProperties, ReactNode } from "react";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
+import { AppIcon, type AppIconName } from "../icons/AppIcon";
 import type { UiMotionMode } from "../types";
 import { classNames } from "../utils/classNames";
 import { useOverlayLayer } from "../utils/overlayStack";
@@ -23,7 +23,7 @@ export interface MenuItem {
   value: string;
   label: string;
   description?: string;
-  icon?: ReactNode;
+  icon?: AppIconName;
   disabled?: boolean;
   selected?: boolean;
 }
@@ -147,7 +147,7 @@ export function Menu({ triggerLabel, items, onSelect }: MenuProps) {
       trigger={
         <>
           <span>{triggerLabel}</span>
-          <ChevronDown size={14} aria-hidden="true" />
+          <AppIcon name="action.expand" size="sm" />
         </>
       }
     >
@@ -161,12 +161,16 @@ export function Menu({ triggerLabel, items, onSelect }: MenuProps) {
             type="button"
             onClick={() => onSelect?.(item.value)}
           >
-            {item.icon && <span className={styles.menuItemIcon}>{item.icon}</span>}
+            {item.icon && (
+              <span className={styles.menuItemIcon}>
+                <AppIcon name={item.icon} />
+              </span>
+            )}
             <span className={styles.menuItemText}>
               <span>{item.label}</span>
               {item.description && <small>{item.description}</small>}
             </span>
-            {item.selected && <Check size={14} aria-hidden="true" />}
+            {item.selected && <AppIcon name="status.selected" size="sm" />}
           </button>
         ))}
       </div>

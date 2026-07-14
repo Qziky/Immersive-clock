@@ -7,13 +7,17 @@ import {
   type State,
 } from "driver.js";
 import "driver.js/dist/driver.css";
+import { createElement } from "react";
+import { createRoot, type Root } from "react-dom/client";
 
 import { AppMode } from "../types";
+import { AppIcon } from "../ui";
 
 const TOUR_STORAGE_KEY = "immersive-clock:has-seen-tour";
 
 let currentDriver: Driver | null = null;
 let calibrationBaselineAtEnter: number | null = null;
+let closeIconRoot: Root | null = null;
 
 /**
  * 判断引导弹窗按钮是否“可作为默认焦点”的目标
@@ -257,19 +261,23 @@ const ensureCloseButton = (popover: PopoverDOM, driver: Driver) => {
     return;
   }
 
-  if (popover.wrapper.querySelector(".driver-popover-close-btn")) {
-    return;
+  const existingCloseButton = popover.wrapper.querySelector(
+    ".driver-popover-close-btn"
+  ) as HTMLButtonElement | null;
+  const closeBtn = existingCloseButton ?? document.createElement("button");
+  if (!existingCloseButton) {
+    closeBtn.className = "driver-popover-close-btn";
+    popover.wrapper.appendChild(closeBtn);
   }
-
-  const closeBtn = document.createElement("button");
-  closeBtn.className = "driver-popover-close-btn";
-  closeBtn.innerHTML = "&times;";
+  closeBtn.setAttribute("aria-label", "退出指引");
   closeBtn.title = "退出指引";
   closeBtn.onclick = () => {
     driver.destroy();
   };
 
-  popover.wrapper.appendChild(closeBtn);
+  closeIconRoot?.unmount();
+  closeIconRoot = createRoot(closeBtn);
+  closeIconRoot.render(createElement(AppIcon, { name: "action.close", size: "md" }));
 };
 
 /**
@@ -603,6 +611,8 @@ export const startTour = (force = false, options?: TourOptions) => {
       },
     ],
     onDestroyed: () => {
+      closeIconRoot?.unmount();
+      closeIconRoot = null;
       markTourAsSeen();
       currentDriver = null;
       options?.onEnd?.();

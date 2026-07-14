@@ -3,7 +3,12 @@ import React, { createContext, useContext, useReducer, ReactNode } from "react";
 import { STOPWATCH_TICK_MS } from "../constants/timer";
 import { resolveQuoteChannels } from "../services/quotes/quoteRegistry";
 import { AppState, AppAction, StudyState, QuoteChannelState, QuoteSettingsState } from "../types";
-import { getAppSettings, updateAppSettings, updateStudySettings } from "../utils/appSettings";
+import {
+  getAppSettings,
+  normalizeStudyInfoCarousel,
+  updateAppSettings,
+  updateStudySettings,
+} from "../utils/appSettings";
 import { setErrorCenterMode } from "../utils/errorCenter";
 import { getStartupModeFromSettings } from "../utils/startupMode";
 import { nowMs } from "../utils/timeSource";
@@ -50,6 +55,7 @@ function loadStudyState(): StudyState {
     display: study.display,
     countdownItems: study.countdownItems,
     carouselIntervalSec: study.carouselIntervalSec,
+    infoCarousel: study.infoCarousel,
     weatherAlertEnabled: study.alerts.weatherAlert,
     minutelyPrecipEnabled: study.alerts.minutelyPrecip,
     errorPopupEnabled: study.alerts.errorPopup,
@@ -313,6 +319,18 @@ function appReducer(state: AppState, action: AppAction): AppState {
         ...state,
         study: intervalUpdatedStudy,
       };
+
+    case "SET_INFO_CAROUSEL": {
+      const infoCarousel = normalizeStudyInfoCarousel(action.payload);
+      updateStudySettings({ infoCarousel });
+      return {
+        ...state,
+        study: {
+          ...state.study,
+          infoCarousel,
+        },
+      };
+    }
 
     case "SET_WEATHER_ALERT_ENABLED":
       const alertUpdatedStudy = {

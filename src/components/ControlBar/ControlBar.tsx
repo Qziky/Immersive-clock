@@ -1,10 +1,3 @@
-import {
-  Maximize2 as MaximizeIcon,
-  Minimize2 as MinimizeIcon,
-  Pause as PauseIcon,
-  Play as PlayIcon,
-  RotateCcw as ResetIcon,
-} from "lucide-react";
 import React, { useCallback } from "react";
 
 import { useAppDispatch, useAppState } from "../../contexts/AppContext";
@@ -84,17 +77,7 @@ export function ControlBar() {
           title={canStart ? (isRunning ? "暂停倒计时" : "开始倒计时") : "设置倒计时"}
           variant="ghost"
           size="sm"
-          icon={
-            canStart ? (
-              isRunning ? (
-                <PauseIcon className={styles.icon} size={18} aria-hidden={true} />
-              ) : (
-                <PlayIcon className={styles.icon} size={18} aria-hidden={true} />
-              )
-            ) : (
-              <PlayIcon className={styles.icon} size={18} aria-hidden={true} />
-            )
-          }
+          icon={canStart && isRunning ? "action.pause" : "action.play"}
         >
           {canStart ? (isRunning ? "暂停" : "开始") : "设置"}
         </FormButton>
@@ -107,7 +90,7 @@ export function ControlBar() {
           title="重置倒计时"
           variant="ghost"
           size="sm"
-          icon={<ResetIcon className={styles.icon} size={18} aria-hidden={true} />}
+          icon="action.reset"
         >
           重置
         </FormButton>
@@ -130,13 +113,7 @@ export function ControlBar() {
           title={isRunning ? "暂停秒表" : "开始秒表"}
           variant="ghost"
           size="sm"
-          icon={
-            isRunning ? (
-              <PauseIcon className={styles.icon} size={18} aria-hidden={true} />
-            ) : (
-              <PlayIcon className={styles.icon} size={18} aria-hidden={true} />
-            )
-          }
+          icon={isRunning ? "action.pause" : "action.play"}
         >
           {isRunning ? "暂停" : "开始"}
         </FormButton>
@@ -149,7 +126,7 @@ export function ControlBar() {
           title="重置秒表"
           variant="ghost"
           size="sm"
-          icon={<ResetIcon className={styles.icon} size={18} aria-hidden={true} />}
+          icon="action.reset"
         >
           重置
         </FormButton>
@@ -174,13 +151,7 @@ export function ControlBar() {
           title={isFullscreen ? "退出全屏" : "进入全屏"}
           variant="ghost"
           size="sm"
-          icon={
-            isFullscreen ? (
-              <MinimizeIcon className={styles.icon} size={18} aria-hidden={true} />
-            ) : (
-              <MaximizeIcon className={styles.icon} size={18} aria-hidden={true} />
-            )
-          }
+          icon={isFullscreen ? "action.minimize" : "action.maximize"}
         >
           {isFullscreen ? "退出全屏" : "全屏"}
         </FormButton>

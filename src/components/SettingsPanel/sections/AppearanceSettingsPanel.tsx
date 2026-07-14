@@ -1,14 +1,3 @@
-import {
-  Brush,
-  Eye,
-  FileText,
-  Image as ImageIcon,
-  Palette,
-  RotateCcw,
-  Trash2,
-  Type,
-  Upload,
-} from "lucide-react";
 import React, { useEffect, useMemo, useState } from "react";
 
 import { useAppState } from "../../../contexts/AppContext";
@@ -27,6 +16,7 @@ import {
   type DropdownGroup,
   FormSection,
   InfoPanel,
+  IconButton as FormIconButton,
   Inline as FormButtonGroup,
   Input as FormInput,
   RadioGroup as FormSegmented,
@@ -205,7 +195,7 @@ function BackgroundEditor({
 
   return (
     <FormSection title={title} description={description}>
-      <SettingItem icon={<ImageIcon size={18} />} title="背景类型">
+      <SettingItem icon="appearance.background" title="背景类型">
         <FormSegmented
           value={background.type}
           options={options}
@@ -214,7 +204,7 @@ function BackgroundEditor({
       </SettingItem>
       {background.type === "color" && (
         <SettingGrid className={styles.editorGrid} columns={2}>
-          <SettingItem icon={<Palette size={18} />} title="背景颜色">
+          <SettingItem icon="appearance.color" title="背景颜色">
             <FormInput
               label="背景颜色"
               type="color"
@@ -222,7 +212,7 @@ function BackgroundEditor({
               onChange={(event) => onUpdate([...path, "color"], event.target.value)}
             />
           </SettingItem>
-          <SettingItem icon={<Palette size={18} />} title="背景透明度">
+          <SettingItem icon="appearance.color" title="背景透明度">
             <FormSlider
               label="背景透明度"
               min={0}
@@ -236,7 +226,7 @@ function BackgroundEditor({
         </SettingGrid>
       )}
       {background.type === "image" && (
-        <SettingItem icon={<Upload size={18} />} title="背景图片">
+        <SettingItem icon="action.upload" title="背景图片">
           <Dropdown
             label="已导入背景"
             placeholder={assets.length > 0 ? "选择已导入背景" : "暂无已导入背景"}
@@ -650,7 +640,7 @@ export function AppearanceSettingsPanel({ section = "overview" }: AppearanceSett
               {(["numeric", "text"] as const).map((category) => (
                 <SettingItem
                   key={category}
-                  icon={category === "numeric" ? <Type size={18} /> : <FileText size={18} />}
+                  icon={category === "numeric" ? "appearance.font" : "feature.file"}
                   title={category === "numeric" ? "主显示字体" : "信息字体"}
                   description={
                     category === "numeric"
@@ -708,7 +698,7 @@ export function AppearanceSettingsPanel({ section = "overview" }: AppearanceSett
                 onChange={(event) => setFontFile(event.target.files?.[0] ?? null)}
               />
             </SettingGrid>
-            <FormButton icon={<Upload size={16} />} onClick={handleFontImport}>
+            <FormButton icon="action.upload" onClick={handleFontImport}>
               导入字体
             </FormButton>
           </FormSection>
@@ -731,7 +721,7 @@ export function AppearanceSettingsPanel({ section = "overview" }: AppearanceSett
                     >
                       <div className={styles.resourceInfo}>
                         <strong>{asset.name}</strong>
-                        <StatusPill tone={isUsed ? "success" : "neutral"}>
+                        <StatusPill tone={isUsed ? "accent" : "neutral"}>
                           {isUsed ? "正在使用" : "未使用"}
                         </StatusPill>
                       </div>
@@ -739,7 +729,7 @@ export function AppearanceSettingsPanel({ section = "overview" }: AppearanceSett
                         <FormButton
                           size="sm"
                           variant="secondary"
-                          icon={<Eye size={15} />}
+                          icon="appearance.preview"
                           loading={resourceOperation === `preview:${asset.id}`}
                           disabled={resourceOperation !== null}
                           aria-label={`预览背景 ${asset.name}`}
@@ -750,17 +740,17 @@ export function AppearanceSettingsPanel({ section = "overview" }: AppearanceSett
                         <FormButton
                           size="sm"
                           variant="secondary"
-                          icon={<RotateCcw size={15} />}
+                          icon="action.apply"
                           disabled={resourceOperation !== null}
                           aria-label={`应用背景 ${asset.name}`}
                           onClick={() => handleApplyBackground(asset)}
                         >
                           应用
                         </FormButton>
-                        <FormButton
+                        <FormIconButton
                           size="sm"
                           variant="danger"
-                          icon={<Trash2 size={15} />}
+                          icon="action.delete"
                           loading={resourceOperation === `delete:${asset.id}`}
                           disabled={isUsed || resourceOperation !== null}
                           aria-label={`删除背景 ${asset.name}`}
@@ -781,14 +771,14 @@ export function AppearanceSettingsPanel({ section = "overview" }: AppearanceSett
                     >
                       <div className={styles.resourceInfo}>
                         <strong style={{ fontFamily: font.family }}>{font.family}</strong>
-                        <StatusPill tone={isUsed ? "success" : "neutral"}>
+                        <StatusPill tone={isUsed ? "accent" : "neutral"}>
                           {isUsed ? "正在使用" : "未使用"}
                         </StatusPill>
                       </div>
-                      <FormButton
+                      <FormIconButton
                         size="sm"
                         variant="danger"
-                        icon={<Trash2 size={15} />}
+                        icon="action.delete"
                         loading={resourceOperation === `delete:${font.id}`}
                         disabled={isUsed || resourceOperation !== null}
                         aria-label={`删除字体 ${font.family}`}
@@ -812,12 +802,12 @@ export function AppearanceSettingsPanel({ section = "overview" }: AppearanceSett
             <FormButtonGroup align="left">
               <FormButton
                 variant="secondary"
-                icon={<RotateCcw size={16} />}
+                icon="action.reset"
                 onClick={handleGlobalReset}
               >
                 恢复整体样式
               </FormButton>
-              <FormButton variant="danger" icon={<Trash2 size={16} />} onClick={handleAllReset}>
+              <FormButton variant="danger" icon="action.delete" onClick={handleAllReset}>
                 重置全部外观
               </FormButton>
             </FormButtonGroup>
@@ -863,7 +853,7 @@ export function AppearanceSettingsPanel({ section = "overview" }: AppearanceSett
 
               {definition.id === "studyCountdown" && countdownItems.length > 0 ? (
                 <SettingGrid className={styles.editorGrid} columns={2}>
-                  <SettingItem icon={<Brush size={18} />} title="应用到">
+                  <SettingItem icon="appearance.applyTo" title="应用到">
                     <FormSegmented
                       value={instanceScope}
                       options={[
@@ -874,7 +864,7 @@ export function AppearanceSettingsPanel({ section = "overview" }: AppearanceSett
                     />
                   </SettingItem>
                   {instanceScope === "specific" ? (
-                    <SettingItem icon={<Brush size={18} />} title="选择事件">
+                    <SettingItem icon="feature.event" title="选择事件">
                       <Dropdown
                         label="指定事件"
                         value={instanceId}
@@ -921,7 +911,7 @@ export function AppearanceSettingsPanel({ section = "overview" }: AppearanceSett
                   <FormButton
                     size="sm"
                     variant="secondary"
-                    icon={<RotateCcw size={14} />}
+                    icon="action.reset"
                     onClick={() => resetAppearance({ type: "property", path: stylePath() })}
                   >
                     恢复此对象
@@ -950,7 +940,7 @@ export function AppearanceSettingsPanel({ section = "overview" }: AppearanceSett
               <FormButtonGroup align="left" className={styles.componentReset}>
                 <FormButton
                   variant="secondary"
-                  icon={<RotateCcw size={16} />}
+                  icon="action.reset"
                   onClick={resetCurrentComponent}
                 >
                   {instanceId ? "恢复此事件样式" : `恢复${definition.label}样式`}
@@ -990,7 +980,7 @@ export function AppearanceSettingsPanel({ section = "overview" }: AppearanceSett
                     <FormButton
                       size="sm"
                       variant="secondary"
-                      icon={<RotateCcw size={14} />}
+                      icon="action.reset"
                       onClick={() => resetAppearance({ type: "property", path: stateStylePath() })}
                     >
                       恢复此状态

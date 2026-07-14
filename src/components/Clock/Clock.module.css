@@ -51,4 +51,10 @@
   }
 }
 
+@media (max-width: 360px) and (max-height: 600px) {
+  .time {
+    font-size: 3.5rem;
+  }
+}
+
 /* 为保持极简风格，已移除时间更新动画 */

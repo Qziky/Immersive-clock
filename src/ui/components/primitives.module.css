@@ -188,12 +188,34 @@
 }
 
 .iconButton {
-  background: transparent;
-  border-color: var(--ui-color-border);
   color: var(--ui-color-text-muted);
   cursor: pointer;
+  padding: 0;
+}
+
+.iconButtonSm {
   height: 32px;
   width: 32px;
+}
+
+.iconButtonMd {
+  height: 40px;
+  width: 40px;
+}
+
+.iconButtonLg {
+  height: 44px;
+  width: 44px;
+}
+
+.iconButtonDefault {
+  background: transparent;
+  border-color: var(--ui-color-border);
+}
+
+.iconButtonGhost {
+  background: transparent;
+  border-color: transparent;
 }
 
 .iconButton:hover:not(:disabled) {
@@ -201,10 +223,29 @@
   color: var(--ui-color-text);
 }
 
-.iconButtonActive {
+.iconButtonDanger {
+  background: transparent;
+  border-color: var(--ui-color-danger-border);
+  color: var(--ui-color-danger);
+}
+
+.iconButtonDanger:hover:not(:disabled) {
+  background: var(--ui-color-danger-soft);
+  color: var(--ui-color-danger);
+}
+
+.iconButtonPressed,
+.iconButtonPressed:hover:not(:disabled) {
   background: var(--ui-color-accent-soft);
   border-color: var(--ui-color-accent-border);
   color: var(--ui-color-accent);
+}
+
+@media (pointer: coarse), (any-pointer: coarse) {
+  .iconButton {
+    min-height: 44px;
+    min-width: 44px;
+  }
 }
 
 .field {
@@ -1127,7 +1168,7 @@
   border-radius: var(--ui-radius-md);
   display: inline-grid;
   grid-template-columns: 32px minmax(40px, 1fr) 32px;
-  height: 34px;
+  height: 32px;
   overflow: hidden;
 }
 
@@ -1135,12 +1176,18 @@
   border-radius: 0;
   color: var(--ui-color-text-muted);
   cursor: pointer;
-  height: 100%;
 }
 
 .stepperButton:hover:not(:disabled) {
   background: var(--ui-color-bg-elevated);
   color: var(--ui-color-text);
+}
+
+@media (pointer: coarse), (any-pointer: coarse) {
+  .stepper {
+    grid-template-columns: 44px minmax(40px, 1fr) 44px;
+    height: 44px;
+  }
 }
 
 .stepperValue {
@@ -1402,21 +1449,8 @@
 }
 
 .toastClose {
-  align-items: center;
-  background: transparent;
-  border: 0;
-  border-radius: var(--ui-radius-sm);
-  color: var(--ui-color-text-muted);
-  cursor: pointer;
-  display: inline-flex;
-  height: 24px;
-  justify-content: center;
-  width: 24px;
-}
-
-.toastClose:hover {
-  background: var(--ui-color-bg-elevated);
-  color: var(--ui-color-text);
+  align-self: center;
+  flex: 0 0 auto;
 }
 
 .toastSuccess {
@@ -1453,10 +1487,6 @@
 
 .toastCustomAccent {
   border-color: var(--ui-toast-accent-color);
-}
-
-.toastCustomAccent .toastIcon {
-  color: var(--ui-toast-accent-color);
 }
 
 .toastViewport {
@@ -1968,8 +1998,6 @@
   border-color: var(--ui-glass-border);
   color: var(--ui-color-text-muted);
   cursor: pointer;
-  height: 32px;
-  width: 32px;
 }
 
 .closeButton:hover {

@@ -43,6 +43,17 @@ module.exports = [
     rules: {
       'prettier/prettier': 'warn',
       'no-console': ['warn', { allow: ['warn', 'error'] }],
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: 'lucide-react',
+              message: '请使用 src/ui 导出的 AppIcon 与语义 AppIconName'
+            }
+          ]
+        }
+      ],
       'react/react-in-jsx-scope': 'off',
       '@typescript-eslint/no-explicit-any': 'warn',
       '@typescript-eslint/no-unused-vars': [
@@ -69,6 +80,12 @@ module.exports = [
       'react-hooks/preserve-manual-memoization': 'off',
       '@typescript-eslint/no-empty-object-type': 'off',
       '@typescript-eslint/no-unused-expressions': 'off'
+    }
+  },
+  {
+    files: ['src/ui/icons/appIconRegistry.ts'],
+    rules: {
+      'no-restricted-imports': 'off'
     }
   },
   {

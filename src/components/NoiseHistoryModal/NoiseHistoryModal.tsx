@@ -1,10 +1,10 @@
-import { ChevronDown } from "lucide-react";
 import React, { useEffect, useId, useMemo, useState } from "react";
 
 import { DEFAULT_NOISE_REPORT_RETENTION_DAYS } from "../../constants/noiseReport";
 import type { NoiseSliceSummary } from "../../types/noise";
 import { DEFAULT_SCHEDULE, StudyPeriod } from "../../types/studySchedule";
 import {
+  AppIcon,
   Button as FormButton,
   FormSection,
   Inline as FormButtonGroup,
@@ -213,7 +213,7 @@ const NoiseHistoryModal: React.FC<NoiseHistoryModalProps> = ({ isOpen, onClose, 
             onToggle={(e) => setCustomOpen((e.currentTarget as HTMLDetailsElement).open)}
           >
             <summary className={styles.customSummary}>
-              <ChevronDown size={18} aria-hidden="true" />
+              <AppIcon name="action.expand" size="lg" />
               <span>自定义时间段报告</span>
             </summary>
             <div className={styles.customBody}>

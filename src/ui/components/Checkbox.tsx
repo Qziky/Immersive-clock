@@ -1,6 +1,7 @@
-import { Check } from "lucide-react";
 import type { InputHTMLAttributes, ReactNode } from "react";
 import { useId } from "react";
+
+import { AppIcon } from "../icons/AppIcon";
 
 import styles from "./primitives.module.css";
 
@@ -18,7 +19,7 @@ export function Checkbox({ label, id, error, ...props }: CheckboxProps) {
       <label className={styles.checkRow} htmlFor={inputId}>
         <input className={styles.checkboxInput} id={inputId} type="checkbox" {...props} />
         <span className={styles.checkboxBox} aria-hidden="true">
-          <Check size={12} strokeWidth={3} />
+          <AppIcon name="status.selected" size="xs" />
         </span>
         <span>{label}</span>
       </label>

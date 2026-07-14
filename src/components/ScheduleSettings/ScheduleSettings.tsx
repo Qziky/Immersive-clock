@@ -1,15 +1,3 @@
-import {
-  ArrowDown,
-  ArrowUp,
-  Clock3,
-  Copy,
-  File as FileIcon,
-  FileSpreadsheet,
-  Plus as PlusIcon,
-  RefreshCw as RefreshIcon,
-  RotateCcw as ResetIcon,
-  Trash2 as TrashIcon,
-} from "lucide-react";
 import React, { useMemo, useState, useCallback, useEffect } from "react";
 
 import {
@@ -247,10 +235,9 @@ export const ScheduleEditor: React.FC<ScheduleEditorProps> = ({ onRegisterSave }
         variant="plain"
       >
         <SettingItem
-          icon={<FileSpreadsheet size={18} />}
+          icon="feature.schedule"
           title="选择文件"
           description="支持 .xlsx / .xls，解析后可替换或合并到当前课表。"
-          tone="accent"
         >
           <FormFilePicker
             label="Excel 文件"
@@ -271,12 +258,12 @@ export const ScheduleEditor: React.FC<ScheduleEditorProps> = ({ onRegisterSave }
           <div className={styles.importSummary}>
             <SettingGrid columns={2}>
               <MetricCard
-                icon={<FileSpreadsheet size={16} />}
+                icon="feature.schedule"
                 label="工作表"
                 value={excelImport.meta.sheetName || "-"}
               />
               <MetricCard
-                icon={<Clock3 size={16} />}
+                icon="feature.time"
                 label="解析结果"
                 value={`${excelImport.periods.length} / ${excelImport.rowErrors.length}`}
                 meta="成功 / 失败"
@@ -301,7 +288,7 @@ export const ScheduleEditor: React.FC<ScheduleEditorProps> = ({ onRegisterSave }
             <div className={styles.importActions}>
               <FormButton
                 variant="primary"
-                icon={<FileIcon size={16} />}
+                icon="action.apply"
                 onClick={() => applyExcelImport("replace")}
                 disabled={excelBusy || excelImport.periods.length === 0}
               >
@@ -329,7 +316,7 @@ export const ScheduleEditor: React.FC<ScheduleEditorProps> = ({ onRegisterSave }
               variant="secondary"
               size="sm"
               onClick={handleRestoreSaved}
-              icon={<RefreshIcon size={15} />}
+              icon="action.restoreSaved"
             >
               恢复
             </FormButton>
@@ -337,7 +324,7 @@ export const ScheduleEditor: React.FC<ScheduleEditorProps> = ({ onRegisterSave }
               variant="secondary"
               size="sm"
               onClick={handleSortByTime}
-              icon={<RefreshIcon size={15} />}
+              icon="action.sort"
             >
               排序
             </FormButton>
@@ -345,7 +332,7 @@ export const ScheduleEditor: React.FC<ScheduleEditorProps> = ({ onRegisterSave }
               variant="danger"
               size="sm"
               onClick={handleReset}
-              icon={<ResetIcon size={15} />}
+              icon="action.reset"
             >
               重置
             </FormButton>
@@ -371,7 +358,7 @@ export const ScheduleEditor: React.FC<ScheduleEditorProps> = ({ onRegisterSave }
             return (
               <SettingItem
                 key={period.id}
-                icon={<Clock3 size={18} />}
+                icon="feature.time"
                 title={period.name || `自定义时段${index + 1}`}
                 description={`${period.startTime || "--:--"} - ${period.endTime || "--:--"}`}
                 tone={itemErrors.row ? "danger" : "neutral"}
@@ -419,7 +406,7 @@ export const ScheduleEditor: React.FC<ScheduleEditorProps> = ({ onRegisterSave }
                     size="sm"
                     onClick={() => handleMovePeriod(period.id, "up")}
                     disabled={index === 0}
-                    icon={<ArrowUp size={16} />}
+                    icon="action.moveUp"
                   >
                     上移
                   </FormButton>
@@ -428,7 +415,7 @@ export const ScheduleEditor: React.FC<ScheduleEditorProps> = ({ onRegisterSave }
                     size="sm"
                     onClick={() => handleMovePeriod(period.id, "down")}
                     disabled={index === draftSchedule.length - 1}
-                    icon={<ArrowDown size={16} />}
+                    icon="action.moveDown"
                   >
                     下移
                   </FormButton>
@@ -436,7 +423,7 @@ export const ScheduleEditor: React.FC<ScheduleEditorProps> = ({ onRegisterSave }
                     variant="secondary"
                     size="sm"
                     onClick={() => handleDuplicatePeriod(period.id)}
-                    icon={<Copy size={16} />}
+                    icon="action.copy"
                   >
                     复制
                   </FormButton>
@@ -444,7 +431,7 @@ export const ScheduleEditor: React.FC<ScheduleEditorProps> = ({ onRegisterSave }
                     variant="danger"
                     size="sm"
                     onClick={() => handleDeletePeriod(period.id)}
-                    icon={<TrashIcon size={16} />}
+                    icon="action.delete"
                     title="删除时间段"
                   >
                     删除
@@ -456,7 +443,7 @@ export const ScheduleEditor: React.FC<ScheduleEditorProps> = ({ onRegisterSave }
         </div>
 
         <FormButtonGroup align="center">
-          <FormButton variant="primary" onClick={handleAddPeriod} icon={<PlusIcon size={16} />}>
+          <FormButton variant="primary" onClick={handleAddPeriod} icon="action.add">
             添加时间段
           </FormButton>
         </FormButtonGroup>

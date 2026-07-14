@@ -18,7 +18,8 @@
 ### 覆盖范围（按模块）
 
 - **设置/持久化**
-  - AppSettings 深合并、局部更新、自习显示默认值、计划进度模式归一化与 v3 启动写回：[appSettings.test.ts](file:///d:/Desktop/Immersive-clock/src/utils/__tests__/appSettings.test.ts) → [appSettings.ts](file:///d:/Desktop/Immersive-clock/src/utils/appSettings.ts) / [storageInitializer.ts](file:///d:/Desktop/Immersive-clock/src/utils/storageInitializer.ts)
+  - AppSettings 深合并、局部更新、自习显示默认值、计划进度模式、中央信息 3–30 秒间隔/重复 ID/20 条有效上限/一次性迁移提示、重置时保留自定义消息与 v3 启动写回：[appSettings.test.ts](file:///d:/Desktop/Immersive-clock/src/utils/__tests__/appSettings.test.ts) → [appSettings.ts](file:///d:/Desktop/Immersive-clock/src/utils/appSettings.ts) / [storageInitializer.ts](file:///d:/Desktop/Immersive-clock/src/utils/storageInitializer.ts)
+  - 中央信息来源开关、自定义消息添加/编辑/启停/排序/删除、独立自动轮播与间隔、统一草稿保存、一次性迁移提示、20 条有效上限与关闭内置来源释放名额：`src/components/SettingsPanel/sections/__tests__/BasicSettingsPanel.test.tsx` → `src/components/SettingsPanel/sections/BasicSettingsPanel.tsx`
   - 外观默认值、继承优先级、v1 迁移、非法值规范化与 CSS 编译：`src/utils/__tests__/appearanceModel.test.ts` → `src/utils/appearanceModel.ts`
   - 外观实时预览、取消回滚与单次持久化提交：`src/contexts/__tests__/AppearanceContext.test.tsx` → `src/contexts/AppearanceContext.tsx`
   - 外观应用范围、字体视觉角色与资源目录交互：`src/components/SettingsPanel/__tests__/AppearanceSettingsPanel.test.tsx` → `src/components/SettingsPanel/sections/AppearanceSettingsPanel.tsx`
@@ -26,7 +27,8 @@
   - 启动初始化与通用 legacy 键清理：[storageInitializer.legacyCleanup.test.ts](file:///d:/Desktop/Immersive-clock/src/utils/__tests__/storageInitializer.legacyCleanup.test.ts) → [storageInitializer.ts](file:///d:/Desktop/Immersive-clock/src/utils/storageInitializer.ts)
   - 课程表时间解析、排序、重叠校验与智能新增：[studyScheduleValidation.test.ts](file:///d:/Desktop/Immersive-clock/src/utils/__tests__/studyScheduleValidation.test.ts) → [studyScheduleValidation.ts](file:///d:/Desktop/Immersive-clock/src/utils/studyScheduleValidation.ts)
   - legacy 课程表迁移、已保存课表保护与旧键清理：[storageInitializer.studyScheduleMigration.test.ts](file:///d:/Desktop/Immersive-clock/src/utils/__tests__/storageInitializer.studyScheduleMigration.test.ts) → [storageInitializer.ts](file:///d:/Desktop/Immersive-clock/src/utils/storageInitializer.ts)
-  - 默认今日 24 小时进度、分时问候及纯文本读屏、午夜重置、剩余时间与无障碍属性，以及可选课时/课间秒级进度、阶段文案和无轨道圆点状态：`src/components/StudyStatus/__tests__/StudyStatus.test.tsx` → `src/components/StudyStatus/StudyStatus.tsx` / `src/components/StudyStatus/dayGreeting.ts`
+- 默认今日 24 小时进度、分时问候及纯文本读屏、午夜重置、剩余时间与无障碍属性，以及可选课时/课间秒级进度、阶段文案、无轨道圆点状态和设置保存事件先于持久化时的下一任务重读：`src/components/StudyStatus/__tests__/StudyStatus.test.tsx` → `src/components/StudyStatus/StudyStatus.tsx` / `src/components/StudyStatus/dayGreeting.ts`
+  - 下一课时常规显示及 15/5 分钟提级、降雨 30/10 分钟优先级与阶段播报、20 条信号上限、critical 打断/多信号轮换/过期恢复、新到 timely 下一条显示、稳定计时器、稳定键切换动画与倒计时不重播、悬停/聚焦/页面隐藏暂停、减少动态效果、手动切换、单条非按钮、空队列和独立 live region：`src/components/StudyStatus/__tests__/studyInfoSignals.test.tsx` → `src/components/StudyStatus/studyInfoSignals.ts` / `src/components/StudyStatus/useStudyInfoCarousel.ts` / `src/components/StudyStatus/StudyStatusPresentation.tsx`
   - 设置分组折叠与记忆、语录子页顺序与焦点、紧凑导航 presence/不可交互退出态、跨分组草稿常驻、访问后懒挂载、统一保存/取消、退出帧内容保持及快速重开草稿重置：[SettingsPanel.test.tsx](file:///d:/Desktop/Immersive-clock/src/components/SettingsPanel/__tests__/SettingsPanel.test.tsx) → [SettingsPanel.tsx](file:///d:/Desktop/Immersive-clock/src/components/SettingsPanel/SettingsPanel.tsx)
   - 项目信息中的版本、授权及服务与隐私说明：[AboutSettingsPanel.test.tsx](file:///d:/Desktop/Immersive-clock/src/components/SettingsPanel/__tests__/AboutSettingsPanel.test.tsx) → [AboutSettingsPanel.tsx](file:///d:/Desktop/Immersive-clock/src/components/SettingsPanel/sections/AboutSettingsPanel.tsx)
   - 数据域检查、完整/精简备份、旧格式迁移与语录动效归一化、预检拒绝、恢复回滚、白名单清理、偏好重置与全部删除边界：`src/services/__tests__/dataManagement.test.ts` → `src/services/dataManagement.ts`
@@ -40,7 +42,10 @@
   - 三种出现动画、自然打字节奏与字素完整性、换句回删和减少动态效果、设置页选项语义/预览/完整草稿保存、频道启停与权重草稿及重载持久化、一言 12 分类选择和展开控件语义状态、1440/720/390 响应式几何与桌面/移动视觉基线：`src/components/MotivationalQuote/__tests__/QuoteReveal.test.tsx` + `src/components/MotivationalQuote/__tests__/MotivationalQuote.test.tsx` + `src/components/SettingsPanel/sections/__tests__/ContentSettingsPanel.test.tsx` + `src/components/QuoteChannelManager/__tests__/QuoteChannelManager.test.tsx` + `tests/e2e/quotes.e2e.spec.ts` + `tests/e2e/visual-regression.e2e.spec.ts`
 - **天气**
   - 天气服务主流程与多分支回归：[weatherService.flow.test.ts](file:///d:/Desktop/Immersive-clock/src/services/__tests__/weatherService.flow.test.ts) + [weatherService.test.ts](file:///d:/Desktop/Immersive-clock/src/services/__tests__/weatherService.test.ts) → [weatherService.ts](file:///d:/Desktop/Immersive-clock/src/services/weatherService.ts)
-  - 天气文本的昼夜图标映射、正式资源地址与单字描述：`src/components/Weather/__tests__/weatherDisplay.test.ts` → `src/components/Weather/weatherDisplay.ts`
+  - 分钟降水真实 `fxTime`/供应商间隔适配、缺失服务端时间时不伪造时间轴：`src/services/__tests__/weatherService.minutely.test.ts` → `src/services/weatherService.ts`
+  - 1 分钟与非固定时间槽、正在下雨/雨停/多段降雨/无明确结束点、过期窗口和关键刷新：`src/utils/__tests__/minutelyPrecipLogic.test.ts` → `src/utils/minutelyPrecipLogic.ts`
+  - 共享分钟天气快照、缓存过期强制刷新、有效缓存下接口失败仍降级、不可信时间轴降级，以及隐藏 Weather 后由 StudyStatus 继续订阅并展示：`src/services/__tests__/minutelyWeatherRuntime.test.ts` + `src/components/StudyStatus/__tests__/StudyStatus.test.tsx` + `tests/e2e/study-smoke.e2e.spec.ts` → `src/services/minutelyWeatherRuntime.ts` / `src/hooks/useMinutelyWeatherSnapshot.ts`
+  - 天气文本的昼夜代码映射、原天气图片资源地址、图片节点渲染及单字描述：`src/components/Weather/__tests__/weatherDisplay.test.ts` + `src/components/Weather/__tests__/WeatherPresentation.test.tsx` → `src/components/Weather/weatherDisplay.ts` / `src/components/Weather/WeatherPresentation.tsx`
   - 天气缓存（TTL/合并/清理）：[weatherStorage.test.ts](file:///d:/Desktop/Immersive-clock/src/utils/__tests__/weatherStorage.test.ts) → [weatherStorage.ts](file:///d:/Desktop/Immersive-clock/src/utils/weatherStorage.ts)
   - 预警筛选逻辑：[weatherAlert.test.ts](file:///d:/Desktop/Immersive-clock/src/utils/__tests__/weatherAlert.test.ts) → [weatherAlert.ts](file:///d:/Desktop/Immersive-clock/src/utils/weatherAlert.ts)
 - **时间同步**
@@ -53,6 +58,8 @@
 - **公告**
   - 公告隐藏一周逻辑/版本强制显示：[announcementStorage.test.ts](file:///d:/Desktop/Immersive-clock/src/utils/__tests__/announcementStorage.test.ts) → [announcementStorage.ts](file:///d:/Desktop/Immersive-clock/src/utils/announcementStorage.ts)
 - **通用**
+  - 语义图标注册表全量渲染、尺寸令牌、`currentColor`、固定描边和装饰性无障碍属性：`src/ui/icons/__tests__/AppIcon.test.tsx` → `src/ui/icons/AppIcon.tsx` / `src/ui/icons/appIconRegistry.ts`
+  - Button/IconButton 语义图标槽、加载态名称、尺寸、危险变体、`aria-pressed`，以及 Modal、Toast、Stepper 纯图标宿主：`src/ui/components/__tests__/Actions.test.tsx` → `src/ui/components/Button.tsx` / `src/ui/components/IconButton.tsx`
   - 日志封装：[logger.test.ts](file:///d:/Desktop/Immersive-clock/src/utils/__tests__/logger.test.ts) → [logger.ts](file:///d:/Desktop/Immersive-clock/src/utils/logger.ts)
   - 时间格式化工具：[formatTime.test.ts](file:///d:/Desktop/Immersive-clock/src/utils/__tests__/formatTime.test.ts) → [formatTime.ts](file:///d:/Desktop/Immersive-clock/src/utils/formatTime.ts)
   - Modal Portal UI scope、背景 `inert`、初始焦点、焦点圈定/恢复、`closeOnEscape`、顶层 Escape/遮罩响应与焦点交接、底层 Modal 的 `inert`/`aria-hidden`、嵌套与同级浮层栈、Dropdown 层级和左侧抽屉 placement：[Modal.test.tsx](file:///d:/Desktop/Immersive-clock/src/ui/components/__tests__/Modal.test.tsx) → [Modal.tsx](file:///d:/Desktop/Immersive-clock/src/ui/components/Modal.tsx) / [overlayStack.ts](file:///d:/Desktop/Immersive-clock/src/ui/utils/overlayStack.ts) / [Dropdown.tsx](file:///d:/Desktop/Immersive-clock/src/ui/components/Dropdown.tsx)
@@ -61,7 +68,7 @@
   - UI 基础契约：`FormSection variant="plain"`、危险 Toast 的 `role="alert"`、通用 Portal UI scope：[Foundation.test.tsx](file:///d:/Desktop/Immersive-clock/src/ui/components/__tests__/Foundation.test.tsx) → [FormComponents.tsx](file:///d:/Desktop/Immersive-clock/src/ui/components/FormComponents.tsx) / [Toast.tsx](file:///d:/Desktop/Immersive-clock/src/ui/components/Toast.tsx) / [Accessibility.tsx](file:///d:/Desktop/Immersive-clock/src/ui/components/Accessibility.tsx)
   - UI presence 保留时长、显式关闭动效、初始及运行时 `prefers-reduced-motion` 响应：[usePresence.test.tsx](file:///d:/Desktop/Immersive-clock/src/ui/utils/__tests__/usePresence.test.tsx) → [usePresence.ts](file:///d:/Desktop/Immersive-clock/src/ui/utils/usePresence.ts)
   - `messagePopup:open/close` 协议到统一 Toast 视口的投递、主题强调色、关闭，以及分钟级降雨手动关闭/超时会话标记：[messagePopupEvents.test.tsx](file:///d:/Desktop/Immersive-clock/src/pages/ClockPage/__tests__/messagePopupEvents.test.tsx) → [ClockPage.tsx](file:///d:/Desktop/Immersive-clock/src/pages/ClockPage/ClockPage.tsx)
-  - 旧 `MessagePopup` 适配器的自定义图标、剩余时长续时与带操作常驻：[MessagePopup.test.tsx](file:///d:/Desktop/Immersive-clock/src/components/MessagePopup/__tests__/MessagePopup.test.tsx) → [MessagePopup.tsx](file:///d:/Desktop/Immersive-clock/src/components/MessagePopup/MessagePopup.tsx)
+  - 旧 `MessagePopup` 适配器的语义图标、降温提醒信息态、剩余时长续时与带操作常驻：[MessagePopup.test.tsx](file:///d:/Desktop/Immersive-clock/src/components/MessagePopup/__tests__/MessagePopup.test.tsx) → [MessagePopup.tsx](file:///d:/Desktop/Immersive-clock/src/components/MessagePopup/MessagePopup.tsx)
   - UI 动效与浮层 presence：[motion.test.tsx](file:///d:/Desktop/Immersive-clock/src/ui/components/__tests__/motion.test.tsx) + [usePresence.test.tsx](file:///d:/Desktop/Immersive-clock/src/ui/utils/__tests__/usePresence.test.tsx) → [Modal.tsx](file:///d:/Desktop/Immersive-clock/src/ui/components/Modal.tsx) / [Dropdown.tsx](file:///d:/Desktop/Immersive-clock/src/ui/components/Dropdown.tsx) / [Popover.tsx](file:///d:/Desktop/Immersive-clock/src/ui/components/Popover.tsx) / [usePresence.ts](file:///d:/Desktop/Immersive-clock/src/ui/utils/usePresence.ts)
   - 新手指引（守卫/完成事件）：[tourGuards.test.ts](file:///d:/Desktop/Immersive-clock/src/utils/__tests__/tourGuards.test.ts) + [tourFocus.test.ts](file:///d:/Desktop/Immersive-clock/src/utils/__tests__/tourFocus.test.ts) → [tour.ts](file:///d:/Desktop/Immersive-clock/src/utils/tour.ts)
 
@@ -78,13 +85,13 @@
 - 模式切换回归（四模式可见、URL 同步/直达）：[mode-switch.e2e.spec.ts](file:///d:/Desktop/Immersive-clock/tests/e2e/mode-switch.e2e.spec.ts)
 - 倒计时弹窗选择 10 分钟预设、确认、开始/暂停/重置，以及 320×568 末项与固定底栏几何避让：[countdown.e2e.spec.ts](file:///d:/Desktop/Immersive-clock/tests/e2e/countdown.e2e.spec.ts)
 - 秒表开始/暂停/重置：[stopwatch.e2e.spec.ts](file:///d:/Desktop/Immersive-clock/tests/e2e/stopwatch.e2e.spec.ts)
-- 自习模式入口可见：[study-smoke.e2e.spec.ts](file:///d:/Desktop/Immersive-clock/tests/e2e/study-smoke.e2e.spec.ts)
+- 自习模式入口、中央信息自定义消息保存即时生效/取消/重载、隐藏天气后的降雨主次信息、正常与减少动态效果下的轮播切换，以及 1440px/390px 长文案省略、三列无重叠、状态栏高度稳定和无横向溢出：[study-smoke.e2e.spec.ts](file:///d:/Desktop/Immersive-clock/tests/e2e/study-smoke.e2e.spec.ts)
 - 三语录服务拦截、主/备用及跨源切换、全失败/断网本地兜底、频道启停/权重、显示效果与回删开关持久化、1440/720/390 频道卡控件和展开区不溢出/不重叠、主界面动画及动态减少动效：`tests/e2e/quotes.e2e.spec.ts`
 - 数据中心完整备份下载、缓存白名单清理、无效文件零写入预检，以及 320/390/1440 视口下文件控件与横向溢出：`tests/e2e/data-management.e2e.spec.ts`
 - 设置分组导航、计划进度模式、计划进度与天气独立显示、遮罩不可关闭、移动全屏纵向紧凑导航与当前项滚动，以及目标年份、错误中心和内联课程表的统一保存/取消：[settings-persistence.e2e.spec.ts](file:///d:/Desktop/Immersive-clock/tests/e2e/settings-persistence.e2e.spec.ts)
 - 设置抽屉进出轨迹、页面标题到分组和设置项的入场顺序、条件内容进入、移动子菜单 presence、横向溢出和浏览器减少动效行为：[settings-motion.e2e.spec.ts](file:///d:/Desktop/Immersive-clock/tests/e2e/settings-motion.e2e.spec.ts)
 - 公告 320px Tabs/问卷边界/底栏说明，噪音历史折叠与字段错误、报告空态/有数据态、SVG 可访问描述，以及 Toast 右下角定位/底栏避让/Modal 层级：[modal-redesign.e2e.spec.ts](file:///d:/Desktop/Immersive-clock/tests/e2e/modal-redesign.e2e.spec.ts)
-- 固定时间、禁用动效的设置与外观编辑器三视口快照、语录渠道桌面/移动快照，以及默认/纯黑/自定义主背景快照：[visual-regression.e2e.spec.ts](file:///d:/Desktop/Immersive-clock/tests/e2e/visual-regression.e2e.spec.ts)
+- 固定时间、禁用动效的设置与外观编辑器三视口快照、语录渠道桌面/移动快照、默认/纯黑/自定义主背景快照，以及主界面和自习页图标在 1440px/390px/320px 的视觉基线：[visual-regression.e2e.spec.ts](file:///d:/Desktop/Immersive-clock/tests/e2e/visual-regression.e2e.spec.ts)
 
 ## 当前缺口（弹层重设计）
 

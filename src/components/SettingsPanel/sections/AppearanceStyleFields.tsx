@@ -1,4 +1,3 @@
-import { Brush, FileText, Palette, RotateCcw, Type } from "lucide-react";
 import type { ReactNode } from "react";
 
 import type { AppearanceSlotKind, AppearanceStyle } from "../../../types/appearance";
@@ -12,6 +11,7 @@ import {
   SettingItem,
   Slider,
   Switch,
+  type AppIconName,
 } from "../../../ui";
 
 import styles from "./AppearanceSettingsPanel.module.css";
@@ -29,7 +29,7 @@ interface AppearanceStyleFieldsProps {
 
 interface PropertySettingProps {
   children: ReactNode;
-  icon: ReactNode;
+  icon: AppIconName;
   overridden: boolean;
   onReset: () => void;
   title: string;
@@ -54,7 +54,8 @@ function PropertySetting({ children, icon, overridden, onReset, title }: Propert
               <IconButton
                 className={styles.propertyReset}
                 aria-label={`恢复${title}`}
-                icon={<RotateCcw size={13} aria-hidden="true" />}
+                icon="action.reset"
+                size="sm"
                 title={`恢复${title}`}
                 onClick={onReset}
               />
@@ -87,7 +88,7 @@ export function AppearanceStyleFields({
           <h4>常用设置</h4>
           <SettingGrid className={styles.editorGrid} columns={2}>
             <PropertySetting
-              icon={<Palette size={18} />}
+              icon="appearance.color"
               overridden={overrideStyle.backgroundColor !== undefined}
               title="背景颜色"
               onReset={() => onReset("backgroundColor")}
@@ -100,7 +101,7 @@ export function AppearanceStyleFields({
               />
             </PropertySetting>
             <PropertySetting
-              icon={<Palette size={18} />}
+              icon="appearance.color"
               overridden={overrideStyle.backgroundOpacity !== undefined}
               title="背景透明度"
               onReset={() => onReset("backgroundOpacity")}
@@ -116,7 +117,7 @@ export function AppearanceStyleFields({
               />
             </PropertySetting>
             <PropertySetting
-              icon={<Brush size={18} />}
+              icon="appearance.radius"
               overridden={overrideStyle.borderRadius !== undefined}
               title="圆角"
               onReset={() => onReset("borderRadius")}
@@ -138,7 +139,7 @@ export function AppearanceStyleFields({
             <summary>更多容器设置</summary>
             <SettingGrid className={styles.editorGrid} columns={2}>
               <PropertySetting
-                icon={<Brush size={18} />}
+                icon="appearance.border"
                 overridden={overrideStyle.borderColor !== undefined}
                 title="边框颜色"
                 onReset={() => onReset("borderColor")}
@@ -151,7 +152,7 @@ export function AppearanceStyleFields({
                 />
               </PropertySetting>
               <PropertySetting
-                icon={<Brush size={18} />}
+                icon="appearance.border"
                 overridden={overrideStyle.borderWidth !== undefined}
                 title="边框宽度"
                 onReset={() => onReset("borderWidth")}
@@ -167,7 +168,7 @@ export function AppearanceStyleFields({
                 />
               </PropertySetting>
               <PropertySetting
-                icon={<Brush size={18} />}
+                icon="appearance.blur"
                 overridden={overrideStyle.backdropBlur !== undefined}
                 title="背景模糊"
                 onReset={() => onReset("backdropBlur")}
@@ -195,7 +196,7 @@ export function AppearanceStyleFields({
         <h4>常用设置</h4>
         <SettingGrid className={styles.editorGrid} columns={2}>
           <PropertySetting
-            icon={<Palette size={18} />}
+            icon="appearance.color"
             overridden={overrideStyle.color !== undefined}
             title="颜色"
             onReset={() => onReset("color")}
@@ -216,7 +217,7 @@ export function AppearanceStyleFields({
             </div>
           </PropertySetting>
           <PropertySetting
-            icon={<Palette size={18} />}
+            icon="appearance.color"
             overridden={overrideStyle.opacity !== undefined}
             title="透明度"
             onReset={() => onReset("opacity")}
@@ -234,7 +235,7 @@ export function AppearanceStyleFields({
           {isText && !simpleOnly ? (
             <>
               <PropertySetting
-                icon={<Type size={18} />}
+                icon="appearance.font"
                 overridden={overrideStyle.font !== undefined}
                 title="字体"
                 onReset={() => onReset("font")}
@@ -248,7 +249,7 @@ export function AppearanceStyleFields({
                 />
               </PropertySetting>
               <PropertySetting
-                icon={<Type size={18} />}
+                icon="appearance.font"
                 overridden={overrideStyle.fontWeight !== undefined}
                 title="字重"
                 onReset={() => onReset("fontWeight")}
@@ -266,7 +267,7 @@ export function AppearanceStyleFields({
           ) : null}
           {kind === "icon" && !simpleOnly ? (
             <PropertySetting
-              icon={<Brush size={18} />}
+              icon="appearance.effects"
               overridden={overrideStyle.filter !== undefined}
               title="图标效果"
               onReset={() => onReset("filter")}
@@ -291,7 +292,7 @@ export function AppearanceStyleFields({
           <summary>更多文字设置</summary>
           <SettingGrid className={styles.editorGrid} columns={2}>
             <PropertySetting
-              icon={<Type size={18} />}
+              icon="appearance.font"
               overridden={overrideStyle.fontStyle !== undefined}
               title="斜体"
               onReset={() => onReset("fontStyle")}
@@ -303,7 +304,7 @@ export function AppearanceStyleFields({
               />
             </PropertySetting>
             <PropertySetting
-              icon={<FileText size={18} />}
+              icon="appearance.letterSpacing"
               overridden={overrideStyle.letterSpacing !== undefined}
               title="字间距"
               onReset={() => onReset("letterSpacing")}
@@ -319,7 +320,7 @@ export function AppearanceStyleFields({
               />
             </PropertySetting>
             <PropertySetting
-              icon={<Brush size={18} />}
+              icon="appearance.shadow"
               overridden={overrideStyle.textShadow !== undefined}
               title="文字阴影"
               onReset={() => onReset("textShadow")}

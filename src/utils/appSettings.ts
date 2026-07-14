@@ -12,7 +12,15 @@ import {
   serializeQuoteChannels,
 } from "../services/quotes/quoteRegistry";
 import { QuoteRuntimeStore } from "../services/quotes/runtimeStorage";
-import { StudyDisplaySettings, CountdownItem, AppMode, type StudyTimeProgressMode } from "../types";
+import {
+  StudyDisplaySettings,
+  CountdownItem,
+  AppMode,
+  type StudyInfoCarouselSettings,
+  type StudyInfoItemConfig,
+  type StudyInfoSource,
+  type StudyTimeProgressMode,
+} from "../types";
 import type { AppearanceSettingsV2 } from "../types/appearance";
 import type {
   CustomQuoteChannel,
@@ -92,6 +100,7 @@ export interface AppSettings {
     display: StudyDisplaySettings;
     countdownItems: CountdownItem[];
     carouselIntervalSec?: number;
+    infoCarousel: StudyInfoCarouselSettings;
     style: {
       digitColor?: string;
       digitOpacity: number;
@@ -140,6 +149,28 @@ export const APP_SETTINGS_KEY = "AppSettings";
 export const APP_SETTINGS_QUARANTINE_KEY = "immersive-clock:quarantine:app-settings";
 export const CURRENT_SETTINGS_VERSION = 3;
 
+/** 中央信息轮播的硬上限，配置与运行时都应遵守该值。 */
+export const MAX_STUDY_INFO_ITEMS = 20;
+export const MIN_STUDY_INFO_INTERVAL_SEC = 3;
+export const MAX_STUDY_INFO_INTERVAL_SEC = 30;
+export const DEFAULT_STUDY_INFO_INTERVAL_SEC = 6;
+export const MAX_STUDY_INFO_TEXT_LENGTH = 80;
+
+export const STUDY_INFO_BUILTIN_IDS = {
+  progress: "progress-default",
+  nextSchedule: "next-schedule-default",
+  rain: "rain-default",
+} as const;
+
+let studyInfoLimitAdjustedSinceLoad = false;
+
+/** 设置页读取一次后即清除，避免同一轮迁移反复提示。 */
+export function consumeStudyInfoLimitAdjustedNotice(): boolean {
+  const adjusted = studyInfoLimitAdjustedSinceLoad;
+  studyInfoLimitAdjustedSinceLoad = false;
+  return adjusted;
+}
+
 export interface QuarantinedAppSettings {
   createdAt: number;
   reason: "invalid-json" | "unsupported-version";
@@ -176,6 +207,165 @@ function parseStoredNumber(value: unknown): number {
   if (typeof value === "number") return value;
   if (typeof value === "string" && value.trim()) return Number(value);
   return Number.NaN;
+}
+
+function isStudyInfoSource(value: unknown): value is StudyInfoSource {
+  return value === "progress" || value === "nextSchedule" || value === "rain" || value === "custom";
+}
+
+function createDefaultStudyInfoItems(): StudyInfoItemConfig[] {
+  return [
+    {
+      id: STUDY_INFO_BUILTIN_IDS.progress,
+      source: "progress",
+      enabled: true,
+      order: 0,
+    },
+    {
+      id: STUDY_INFO_BUILTIN_IDS.nextSchedule,
+      source: "nextSchedule",
+      enabled: true,
+      order: 1,
+    },
+    {
+      id: STUDY_INFO_BUILTIN_IDS.rain,
+      source: "rain",
+      enabled: true,
+      order: 2,
+    },
+  ];
+}
+
+/** 返回新对象，避免调用方修改全局默认值。 */
+export function getDefaultStudyInfoCarousel(): StudyInfoCarouselSettings {
+  return {
+    autoRotate: true,
+    intervalSec: DEFAULT_STUDY_INFO_INTERVAL_SEC,
+    items: createDefaultStudyInfoItems(),
+  };
+}
+
+function normalizeStudyInfoInterval(value: unknown): number {
+  const parsed = parseStoredNumber(value);
+  if (!Number.isFinite(parsed)) return DEFAULT_STUDY_INFO_INTERVAL_SEC;
+  return Math.max(
+    MIN_STUDY_INFO_INTERVAL_SEC,
+    Math.min(MAX_STUDY_INFO_INTERVAL_SEC, Math.round(parsed))
+  );
+}
+
+function normalizeStudyInfoItem(value: unknown, fallbackOrder: number): StudyInfoItemConfig | null {
+  if (!isRecord(value) || typeof value.id !== "string" || !isStudyInfoSource(value.source)) {
+    return null;
+  }
+  const id = value.id.trim();
+  if (!id) return null;
+
+  const orderValue = parseStoredNumber(value.order);
+  const order = Number.isFinite(orderValue) ? Math.round(orderValue) : fallbackOrder;
+  const item: StudyInfoItemConfig = {
+    id,
+    source: value.source,
+    enabled: typeof value.enabled === "boolean" ? value.enabled : true,
+    order,
+  };
+
+  if (value.source === "custom") {
+    if (typeof value.text !== "string") return null;
+    const text = value.text.trim().slice(0, MAX_STUDY_INFO_TEXT_LENGTH);
+    if (!text) return null;
+    item.text = text;
+  }
+  return item;
+}
+
+interface StudyInfoCarouselNormalizationResult {
+  settings: StudyInfoCarouselSettings;
+  limitAdjusted: boolean;
+}
+
+/**
+ * 归一化中央信息配置：过滤非法条目、去重，并将启用的有效条目限制为 20。
+ * 超额条目会被禁用而非删除；内置来源优先，其次按用户 order 与原始顺序选择。
+ */
+function normalizeStudyInfoCarouselWithMetadata(
+  value: unknown
+): StudyInfoCarouselNormalizationResult {
+  const defaults = getDefaultStudyInfoCarousel();
+  const source = isRecord(value) ? value : {};
+  const rawItems = Array.isArray(source.items) ? source.items : null;
+  const parsedItems: Array<{ item: StudyInfoItemConfig; index: number }> = [];
+  const seenIds = new Set<string>();
+  const seenBuiltinSources = new Set<Exclude<StudyInfoSource, "custom">>();
+
+  if (rawItems) {
+    rawItems.forEach((candidate, index) => {
+      const item = normalizeStudyInfoItem(candidate, index);
+      if (!item || seenIds.has(item.id)) return;
+      if (item.source !== "custom") {
+        if (seenBuiltinSources.has(item.source)) return;
+        seenBuiltinSources.add(item.source);
+      }
+      seenIds.add(item.id);
+      parsedItems.push({ item, index });
+    });
+  } else {
+    defaults.items.forEach((item, index) => parsedItems.push({ item, index }));
+  }
+
+  // 配置文件可能来自早期版本或手工编辑：保证三个内置来源始终有一个可配置开关。
+  // 已存在的来源（即使被禁用）会原样保留，避免迁移时意外重新启用。
+  const existingSources = new Set(parsedItems.map(({ item }) => item.source));
+  const maxOrder = parsedItems.reduce((maximum, entry) => Math.max(maximum, entry.item.order), -1);
+  defaults.items.forEach((defaultItem, index) => {
+    if (existingSources.has(defaultItem.source)) return;
+    let id = defaultItem.id;
+    if (seenIds.has(id)) id = `${id}-${index}`;
+    const item = { ...defaultItem, id, order: maxOrder + index + 1 };
+    seenIds.add(id);
+    parsedItems.push({ item, index: parsedItems.length + index });
+  });
+
+  const limitAdjusted =
+    parsedItems.filter(({ item }) => item.enabled).length > MAX_STUDY_INFO_ITEMS;
+
+  const enabledItemIds = new Set(
+    parsedItems
+      .filter(({ item }) => item.enabled)
+      .sort((left, right) => {
+        const leftBuiltin = left.item.source === "custom" ? 1 : 0;
+        const rightBuiltin = right.item.source === "custom" ? 1 : 0;
+        return (
+          leftBuiltin - rightBuiltin ||
+          left.item.order - right.item.order ||
+          left.index - right.index
+        );
+      })
+      .slice(0, MAX_STUDY_INFO_ITEMS)
+      .map(({ item }) => item.id)
+  );
+
+  const normalizedItems = parsedItems
+    .slice()
+    .sort((left, right) => left.item.order - right.item.order || left.index - right.index)
+    .map(({ item }) => ({
+      ...item,
+      enabled: item.enabled && enabledItemIds.has(item.id),
+    }));
+
+  return {
+    settings: {
+      autoRotate: typeof source.autoRotate === "boolean" ? source.autoRotate : defaults.autoRotate,
+      intervalSec: normalizeStudyInfoInterval(source.intervalSec),
+      items: normalizedItems,
+    },
+    limitAdjusted,
+  };
+}
+
+/** 纯配置归一化入口；迁移提示由启动迁移单独记录。 */
+export function normalizeStudyInfoCarousel(value: unknown): StudyInfoCarouselSettings {
+  return normalizeStudyInfoCarouselWithMetadata(value).settings;
 }
 
 function normalizeQuoteRefreshInterval(value: unknown): number {
@@ -459,6 +649,7 @@ const DEFAULT_SETTINGS: AppSettings = {
       showDate: true,
     },
     countdownItems: [],
+    infoCarousel: getDefaultStudyInfoCarousel(),
     style: {
       digitOpacity: 1,
     },
@@ -629,6 +820,7 @@ export function normalizeAppSettings(value: unknown): AppSettings {
     study: {
       ...DEFAULT_SETTINGS.study,
       ...parsedStudy,
+      infoCarousel: normalizeStudyInfoCarousel(parsedStudy.infoCarousel),
       display: {
         ...DEFAULT_SETTINGS.study.display,
         ...parsedDisplay,
@@ -749,6 +941,12 @@ export function updateAppSettings(
           : current.study.display,
         countdownItems: studyUpdates.countdownItems ?? current.study.countdownItems,
         carouselIntervalSec: studyUpdates.carouselIntervalSec ?? current.study.carouselIntervalSec,
+        infoCarousel: studyUpdates.infoCarousel
+          ? normalizeStudyInfoCarousel({
+              ...current.study.infoCarousel,
+              ...studyUpdates.infoCarousel,
+            })
+          : current.study.infoCarousel,
         style: studyUpdates.style
           ? { ...current.study.style, ...studyUpdates.style }
           : current.study.style,
@@ -801,6 +999,9 @@ export function resetAppSettings(): void {
 export function resetAppSettingsPreservingUserContent(): AppSettings {
   const current = getAppSettings();
   const defaults = createDefaultAppSettings();
+  const preservedInfoItems = (current.study.infoCarousel?.items ?? []).filter(
+    (item) => item.source === "custom"
+  );
   const next: AppSettings = {
     ...defaults,
     general: {
@@ -814,6 +1015,10 @@ export function resetAppSettingsPreservingUserContent(): AppSettings {
       countdownMode: current.study.countdownMode,
       customCountdown: structuredClone(current.study.customCountdown),
       countdownItems: structuredClone(current.study.countdownItems),
+      infoCarousel: normalizeStudyInfoCarousel({
+        ...defaults.study.infoCarousel,
+        items: [...defaults.study.infoCarousel.items, ...structuredClone(preservedInfoItems)],
+      }),
       schedule: structuredClone(current.study.schedule),
     },
   };
@@ -922,6 +1127,9 @@ export function migrateStoredAppSettings(): AppSettings {
   const parsedGeneral = isRecord(parsed.general) ? parsed.general : {};
   const parsedStudy = isRecord(parsed.study) ? parsed.study : {};
   const parsedDisplay = isRecord(parsedStudy.display) ? parsedStudy.display : {};
+  if (normalizeStudyInfoCarouselWithMetadata(parsedStudy.infoCarousel).limitAdjusted) {
+    studyInfoLimitAdjustedSinceLoad = true;
+  }
   migrateLegacyQuoteCursors(parsedGeneral.quote, storedVersion);
   const legacySource = parsed as unknown as Parameters<typeof migrateV1Appearance>[0];
   if (!parsed.appearance) {
@@ -962,11 +1170,15 @@ export function migrateStoredAppSettings(): AppSettings {
     JSON.stringify(parsedGeneral.quote) !== JSON.stringify(normalized.general.quote);
   const displayNeedsNormalization =
     parsedDisplay.timeProgressMode !== normalized.study.display.timeProgressMode;
+  const infoCarouselNeedsNormalization =
+    !Object.prototype.hasOwnProperty.call(parsedStudy, "infoCarousel") ||
+    JSON.stringify(parsedStudy.infoCarousel) !== JSON.stringify(normalized.study.infoCarousel);
   if (
     storedVersion < CURRENT_SETTINGS_VERSION ||
     !parsed.appearance ||
     quoteNeedsNormalization ||
-    displayNeedsNormalization
+    displayNeedsNormalization ||
+    infoCarouselNeedsNormalization
   ) {
     localStorage.setItem(APP_SETTINGS_KEY, JSON.stringify(normalized));
   }

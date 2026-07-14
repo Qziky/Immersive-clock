@@ -1,11 +1,18 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 
+import { showHud } from "./e2eUtils";
+
 type Background =
   | { type: "default" }
   | { type: "black" }
   | { type: "color"; color: string; colorAlpha: number };
 
 const FIXED_TIME = new Date("2026-06-01T08:30:00+08:00");
+const ICON_VISUAL_VIEWPORTS = [
+  { width: 1440, height: 900 },
+  { width: 390, height: 844 },
+  { width: 320, height: 568 },
+] as const;
 
 test.beforeEach(({ browserName }, testInfo) => {
   test.skip(
@@ -52,6 +59,67 @@ async function prepareVisualPage(
   });
   await page.evaluate(() => document.fonts.ready);
   await expect(page.getByRole("main", { name: "时钟应用主界面" })).toBeVisible();
+}
+
+async function prepareStudyVisualPage(page: Page, viewport: { width: number; height: number }) {
+  await prepareVisualPage(page, viewport, { type: "default" });
+  await page.evaluate(() => {
+    const current = JSON.parse(localStorage.getItem("AppSettings") || "{}");
+    current.study = {
+      ...(current.study || {}),
+      countdownItems: [],
+      countdownMode: "gaokao",
+      countdownType: "gaokao",
+      targetYear: 2027,
+      display: {
+        ...(current.study?.display || {}),
+        showCountdown: true,
+        showDate: true,
+        showNoiseMonitor: false,
+        showQuote: false,
+        showStatusBar: true,
+        showTime: true,
+        showWeather: false,
+        timeProgressMode: "day",
+      },
+      infoCarousel: {
+        autoRotate: false,
+        intervalSec: 6,
+        items: [
+          { id: "progress-default", source: "progress", enabled: true, order: 0 },
+          {
+            id: "next-schedule-default",
+            source: "nextSchedule",
+            enabled: false,
+            order: 1,
+          },
+          { id: "rain-default", source: "rain", enabled: false, order: 2 },
+        ],
+      },
+    };
+    localStorage.setItem("AppSettings", JSON.stringify(current));
+  });
+  await page.goto("/study");
+  await page.addStyleTag({
+    content: `
+      *, *::before, *::after {
+        animation: none !important;
+        caret-color: transparent !important;
+        transition: none !important;
+      }
+    `,
+  });
+  await page.evaluate(() => document.fonts.ready);
+  await expect(page.locator("#study-panel")).toBeVisible();
+}
+
+async function expectCurrentTimeFits(page: Page) {
+  const bounds = await page.locator('[aria-label^="当前时间："]').boundingBox();
+  const viewport = page.viewportSize();
+  expect(bounds).not.toBeNull();
+  expect(viewport).not.toBeNull();
+  expect(bounds?.x ?? -1).toBeGreaterThanOrEqual(8);
+  expect((bounds?.x ?? 0) + (bounds?.width ?? 0)).toBeLessThanOrEqual((viewport?.width ?? 0) - 8);
 }
 
 async function openAppearanceEditor(page: Page, viewport: { width: number; height: number }) {
@@ -301,6 +369,37 @@ for (const [name, background] of [
     await prepareVisualPage(page, { width: 1440, height: 900 }, background);
 
     await expect(page).toHaveScreenshot(`background-${name}-1440x900.png`, {
+      animations: "disabled",
+      caret: "hide",
+      maxDiffPixelRatio: 0.01,
+    });
+  });
+}
+
+for (const viewport of ICON_VISUAL_VIEWPORTS) {
+  test(`主界面图标视觉快照 ${viewport.width}×${viewport.height}`, async ({ page }) => {
+    await prepareVisualPage(page, viewport, { type: "default" });
+    await showHud(page);
+    await expectCurrentTimeFits(page);
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)
+    ).toBe(true);
+
+    await expect(page).toHaveScreenshot(`clock-icons-${viewport.width}x${viewport.height}.png`, {
+      animations: "disabled",
+      caret: "hide",
+      maxDiffPixelRatio: 0.01,
+    });
+  });
+
+  test(`自习页图标视觉快照 ${viewport.width}×${viewport.height}`, async ({ page }) => {
+    await prepareStudyVisualPage(page, viewport);
+    await expectCurrentTimeFits(page);
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)
+    ).toBe(true);
+
+    await expect(page).toHaveScreenshot(`study-icons-${viewport.width}x${viewport.height}.png`, {
       animations: "disabled",
       caret: "hide",
       maxDiffPixelRatio: 0.01,

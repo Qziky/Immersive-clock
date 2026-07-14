@@ -1,4 +1,3 @@
-import { Delete, Gauge, RefreshCw, RotateCw, Sparkles } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { useAppState } from "../../../contexts/AppContext";
@@ -148,10 +147,9 @@ export function ContentSettingsPanel({ onRegisterSave, section }: ContentSetting
         hidden={isSectionHidden("refresh")}
       >
         <SettingItem
-          icon={<RotateCw size={18} />}
+          icon="feature.carousel"
           title="自动轮换"
           description="关闭后仍可点击主界面的语录区域手动刷新。"
-          tone="accent"
           control={
             <FormSwitch
               checked={draftEnabled}
@@ -161,7 +159,7 @@ export function ContentSettingsPanel({ onRegisterSave, section }: ContentSetting
           }
         />
         <SettingItem
-          icon={<RotateCw size={18} />}
+          icon="feature.carousel"
           title="刷新频率"
           description="自动轮换开启时，每隔指定时间切换一次内容。"
         >
@@ -190,7 +188,7 @@ export function ContentSettingsPanel({ onRegisterSave, section }: ContentSetting
         hidden={isSectionHidden("effects")}
       >
         <SettingItem
-          icon={<Sparkles size={18} />}
+          icon="appearance.effects"
           title="出现动画"
           description="自然打字更有节奏感，平滑显示适合安静过渡，也可以直接显示完整内容。"
         >
@@ -204,7 +202,7 @@ export function ContentSettingsPanel({ onRegisterSave, section }: ContentSetting
         </SettingItem>
 
         <SettingItem
-          icon={<Gauge size={18} />}
+          icon="feature.typingSpeed"
           title="打字速度"
           description="仅用于自然打字；切换其他效果时会保留当前速度。"
           disabled={draftAnimationMode !== "typewriter"}
@@ -223,7 +221,7 @@ export function ContentSettingsPanel({ onRegisterSave, section }: ContentSetting
         </SettingItem>
 
         <SettingItem
-          icon={<Delete size={18} />}
+          icon="feature.backspace"
           title="切换时回删"
           description="切换到下一条语录前，先按打字节奏回删当前内容。"
           disabled={draftAnimationMode !== "typewriter"}
@@ -247,7 +245,8 @@ export function ContentSettingsPanel({ onRegisterSave, section }: ContentSetting
               className={styles.replayButton}
               aria-label="重播语录动画预览"
               title="重播语录动画预览"
-              icon={<RefreshCw size={17} aria-hidden="true" />}
+              icon="action.refresh"
+              size="sm"
               onClick={replayPreview}
             />
           </div>

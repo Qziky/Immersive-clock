@@ -1,8 +1,11 @@
-import type { HTMLAttributes } from "react";
+import { useEffect, useRef, useState } from "react";
+import type { HTMLAttributes, KeyboardEvent } from "react";
 
+import { AppIcon, type AppIconName } from "../../ui";
 import { classNames } from "../../ui/utils/classNames";
 import type { PresentationAttributes } from "../PresentationContent";
 
+import type { StudyInfoSignal } from "./studyInfoSignals";
 import styles from "./StudyStatus.module.css";
 
 interface StudyStatusPresentationProps {
@@ -15,6 +18,12 @@ interface StudyStatusPresentationProps {
   rootAttributes?: PresentationAttributes<HTMLAttributes<HTMLDivElement>>;
   stageText?: string;
   statusText: string;
+  hasProgress?: boolean;
+  infoCanAdvance?: boolean;
+  infoSignal?: StudyInfoSignal | null;
+  infoSignalManaged?: boolean;
+  onInfoNext?: () => void;
+  onInfoPauseChange?: (paused: boolean) => void;
 }
 
 export function StudyStatusPresentation({
@@ -27,15 +36,77 @@ export function StudyStatusPresentation({
   rootAttributes,
   stageText,
   statusText,
+  hasProgress,
+  infoCanAdvance = false,
+  infoSignal,
+  infoSignalManaged = false,
+  onInfoNext,
+  onInfoPauseChange,
 }: StudyStatusPresentationProps) {
-  const { className: rootClassName, ...rootProps } = rootAttributes ?? {};
+  const {
+    className: rootClassName,
+    role: progressRole,
+    "aria-label": progressAriaLabel,
+    "aria-valuemax": progressAriaValueMax,
+    "aria-valuemin": progressAriaValueMin,
+    "aria-valuenow": progressAriaValueNow,
+    "aria-valuetext": progressAriaValueText,
+    ...rootProps
+  } = rootAttributes ?? {};
   const { className: fillClassName, style: fillStyle, ...fillProps } = fillAttributes ?? {};
   const { className: labelClassName, ...labelProps } = labelAttributes ?? {};
   const { className: progressClassName, ...progressProps } = progressAttributes ?? {};
   const showRhythm = Boolean(stageText && remainingTimeText);
+  const showProgressMeta = hasProgress ?? showRhythm;
+  const infoPrimaryText = infoSignalManaged
+    ? infoSignal?.primaryText
+    : (infoSignal?.primaryText ?? stageText);
+  const infoSecondaryText = infoSignalManaged
+    ? infoSignal?.secondaryText
+    : (infoSignal?.secondaryText ?? remainingTimeText);
+  const showInfo = Boolean(infoPrimaryText || infoSecondaryText);
+  const infoAriaText =
+    infoSignal?.ariaText ?? [infoPrimaryText, infoSecondaryText].filter(Boolean).join("，");
+  const infoIcon: AppIconName =
+    infoSignal?.source === "rain"
+      ? "feature.weatherPrecipitation"
+      : infoSignal?.source === "nextSchedule"
+        ? "feature.event"
+        : infoSignal?.source === "custom"
+          ? "feature.message"
+          : "feature.progress";
+  const infoInteractive = Boolean(infoCanAdvance && onInfoNext);
+
+  // 同一事件保留稳定键，倒计时更新不会重复播报或重播切换动画。
+  const liveKey = infoSignal ? `${infoSignal.dedupeKey}:${infoSignal.priority}` : "legacy";
+  const previousLiveKeyRef = useRef<string>("");
+  const infoHoveredRef = useRef(false);
+  const infoFocusedRef = useRef(false);
+  const [liveText, setLiveText] = useState("");
+
+  useEffect(() => {
+    if (!infoAriaText || previousLiveKeyRef.current === liveKey) return;
+    previousLiveKeyRef.current = liveKey;
+    setLiveText(infoAriaText);
+  }, [infoAriaText, liveKey]);
+
+  const handleInfoKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (!infoInteractive || !onInfoNext || (event.key !== "Enter" && event.key !== " ")) return;
+    event.preventDefault();
+    onInfoNext();
+  };
 
   return (
     <div {...rootProps} className={classNames(styles.studyStatus, rootClassName)}>
+      <div
+        className={styles.progressSemantics}
+        role={progressRole}
+        aria-label={progressAriaLabel}
+        aria-valuemax={progressAriaValueMax}
+        aria-valuemin={progressAriaValueMin}
+        aria-valuenow={progressAriaValueNow}
+        aria-valuetext={progressAriaValueText}
+      />
       <div
         {...fillProps}
         className={classNames(styles.progressFill, fillClassName)}
@@ -45,21 +116,59 @@ export function StudyStatusPresentation({
         <div {...labelProps} className={classNames(styles.statusText, labelClassName)}>
           {statusText}
         </div>
-        {showRhythm ? (
-          <div className={styles.progressRhythm}>
-            <span className={styles.stageText}>{stageText}</span>
-            <span className={styles.rhythmSeparator} aria-hidden="true">
-              ·
+        {showInfo ? (
+          <div
+            className={styles.progressRhythm}
+            role={infoInteractive ? "button" : undefined}
+            tabIndex={infoInteractive ? 0 : undefined}
+            aria-label={infoAriaText || undefined}
+            title={infoAriaText || undefined}
+            onClick={infoInteractive ? onInfoNext : undefined}
+            onKeyDown={handleInfoKeyDown}
+            onMouseEnter={() => {
+              infoHoveredRef.current = true;
+              onInfoPauseChange?.(true);
+            }}
+            onMouseLeave={() => {
+              infoHoveredRef.current = false;
+              onInfoPauseChange?.(infoFocusedRef.current);
+            }}
+            onFocus={() => {
+              infoFocusedRef.current = true;
+              onInfoPauseChange?.(true);
+            }}
+            onBlur={() => {
+              infoFocusedRef.current = false;
+              onInfoPauseChange?.(infoHoveredRef.current);
+            }}
+          >
+            <span key={liveKey} className={styles.infoContent}>
+              <AppIcon className={styles.infoIcon} name={infoIcon} />
+              <span className={styles.infoCopy}>
+                <span className={styles.stageText}>{infoPrimaryText}</span>
+                {infoSecondaryText ? (
+                  <>
+                    <span className={styles.rhythmSeparator} aria-hidden="true">
+                      ·
+                    </span>
+                    <span className={styles.remainingTime}>{infoSecondaryText}</span>
+                  </>
+                ) : null}
+              </span>
             </span>
-            <span className={styles.remainingTime}>{remainingTimeText}</span>
           </div>
         ) : null}
-        {showRhythm ? (
+        {showProgressMeta ? (
           <span {...progressProps} className={classNames(styles.progressMeta, progressClassName)}>
             {progressText}
           </span>
         ) : null}
       </div>
+      {showInfo ? (
+        <span className={styles.liveRegion} role="status" aria-live="polite" aria-atomic="true">
+          {liveText}
+        </span>
+      ) : null}
     </div>
   );
 }

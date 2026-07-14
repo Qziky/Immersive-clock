@@ -140,6 +140,7 @@ UI、存储、网络请求和算法混在同一个组件中。
 ## 通用 UI 与基础设施
 
 - `src/ui/`：通用组件库，包含表单、弹窗、下拉菜单和设置专用组件。
-- `lucide-react`：统一图标入口，业务组件直接按需导入图标。
+- `src/ui/icons/`：语义图标注册表和唯一 Lucide 入口；业务组件只使用 `AppIconName`。
+- [图标系统](icon-system.md)：图标命名、尺寸、颜色、交互和无障碍规范。
 - `src/utils/logger.ts`：日志封装，避免直接使用 `console.log`。
 - `src/utils/errorCenter.ts`：错误提示模式控制。

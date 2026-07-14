@@ -2,7 +2,12 @@ import React, { useEffect, useState, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 
 import type { MessagePopupType } from "../../types/messagePopup";
-import { Button as FormButton, Toast, type ToastVariant } from "../../ui";
+import {
+  Button as FormButton,
+  Toast,
+  type AppIconName,
+  type ToastVariant,
+} from "../../ui";
 
 import styles from "./messagePopup.module.css";
 
@@ -16,7 +21,7 @@ interface ActionItem {
   onClick: () => void;
   variant?: "primary" | "secondary" | "danger" | "success" | "ghost";
   size?: "sm" | "md" | "lg";
-  icon?: React.ReactNode;
+  icon?: AppIconName;
   loading?: boolean;
 }
 
@@ -26,7 +31,7 @@ interface MessagePopupProps {
   type?: MessagePopupType;
   title?: string;
   message?: React.ReactNode;
-  icon?: React.ReactNode;
+  icon?: AppIconName;
   actions?: ActionItem[];
   className?: string;
   usePortal?: boolean; // 设置页预览时可设为 false 进行内联渲染
@@ -136,9 +141,7 @@ export default function MessagePopup({
       ? "danger"
       : type === "weatherAlert"
         ? "warning"
-        : type === "coolingReminder"
-          ? "success"
-          : "info";
+        : "info";
 
   const rootClass = `${styles.container} ${exiting ? styles.exit : styles.enter} ${!usePortal ? styles.inline : ""} ${className}`;
   const node = (

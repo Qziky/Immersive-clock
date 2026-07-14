@@ -214,6 +214,7 @@ export function updateMinutelyCache(
         location,
         updatedAt: Date.now(),
         lastApiFetchAt: lastApiFetchAt ?? current.minutely?.lastApiFetchAt,
+        lastCriticalFetchAt: current.minutely?.lastCriticalFetchAt,
       },
     };
   });

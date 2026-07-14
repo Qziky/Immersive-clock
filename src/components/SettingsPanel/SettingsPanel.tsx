@@ -1,33 +1,8 @@
-import {
-  Bell,
-  BookOpen,
-  Brush,
-  CalendarClock,
-  ChevronDown,
-  Clock3,
-  CloudSun,
-  Database,
-  Eye,
-  FileText,
-  Gauge,
-  Info,
-  MapPin,
-  MessageSquareText,
-  Mic2,
-  Palette,
-  RotateCw,
-  ShieldAlert,
-  SlidersHorizontal,
-  Sparkles,
-  TimerReset,
-  Wifi,
-  X,
-} from "lucide-react";
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import { useAppDispatch, useAppState } from "../../contexts/AppContext";
 import { useAppearance } from "../../contexts/AppearanceContext";
-import { Button, IconButton, Modal, useFeedback } from "../../ui";
+import { AppIcon, Button, IconButton, Modal, type AppIconName, useFeedback } from "../../ui";
 import { usePresence } from "../../ui/utils/usePresence";
 import { logger } from "../../utils/logger";
 import { broadcastSettingsEvent, SETTINGS_EVENTS } from "../../utils/settingsEvents";
@@ -75,7 +50,7 @@ type SettingsPane =
       group: SettingsPrimaryGroup;
       label: string;
       description: string;
-      icon: React.ReactNode;
+      icon: AppIconName;
       panel: "basic";
       section: BasicSettingsSection;
     }
@@ -84,7 +59,7 @@ type SettingsPane =
       group: "appearance";
       label: string;
       description: string;
-      icon: React.ReactNode;
+      icon: AppIconName;
       panel: "appearance";
       section: AppearanceSettingsSection;
     }
@@ -93,7 +68,7 @@ type SettingsPane =
       group: SettingsPrimaryGroup;
       label: string;
       description: string;
-      icon: React.ReactNode;
+      icon: AppIconName;
       panel: "weather";
       section: WeatherSettingsSection;
     }
@@ -102,7 +77,7 @@ type SettingsPane =
       group: SettingsPrimaryGroup;
       label: string;
       description: string;
-      icon: React.ReactNode;
+      icon: AppIconName;
       panel: "monitor";
       section: StudySettingsSection;
     }
@@ -111,7 +86,7 @@ type SettingsPane =
       group: SettingsPrimaryGroup;
       label: string;
       description: string;
-      icon: React.ReactNode;
+      icon: AppIconName;
       panel: "quotes";
       section: ContentSettingsSection;
     }
@@ -120,7 +95,7 @@ type SettingsPane =
       group: SettingsPrimaryGroup;
       label: string;
       description: string;
-      icon: React.ReactNode;
+      icon: AppIconName;
       panel: "about";
       section: AboutSettingsSection;
     }
@@ -129,7 +104,7 @@ type SettingsPane =
       group: "system";
       label: string;
       description: string;
-      icon: React.ReactNode;
+      icon: AppIconName;
       panel: "data";
       section: "data";
     };
@@ -143,42 +118,42 @@ const primaryGroups: Array<{
   value: SettingsPrimaryGroup;
   label: string;
   description: string;
-  icon: React.ReactNode;
+  icon: AppIconName;
   defaultPane: SettingsPaneId;
 }> = [
   {
     value: "workspace",
     label: "常用工作台",
     description: "启动、自习与倒计时",
-    icon: <SlidersHorizontal size={18} aria-hidden="true" />,
+    icon: "feature.workspace",
     defaultPane: "startup",
   },
   {
     value: "appearance",
     label: "视觉外观",
     description: "颜色、字体与背景",
-    icon: <Palette size={18} aria-hidden="true" />,
+    icon: "feature.appearance",
     defaultPane: "appearanceOverview",
   },
   {
     value: "environment",
     label: "环境提醒",
     description: "天气、噪音与报告",
-    icon: <Bell size={18} aria-hidden="true" />,
+    icon: "feature.notification",
     defaultPane: "weatherAlerts",
   },
   {
     value: "content",
     label: "内容语录",
     description: "刷新、显示与渠道管理",
-    icon: <MessageSquareText size={18} aria-hidden="true" />,
+    icon: "feature.quotes",
     defaultPane: "quoteRefresh",
   },
   {
     value: "system",
     label: "系统数据",
     description: "校时、导入导出与调试",
-    icon: <Database size={18} aria-hidden="true" />,
+    icon: "feature.data",
     defaultPane: "timeSync",
   },
 ];
@@ -189,7 +164,7 @@ const paneItems: SettingsPane[] = [
     group: "workspace",
     label: "启动页面",
     description: "设置刷新或下次启动时默认进入的页面。",
-    icon: <Clock3 size={20} aria-hidden="true" />,
+    icon: "mode.clock",
     panel: "basic",
     section: "startup",
   },
@@ -198,7 +173,7 @@ const paneItems: SettingsPane[] = [
     group: "workspace",
     label: "自习显示",
     description: "选择自习主屏显示哪些辅助组件。",
-    icon: <Eye size={20} aria-hidden="true" />,
+    icon: "appearance.preview",
     panel: "basic",
     section: "display",
   },
@@ -207,7 +182,7 @@ const paneItems: SettingsPane[] = [
     group: "workspace",
     label: "倒计时",
     description: "配置高考、单事件或多事件倒计时。",
-    icon: <TimerReset size={20} aria-hidden="true" />,
+    icon: "feature.countdown",
     panel: "basic",
     section: "countdown",
   },
@@ -216,7 +191,7 @@ const paneItems: SettingsPane[] = [
     group: "workspace",
     label: "课程表",
     description: "管理自习课程时间段和导入数据。",
-    icon: <BookOpen size={20} aria-hidden="true" />,
+    icon: "feature.schedule",
     panel: "basic",
     section: "schedule",
   },
@@ -225,7 +200,7 @@ const paneItems: SettingsPane[] = [
     group: "appearance",
     label: "整体样式",
     description: "设置所有页面共用的字体、背景与外观资源。",
-    icon: <Brush size={20} aria-hidden="true" />,
+    icon: "feature.appearance",
     panel: "appearance",
     section: "overview",
   },
@@ -234,7 +209,7 @@ const paneItems: SettingsPane[] = [
     group: "appearance",
     label: "时间显示",
     description: "分别调整时钟、倒计时、秒表和自习时间。",
-    icon: <Clock3 size={20} aria-hidden="true" />,
+    icon: "feature.time",
     panel: "appearance",
     section: "time",
   },
@@ -243,7 +218,7 @@ const paneItems: SettingsPane[] = [
     group: "appearance",
     label: "语录",
     description: "设置语录文字与光标。",
-    icon: <FileText size={20} aria-hidden="true" />,
+    icon: "feature.quotes",
     panel: "appearance",
     section: "studyQuote",
   },
@@ -252,7 +227,7 @@ const paneItems: SettingsPane[] = [
     group: "appearance",
     label: "顶部信息栏",
     description: "设置栏体及天气、噪音、计划进度与事件信息。",
-    icon: <SlidersHorizontal size={20} aria-hidden="true" />,
+    icon: "feature.workspace",
     panel: "appearance",
     section: "studyTopDock",
   },
@@ -261,7 +236,7 @@ const paneItems: SettingsPane[] = [
     group: "environment",
     label: "天气提醒",
     description: "控制预警、降水、空气质量和日出日落提醒。",
-    icon: <CloudSun size={20} aria-hidden="true" />,
+    icon: "feature.weatherAlerts",
     panel: "weather",
     section: "alerts",
   },
@@ -270,7 +245,7 @@ const paneItems: SettingsPane[] = [
     group: "environment",
     label: "定位刷新",
     description: "设置天气刷新频率、定位方式和当前坐标。",
-    icon: <MapPin size={20} aria-hidden="true" />,
+    icon: "feature.location",
     panel: "weather",
     section: "location",
   },
@@ -279,7 +254,7 @@ const paneItems: SettingsPane[] = [
     group: "environment",
     label: "实时天气",
     description: "查看当前天气、空气质量和未来三日概览。",
-    icon: <CalendarClock size={20} aria-hidden="true" />,
+    icon: "feature.weatherLive",
     panel: "weather",
     section: "live",
   },
@@ -288,7 +263,7 @@ const paneItems: SettingsPane[] = [
     group: "environment",
     label: "噪音控制",
     description: "调整阈值、分贝显示和平滑策略。",
-    icon: <Gauge size={20} aria-hidden="true" />,
+    icon: "feature.noise",
     panel: "monitor",
     section: "control",
   },
@@ -297,7 +272,7 @@ const paneItems: SettingsPane[] = [
     group: "environment",
     label: "校准修正",
     description: "校准环境基准噪音或手动修正噪音水平。",
-    icon: <Mic2 size={20} aria-hidden="true" />,
+    icon: "feature.microphone",
     panel: "monitor",
     section: "calibration",
   },
@@ -306,7 +281,7 @@ const paneItems: SettingsPane[] = [
     group: "environment",
     label: "报告统计",
     description: "管理噪音报告、实时监控和统计数据。",
-    icon: <FileText size={20} aria-hidden="true" />,
+    icon: "feature.noiseReport",
     panel: "monitor",
     section: "reports",
   },
@@ -315,7 +290,7 @@ const paneItems: SettingsPane[] = [
     group: "content",
     label: "刷新策略",
     description: "设置自习页面语录自动刷新节奏。",
-    icon: <RotateCw size={20} aria-hidden="true" />,
+    icon: "feature.sync",
     panel: "quotes",
     section: "refresh",
   },
@@ -324,7 +299,7 @@ const paneItems: SettingsPane[] = [
     group: "content",
     label: "显示效果",
     description: "自定义语录出现时的动画与打字速度。",
-    icon: <Sparkles size={20} aria-hidden="true" />,
+    icon: "appearance.effects",
     panel: "quotes",
     section: "effects",
   },
@@ -333,7 +308,7 @@ const paneItems: SettingsPane[] = [
     group: "content",
     label: "语录渠道",
     description: "管理语录来源、权重、分类和本地内容。",
-    icon: <MessageSquareText size={20} aria-hidden="true" />,
+    icon: "feature.quotes",
     panel: "quotes",
     section: "channels",
   },
@@ -342,7 +317,7 @@ const paneItems: SettingsPane[] = [
     group: "system",
     label: "时间校准",
     description: "启用外部时间源和手动偏移修正。",
-    icon: <Wifi size={20} aria-hidden="true" />,
+    icon: "feature.timeCalibration",
     panel: "basic",
     section: "timeSync",
   },
@@ -351,7 +326,7 @@ const paneItems: SettingsPane[] = [
     group: "system",
     label: "项目信息",
     description: "查看版本、授权信息和项目链接。",
-    icon: <Info size={20} aria-hidden="true" />,
+    icon: "feature.about",
     panel: "about",
     section: "project",
   },
@@ -360,7 +335,7 @@ const paneItems: SettingsPane[] = [
     group: "system",
     label: "设置数据",
     description: "导入导出设置、清理缓存和重置本地数据。",
-    icon: <Database size={20} aria-hidden="true" />,
+    icon: "feature.data",
     panel: "data",
     section: "data",
   },
@@ -369,7 +344,7 @@ const paneItems: SettingsPane[] = [
     group: "system",
     label: "错误与调试",
     description: "控制错误弹窗、记录方式和调试摘要。",
-    icon: <ShieldAlert size={20} aria-hidden="true" />,
+    icon: "feature.diagnostics",
     panel: "about",
     section: "debug",
   },
@@ -627,13 +602,14 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
       >
         <header className={styles.drawerHeader}>
           <div className={styles.drawerTitle}>
-            <SlidersHorizontal size={18} aria-hidden="true" />
+            <AppIcon name="feature.settings" size="lg" />
             <h1>设置</h1>
           </div>
           <IconButton
             className={styles.drawerClose}
             aria-label="关闭设置"
-            icon={<X size={18} aria-hidden="true" />}
+            icon="action.close"
+            size="sm"
             disabled={settingsBusy}
             onClick={handleClose}
           />
@@ -655,15 +631,17 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
                       disabled={settingsBusy}
                       onClick={() => handleDesktopGroupToggle(group.value)}
                     >
-                      <span className={styles.groupIcon}>{group.icon}</span>
+                      <span className={styles.groupIcon}>
+                        <AppIcon name={group.icon} size="lg" />
+                      </span>
                       <span className={styles.groupText}>
                         <strong>{group.label}</strong>
                         <small>{group.description}</small>
                       </span>
-                      <ChevronDown
+                      <AppIcon
                         className={expanded ? styles.groupChevronActive : styles.groupChevron}
-                        size={15}
-                        aria-hidden="true"
+                        name="action.expand"
+                        size="sm"
                       />
                     </button>
                     <div
@@ -685,7 +663,7 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
                               disabled={settingsBusy}
                               onClick={() => handlePaneChange(pane.value)}
                             >
-                              {pane.icon}
+                              <AppIcon name={pane.icon} size="xl" />
                               <span>{pane.label}</span>
                             </button>
                           );
@@ -713,7 +691,7 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
                 const active = group.value === activeGroup;
                 const expanded = group.value === compactMenuGroup;
                 return (
-                  <button
+                  <IconButton
                     key={group.value}
                     data-settings-group={group.value}
                     className={
@@ -723,17 +701,16 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
                           ? styles.compactGroupActive
                           : styles.compactGroup
                     }
-                    type="button"
                     aria-label={group.label}
                     aria-current={active ? "page" : undefined}
                     aria-expanded={expanded}
                     aria-controls={expanded ? "settings-compact-submenu" : undefined}
-                    title={group.label}
+                    icon={group.icon}
+                    size="lg"
+                    variant="ghost"
                     disabled={settingsBusy}
                     onClick={() => handleCompactMenuOpen(group.value)}
-                  >
-                    {group.icon}
-                  </button>
+                  />
                 );
               })}
             </nav>
@@ -776,7 +753,7 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
                         disabled={settingsBusy}
                         onClick={() => handlePaneChange(pane.value)}
                       >
-                        {pane.icon}
+                        <AppIcon name={pane.icon} size="lg" />
                         <span>{pane.label}</span>
                       </button>
                     );

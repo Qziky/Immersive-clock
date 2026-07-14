@@ -1,5 +1,4 @@
-import { Minus, Plus } from "lucide-react";
-
+import { IconButton } from "./IconButton";
 import styles from "./primitives.module.css";
 
 export interface StepperProps {
@@ -31,27 +30,27 @@ export function Stepper({
 
   return (
     <div className={styles.stepper} role="group" aria-label={label}>
-      <button
+      <IconButton
         className={styles.stepperButton}
-        type="button"
-        onClick={decrease}
-        disabled={value <= min}
         aria-label="减少"
-      >
-        <Minus size={14} aria-hidden="true" />
-      </button>
+        disabled={value <= min}
+        icon="action.decrement"
+        size="sm"
+        variant="ghost"
+        onClick={decrease}
+      />
       <span className={styles.stepperValue} aria-live="polite">
         {displayValue}
       </span>
-      <button
+      <IconButton
         className={styles.stepperButton}
-        type="button"
-        onClick={increase}
-        disabled={value >= max}
         aria-label="增加"
-      >
-        <Plus size={14} aria-hidden="true" />
-      </button>
+        disabled={value >= max}
+        icon="action.increment"
+        size="sm"
+        variant="ghost"
+        onClick={increase}
+      />
     </div>
   );
 }

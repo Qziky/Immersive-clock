@@ -46,15 +46,22 @@ describe("MessagePopup compatibility adapter", () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
-  it("renders the legacy custom icon through Toast", () => {
+  it("renders a semantic icon through Toast", () => {
     render(
       <MessagePopup
         isOpen
         title="带图标通知"
-        icon={<span data-testid="legacy-icon">旧图标</span>}
+        icon="status.success"
       />
     );
 
-    expect(screen.getByTestId("legacy-icon")).toBeInTheDocument();
+    expect(document.querySelector('[data-app-icon="status.success"]')).toBeInTheDocument();
+  });
+
+  it("treats cooling reminders as informational notifications", () => {
+    render(<MessagePopup isOpen title="降温提醒" type="coolingReminder" />);
+
+    expect(screen.getByRole("status")).toBeInTheDocument();
+    expect(document.querySelector('[data-app-icon="status.info"]')).toBeInTheDocument();
   });
 });

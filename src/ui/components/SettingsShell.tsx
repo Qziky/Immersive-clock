@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 
+import { AppIcon, type AppIconName } from "../icons/AppIcon";
 import { classNames } from "../utils/classNames";
 
 import styles from "./primitives.module.css";
@@ -7,7 +8,7 @@ import styles from "./primitives.module.css";
 export interface SettingsNavItem<TValue extends string = string> {
   value: TValue;
   label: string;
-  icon?: ReactNode;
+  icon?: AppIconName;
 }
 
 export interface SettingsShellProps<TValue extends string = string> {
@@ -43,7 +44,7 @@ export function SettingsShell<TValue extends string = string>({
                 aria-current={active ? "page" : undefined}
                 onClick={() => onItemChange(item.value)}
               >
-                {item.icon}
+                {item.icon && <AppIcon name={item.icon} />}
                 <span>{item.label}</span>
               </button>
             );

@@ -26,10 +26,10 @@ export function resolveWeatherIconCode(weatherText: string, hour = new Date().ge
   if (weatherText.includes("阴")) return `04${suffix}`;
   if (weatherText.includes("多云")) return `03${suffix}`;
   if (weatherText.includes("云")) return `02${suffix}`;
+  if (weatherText.includes("雷")) return `11${suffix}`;
   if (weatherText.includes("雨")) return `09${suffix}`;
   if (weatherText.includes("雪")) return `13${suffix}`;
   if (weatherText.includes("雾") || weatherText.includes("霾")) return `50${suffix}`;
-  if (weatherText.includes("雷")) return `11${suffix}`;
   return `01${suffix}`;
 }
 

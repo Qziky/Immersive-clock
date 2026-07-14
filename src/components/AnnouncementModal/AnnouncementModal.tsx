@@ -1,4 +1,3 @@
-import { AlertCircle, Bell, FileText, MessageSquareText, RefreshCw } from "lucide-react";
 import { marked } from "marked";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 
@@ -9,11 +8,13 @@ import {
   MarkdownDocument,
 } from "../../types";
 import {
+  AppIcon,
   Button as FormButton,
   Checkbox as FormCheckbox,
   Inline as FormButtonGroup,
   Modal,
   Tabs,
+  type AppIconName,
 } from "../../ui";
 import { setDontShowForWeek } from "../../utils/announcementStorage";
 import { logger } from "../../utils/logger";
@@ -41,10 +42,10 @@ const ANNOUNCEMENT_TABS: AnnouncementTabConfig[] = [
   },
 ];
 
-const ANNOUNCEMENT_TAB_ICONS: Record<AnnouncementTab, React.ReactNode> = {
-  announcement: <Bell size={16} aria-hidden="true" />,
-  changelog: <FileText size={16} aria-hidden="true" />,
-  feedback: <MessageSquareText size={16} aria-hidden="true" />,
+const ANNOUNCEMENT_TAB_ICONS: Record<AnnouncementTab, AppIconName> = {
+  announcement: "feature.announcement",
+  changelog: "feature.changelog",
+  feedback: "feature.feedback",
 };
 
 /**
@@ -225,11 +226,7 @@ const AnnouncementModal: React.FC<AnnouncementModalProps> = ({
               id: `announcement-tab-${tab.key}`,
               ariaControls: `announcement-panel-${tab.key}`,
               label: tab.title,
-              icon: (
-                <span className={styles.tabIcon} aria-hidden="true">
-                  {ANNOUNCEMENT_TAB_ICONS[tab.key]}
-                </span>
-              ),
+              icon: ANNOUNCEMENT_TAB_ICONS[tab.key],
             }))}
             activeKey={activeTab}
             onChange={(key) => handleTabChange(key as AnnouncementTab)}
@@ -272,12 +269,12 @@ const AnnouncementModal: React.FC<AnnouncementModalProps> = ({
             </div>
           ) : currentDocument?.loading ? (
             <div className={styles.loading}>
-              <RefreshCw className={styles.loadingSpinner} size={28} aria-hidden="true" />
+              <AppIcon className={styles.loadingSpinner} name="status.loading" size="display" />
               <p>正在加载{currentTabConfig?.title}...</p>
             </div>
           ) : currentDocument?.error ? (
             <div className={styles.error} role="alert">
-              <AlertCircle size={28} aria-hidden="true" />
+              <AppIcon name="status.error" size="display" />
               <p>加载失败：{currentDocument.error}</p>
               <FormButton
                 onClick={() => {

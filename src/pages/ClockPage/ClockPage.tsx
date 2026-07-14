@@ -15,7 +15,7 @@ import { useAppState, useAppDispatch } from "../../contexts/AppContext";
 import { useAppearance } from "../../contexts/AppearanceContext";
 import type { AppMode } from "../../types";
 import type { MessagePopupOpenDetail, MessagePopupType } from "../../types/messagePopup";
-import { useFeedback, type ToastVariant } from "../../ui";
+import { IconButton, useFeedback, type ToastVariant } from "../../ui";
 import { appearanceBackgroundToCss } from "../../utils/appearanceModel";
 import { getModeFromPathname, MODE_ROUTE_PATHS } from "../../utils/modeRoutes";
 import { startTimeSyncManager } from "../../utils/timeSync";
@@ -34,7 +34,7 @@ function getPopupToastVariant(type: MessagePopupType): ToastVariant {
     case "weatherAlert":
       return "warning";
     case "coolingReminder":
-      return "success";
+      return "info";
     default:
       return "info";
   }
@@ -417,7 +417,7 @@ export function ClockPage() {
         {/* 仅在时钟页面显示的左下角指引按钮 */}
         {mode === "clock" && (
           <div className={styles.bottomTools}>
-            <button
+            <IconButton
               className={styles.tourButton}
               onClick={() => {
                 startTour(true, {
@@ -428,11 +428,11 @@ export function ClockPage() {
                 });
               }}
               title="重播新手指引"
-              type="button"
               aria-label="重播新手指引"
-            >
-              ?
-            </button>
+              icon="status.help"
+              size="sm"
+              variant="ghost"
+            />
           </div>
         )}
 

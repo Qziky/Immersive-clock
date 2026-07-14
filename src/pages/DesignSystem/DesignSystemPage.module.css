@@ -171,6 +171,112 @@
   display: inline-block;
 }
 
+.iconScale {
+  display: grid;
+  gap: var(--ui-space-2);
+  grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+}
+
+.iconSemanticGrid {
+  display: grid;
+  gap: var(--ui-space-2);
+  grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));
+}
+
+.iconScaleItem,
+.iconSemanticItem,
+.iconToneNeutral,
+.iconToneAccent,
+.iconToneSuccess,
+.iconToneWarning,
+.iconToneDanger {
+  align-items: center;
+  display: inline-flex;
+  gap: var(--ui-space-2);
+  min-width: 0;
+}
+
+.iconScaleItem,
+.iconSemanticItem {
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-md);
+  min-height: 44px;
+  padding: var(--ui-space-2) var(--ui-space-3);
+}
+
+.iconSemanticItem {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+}
+
+.iconScaleItem code,
+.iconSemanticItem code {
+  color: var(--ui-color-text-muted);
+  font-size: var(--ui-font-size-xs);
+  margin-left: auto;
+  overflow-wrap: anywhere;
+}
+
+.iconScaleItem span,
+.iconScaleItem code {
+  white-space: nowrap;
+}
+
+.iconSemanticItem code {
+  grid-column: 1 / -1;
+  justify-self: start;
+  margin-left: 0;
+}
+
+.iconToneNeutral {
+  color: var(--ui-color-text-muted);
+}
+
+.iconSlotCard {
+  align-content: start;
+  display: grid;
+  gap: 14px;
+  grid-column: 1 / -1;
+}
+
+.iconSlotCard h3 {
+  margin: 0;
+}
+
+.iconSlotMatrix {
+  display: grid;
+  gap: var(--ui-space-3);
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.iconSlotItem {
+  align-content: start;
+  display: grid;
+  gap: var(--ui-space-2);
+  min-width: 0;
+}
+
+.iconSlotItem > code {
+  color: var(--ui-color-text-muted);
+  font-size: var(--ui-font-size-xs);
+}
+
+.iconToneAccent {
+  color: var(--ui-color-accent);
+}
+
+.iconToneSuccess {
+  color: var(--ui-color-success);
+}
+
+.iconToneWarning {
+  color: var(--ui-color-warning);
+}
+
+.iconToneDanger {
+  color: var(--ui-color-danger);
+}
+
 .motionTokenGrid {
   display: grid;
   gap: 10px;
@@ -255,5 +361,15 @@
 
   .motionTokenGrid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .iconSlotMatrix {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 520px) {
+  .iconSlotMatrix {
+    grid-template-columns: minmax(0, 1fr);
   }
 }

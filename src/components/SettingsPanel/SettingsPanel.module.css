@@ -70,7 +70,6 @@
 }
 
 .drawerTitle svg {
-  color: var(--ui-color-accent);
   flex: 0 0 auto;
 }
 
@@ -83,8 +82,6 @@
 
 .drawerClose {
   flex: 0 0 auto;
-  height: 32px;
-  width: 32px;
 }
 
 .settingsWorkspace {
@@ -247,9 +244,7 @@
 .sideNavItem svg,
 .sideNavItemActive svg {
   flex: 0 0 auto;
-  height: 17px;
   transition: transform var(--ui-transition-fast);
-  width: 17px;
 }
 
 .sideNavItem:hover {
@@ -423,11 +418,6 @@
     padding-right: max(8px, env(safe-area-inset-right));
   }
 
-  .drawerClose {
-    height: 44px;
-    width: 44px;
-  }
-
   .settingsWorkspace {
     --settings-compact-rail-width: 64px;
 
@@ -477,8 +467,7 @@
     color: var(--ui-color-text-muted);
     cursor: pointer;
     display: flex;
-    flex: 0 0 44px;
-    height: 44px;
+    flex: 0 0 auto;
     justify-content: center;
     padding: 0;
     transition:
@@ -486,7 +475,6 @@
       border-color var(--ui-transition-fast),
       color var(--ui-transition-fast),
       transform var(--ui-transition-fast);
-    width: 44px;
   }
 
   .compactGroup:active,
@@ -510,8 +498,6 @@
   .compactGroupActive svg,
   .compactGroupOpen svg {
     flex: 0 0 auto;
-    height: 20px;
-    width: 20px;
   }
 
   .compactMenuScrim {
@@ -632,12 +618,6 @@
     background: var(--ui-color-accent-soft);
     border-color: rgba(47, 236, 198, 0.2);
     color: var(--ui-color-accent);
-  }
-
-  .compactPaneItem svg,
-  .compactPaneItemActive svg {
-    height: 18px;
-    width: 18px;
   }
 
   .contentHeader {

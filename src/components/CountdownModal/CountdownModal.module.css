@@ -70,15 +70,6 @@
   font-weight: 600;
 }
 
-.adjustButton {
-  border-radius: var(--ui-radius-md) !important;
-  height: 44px !important;
-  min-height: 44px !important;
-  min-width: 44px !important;
-  padding: 0 !important;
-  width: 44px !important;
-}
-
 .adjustButton:hover:not(:disabled) {
   background: var(--ui-glass-surface-soft);
 }
@@ -163,11 +154,6 @@
 
   .timeValue {
     font-size: 28px;
-  }
-
-  .adjustButton {
-    height: 44px !important;
-    min-height: 44px !important;
   }
 
   .presetsGrid {

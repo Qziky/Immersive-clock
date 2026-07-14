@@ -1,5 +1,6 @@
-import type { HTMLAttributes, ReactNode } from "react";
+import type { HTMLAttributes } from "react";
 
+import { AppIcon, type AppIconName } from "../icons/AppIcon";
 import { classNames } from "../utils/classNames";
 
 import styles from "./primitives.module.css";
@@ -8,7 +9,7 @@ export type BadgeVariant = "neutral" | "accent" | "success" | "warning" | "dange
 
 export interface BadgeProps extends HTMLAttributes<HTMLSpanElement> {
   variant?: BadgeVariant;
-  icon?: ReactNode;
+  icon?: AppIconName;
 }
 
 const variantClassMap: Record<BadgeVariant, string> = {
@@ -22,7 +23,11 @@ const variantClassMap: Record<BadgeVariant, string> = {
 export function Badge({ variant = "neutral", icon, children, className, ...props }: BadgeProps) {
   return (
     <span className={classNames(styles.badge, variantClassMap[variant], className)} {...props}>
-      {icon && <span className={styles.badgeIcon}>{icon}</span>}
+      {icon && (
+        <span className={styles.badgeIcon}>
+          <AppIcon name={icon} size="sm" />
+        </span>
+      )}
       {children}
     </span>
   );

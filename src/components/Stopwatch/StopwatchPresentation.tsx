@@ -1,5 +1,6 @@
 import type { HTMLAttributes } from "react";
 
+import { AppIcon } from "../../ui";
 import { classNames } from "../../ui/utils/classNames";
 import { PresentationContent, type PresentationAttributes } from "../PresentationContent";
 
@@ -26,7 +27,7 @@ export function StopwatchPresentation({
   active,
   contentAttributes,
   milestoneAttributes,
-  milestoneText = "🎉 已超过1小时！",
+  milestoneText = "已超过1小时！",
   placeholderAttributes,
   placeholderText = "00:00:00",
   rootAttributes,
@@ -69,7 +70,8 @@ export function StopwatchPresentation({
         ) : null}
         {showMilestone ? (
           <div {...milestoneProps} className={classNames(styles.milestone, milestoneClassName)}>
-            {milestoneText}
+            <AppIcon name="status.milestone" size="xl" />
+            <span>{milestoneText}</span>
           </div>
         ) : null}
       </PresentationContent>

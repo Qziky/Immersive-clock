@@ -153,6 +153,25 @@ export interface CountdownItem {
   order: number;
 }
 
+/** 中央信息来源。 */
+export type StudyInfoSource = "progress" | "nextSchedule" | "rain" | "custom";
+
+/** 中央信息轮播条目配置。内置来源不需要 text，自定义来源必须提供 text。 */
+export interface StudyInfoItemConfig {
+  id: string;
+  source: StudyInfoSource;
+  enabled: boolean;
+  order: number;
+  text?: string;
+}
+
+/** 自习页顶部中央信息轮播设置。 */
+export interface StudyInfoCarouselSettings {
+  autoRotate: boolean;
+  intervalSec: number;
+  items: StudyInfoItemConfig[];
+}
+
 /**
  * 自习状态接口
  */
@@ -171,6 +190,8 @@ export interface StudyState {
   countdownItems?: CountdownItem[];
   /** 轮播间隔（秒，仅多事件模式下使用） */
   carouselIntervalSec?: number;
+  /** 顶部中央上下文信息轮播配置 */
+  infoCarousel?: StudyInfoCarouselSettings;
   /** 天气预警弹窗开关 */
   weatherAlertEnabled?: boolean;
   /** 分钟级降水提醒弹窗开关 */
@@ -253,6 +274,7 @@ export type AppAction =
   | { type: "SET_STUDY_DISPLAY"; payload: StudyDisplaySettings }
   | { type: "SET_COUNTDOWN_ITEMS"; payload: CountdownItem[] }
   | { type: "SET_CAROUSEL_INTERVAL"; payload: number }
+  | { type: "SET_INFO_CAROUSEL"; payload: StudyInfoCarouselSettings }
   | { type: "SET_WEATHER_ALERT_ENABLED"; payload: boolean }
   | { type: "SET_MINUTELY_PRECIP_ENABLED"; payload: boolean }
   | { type: "SET_ERROR_POPUP_ENABLED"; payload: boolean }

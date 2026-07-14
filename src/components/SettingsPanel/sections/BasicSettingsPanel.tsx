@@ -1,23 +1,18 @@
-import {
-  CalendarClock,
-  CalendarDays,
-  CheckCircle2,
-  Clock3,
-  CloudSun,
-  Eye,
-  FileText,
-  RotateCw,
-  TimerReset,
-  Wifi,
-} from "lucide-react";
 import React, { useEffect, useMemo, useState } from "react";
 
 import { useAppDispatch, useAppState } from "../../../contexts/AppContext";
 import { AppMode, CountdownItem } from "../../../types";
-import type { StudyDisplaySettings, StudyTimeProgressMode } from "../../../types";
+import type {
+  StudyDisplaySettings,
+  StudyInfoCarouselSettings,
+  StudyInfoItemConfig,
+  StudyInfoSource,
+  StudyTimeProgressMode,
+} from "../../../types";
 import {
   Button as FormButton,
   FormSection,
+  IconButton,
   InfoPanel,
   Inline as FormButtonGroup,
   Input as FormInput,
@@ -28,9 +23,17 @@ import {
   Slider as FormSlider,
   StatusPill,
   Switch as FormSwitch,
+  type AppIconName,
 } from "../../../ui";
 import {
+  consumeStudyInfoLimitAdjustedNotice,
   getAppSettings,
+  getDefaultStudyInfoCarousel,
+  MAX_STUDY_INFO_ITEMS,
+  MAX_STUDY_INFO_INTERVAL_SEC,
+  MAX_STUDY_INFO_TEXT_LENGTH,
+  MIN_STUDY_INFO_INTERVAL_SEC,
+  normalizeStudyInfoCarousel,
   updateGeneralSettings,
   updateStudySettings,
   updateTimeSyncSettings,
@@ -81,6 +84,11 @@ export const BasicSettingsPanel: React.FC<BasicSettingsPanelProps> = ({
   const [carouselIntervalSec, setCarouselIntervalSec] = useState<number>(
     study.carouselIntervalSec ?? 6
   );
+  // 顶部中央信息调度区草稿（与旧的多事件倒计时轮播间隔相互独立）
+  const [draftInfoCarousel, setDraftInfoCarousel] = useState<StudyInfoCarouselSettings>(() =>
+    normalizeStudyInfoCarousel(study.infoCarousel)
+  );
+  const [showInfoLimitAdjustedNotice] = useState(consumeStudyInfoLimitAdjustedNotice);
 
   // 自习组件显示草稿（时间始终显示，不提供开关）
   const defaultDisplay = useMemo<StudyDisplaySettings>(
@@ -111,6 +119,112 @@ export const BasicSettingsPanel: React.FC<BasicSettingsPanelProps> = ({
       }>,
     [draftDisplay.showStatusBar]
   );
+
+  const enabledInfoCount = draftInfoCarousel.items.filter(
+    (item) => item.enabled && (item.source !== "custom" || Boolean(item.text?.trim()))
+  ).length;
+
+  const updateInfoItems = (items: StudyInfoItemConfig[]) => {
+    setDraftInfoCarousel((current) => ({ ...current, items }));
+  };
+
+  const updateInfoItem = (id: string, patch: Partial<StudyInfoItemConfig>) => {
+    updateInfoItems(
+      draftInfoCarousel.items.map((item) => (item.id === id ? { ...item, ...patch } : item))
+    );
+  };
+
+  const setInfoItemEnabled = (id: string, enabled: boolean) => {
+    const current = draftInfoCarousel.items.find((item) => item.id === id);
+    const becomesEffective = current?.source !== "custom" || Boolean(current.text?.trim());
+    if (
+      !current ||
+      (enabled && !current.enabled && becomesEffective && enabledInfoCount >= MAX_STUDY_INFO_ITEMS)
+    ) {
+      return;
+    }
+    updateInfoItem(id, { enabled });
+  };
+
+  const updateCustomInfoText = (id: string, text: string) => {
+    const current = draftInfoCarousel.items.find((item) => item.id === id);
+    if (!current || current.source !== "custom") return;
+    const becomesEffective = current.enabled && !current.text?.trim() && Boolean(text.trim());
+    updateInfoItem(id, {
+      text,
+      ...(becomesEffective && enabledInfoCount >= MAX_STUDY_INFO_ITEMS ? { enabled: false } : {}),
+    });
+  };
+
+  const addCustomInfoItem = () => {
+    if (enabledInfoCount >= MAX_STUDY_INFO_ITEMS) return;
+    const existingIds = new Set(draftInfoCarousel.items.map((item) => item.id));
+    let suffix = draftInfoCarousel.items.length + 1;
+    let id = `custom-${Date.now()}-${suffix}`;
+    while (existingIds.has(id)) {
+      suffix += 1;
+      id = `custom-${Date.now()}-${suffix}`;
+    }
+    updateInfoItems([
+      ...draftInfoCarousel.items,
+      {
+        id,
+        source: "custom",
+        enabled: true,
+        order: draftInfoCarousel.items.length,
+        text: "",
+      },
+    ]);
+  };
+
+  const removeCustomInfoItem = (id: string) => {
+    updateInfoItems(
+      draftInfoCarousel.items
+        .filter((item) => item.id !== id)
+        .map((item, index) => ({ ...item, order: index }))
+    );
+  };
+
+  const moveCustomInfoItem = (id: string, direction: -1 | 1) => {
+    const items = draftInfoCarousel.items;
+    const customIndexes = items.reduce<number[]>((indexes, item, index) => {
+      if (item.source === "custom") indexes.push(index);
+      return indexes;
+    }, []);
+    const currentIndex = customIndexes.indexOf(items.findIndex((item) => item.id === id));
+    const targetIndex = currentIndex + direction;
+    if (currentIndex < 0 || targetIndex < 0 || targetIndex >= customIndexes.length) return;
+    const next = [...items];
+    const sourceIndex = customIndexes[currentIndex];
+    const destinationIndex = customIndexes[targetIndex];
+    [next[sourceIndex], next[destinationIndex]] = [next[destinationIndex], next[sourceIndex]];
+    updateInfoItems(next.map((item, itemIndex) => ({ ...item, order: itemIndex })));
+  };
+
+  const infoSourceMeta: Record<
+    Exclude<StudyInfoSource, "custom">,
+    {
+      title: string;
+      description: string;
+      icon: AppIconName;
+    }
+  > = {
+    progress: {
+      title: "当前进度",
+      description: "显示当前自习节奏与剩余时间。",
+      icon: "feature.progress",
+    },
+    nextSchedule: {
+      title: "下一课时",
+      description: "在临近课时前提示即将开始的课程。",
+      icon: "feature.event",
+    },
+    rain: {
+      title: "短时降雨",
+      description: "显示分钟级预报中的将要下雨或正在下雨状态。",
+      icon: "feature.weatherPrecipitation",
+    },
+  };
 
   // 子分区保存注册
   const countdownSaveRef = React.useRef<() => void>(() => {});
@@ -204,6 +318,9 @@ export const BasicSettingsPanel: React.FC<BasicSettingsPanelProps> = ({
     setDraftCustomName(study.customName ?? "");
     setDraftCustomDate(study.customDate ?? "");
     setDraftDisplay({ ...(study.display || defaultDisplay), showTime: true });
+    setDraftInfoCarousel(
+      normalizeStudyInfoCarousel(study.infoCarousel ?? getDefaultStudyInfoCarousel())
+    );
 
     // 根据现有 countdownItems 推断模式。
     const items = study.countdownItems || [];
@@ -232,6 +349,7 @@ export const BasicSettingsPanel: React.FC<BasicSettingsPanelProps> = ({
     study.display,
     defaultDisplay,
     study.countdownItems,
+    study.infoCarousel,
   ]);
 
   // 注册保存动作：统一在父组件保存时派发
@@ -253,6 +371,11 @@ export const BasicSettingsPanel: React.FC<BasicSettingsPanelProps> = ({
 
       // 保存组件显示设置（强制时间显示）
       dispatch({ type: "SET_STUDY_DISPLAY", payload: { ...draftDisplay, showTime: true } });
+      // 保存顶部中央信息调度设置，归一化会过滤空白自定义条目并限制 20 条。
+      dispatch({
+        type: "SET_INFO_CAROUSEL",
+        payload: normalizeStudyInfoCarousel(draftInfoCarousel),
+      });
       // 保存轮播间隔；样式由 AppearanceProvider 统一管理。
       if (countdownMode === "multi") {
         dispatch({ type: "SET_CAROUSEL_INTERVAL", payload: carouselIntervalSec });
@@ -314,6 +437,7 @@ export const BasicSettingsPanel: React.FC<BasicSettingsPanelProps> = ({
     draftCustomName,
     draftCustomDate,
     draftDisplay,
+    draftInfoCarousel,
     carouselIntervalSec,
     dispatch,
     startupMode,
@@ -349,10 +473,9 @@ export const BasicSettingsPanel: React.FC<BasicSettingsPanelProps> = ({
 
       <FormSection title="启动设置" variant="plain" hidden={isSectionHidden("startup")}>
         <SettingItem
-          icon={<Clock3 size={18} />}
+          icon="mode.clock"
           title="启动时默认页面"
           description="该设置将在下次启动或刷新页面后生效。"
-          tone="accent"
         >
           <FormSegmented
             value={startupMode}
@@ -375,10 +498,9 @@ export const BasicSettingsPanel: React.FC<BasicSettingsPanelProps> = ({
         hidden={isSectionHidden("countdown")}
       >
         <SettingItem
-          icon={<TimerReset size={18} />}
+          icon="feature.countdown"
           title="倒计时模式"
           description="选择自习页面的倒计时来源与展示方式。"
-          tone="info"
         >
           <FormSegmented
             value={countdownMode}
@@ -393,10 +515,9 @@ export const BasicSettingsPanel: React.FC<BasicSettingsPanelProps> = ({
 
         {countdownMode === "multi" && (
           <SettingItem
-            icon={<RotateCw size={18} />}
+            icon="feature.carousel"
             title="轮播间隔"
             description="多事件模式下，每个倒计时项目停留的时间。"
-            tone="accent"
           >
             <FormSlider
               label="轮播间隔"
@@ -417,7 +538,7 @@ export const BasicSettingsPanel: React.FC<BasicSettingsPanelProps> = ({
               使用高考日期（6月7日）自动计算，目标年份保存后即时应用到倒计时。
             </InfoPanel>
             <SettingItem
-              icon={<CalendarClock size={18} />}
+              icon="feature.event"
               title="目标年份"
               description="用于计算下一次高考倒计时。"
             >
@@ -443,7 +564,7 @@ export const BasicSettingsPanel: React.FC<BasicSettingsPanelProps> = ({
           <>
             <SettingGrid columns={2}>
               <SettingItem
-                icon={<FileText size={18} />}
+                icon="feature.eventName"
                 title="事件名称"
                 description="显示在自习页倒计时标题处。"
               >
@@ -455,11 +576,7 @@ export const BasicSettingsPanel: React.FC<BasicSettingsPanelProps> = ({
                   placeholder="例如：期末考试"
                 />
               </SettingItem>
-              <SettingItem
-                icon={<CalendarDays size={18} />}
-                title="事件日期"
-                description="用于计算剩余天数。"
-              >
+              <SettingItem icon="feature.date" title="事件日期" description="用于计算剩余天数。">
                 <FormInput
                   label="日期"
                   type="date"
@@ -488,7 +605,7 @@ export const BasicSettingsPanel: React.FC<BasicSettingsPanelProps> = ({
       >
         <SettingGrid>
           <SettingItem
-            icon={<Eye size={18} />}
+            icon="feature.progress"
             title="计划进度"
             description="在顶部信息栏显示当前时间范围的进度。"
             control={
@@ -502,10 +619,9 @@ export const BasicSettingsPanel: React.FC<BasicSettingsPanelProps> = ({
             }
           />
           <SettingItem
-            icon={<CalendarClock size={18} />}
+            icon="feature.progress"
             title="进度模式"
             description="默认显示今日 24 小时进度，也可按课程表显示课时与课间进度。"
-            tone="info"
             disabled={!draftDisplay.showStatusBar}
           >
             <FormSegmented
@@ -521,7 +637,7 @@ export const BasicSettingsPanel: React.FC<BasicSettingsPanelProps> = ({
             />
           </SettingItem>
           <SettingItem
-            icon={<CloudSun size={18} />}
+            icon="feature.weather"
             title="天气"
             description="显示当前天气与温度信息。"
             control={
@@ -535,7 +651,7 @@ export const BasicSettingsPanel: React.FC<BasicSettingsPanelProps> = ({
             }
           />
           <SettingItem
-            icon={<Eye size={18} />}
+            icon="feature.noise"
             title="噪音监测"
             description="显示实时噪音状态与分贝信息。"
             control={
@@ -550,7 +666,7 @@ export const BasicSettingsPanel: React.FC<BasicSettingsPanelProps> = ({
             }
           />
           <SettingItem
-            icon={<TimerReset size={18} />}
+            icon="feature.countdown"
             title="倒计时"
             description="在自习页显示高考或自定义事件倒计时。"
             control={
@@ -564,7 +680,7 @@ export const BasicSettingsPanel: React.FC<BasicSettingsPanelProps> = ({
             }
           />
           <SettingItem
-            icon={<FileText size={18} />}
+            icon="feature.quotes"
             title="励志语录"
             description="显示语录渠道生成的提示文本。"
             control={
@@ -578,7 +694,7 @@ export const BasicSettingsPanel: React.FC<BasicSettingsPanelProps> = ({
             }
           />
           <SettingItem
-            icon={<CalendarDays size={18} />}
+            icon="feature.date"
             title="日期"
             description="在中央时间下方显示当前日期。"
             control={
@@ -595,20 +711,188 @@ export const BasicSettingsPanel: React.FC<BasicSettingsPanelProps> = ({
       </FormSection>
 
       <FormSection
+        title="中央信息"
+        variant="plain"
+        description="让顶部中央区域优先显示当前进度、下一课时、短时降雨和自定义消息。"
+        action={
+          <StatusPill tone={enabledInfoCount > 0 ? "success" : "warning"}>
+            {enabledInfoCount} / {MAX_STUDY_INFO_ITEMS} 条启用
+          </StatusPill>
+        }
+        hidden={isSectionHidden("display")}
+      >
+        {showInfoLimitAdjustedNotice && (
+          <InfoPanel tone="warning" title="已调整轮播上限">
+            原配置启用了超过 {MAX_STUDY_INFO_ITEMS}
+            条信息，超出部分已按内置来源优先和原有顺序关闭，消息内容仍保留。
+          </InfoPanel>
+        )}
+
+        <SettingItem
+          icon="feature.carousel"
+          title="自动轮播"
+          description="多个常规信息之间自动切换；临近课时或降雨提醒会自动优先显示。"
+          control={
+            <FormSwitch
+              checked={draftInfoCarousel.autoRotate}
+              onCheckedChange={(checked) =>
+                setDraftInfoCarousel((current) => ({ ...current, autoRotate: checked }))
+              }
+              aria-label="中央信息自动轮播"
+            />
+          }
+        />
+
+        <SettingItem
+          icon="feature.carousel"
+          title="轮播间隔"
+          description="仅影响常规信息；数值限制在 3 到 30 秒。"
+          disabled={!draftInfoCarousel.autoRotate}
+        >
+          <FormSlider
+            aria-label="信息轮播间隔"
+            label="信息轮播间隔"
+            min={MIN_STUDY_INFO_INTERVAL_SEC}
+            max={MAX_STUDY_INFO_INTERVAL_SEC}
+            step={1}
+            value={Math.max(
+              MIN_STUDY_INFO_INTERVAL_SEC,
+              Math.min(MAX_STUDY_INFO_INTERVAL_SEC, draftInfoCarousel.intervalSec)
+            )}
+            onChange={(value) =>
+              setDraftInfoCarousel((current) => ({
+                ...current,
+                intervalSec: Math.round(value),
+              }))
+            }
+            formatValue={(value) => `${Math.round(value)} 秒`}
+            rangeLabels={[`${MIN_STUDY_INFO_INTERVAL_SEC} 秒`, `${MAX_STUDY_INFO_INTERVAL_SEC} 秒`]}
+            disabled={!draftInfoCarousel.autoRotate}
+          />
+        </SettingItem>
+
+        <SettingItem
+          icon="appearance.preview"
+          title="内置信息来源"
+          description="关闭来源不会删除配置；重新启用后会恢复到轮播队列。"
+        />
+        <SettingGrid>
+          {draftInfoCarousel.items
+            .filter((item) => item.source !== "custom")
+            .map((item) => {
+              const meta = infoSourceMeta[item.source as Exclude<StudyInfoSource, "custom">];
+              return (
+                <SettingItem
+                  key={item.id}
+                  icon={meta.icon}
+                  title={meta.title}
+                  description={meta.description}
+                  control={
+                    <FormSwitch
+                      checked={item.enabled}
+                      onCheckedChange={(checked) => setInfoItemEnabled(item.id, checked)}
+                      aria-label={`启用${meta.title}`}
+                      disabled={!item.enabled && enabledInfoCount >= MAX_STUDY_INFO_ITEMS}
+                    />
+                  }
+                />
+              );
+            })}
+        </SettingGrid>
+
+        <SettingItem
+          icon="feature.message"
+          title={`自定义消息（${draftInfoCarousel.items.filter((item) => item.source === "custom").length} 条）`}
+          description={`最多 ${MAX_STUDY_INFO_ITEMS} 条有效轮播信息，每条最多 ${MAX_STUDY_INFO_TEXT_LENGTH} 个字。`}
+          control={
+            <FormButton
+              type="button"
+              variant="secondary"
+              size="sm"
+              icon="action.add"
+              onClick={addCustomInfoItem}
+              disabled={enabledInfoCount >= MAX_STUDY_INFO_ITEMS}
+              aria-label="添加消息"
+            >
+              添加消息
+            </FormButton>
+          }
+        />
+        <SettingGrid columns={1}>
+          {draftInfoCarousel.items
+            .map((item) => ({ item }))
+            .filter(({ item }) => item.source === "custom")
+            .map(({ item }, customIndex, customItems) => (
+              <SettingItem
+                key={item.id}
+                icon="feature.message"
+                title={`自定义消息 ${customIndex + 1}`}
+                description="空白消息不会进入实际轮播。"
+              >
+                <FormInput
+                  label="消息内容"
+                  value={item.text ?? ""}
+                  maxLength={MAX_STUDY_INFO_TEXT_LENGTH}
+                  placeholder="例如：记得完成今日复盘"
+                  onChange={(event) => updateCustomInfoText(item.id, event.target.value)}
+                />
+                <FormButtonGroup align="left" gap="sm" wrap={false}>
+                  <FormSwitch
+                    checked={item.enabled}
+                    onCheckedChange={(checked) => setInfoItemEnabled(item.id, checked)}
+                    aria-label={`启用自定义消息 ${customIndex + 1}`}
+                    disabled={!item.enabled && enabledInfoCount >= MAX_STUDY_INFO_ITEMS}
+                  />
+                  <IconButton
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    icon="action.moveUp"
+                    aria-label={`上移自定义消息 ${customIndex + 1}`}
+                    title="上移"
+                    onClick={() => moveCustomInfoItem(item.id, -1)}
+                    disabled={customIndex === 0}
+                  />
+                  <IconButton
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    icon="action.moveDown"
+                    aria-label={`下移自定义消息 ${customIndex + 1}`}
+                    title="下移"
+                    onClick={() => moveCustomInfoItem(item.id, 1)}
+                    disabled={customIndex === customItems.length - 1}
+                  />
+                  <IconButton
+                    type="button"
+                    variant="danger"
+                    size="sm"
+                    icon="action.delete"
+                    aria-label={`删除自定义消息 ${customIndex + 1}`}
+                    title="删除"
+                    onClick={() => removeCustomInfoItem(item.id)}
+                  />
+                </FormButtonGroup>
+              </SettingItem>
+            ))}
+        </SettingGrid>
+      </FormSection>
+
+      <FormSection
         title="时间与校时"
         variant="plain"
         description="按需启用外部时间源，并保留手动偏移修正。"
         hidden={isSectionHidden("timeSync")}
       >
         <SettingItem
-          icon={<Wifi size={18} />}
+          icon="feature.timeCalibration"
           title="校时来源"
           description="默认跟随本机时间；启用外部来源后会在保存时更新校时配置。"
-          tone={timeSyncEnabled ? "success" : "neutral"}
+          tone={timeSyncEnabled ? "accent" : "neutral"}
           control={
             <StatusPill
-              tone={timeSyncEnabled ? "success" : "neutral"}
-              icon={timeSyncEnabled ? <CheckCircle2 size={14} /> : <Clock3 size={14} />}
+              tone={timeSyncEnabled ? "accent" : "neutral"}
+              icon={timeSyncEnabled ? "status.selected" : "feature.time"}
             >
               {timeSyncEnabled ? timeSyncProviderLabel : "默认"}
             </StatusPill>
@@ -645,7 +929,7 @@ export const BasicSettingsPanel: React.FC<BasicSettingsPanelProps> = ({
           <>
             {timeSyncProvider === "httpDate" ? (
               <SettingItem
-                icon={<Wifi size={18} />}
+                icon="feature.timeSourceHttp"
                 title="HTTP Date URL"
                 description="读取响应头 Date 字段，同源路径可直接填写为 /。"
               >
@@ -658,7 +942,7 @@ export const BasicSettingsPanel: React.FC<BasicSettingsPanelProps> = ({
               </SettingItem>
             ) : timeSyncProvider === "timeApi" ? (
               <SettingItem
-                icon={<Wifi size={18} />}
+                icon="feature.timeSourceApi"
                 title="时间 API URL"
                 description="支持 epochMs、epochSeconds、unixtime 或 datetime 字段。"
               >
@@ -671,7 +955,7 @@ export const BasicSettingsPanel: React.FC<BasicSettingsPanelProps> = ({
               </SettingItem>
             ) : (
               <SettingItem
-                icon={<Wifi size={18} />}
+                icon="feature.timeSourceNtp"
                 title="NTP 服务"
                 description="桌面端通过 NTP Host 与端口同步网络时间。"
               >
@@ -702,7 +986,7 @@ export const BasicSettingsPanel: React.FC<BasicSettingsPanelProps> = ({
 
             <SettingGrid columns={2}>
               <SettingItem
-                icon={<Clock3 size={18} />}
+                icon="feature.time"
                 title="手动偏移"
                 description="以秒为单位微调最终生效时间。"
               >
@@ -720,7 +1004,7 @@ export const BasicSettingsPanel: React.FC<BasicSettingsPanelProps> = ({
                 />
               </SettingItem>
               <SettingItem
-                icon={<RotateCw size={18} />}
+                icon="feature.sync"
                 title="自动校时"
                 description="按固定间隔触发后台校时。"
                 control={
@@ -759,14 +1043,14 @@ export const BasicSettingsPanel: React.FC<BasicSettingsPanelProps> = ({
 
             <SettingGrid columns={2}>
               <MetricCard
-                icon={<Clock3 size={16} />}
+                icon="feature.time"
                 label="当前有效偏移"
                 value={timeSyncOffsetText}
                 meta="已保存配置"
                 tone={timeSyncStatus?.enabled ? "success" : "neutral"}
               />
               <MetricCard
-                icon={<RotateCw size={16} />}
+                icon="feature.sync"
                 label="上次校时"
                 value={timeSyncLastText}
                 meta={

@@ -1,7 +1,7 @@
-import { ChevronDown } from "lucide-react";
 import type { SelectHTMLAttributes } from "react";
 import { useId } from "react";
 
+import { AppIcon } from "../icons/AppIcon";
 import { classNames } from "../utils/classNames";
 
 import styles from "./primitives.module.css";
@@ -55,7 +55,7 @@ export function Select({ label, hint, error, options, className, id, ...props }:
             </option>
           ))}
         </select>
-        <ChevronDown className={styles.selectChevron} size={14} aria-hidden="true" />
+        <AppIcon className={styles.selectChevron} name="action.expand" size="sm" />
       </span>
       {error && (
         <span className={styles.errorText} id={errorId}>

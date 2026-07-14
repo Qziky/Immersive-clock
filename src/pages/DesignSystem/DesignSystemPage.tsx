@@ -1,20 +1,9 @@
-import {
-  Bell,
-  Check,
-  Clock3,
-  Command,
-  FileText,
-  Palette,
-  Search,
-  Settings,
-  SlidersHorizontal,
-  Sparkles,
-  Volume2,
-} from "lucide-react";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 
 import {
+  APP_ICON_SIZES,
   Alert,
+  AppIcon,
   Badge,
   Button,
   Card,
@@ -33,6 +22,7 @@ import {
   Progress,
   RadioGroup,
   Select,
+  SettingItem,
   SettingsShell,
   Slider,
   Stack,
@@ -44,6 +34,8 @@ import {
   Toast,
   Tooltip,
   VisuallyHidden,
+  type AppIconName,
+  type AppIconSize,
   type TimePickerValue,
 } from "../../ui";
 
@@ -51,6 +43,7 @@ import styles from "./DesignSystemPage.module.css";
 
 type ComponentSection =
   | "foundation"
+  | "icons"
   | "motion"
   | "actions"
   | "forms"
@@ -60,6 +53,7 @@ type ComponentSection =
 
 const navItems = [
   { value: "foundation", label: "设计基础" },
+  { value: "icons", label: "图标系统" },
   { value: "motion", label: "动效系统" },
   { value: "actions", label: "操作控件" },
   { value: "forms", label: "表单输入" },
@@ -85,6 +79,17 @@ const motionTokens = [
   ["exit", "180ms", "关闭退出"],
 ] as const;
 
+const iconSizes = Object.entries(APP_ICON_SIZES) as Array<[AppIconSize, number]>;
+
+const iconSemantics: Array<{ name: AppIconName; label: string }> = [
+  { name: "action.apply", label: "应用" },
+  { name: "action.sort", label: "排序" },
+  { name: "action.restoreSaved", label: "恢复" },
+  { name: "feature.weatherLive", label: "实时天气" },
+  { name: "feature.timeCalibration", label: "时间校准" },
+  { name: "feature.noiseReport", label: "噪音报告" },
+];
+
 const dropdownGroups = [
   {
     label: "页面",
@@ -105,7 +110,9 @@ const dropdownGroups = [
 ];
 
 function DesignSystemPage() {
+  const contentRef = useRef<HTMLElement>(null);
   const [activeSection, setActiveSection] = useState<ComponentSection>("foundation");
+  const [iconSlotTabValue, setIconSlotTabValue] = useState("general");
   const [tabValue, setTabValue] = useState("base");
   const [switchValue, setSwitchValue] = useState(true);
   const [checkboxValue, setCheckboxValue] = useState(true);
@@ -128,16 +135,24 @@ function DesignSystemPage() {
 
   const settingsItems = useMemo(
     () => [
-      { value: "general", label: "基础", icon: <Settings size={16} aria-hidden="true" /> },
-      { value: "display", label: "显示", icon: <Palette size={16} aria-hidden="true" /> },
-      { value: "audio", label: "声音", icon: <Volume2 size={16} aria-hidden="true" /> },
+      { value: "general", label: "基础", icon: "action.configure" as const },
+      { value: "display", label: "显示", icon: "feature.appearance" as const },
+      { value: "audio", label: "声音", icon: "feature.audio" as const },
     ],
     []
   );
 
   const scrollToSection = (section: ComponentSection) => {
     setActiveSection(section);
-    document.getElementById(section)?.scrollIntoView({ block: "start", behavior: "smooth" });
+    const content = contentRef.current;
+    const target = document.getElementById(section);
+    if (!content || !target) return;
+    const contentBounds = content.getBoundingClientRect();
+    const targetBounds = target.getBoundingClientRect();
+    content.scrollTo({
+      behavior: "smooth",
+      top: content.scrollTop + targetBounds.top - contentBounds.top,
+    });
   };
 
   return (
@@ -164,7 +179,7 @@ function DesignSystemPage() {
         </Stack>
       </aside>
 
-      <section className={styles.content}>
+      <section ref={contentRef} className={styles.content}>
         <header className={styles.header}>
           <Stack gap="xs">
             <span className={styles.kicker}>Immersive Clock UI</span>
@@ -173,10 +188,10 @@ function DesignSystemPage() {
           </Stack>
           <Inline justify="flex-end">
             <Tooltip content="搜索入口后续由业务组合实现">
-              <IconButton icon={<Search size={16} />} aria-label="搜索" />
+              <IconButton icon="action.search" aria-label="搜索" />
             </Tooltip>
-            <IconButton icon={<SlidersHorizontal size={16} />} aria-label="筛选" />
-            <Button size="sm" variant="primary" icon={<Check size={14} />}>
+            <IconButton icon="feature.settings" aria-label="设置" />
+            <Button size="sm" variant="primary" icon="action.apply">
               已精简
             </Button>
           </Inline>
@@ -221,6 +236,104 @@ function DesignSystemPage() {
           </Grid>
         </section>
 
+        <section className={styles.section} id="icons">
+          <SectionHeader title="图标系统" meta="semantic registry / size / state" />
+          <Grid minColumnWidth={320}>
+            <Card className={styles.cardStack}>
+              <h3>尺寸令牌</h3>
+              <div className={styles.iconScale}>
+                {iconSizes.map(([size, pixels]) => (
+                  <div className={styles.iconScaleItem} key={size}>
+                    <AppIcon name="action.search" size={size} />
+                    <span>{size}</span>
+                    <code>{pixels}px</code>
+                  </div>
+                ))}
+              </div>
+            </Card>
+            <Card className={styles.cardStack}>
+              <h3>语义映射</h3>
+              <div className={styles.iconSemanticGrid}>
+                {iconSemantics.map((item) => (
+                  <div className={styles.iconSemanticItem} key={item.name}>
+                    <AppIcon name={item.name} size="lg" />
+                    <span>{item.label}</span>
+                    <code>{item.name}</code>
+                  </div>
+                ))}
+              </div>
+            </Card>
+            <Card className={styles.cardStack}>
+              <h3>颜色与状态</h3>
+              <Inline>
+                <span className={styles.iconToneNeutral}>
+                  <AppIcon name="action.search" />
+                  普通
+                </span>
+                <span className={styles.iconToneAccent}>
+                  <AppIcon name="status.selected" />
+                  选中
+                </span>
+                <span className={styles.iconToneSuccess}>
+                  <AppIcon name="status.success" />
+                  成功
+                </span>
+                <span className={styles.iconToneWarning}>
+                  <AppIcon name="status.warning" />
+                  警告
+                </span>
+                <span className={styles.iconToneDanger}>
+                  <AppIcon name="action.delete" />
+                  危险
+                </span>
+              </Inline>
+            </Card>
+            <Card className={styles.iconSlotCard}>
+              <h3>宿主槽位矩阵</h3>
+              <div className={styles.iconSlotMatrix}>
+                <div className={styles.iconSlotItem}>
+                  <code>Button</code>
+                  <Button size="sm" variant="primary" icon="action.apply">
+                    应用
+                  </Button>
+                </div>
+                <div className={styles.iconSlotItem}>
+                  <code>IconButton</code>
+                  <IconButton aria-label="配置" icon="action.configure" size="sm" />
+                </div>
+                <div className={styles.iconSlotItem}>
+                  <code>Tabs</code>
+                  <Tabs
+                    label="图标槽位标签页"
+                    value={iconSlotTabValue}
+                    onChange={setIconSlotTabValue}
+                    scrollable={false}
+                    size="sm"
+                    items={[
+                      { value: "general", label: "常规", icon: "feature.settings" },
+                      { value: "weather", label: "天气", icon: "feature.weather" },
+                    ]}
+                  />
+                </div>
+                <div className={styles.iconSlotItem}>
+                  <code>Menu</code>
+                  <Menu
+                    triggerLabel="更多"
+                    items={[
+                      { value: "edit", label: "编辑", icon: "action.edit" },
+                      { value: "delete", label: "删除", icon: "action.delete" },
+                    ]}
+                  />
+                </div>
+                <div className={styles.iconSlotItem}>
+                  <code>SettingItem</code>
+                  <SettingItem icon="feature.weatherLive" title="实时天气" />
+                </div>
+              </div>
+            </Card>
+          </Grid>
+        </section>
+
         <section className={styles.section} id="motion">
           <SectionHeader title="动效系统" meta="motion tokens / presence / reduced motion" />
           <Grid minColumnWidth={320}>
@@ -249,7 +362,7 @@ function DesignSystemPage() {
                   ariaLabel="动效弹出层"
                   trigger={
                     <>
-                      <Sparkles size={14} aria-hidden="true" />
+                      <AppIcon name="appearance.effects" size="sm" />
                       <span>打开浮层</span>
                     </>
                   }
@@ -259,7 +372,7 @@ function DesignSystemPage() {
                     <span className={styles.muted}>关闭时延迟卸载，让退出动画完整播放。</span>
                   </Stack>
                 </Popover>
-                <Button variant="primary" icon={<Sparkles size={14} />}>
+                <Button variant="primary" icon="appearance.effects">
                   按压反馈
                 </Button>
               </Inline>
@@ -298,9 +411,9 @@ function DesignSystemPage() {
             <Card className={styles.cardStack}>
               <h3>IconButton</h3>
               <Inline>
-                <IconButton icon={<Settings size={16} />} aria-label="设置" active />
-                <IconButton icon={<Volume2 size={16} />} aria-label="声音" />
-                <IconButton icon={<Bell size={16} />} aria-label="通知" disabled />
+                <IconButton icon="action.configure" aria-label="设置" pressed />
+                <IconButton icon="feature.audio" aria-label="声音" variant="ghost" />
+                <IconButton icon="feature.notification" aria-label="通知" disabled />
               </Inline>
             </Card>
             <Card className={styles.cardStack}>
@@ -359,7 +472,7 @@ function DesignSystemPage() {
                 <Input
                   label="搜索"
                   type="search"
-                  prefix={<Search size={14} />}
+                  prefix={<AppIcon name="action.search" size="sm" />}
                   placeholder="组件名"
                 />
                 <Input label="休息时长" type="number" suffix="min" defaultValue={5} min={1} />
@@ -451,13 +564,13 @@ function DesignSystemPage() {
                 <Menu
                   triggerLabel="菜单"
                   items={[
-                    { value: "edit", label: "编辑", icon: <FileText size={15} /> },
-                    { value: "sync", label: "同步", icon: <Clock3 size={15} />, selected: true },
+                    { value: "edit", label: "编辑", icon: "action.edit" },
+                    { value: "sync", label: "同步", icon: "feature.sync", selected: true },
                     { value: "disabled", label: "禁用项", disabled: true },
                   ]}
                 />
                 <Tooltip content="Tooltip 用于解释图标按钮">
-                  <IconButton icon={<Search size={16} />} aria-label="查看提示" />
+                  <IconButton icon="action.search" aria-label="查看提示" />
                 </Tooltip>
               </Inline>
             </Card>
@@ -474,9 +587,9 @@ function DesignSystemPage() {
                 value={tabValue}
                 onChange={setTabValue}
                 items={[
-                  { value: "base", label: "基础", icon: <Palette size={15} /> },
-                  { value: "forms", label: "表单", icon: <FileText size={15} /> },
-                  { value: "feedback", label: "反馈", icon: <Bell size={15} /> },
+                  { value: "base", label: "基础", icon: "feature.appearance" },
+                  { value: "forms", label: "表单", icon: "feature.file" },
+                  { value: "feedback", label: "反馈", icon: "feature.notification" },
                 ]}
               />
             </Card>
@@ -486,14 +599,14 @@ function DesignSystemPage() {
                 <ListItem
                   title="系统通知"
                   description="组件库公共入口已精简"
-                  icon={<Bell size={16} />}
+                  icon="feature.notification"
                   trailing={<Badge variant="success">新</Badge>}
                 />
                 <ListItem
                   title="迁移准备"
                   description="业务页后续按真实场景组合"
-                  icon={<Settings size={16} />}
-                  trailing={<Check size={16} />}
+                  icon="action.configure"
+                  trailing={<AppIcon name="status.success" />}
                 />
               </Stack>
             </Card>
@@ -526,7 +639,7 @@ function DesignSystemPage() {
             <Card className={styles.cardStack}>
               <h3>工具组件</h3>
               <Stack>
-                <Button icon={<Command size={15} />}>
+                <Button icon="feature.command">
                   <VisuallyHidden>打开快捷命令</VisuallyHidden>
                   快捷命令
                 </Button>

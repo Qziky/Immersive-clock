@@ -1,5 +1,6 @@
 import type { CSSProperties, HTMLAttributes, ReactNode } from "react";
 
+import { AppIcon, type AppIconName } from "../icons/AppIcon";
 import { classNames } from "../utils/classNames";
 
 import styles from "./primitives.module.css";
@@ -7,7 +8,7 @@ import styles from "./primitives.module.css";
 export type UiTone = "neutral" | "accent" | "success" | "warning" | "danger" | "info";
 
 export interface SettingItemProps extends Omit<HTMLAttributes<HTMLDivElement>, "title"> {
-  icon?: ReactNode;
+  icon?: AppIconName;
   title: ReactNode;
   description?: ReactNode;
   control?: ReactNode;
@@ -21,7 +22,8 @@ export interface SettingGridProps extends HTMLAttributes<HTMLDivElement> {
 }
 
 export interface MetricCardProps extends HTMLAttributes<HTMLDivElement> {
-  icon?: ReactNode;
+  icon?: AppIconName;
+  iconRotation?: number;
   label: ReactNode;
   value: ReactNode;
   meta?: ReactNode;
@@ -30,7 +32,7 @@ export interface MetricCardProps extends HTMLAttributes<HTMLDivElement> {
 
 export interface StatusPillProps extends HTMLAttributes<HTMLSpanElement> {
   tone: UiTone;
-  icon?: ReactNode;
+  icon?: AppIconName;
   children: ReactNode;
 }
 
@@ -97,7 +99,7 @@ export function SettingItem({
     >
       {icon && (
         <span className={styles.settingItemIcon} aria-hidden="true">
-          {icon}
+          <AppIcon name={icon} size="lg" />
         </span>
       )}
       <div className={styles.settingItemContent}>
@@ -112,6 +114,7 @@ export function SettingItem({
 
 export function MetricCard({
   icon,
+  iconRotation,
   label,
   value,
   meta,
@@ -127,8 +130,16 @@ export function MetricCard({
     >
       <span className={styles.metricCardHeader}>
         {icon && (
-          <span className={styles.metricCardIcon} aria-hidden="true">
-            {icon}
+          <span
+            className={styles.metricCardIcon}
+            aria-hidden="true"
+            style={
+              iconRotation === undefined
+                ? undefined
+                : { transform: `rotate(${iconRotation}deg)` }
+            }
+          >
+            <AppIcon name={icon} />
           </span>
         )}
         <span className={styles.metricCardLabel}>{label}</span>
@@ -144,7 +155,7 @@ export function StatusPill({ tone, icon, children, className, ...props }: Status
     <span className={classNames(styles.statusPill, toneClassMap[tone], className)} {...props}>
       {icon && (
         <span className={styles.statusPillIcon} aria-hidden="true">
-          {icon}
+          <AppIcon name={icon} size="sm" />
         </span>
       )}
       {children}

@@ -1,4 +1,3 @@
-import { CalendarDays, GripVertical, Plus, Trash2 } from "lucide-react";
 import React, { useCallback, useEffect, useState } from "react";
 
 import { useAppDispatch, useAppState } from "../../../contexts/AppContext";
@@ -137,24 +136,24 @@ export const CountdownManagerPanel: React.FC<CountdownManagerPanelProps> = ({ on
             onDragOver={(e) => onDragOver(e, it.id)}
             onDragEnd={onDragEnd}
             aria-grabbed={draggingId === it.id}
-            icon={<GripVertical size={18} />}
+            icon="action.drag"
             title={it.kind === "gaokao" ? "高考倒计时" : it.name || "自定义事件"}
             description={
               it.kind === "gaokao" ? "自动计算至最近 6 月 7 日" : it.targetDate || "请选择日期"
             }
-            tone={draggingId === it.id ? "accent" : it.kind === "gaokao" ? "info" : "neutral"}
+            tone={draggingId === it.id ? "accent" : "neutral"}
             control={
               <FormButton
                 variant="danger"
                 size="sm"
                 onClick={() => removeItem(it.id)}
-                icon={<Trash2 size={16} />}
+                icon="action.delete"
               >
                 删除
               </FormButton>
             }
           >
-            <StatusPill tone={it.kind === "gaokao" ? "info" : "neutral"}>
+            <StatusPill tone="neutral">
               {it.kind === "gaokao" ? "高考" : "自定义"}
             </StatusPill>
             <SettingGrid columns={2}>
@@ -180,10 +179,10 @@ export const CountdownManagerPanel: React.FC<CountdownManagerPanelProps> = ({ on
       </SettingGrid>
 
       <FormButtonGroup align="left">
-        <FormButton variant="secondary" onClick={addGaokao} icon={<CalendarDays size={16} />}>
+        <FormButton variant="secondary" onClick={addGaokao} icon="feature.date">
           添加高考倒计时
         </FormButton>
-        <FormButton variant="primary" onClick={addCustom} icon={<Plus size={16} />}>
+        <FormButton variant="primary" onClick={addCustom} icon="action.add">
           添加自定义倒计时
         </FormButton>
       </FormButtonGroup>

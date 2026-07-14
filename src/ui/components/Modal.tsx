@@ -1,4 +1,3 @@
-import { X } from "lucide-react";
 import type { ReactNode, RefObject } from "react";
 import { useId, useLayoutEffect, useRef } from "react";
 import { createPortal } from "react-dom";
@@ -8,6 +7,7 @@ import { classNames } from "../utils/classNames";
 import { OverlayLayerBoundary, useOverlayLayer } from "../utils/overlayStack";
 import { usePresence } from "../utils/usePresence";
 
+import { IconButton } from "./IconButton";
 import styles from "./primitives.module.css";
 
 export interface ModalProps {
@@ -217,15 +217,14 @@ export function Modal({
                 {title}
               </h2>
               {showCloseButton && (
-                <button
+                <IconButton
                   className={styles.closeButton}
-                  type="button"
                   aria-label="关闭"
                   data-tour={closeButtonDataTour}
+                  icon="action.close"
+                  size="sm"
                   onClick={onClose}
-                >
-                  <X size={18} aria-hidden="true" />
-                </button>
+                />
               )}
             </header>
           )}

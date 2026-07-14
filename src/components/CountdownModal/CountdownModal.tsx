@@ -1,8 +1,13 @@
-import { Minus as MinusIcon, Plus as PlusIcon } from "lucide-react";
 import React, { useCallback, useState } from "react";
 
 import { useAppDispatch, useAppState } from "../../contexts/AppContext";
-import { Button as FormButton, FormSection, Inline as FormButtonGroup, Modal } from "../../ui";
+import {
+  Button as FormButton,
+  FormSection,
+  IconButton,
+  Inline as FormButtonGroup,
+  Modal,
+} from "../../ui";
 import { timeToSeconds } from "../../utils/formatTime";
 
 import styles from "./CountdownModal.module.css";
@@ -104,13 +109,13 @@ export function CountdownModal() {
             {/* 小时 */}
             <div className={styles.timeInput}>
               <div className={styles.inputGroup} role="group" aria-label="小时设置">
-                <FormButton
-                  variant="secondary"
-                  size="sm"
+                <IconButton
+                  variant="default"
+                  size="lg"
                   className={styles.adjustButton}
                   onClick={() => adjustTime("hours", 1)}
                   disabled={hours === 23}
-                  icon={<PlusIcon size={18} aria-hidden="true" />}
+                  icon="action.increment"
                   aria-label="增加小时"
                 />
                 <div className={styles.valueWrapper}>
@@ -119,13 +124,13 @@ export function CountdownModal() {
                   </output>
                   <span className={styles.unit}>时</span>
                 </div>
-                <FormButton
-                  variant="secondary"
-                  size="sm"
+                <IconButton
+                  variant="default"
+                  size="lg"
                   className={styles.adjustButton}
                   onClick={() => adjustTime("hours", -1)}
                   disabled={hours === 0}
-                  icon={<MinusIcon size={18} aria-hidden="true" />}
+                  icon="action.decrement"
                   aria-label="减少小时"
                 />
               </div>
@@ -134,13 +139,13 @@ export function CountdownModal() {
             {/* 分钟 */}
             <div className={styles.timeInput}>
               <div className={styles.inputGroup} role="group" aria-label="分钟设置">
-                <FormButton
-                  variant="secondary"
-                  size="sm"
+                <IconButton
+                  variant="default"
+                  size="lg"
                   className={styles.adjustButton}
                   onClick={() => adjustTime("minutes", 1)}
                   disabled={minutes === 59}
-                  icon={<PlusIcon size={18} aria-hidden="true" />}
+                  icon="action.increment"
                   aria-label="增加分钟"
                 />
                 <div className={styles.valueWrapper}>
@@ -149,13 +154,13 @@ export function CountdownModal() {
                   </output>
                   <span className={styles.unit}>分</span>
                 </div>
-                <FormButton
-                  variant="secondary"
-                  size="sm"
+                <IconButton
+                  variant="default"
+                  size="lg"
                   className={styles.adjustButton}
                   onClick={() => adjustTime("minutes", -1)}
                   disabled={minutes === 0}
-                  icon={<MinusIcon size={18} aria-hidden="true" />}
+                  icon="action.decrement"
                   aria-label="减少分钟"
                 />
               </div>
@@ -164,13 +169,13 @@ export function CountdownModal() {
             {/* 秒 */}
             <div className={styles.timeInput}>
               <div className={styles.inputGroup} role="group" aria-label="秒设置">
-                <FormButton
-                  variant="secondary"
-                  size="sm"
+                <IconButton
+                  variant="default"
+                  size="lg"
                   className={styles.adjustButton}
                   onClick={() => adjustTime("seconds", 1)}
                   disabled={seconds === 59}
-                  icon={<PlusIcon size={18} aria-hidden="true" />}
+                  icon="action.increment"
                   aria-label="增加秒"
                 />
                 <div className={styles.valueWrapper}>
@@ -179,13 +184,13 @@ export function CountdownModal() {
                   </output>
                   <span className={styles.unit}>秒</span>
                 </div>
-                <FormButton
-                  variant="secondary"
-                  size="sm"
+                <IconButton
+                  variant="default"
+                  size="lg"
                   className={styles.adjustButton}
                   onClick={() => adjustTime("seconds", -1)}
                   disabled={seconds === 0}
-                  icon={<MinusIcon size={18} aria-hidden="true" />}
+                  icon="action.decrement"
                   aria-label="减少秒"
                 />
               </div>

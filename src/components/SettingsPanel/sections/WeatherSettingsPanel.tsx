@@ -1,16 +1,3 @@
-import {
-  BellRing as BellRingIcon,
-  CalendarDays as CalendarDaysIcon,
-  CloudRain as CloudRainIcon,
-  CloudSun as CloudSunIcon,
-  Droplets as DropletsIcon,
-  Gauge as GaugeIcon,
-  MapPin as MapPinIcon,
-  RefreshCw as RefreshIcon,
-  Sunrise as SunriseReminderIcon,
-  Thermometer as ThermometerIcon,
-  Wind as WindReminderIcon,
-} from "lucide-react";
 import React, { useCallback, useEffect, useState } from "react";
 
 import { useAppDispatch, useAppState } from "../../../contexts/AppContext";
@@ -58,29 +45,6 @@ function formatSunHM(iso?: string): string {
   const mm = String(d.getMinutes()).padStart(2, "0");
   return `${hh}:${mm}`;
 }
-
-const WindIcon: React.FC<{ size?: number; angle?: number; className?: string }> = ({
-  size = 20,
-  angle = 0,
-  className,
-}) => (
-  <svg
-    width={size}
-    height={size}
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    className={className}
-  >
-    <g transform={`rotate(${angle + 180} 12 12)`}>
-      <path d="M12 19V5" />
-      <path d="M5 12l7 7 7-7" />
-    </g>
-  </svg>
-);
 
 /**
  * 天气设置分段组件
@@ -274,8 +238,7 @@ const WeatherSettingsPanel: React.FC<WeatherSettingsPanelProps> = ({ onRegisterS
           <SettingItem
             title="天气预警弹窗"
             description="恶劣天气预警时显示弹窗。"
-            icon={<BellRingIcon size={18} />}
-            tone="accent"
+            icon="feature.weatherAlerts"
             control={
               <FormSwitch
                 checked={weatherAlertEnabled}
@@ -287,8 +250,7 @@ const WeatherSettingsPanel: React.FC<WeatherSettingsPanelProps> = ({ onRegisterS
           <SettingItem
             title="分钟级降水提醒"
             description="短时降水临近时显示提醒。"
-            icon={<CloudRainIcon size={18} />}
-            tone="info"
+            icon="feature.weatherPrecipitation"
             control={
               <FormSwitch
                 checked={minutelyPrecipEnabled}
@@ -300,8 +262,7 @@ const WeatherSettingsPanel: React.FC<WeatherSettingsPanelProps> = ({ onRegisterS
           <SettingItem
             title="空气污染提醒"
             description="空气质量较差时显示提醒。"
-            icon={<WindReminderIcon size={18} />}
-            tone="warning"
+            icon="weather.airQuality"
             control={
               <FormSwitch
                 checked={airQualityAlertEnabled}
@@ -313,8 +274,7 @@ const WeatherSettingsPanel: React.FC<WeatherSettingsPanelProps> = ({ onRegisterS
           <SettingItem
             title="日出日落提醒"
             description="接近日出或日落时显示提醒。"
-            icon={<SunriseReminderIcon size={18} />}
-            tone="success"
+            icon="weather.sunrise"
             control={
               <FormSwitch
                 checked={sunriseSunsetAlertEnabled}
@@ -359,7 +319,7 @@ const WeatherSettingsPanel: React.FC<WeatherSettingsPanelProps> = ({ onRegisterS
             <FormButton
               variant="secondary"
               onClick={handleRefreshLocationAuto}
-              icon={<RefreshIcon size={16} />}
+              icon="action.refresh"
               loading={isRefreshing}
             >
               刷新定位
@@ -411,11 +371,10 @@ const WeatherSettingsPanel: React.FC<WeatherSettingsPanelProps> = ({ onRegisterS
 
         <SettingGrid columns={3}>
           <MetricCard
-            icon={<MapPinIcon size={16} />}
+            icon="feature.location"
             label="当前坐标"
             value={coordsText}
             meta={`来源：${sourceLabel}`}
-            tone="accent"
           />
           <MetricCard label="地址" value={cache.location?.address || "--"} meta="定位解析结果" />
           <MetricCard
@@ -438,7 +397,7 @@ const WeatherSettingsPanel: React.FC<WeatherSettingsPanelProps> = ({ onRegisterS
           <FormButton
             variant="secondary"
             onClick={handleRefreshWeather}
-            icon={<RefreshIcon size={16} />}
+            icon="action.refresh"
             loading={isRefreshing}
           >
             刷新数据
@@ -447,46 +406,43 @@ const WeatherSettingsPanel: React.FC<WeatherSettingsPanelProps> = ({ onRegisterS
 
         <SettingGrid columns={3}>
           <MetricCard
-            icon={<ThermometerIcon size={16} />}
+            icon="weather.temperature"
             label="气温"
             value={`${now?.temp || "--"}°`}
             meta={`体感 ${now?.feelsLike || "--"}°`}
-            tone="info"
           />
           <MetricCard
-            icon={<WindIcon size={16} angle={Number(now?.wind360) || 0} />}
+            icon="weather.windDirection"
+            iconRotation={Number(now?.wind360) || 0}
             label="风况"
             value={`${now?.windDir || "--"} ${now?.windScale ? `${now.windScale}级` : ""}`}
             meta={now?.windSpeed ? `${now.windSpeed} km/h` : "暂无风速"}
           />
           <MetricCard
-            icon={<CloudSunIcon size={16} />}
+            icon="weather.airQuality"
             label="空气质量"
             value={
               typeof airQualityIndex?.aqi === "number" ? `AQI ${airQualityIndex.aqi}` : "AQI --"
             }
             meta={airQualityIndex?.category || "暂无空气质量"}
-            tone={typeof airQualityIndex?.aqi === "number" ? "warning" : "neutral"}
           />
           <MetricCard
-            icon={<DropletsIcon size={16} />}
+            icon="weather.humidity"
             label="湿度"
             value={Number.isFinite(humidity) ? `${Math.round(humidity)}%` : "--"}
             meta="相对湿度"
-            tone="accent"
           />
           <MetricCard
-            icon={<GaugeIcon size={16} />}
+            icon="weather.pressure"
             label="气压"
             value={Number.isFinite(pressure) ? `${Math.round(pressure)}` : "--"}
             meta="hPa"
           />
           <MetricCard
-            icon={<CalendarDaysIcon size={16} />}
+            icon="weather.sunrise"
             label="日出 / 日落"
             value={`${sunriseText} / ${sunsetText}`}
             meta="本地天文时间"
-            tone="success"
           />
         </SettingGrid>
 
