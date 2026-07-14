@@ -305,6 +305,23 @@ describe("SettingsPanel", () => {
     expect(within(dialog).getByRole("heading", { name: "显示效果" })).toBeInTheDocument();
   });
 
+  it("将自习辅助组件归类到顶部信息栏", () => {
+    renderSettings();
+
+    const dialog = screen.getByRole("dialog", { name: "设置" });
+    const navigation = within(within(dialog).getByRole("complementary", { name: "设置导航" }));
+    fireEvent.click(navigation.getByRole("button", { name: /视觉外观/ }));
+
+    const appearancePanes = navigation.getByRole("group", { name: "视觉外观" });
+    expect(
+      within(appearancePanes)
+        .getAllByRole("button")
+        .map((button) => button.textContent)
+    ).toEqual(["整体样式", "时间显示", "语录", "顶部信息栏"]);
+    expect(within(appearancePanes).queryByRole("button", { name: "天气" })).toBeNull();
+    expect(within(appearancePanes).queryByRole("button", { name: "事件倒计时" })).toBeNull();
+  });
+
   it("统一保存会提交所有已挂载设置面板", () => {
     saveCalls.length = 0;
     const onClose = renderSettings();

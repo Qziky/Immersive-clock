@@ -181,22 +181,14 @@
   text-align: center;
 }
 
-.previewTarget {
-  outline: 2px solid transparent;
-  outline-offset: 4px;
-  transition:
-    outline-color var(--ui-transition-fast),
-    box-shadow var(--ui-transition-fast);
-}
-
-.previewTargetActive {
+.previewHighlightFrame {
+  border: 2px solid var(--ui-color-accent);
+  border-radius: 2px;
   box-shadow: 0 0 0 5px rgba(47, 236, 198, 0.12);
-  outline-color: var(--ui-color-accent);
-  outline-offset: 5px;
-}
-
-.previewTargetTight.previewTargetActive {
-  outline-offset: -3px;
+  box-sizing: border-box;
+  pointer-events: none;
+  position: absolute;
+  z-index: 2;
 }
 
 .previewContextHidden {
@@ -277,11 +269,5 @@
 
   .previewCanvas {
     height: 180px;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .previewTarget {
-    transition: none;
   }
 }

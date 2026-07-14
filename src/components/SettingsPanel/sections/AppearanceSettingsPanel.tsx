@@ -77,6 +77,14 @@ const TIME_COMPONENT_OPTIONS = [
   { label: "自习时间", value: "studyTime" },
 ] as const;
 
+const TOP_DOCK_COMPONENT_OPTIONS = [
+  { label: "栏体", value: "studyTopDock" },
+  { label: "天气", value: "studyWeather" },
+  { label: "噪音监测", value: "studyNoise" },
+  { label: "计划进度", value: "studyStatus" },
+  { label: "事件倒计时", value: "studyCountdown" },
+] as const;
+
 const BUILT_IN_FONTS = [
   { label: "Inter", value: "builtin:Inter" },
   { label: "Roboto Mono", value: "builtin:Roboto Mono" },
@@ -286,9 +294,18 @@ export function AppearanceSettingsPanel({ section = "overview" }: AppearanceSett
   const { confirm, notify } = useFeedback();
   const isOverview = section === "overview";
   const isTime = section === "time";
+  const isTopDock = section === "studyTopDock";
   const [timeView, setTimeView] =
     useState<(typeof TIME_COMPONENT_OPTIONS)[number]["value"]>("clock");
-  const componentId: AppearanceComponentId = isOverview ? "clock" : isTime ? timeView : section;
+  const [topDockView, setTopDockView] =
+    useState<(typeof TOP_DOCK_COMPONENT_OPTIONS)[number]["value"]>("studyTopDock");
+  const componentId: AppearanceComponentId = isOverview
+    ? "clock"
+    : isTime
+      ? timeView
+      : isTopDock
+        ? topDockView
+        : section;
   const definition =
     APPEARANCE_COMPONENTS.find((item) => item.id === componentId) ?? APPEARANCE_COMPONENTS[0];
   const scene = definition.scene;
@@ -815,6 +832,17 @@ export function AppearanceSettingsPanel({ section = "overview" }: AppearanceSett
                 value={timeView}
                 options={TIME_COMPONENT_OPTIONS}
                 onChange={(value) => setTimeView(value)}
+              />
+            </FormSection>
+          ) : null}
+
+          {isTopDock ? (
+            <FormSection title="信息栏内容" description="分别调整顶部信息栏的栏体与各项辅助信息。">
+              <FormSegmented
+                ariaLabel="顶部信息栏内容"
+                value={topDockView}
+                options={TOP_DOCK_COMPONENT_OPTIONS}
+                onChange={(value) => setTopDockView(value)}
               />
             </FormSection>
           ) : null}

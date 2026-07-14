@@ -1,4 +1,11 @@
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type RefObject,
+} from "react";
 
 import { useAppearance } from "../../../contexts/AppearanceContext";
 import pageStyles from "../../../pages/ClockPage/ClockPage.module.css";
@@ -29,6 +36,7 @@ import { StudyCountdownCarouselPresentation } from "../../Study/StudyCountdownCa
 import { StudyCountdownItemPresentation } from "../../Study/StudyCountdownItemPresentation";
 import { StudyTimePresentation } from "../../Study/StudyTimePresentation";
 import { StudyTopDockPresentation } from "../../Study/StudyTopDockPresentation";
+import { getDayGreeting } from "../../StudyStatus/dayGreeting";
 import { StudyStatusPresentation } from "../../StudyStatus/StudyStatusPresentation";
 import { resolveWeatherIconCode } from "../../Weather/weatherDisplay";
 import { WeatherPresentation } from "../../Weather/WeatherPresentation";
@@ -76,6 +84,13 @@ interface PreviewTargetAttributes {
   style: CSSProperties;
 }
 
+interface PreviewHighlightFrame {
+  height: number;
+  left: number;
+  top: number;
+  width: number;
+}
+
 type TargetRenderer = (
   componentId: AppearanceComponentId,
   slotId: string,
@@ -94,13 +109,18 @@ const DEFAULT_STAGE_METRICS: PreviewStageMetrics = {
 
 const MAX_PREVIEW_SCALE = 12;
 const MIN_PREVIEW_CANVAS_HEIGHT = 56;
+const PREVIEW_CANVAS_BORDER_ALLOWANCE = 2;
 const PREVIEW_CANVAS_PADDING = 14;
+const PREVIEW_HIGHLIGHT_PADDING = 5;
+const PREVIEW_HIGHLIGHT_SAFE_MARGIN = 6;
 const TOP_DOCK_PREVIEW_FRAMING: PreviewFramingOptions = {
   minHeight: 0,
-  verticalPadding: 2,
+  verticalPadding:
+    PREVIEW_HIGHLIGHT_PADDING + PREVIEW_HIGHLIGHT_SAFE_MARGIN + PREVIEW_CANVAS_BORDER_ALLOWANCE,
 };
 const PREVIEW_WEATHER_TEXT = "晴朗";
 const PREVIEW_WEATHER_ICON = resolveWeatherIconCode(PREVIEW_WEATHER_TEXT, 12);
+const PREVIEW_DAY_GREETING = getDayGreeting(new Date(2026, 0, 1, 12));
 const PREVIEW_QUOTE: Quote = {
   author: "语录预览",
   fetchedAt: 0,
@@ -293,6 +313,88 @@ function usePreviewStageMetrics(componentId: AppearanceComponentId) {
   return { canvasHeight, canvasRef, metrics };
 }
 
+function usePreviewHighlightFrames(
+  canvasRef: RefObject<HTMLDivElement | null>,
+  highlightKey: string,
+  layoutRevision: string
+) {
+  const [frames, setFrames] = useState<PreviewHighlightFrame[]>([]);
+
+  useLayoutEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return undefined;
+
+    const measure = () => {
+      const canvasBounds = canvas.getBoundingClientRect();
+      if (canvas.clientWidth <= 0 || canvas.clientHeight <= 0) {
+        setFrames([]);
+        return;
+      }
+
+      const originLeft = canvasBounds.left + canvas.clientLeft;
+      const originTop = canvasBounds.top + canvas.clientTop;
+      const nextFrames = Array.from(
+        canvas.querySelectorAll<HTMLElement>('[data-preview-highlighted="true"]')
+      )
+        .map((target) => {
+          const bounds = target.getBoundingClientRect();
+          const left = Math.max(
+            PREVIEW_HIGHLIGHT_SAFE_MARGIN,
+            bounds.left - originLeft - PREVIEW_HIGHLIGHT_PADDING
+          );
+          const top = Math.max(
+            PREVIEW_HIGHLIGHT_SAFE_MARGIN,
+            bounds.top - originTop - PREVIEW_HIGHLIGHT_PADDING
+          );
+          const right = Math.min(
+            canvas.clientWidth - PREVIEW_HIGHLIGHT_SAFE_MARGIN,
+            bounds.right - originLeft + PREVIEW_HIGHLIGHT_PADDING
+          );
+          const bottom = Math.min(
+            canvas.clientHeight - PREVIEW_HIGHLIGHT_SAFE_MARGIN,
+            bounds.bottom - originTop + PREVIEW_HIGHLIGHT_PADDING
+          );
+          return {
+            height: bottom - top,
+            left,
+            top,
+            width: right - left,
+          };
+        })
+        .filter((frame) => frame.width > 0 && frame.height > 0);
+
+      setFrames((currentFrames) => {
+        const unchanged =
+          currentFrames.length === nextFrames.length &&
+          currentFrames.every((frame, index) => {
+            const nextFrame = nextFrames[index];
+            return (
+              Math.abs(frame.height - nextFrame.height) < 0.25 &&
+              Math.abs(frame.left - nextFrame.left) < 0.25 &&
+              Math.abs(frame.top - nextFrame.top) < 0.25 &&
+              Math.abs(frame.width - nextFrame.width) < 0.25
+            );
+          });
+        return unchanged ? currentFrames : nextFrames;
+      });
+    };
+
+    const targets = canvas.querySelectorAll<HTMLElement>('[data-preview-highlighted="true"]');
+    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(measure);
+    observer?.observe(canvas);
+    targets.forEach((target) => observer?.observe(target));
+    window.addEventListener("resize", measure);
+    measure();
+
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener("resize", measure);
+    };
+  }, [canvasRef, highlightKey, layoutRevision]);
+
+  return frames;
+}
+
 export function AppearancePreview({
   componentId = "clock",
   hoveredSlot,
@@ -316,6 +418,11 @@ export function AppearancePreview({
     getBackgroundImage(definition.scene)
   );
   const { canvasHeight, canvasRef, metrics } = usePreviewStageMetrics(definition.id);
+  const highlightFrames = usePreviewHighlightFrames(
+    canvasRef,
+    `${definition.id}:${highlightedSlots.join(",")}`,
+    `${canvasHeight ?? "auto"}:${metrics.left}:${metrics.top}:${metrics.scale}`
+  );
 
   const target: TargetRenderer = (targetComponentId, slotId, kind, className, options) => {
     const isEditedComponent = targetComponentId === definition.id;
@@ -341,9 +448,7 @@ export function AppearancePreview({
     );
 
     return {
-      className: [className, styles.previewTarget, isHighlighted ? styles.previewTargetActive : ""]
-        .filter(Boolean)
-        .join(" "),
+      className: className ?? "",
       "data-preview-highlighted": isHighlighted || undefined,
       style,
     };
@@ -402,6 +507,15 @@ export function AppearancePreview({
             </div>
           )}
         </div>
+        {highlightFrames.map((frame, index) => (
+          <span
+            key={`${definition.id}:${highlightedSlots.join(",")}:${index}`}
+            aria-hidden="true"
+            className={styles.previewHighlightFrame}
+            data-preview-highlight-frame="true"
+            style={frame}
+          />
+        ))}
       </div>
     </figure>
   );
@@ -572,7 +686,6 @@ function StudyTopDockPreview({
     ...indicatorAttributes.style,
     "--appearance-indicator-color": indicatorColor,
   } as CSSProperties;
-  const topDockClassName = componentId === "studyTopDock" ? styles.previewTargetTight : undefined;
   const regionClassName = (regionId: AppearanceComponentId, className: string) =>
     [
       className,
@@ -625,7 +738,7 @@ function StudyTopDockPreview({
         "data-preview-crop-target": componentId === "studyNoise" || undefined,
       }}
       rootAttributes={{
-        ...target("studyTopDock", "__container", "surface", topDockClassName),
+        ...target("studyTopDock", "__container", "surface"),
         "data-preview-component": "study-top-dock",
         "data-preview-crop-target": componentId === "studyTopDock" || undefined,
       }}
@@ -633,20 +746,21 @@ function StudyTopDockPreview({
         <StudyStatusPresentation
           fillAttributes={target("studyStatus", "fill", "surface")}
           labelAttributes={target("studyStatus", "label", "text")}
-          progress={68}
+          progress={50}
           progressAttributes={target("studyStatus", "progress", "numeric")}
-          progressText="68%"
-          remainingTimeText="18:25"
+          progressText="50%"
+          remainingTimeText="还剩 12 小时"
           rootAttributes={{
             ...target("studyStatus", "__container", "surface"),
-            "aria-label": "自习中进度",
+            "aria-label": "今日进度",
             "aria-valuemax": 100,
             "aria-valuemin": 0,
-            "aria-valuenow": 68,
+            "aria-valuenow": 50,
+            "aria-valuetext": `${PREVIEW_DAY_GREETING.ariaText}，还剩 12 小时`,
             role: "progressbar",
           }}
-          stageText="保持专注"
-          statusText="自习中"
+          stageText={PREVIEW_DAY_GREETING.text}
+          statusText="今日进度"
         />
       }
       statusDockAttributes={{

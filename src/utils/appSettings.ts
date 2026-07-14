@@ -12,7 +12,7 @@ import {
   serializeQuoteChannels,
 } from "../services/quotes/quoteRegistry";
 import { QuoteRuntimeStore } from "../services/quotes/runtimeStorage";
-import { StudyDisplaySettings, CountdownItem, AppMode } from "../types";
+import { StudyDisplaySettings, CountdownItem, AppMode, type StudyTimeProgressMode } from "../types";
 import type { AppearanceSettingsV2 } from "../types/appearance";
 import type {
   CustomQuoteChannel,
@@ -158,6 +158,7 @@ const MIN_QUOTE_REFRESH_INTERVAL_SEC = 30;
 const MAX_QUOTE_REFRESH_INTERVAL_SEC = 1800;
 const DEFAULT_QUOTE_ANIMATION_MODE: QuoteAnimationMode = "typewriter";
 const DEFAULT_QUOTE_TYPING_SPEED: QuoteTypingSpeed = "normal";
+const DEFAULT_TYPEWRITER_BACKSPACE_ENABLED = true;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
@@ -165,6 +166,10 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function isErrorCenterMode(value: unknown): value is "off" | "memory" | "persist" {
   return value === "off" || value === "memory" || value === "persist";
+}
+
+function normalizeStudyTimeProgressMode(value: unknown): StudyTimeProgressMode {
+  return value === "schedule" ? "schedule" : "day";
 }
 
 function parseStoredNumber(value: unknown): number {
@@ -194,6 +199,10 @@ function normalizeQuoteTypingSpeed(value: unknown): QuoteTypingSpeed {
     : DEFAULT_QUOTE_TYPING_SPEED;
 }
 
+function normalizeTypewriterBackspaceEnabled(value: unknown): boolean {
+  return typeof value === "boolean" ? value : DEFAULT_TYPEWRITER_BACKSPACE_ENABLED;
+}
+
 function createDefaultQuoteSettings(): PersistedQuoteSettings {
   const serialized = serializeQuoteChannels(getDefaultQuoteChannels());
   return {
@@ -201,6 +210,7 @@ function createDefaultQuoteSettings(): PersistedQuoteSettings {
     autoRefreshIntervalSec: DEFAULT_QUOTE_REFRESH_INTERVAL_SEC,
     animationMode: DEFAULT_QUOTE_ANIMATION_MODE,
     typingSpeed: DEFAULT_QUOTE_TYPING_SPEED,
+    typewriterBackspaceEnabled: DEFAULT_TYPEWRITER_BACKSPACE_ENABLED,
     channels: serialized.channels,
     customChannels: serialized.customChannels,
   };
@@ -360,6 +370,9 @@ function normalizeQuoteSettings(value: unknown, storedVersion: number): Persiste
         autoRefreshIntervalSec: DEFAULT_QUOTE_REFRESH_INTERVAL_SEC,
         animationMode: normalizeQuoteAnimationMode(source.animationMode),
         typingSpeed: normalizeQuoteTypingSpeed(source.typingSpeed),
+        typewriterBackspaceEnabled: normalizeTypewriterBackspaceEnabled(
+          source.typewriterBackspaceEnabled
+        ),
         ...serialized,
       };
     }
@@ -369,6 +382,9 @@ function normalizeQuoteSettings(value: unknown, storedVersion: number): Persiste
         autoRefreshIntervalSec: normalizeQuoteRefreshInterval(legacyInterval),
         animationMode: normalizeQuoteAnimationMode(source.animationMode),
         typingSpeed: normalizeQuoteTypingSpeed(source.typingSpeed),
+        typewriterBackspaceEnabled: normalizeTypewriterBackspaceEnabled(
+          source.typewriterBackspaceEnabled
+        ),
         ...serialized,
       };
     }
@@ -380,6 +396,9 @@ function normalizeQuoteSettings(value: unknown, storedVersion: number): Persiste
     autoRefreshIntervalSec: normalizeQuoteRefreshInterval(source.autoRefreshIntervalSec),
     animationMode: normalizeQuoteAnimationMode(source.animationMode),
     typingSpeed: normalizeQuoteTypingSpeed(source.typingSpeed),
+    typewriterBackspaceEnabled: normalizeTypewriterBackspaceEnabled(
+      source.typewriterBackspaceEnabled
+    ),
     ...serialized,
   };
 }
@@ -431,6 +450,8 @@ const DEFAULT_SETTINGS: AppSettings = {
     customCountdown: { name: "", date: "" },
     display: {
       showStatusBar: true,
+      timeProgressMode: "day",
+      showWeather: true,
       showNoiseMonitor: true,
       showCountdown: true,
       showQuote: true,
@@ -608,7 +629,11 @@ export function normalizeAppSettings(value: unknown): AppSettings {
     study: {
       ...DEFAULT_SETTINGS.study,
       ...parsedStudy,
-      display: { ...DEFAULT_SETTINGS.study.display, ...parsedDisplay },
+      display: {
+        ...DEFAULT_SETTINGS.study.display,
+        ...parsedDisplay,
+        timeProgressMode: normalizeStudyTimeProgressMode(parsedDisplay.timeProgressMode),
+      },
       style: { ...DEFAULT_SETTINGS.study.style, ...parsedStyle },
       alerts: mergedStudyAlerts,
       background: { ...DEFAULT_SETTINGS.study.background, ...parsedStudyBackground },
@@ -824,6 +849,9 @@ export function saveQuoteSettings(
         autoRefreshIntervalSec: normalizeQuoteRefreshInterval(quoteSettings.autoRefreshIntervalSec),
         animationMode: normalizeQuoteAnimationMode(quoteSettings.animationMode),
         typingSpeed: normalizeQuoteTypingSpeed(quoteSettings.typingSpeed),
+        typewriterBackspaceEnabled: normalizeTypewriterBackspaceEnabled(
+          quoteSettings.typewriterBackspaceEnabled
+        ),
         channels: serialized.channels,
         customChannels: serialized.customChannels,
       },
@@ -892,6 +920,8 @@ export function migrateStoredAppSettings(): AppSettings {
     return getAppSettings();
   }
   const parsedGeneral = isRecord(parsed.general) ? parsed.general : {};
+  const parsedStudy = isRecord(parsed.study) ? parsed.study : {};
+  const parsedDisplay = isRecord(parsedStudy.display) ? parsedStudy.display : {};
   migrateLegacyQuoteCursors(parsedGeneral.quote, storedVersion);
   const legacySource = parsed as unknown as Parameters<typeof migrateV1Appearance>[0];
   if (!parsed.appearance) {
@@ -930,7 +960,14 @@ export function migrateStoredAppSettings(): AppSettings {
   };
   const quoteNeedsNormalization =
     JSON.stringify(parsedGeneral.quote) !== JSON.stringify(normalized.general.quote);
-  if (storedVersion < CURRENT_SETTINGS_VERSION || !parsed.appearance || quoteNeedsNormalization) {
+  const displayNeedsNormalization =
+    parsedDisplay.timeProgressMode !== normalized.study.display.timeProgressMode;
+  if (
+    storedVersion < CURRENT_SETTINGS_VERSION ||
+    !parsed.appearance ||
+    quoteNeedsNormalization ||
+    displayNeedsNormalization
+  ) {
     localStorage.setItem(APP_SETTINGS_KEY, JSON.stringify(normalized));
   }
   return normalized;

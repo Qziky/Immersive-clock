@@ -287,12 +287,17 @@ describe("QuoteReveal", () => {
     expect(animationFrames.pendingCount()).toBe(0);
   });
 
-  it("相同内容的新对象不会重播，replayKey 则会明确重播", () => {
+  it("相同内容的新对象不会重播，关闭回删时 replayKey 会立即重播", () => {
     installReducedMotion();
     const animationFrames = installAnimationFrameController();
     const firstQuote = createQuote("ABCD", "first-id");
     const { container, rerender } = render(
-      <QuoteReveal animationMode="typewriter" quote={firstQuote} typingSpeed="normal" />
+      <QuoteReveal
+        animationMode="typewriter"
+        quote={firstQuote}
+        typewriterBackspaceEnabled={false}
+        typingSpeed="normal"
+      />
     );
     animationFrames.step(60);
     expect(getVisibleText(container)).toBe("A");
@@ -301,6 +306,7 @@ describe("QuoteReveal", () => {
       <QuoteReveal
         animationMode="typewriter"
         quote={{ ...firstQuote, id: "second-id", fetchedAt: 2 }}
+        typewriterBackspaceEnabled={false}
         typingSpeed="normal"
       />
     );
@@ -311,13 +317,83 @@ describe("QuoteReveal", () => {
         animationMode="typewriter"
         quote={{ ...firstQuote, id: "second-id", fetchedAt: 2 }}
         replayKey={1}
+        typewriterBackspaceEnabled={false}
         typingSpeed="normal"
       />
     );
     expect(getVisibleText(container)).toBe("");
   });
 
-  it("快速更新时取消旧时间轴，不会把旧语录串入新内容", () => {
+  it("换句时默认先回删来源和正文，再输入新语录", () => {
+    installReducedMotion();
+    const animationFrames = installAnimationFrameController();
+    const { container, rerender } = render(
+      <QuoteReveal
+        animationMode="typewriter"
+        quote={createQuote("旧内容", "old", "旧来源")}
+        typingSpeed="normal"
+      />
+    );
+    animationFrames.step(10_000);
+
+    expect(getVisibleText(container)).toBe("旧内容");
+    expect(getVisibleAttribution(container)).toBe("—— 旧来源");
+    expect(getCurrentLayer(container)).toHaveAttribute("data-typing-phase", "complete");
+
+    const nextQuote = createQuote("全新语录", "next", "新来源");
+    rerender(<QuoteReveal animationMode="typewriter" quote={nextQuote} typingSpeed="normal" />);
+
+    expect(container.querySelector('[data-quote-reveal="true"]')).toHaveAttribute(
+      "data-typewriter-backspace-enabled",
+      "true"
+    );
+    expect(getCurrentLayer(container)).toHaveAttribute("data-typing-phase", "backspacing");
+    expect(getVisibleText(container)).toBe("旧内容");
+
+    animationFrames.step(100);
+    expect(getVisibleText(container)).toBe("旧内容");
+    expect(getVisibleAttribution(container).length).toBeLessThan("—— 旧来源".length);
+
+    animationFrames.step(10_000);
+    expect(getCurrentLayer(container)).toHaveAttribute("data-typing-phase", "typing");
+    expect(getVisibleText(container)).toBe("");
+    expect(getCurrentLayer(container)).not.toHaveTextContent("旧内容");
+
+    animationFrames.step(10_000);
+    expect(getVisibleText(container)).toBe(nextQuote.text);
+    expect(getVisibleAttribution(container)).toBe("—— 新来源");
+  });
+
+  it("回删按字素执行，不会拆开 emoji", () => {
+    installReducedMotion();
+    const animationFrames = installAnimationFrameController();
+    const familyEmoji = "👨‍👩‍👧‍👦";
+    const oldText = `A${familyEmoji}B`;
+    const { container, rerender } = render(
+      <QuoteReveal
+        animationMode="typewriter"
+        quote={createQuote(oldText, "emoji-old")}
+        typingSpeed="normal"
+      />
+    );
+    animationFrames.step(10_000);
+
+    rerender(
+      <QuoteReveal
+        animationMode="typewriter"
+        quote={createQuote("下一条", "emoji-next")}
+        typingSpeed="normal"
+      />
+    );
+
+    const validFrames = [oldText, `A${familyEmoji}`, "A", ""];
+    for (let step = 0; step < 4; step += 1) {
+      animationFrames.step(50);
+      expect(validFrames).toContain(getVisibleText(container));
+    }
+  });
+
+  it("连续换句时回删当前内容，并且只输入最新目标", () => {
     installReducedMotion();
     const animationFrames = installAnimationFrameController();
     const { container, rerender } = render(
@@ -329,14 +405,55 @@ describe("QuoteReveal", () => {
     );
     animationFrames.step(100);
 
+    rerender(
+      <QuoteReveal
+        animationMode="typewriter"
+        quote={createQuote("中间语录", "middle")}
+        typingSpeed="normal"
+      />
+    );
+
     const latestQuote = createQuote("全新语录", "latest");
     rerender(<QuoteReveal animationMode="typewriter" quote={latestQuote} typingSpeed="normal" />);
-    expect(getVisibleText(container)).toBe("");
+    expect(getVisibleText(container)).toBe("旧");
     expect(animationFrames.pendingCount()).toBe(1);
+
+    animationFrames.step(10_000);
+    expect(getVisibleText(container)).toBe("");
+    expect(getCurrentLayer(container)).not.toHaveTextContent("中间语录");
 
     animationFrames.step(10_000);
     expect(getVisibleText(container)).toBe(latestQuote.text);
     expect(getCurrentLayer(container)).not.toHaveTextContent("旧内容");
+  });
+
+  it("关闭回删后换句会立即清空旧内容并输入新语录", () => {
+    installReducedMotion();
+    const animationFrames = installAnimationFrameController();
+    const { container, rerender } = render(
+      <QuoteReveal
+        animationMode="typewriter"
+        quote={createQuote("旧内容", "old-without-backspace")}
+        typewriterBackspaceEnabled={false}
+        typingSpeed="normal"
+      />
+    );
+    animationFrames.step(100);
+
+    const latestQuote = createQuote("全新语录", "latest-without-backspace");
+    rerender(
+      <QuoteReveal
+        animationMode="typewriter"
+        quote={latestQuote}
+        typewriterBackspaceEnabled={false}
+        typingSpeed="normal"
+      />
+    );
+
+    expect(getVisibleText(container)).toBe("");
+    expect(getCurrentLayer(container)).toHaveAttribute("data-typing-phase", "typing");
+    animationFrames.step(10_000);
+    expect(getVisibleText(container)).toBe(latestQuote.text);
   });
 
   it("平滑显示连续更新时最多保留新旧两层，并在 240ms 后清理", () => {
@@ -455,5 +572,31 @@ describe("QuoteReveal", () => {
     );
     expect(getVisibleText(container)).toBe("");
     expect(animationFrames.pendingCount()).toBe(1);
+  });
+
+  it("回删过程中启用动态减少动效会停止任务并显示最新语录", () => {
+    const reducedMotion = installReducedMotion();
+    const animationFrames = installAnimationFrameController();
+    const { container, rerender } = render(
+      <QuoteReveal
+        animationMode="typewriter"
+        quote={createQuote("正在离开的语录", "backspace-motion-old")}
+        typingSpeed="normal"
+      />
+    );
+    animationFrames.step(10_000);
+
+    const latestQuote = createQuote("立即完整显示", "backspace-motion-latest");
+    rerender(<QuoteReveal animationMode="typewriter" quote={latestQuote} typingSpeed="normal" />);
+    animationFrames.step(50);
+    expect(getCurrentLayer(container)).toHaveAttribute("data-typing-phase", "backspacing");
+
+    reducedMotion.setMatches(true);
+    expect(getVisibleText(container)).toBe(latestQuote.text);
+    expect(animationFrames.pendingCount()).toBe(0);
+
+    reducedMotion.setMatches(false);
+    expect(getVisibleText(container)).toBe(latestQuote.text);
+    expect(animationFrames.pendingCount()).toBe(0);
   });
 });

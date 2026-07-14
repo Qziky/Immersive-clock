@@ -22,6 +22,7 @@ export function MotivationalQuote() {
       cursorStyle={cursorAppearance}
       quote={quote}
       textStyle={textAppearance}
+      typewriterBackspaceEnabled={quoteSettings.typewriterBackspaceEnabled}
       typingSpeed={quoteSettings.typingSpeed}
     />
   );

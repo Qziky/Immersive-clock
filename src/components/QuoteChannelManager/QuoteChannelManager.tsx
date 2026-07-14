@@ -19,8 +19,10 @@ import {
 import {
   Button as FormButton,
   FormSection,
+  IconButton as FormIconButton,
   InfoPanel,
   Inline as FormButtonGroup,
+  Input as FormInput,
   RadioGroup as FormSegmented,
   SettingGrid,
   SettingItem,
@@ -297,6 +299,7 @@ export function QuoteChannelManager({ onRegisterSave }: QuoteChannelManagerProps
             <article
               key={channel.id}
               className={channel.enabled ? styles.channelCardActive : styles.channelCard}
+              data-ui-motion-item
             >
               <span className={styles.channelIcon} aria-hidden="true">
                 {channel.kind === "remote" ? <CloudIcon size={18} /> : <FileIcon size={18} />}
@@ -326,48 +329,49 @@ export function QuoteChannelManager({ onRegisterSave }: QuoteChannelManagerProps
                 </div>
               </div>
 
-              <label className={styles.channelWeight}>
-                <span>权重</span>
-                <input
-                  type="number"
-                  value={channel.weight}
-                  min={1}
-                  max={9999}
-                  onChange={(event) =>
-                    handleUpdateWeight(channel.id, Number.parseInt(event.target.value, 10) || 1)
-                  }
-                />
-              </label>
-
-              <div className={styles.channelActions}>
-                {isHitokoto && (
-                  <FormButton
-                    onClick={() =>
-                      setExpandedChannelId((current) =>
-                        current === channel.id ? null : channel.id
-                      )
+              <div className={styles.channelControls}>
+                <div className={styles.channelWeight}>
+                  <FormInput
+                    label="权重"
+                    type="number"
+                    variant="number"
+                    value={channel.weight}
+                    min={1}
+                    max={9999}
+                    onChange={(event) =>
+                      handleUpdateWeight(channel.id, Number.parseInt(event.target.value, 10) || 1)
                     }
-                    variant="secondary"
-                    size="sm"
-                    title="分类设置"
-                    aria-label="分类设置"
-                    aria-expanded={isCategoryExpanded}
-                    aria-controls={categoryDetailsId}
-                    icon={<SettingsIcon size={16} />}
                   />
-                )}
-                {channel.kind === "local" && (
-                  <FormButton
-                    onClick={() => handleToggleEditorExpanded(channel.id)}
-                    variant="secondary"
-                    size="sm"
-                    title="编辑语录"
-                    aria-label="编辑语录"
-                    aria-expanded={isEditorExpanded}
-                    aria-controls={editorDetailsId}
-                    icon={<EditIcon size={16} />}
-                  />
-                )}
+                </div>
+
+                <div className={styles.channelActions}>
+                  {isHitokoto && (
+                    <FormIconButton
+                      onClick={() =>
+                        setExpandedChannelId((current) =>
+                          current === channel.id ? null : channel.id
+                        )
+                      }
+                      active={isCategoryExpanded}
+                      title="分类设置"
+                      aria-label="分类设置"
+                      aria-expanded={isCategoryExpanded}
+                      aria-controls={categoryDetailsId}
+                      icon={<SettingsIcon size={16} />}
+                    />
+                  )}
+                  {channel.kind === "local" && (
+                    <FormIconButton
+                      onClick={() => handleToggleEditorExpanded(channel.id)}
+                      active={isEditorExpanded}
+                      title="编辑语录"
+                      aria-label="编辑语录"
+                      aria-expanded={isEditorExpanded}
+                      aria-controls={editorDetailsId}
+                      icon={<EditIcon size={16} />}
+                    />
+                  )}
+                </div>
               </div>
 
               <div className={styles.channelSwitch}>

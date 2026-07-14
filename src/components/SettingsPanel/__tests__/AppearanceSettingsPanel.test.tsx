@@ -239,7 +239,7 @@ describe("AppearanceSettingsPanel", () => {
     expect(screen.queryByText("状态覆盖")).not.toBeInTheDocument();
   });
 
-  it("自习组件预览复用真实顶部信息栏和天气样式", async () => {
+  it("在顶部信息栏中切换栏体与辅助信息，并复用真实天气样式", async () => {
     contextMocks.useAppState.mockReturnValue({
       mode: "study",
       study: { countdownItems: [] },
@@ -248,10 +248,18 @@ describe("AppearanceSettingsPanel", () => {
 
     render(
       <FeedbackProvider>
-        <AppearanceSettingsPanel section="studyWeather" />
+        <AppearanceSettingsPanel section="studyTopDock" />
       </FeedbackProvider>
     );
 
+    const contentSelector = screen.getByRole("radiogroup", { name: "顶部信息栏内容" });
+    for (const optionName of ["栏体", "天气", "噪音监测", "计划进度", "事件倒计时"]) {
+      expect(within(contentSelector).getByRole("radio", { name: optionName })).toBeInTheDocument();
+    }
+    expect(within(contentSelector).getByRole("radio", { name: "栏体" })).toBeChecked();
+    expect(screen.getByLabelText("顶部信息栏外观预览")).toBeInTheDocument();
+
+    fireEvent.click(within(contentSelector).getByRole("radio", { name: "天气" }));
     const preview = screen.getByLabelText("天气外观预览");
     expect(preview.querySelector('[data-preview-component="study-top-dock"]')).toHaveClass(
       studyStyles.topDock
@@ -262,6 +270,18 @@ describe("AppearanceSettingsPanel", () => {
       "src",
       "/weather-icons/fill/01d.svg"
     );
+
+    fireEvent.click(within(contentSelector).getByRole("radio", { name: "计划进度" }));
+    const progressPreview = screen.getByLabelText("计划进度外观预览");
+    const dayProgress = progressPreview.querySelector('[role="progressbar"]');
+    expect(dayProgress).not.toBeNull();
+    expect(dayProgress).toHaveAttribute("aria-label", "今日进度");
+    expect(dayProgress).toHaveAttribute("aria-valuenow", "50");
+    expect(dayProgress).toHaveAttribute("aria-valuetext", "中午好，还剩 12 小时");
+    expect(within(progressPreview).getByText("今日进度")).toBeInTheDocument();
+    expect(within(progressPreview).getByText("中午好 (｡•ㅅ•｡)")).toBeInTheDocument();
+    expect(within(progressPreview).getByText("还剩 12 小时")).toBeInTheDocument();
+    expect(within(progressPreview).getByText("50%")).toBeInTheDocument();
   });
 
   it("噪音预览复用真实展示层并跟随状态切换", async () => {
@@ -347,6 +367,10 @@ describe("AppearanceSettingsPanel", () => {
         <AppearanceSettingsPanel section="studyCountdown" />
       </FeedbackProvider>
     );
+
+    const preview = screen.getByLabelText("事件倒计时外观预览");
+    const highlightedCard = preview.querySelector('[data-preview-highlighted="true"]');
+    expect(highlightedCard).not.toBeNull();
 
     fireEvent.click(screen.getByRole("radio", { name: "指定事件" }));
     expect(screen.getByRole("button", { name: "指定事件" })).toHaveTextContent("期末考试");

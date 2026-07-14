@@ -58,7 +58,7 @@ UI、存储、网络请求和算法混在同一个组件中。
 相关模块：
 
 - `src/components/Study/`：自习主界面。
-- `src/components/StudyStatus/`：自习状态展示。
+- `src/components/StudyStatus/`：计划进度展示。
 - `src/components/SettingsPanel/sections/StudySettingsPanel.tsx`：自习相关设置。
 - `src/utils/appSettings.ts`：自习设置持久化入口。
 - `src/utils/studyBackgroundStorage.ts`、`src/utils/studyFontStorage.ts`：背景和字体设置。

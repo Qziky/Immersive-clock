@@ -1,4 +1,4 @@
-import { Gauge, RefreshCw, RotateCw, Sparkles } from "lucide-react";
+import { Delete, Gauge, RefreshCw, RotateCw, Sparkles } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { useAppState } from "../../../contexts/AppContext";
@@ -90,6 +90,9 @@ export function ContentSettingsPanel({ onRegisterSave, section }: ContentSetting
   const [draftTypingSpeed, setDraftTypingSpeed] = useState<QuoteTypingSpeed>(
     quoteSettings.typingSpeed
   );
+  const [draftTypewriterBackspaceEnabled, setDraftTypewriterBackspaceEnabled] = useState(
+    quoteSettings.typewriterBackspaceEnabled
+  );
   const [previewIndex, setPreviewIndex] = useState(0);
   const [previewReplayKey, setPreviewReplayKey] = useState(0);
   const channelSaveRef = useRef<((settings: QuoteSettingsState) => void) | null>(null);
@@ -100,10 +103,18 @@ export function ContentSettingsPanel({ onRegisterSave, section }: ContentSetting
         autoRefreshEnabled: draftEnabled,
         autoRefreshIntervalSec: draftInterval,
         animationMode: draftAnimationMode,
+        typewriterBackspaceEnabled: draftTypewriterBackspaceEnabled,
         typingSpeed: draftTypingSpeed,
       });
     });
-  }, [draftAnimationMode, draftEnabled, draftInterval, draftTypingSpeed, onRegisterSave]);
+  }, [
+    draftAnimationMode,
+    draftEnabled,
+    draftInterval,
+    draftTypewriterBackspaceEnabled,
+    draftTypingSpeed,
+    onRegisterSave,
+  ]);
 
   const replayPreview = () => {
     setPreviewIndex((current) => (current + 1) % PREVIEW_QUOTES.length);
@@ -117,6 +128,11 @@ export function ContentSettingsPanel({ onRegisterSave, section }: ContentSetting
 
   const handleTypingSpeedChange = (speed: QuoteTypingSpeed) => {
     setDraftTypingSpeed(speed);
+    replayPreview();
+  };
+
+  const handleTypewriterBackspaceChange = (enabled: boolean) => {
+    setDraftTypewriterBackspaceEnabled(enabled);
     replayPreview();
   };
 
@@ -206,6 +222,21 @@ export function ContentSettingsPanel({ onRegisterSave, section }: ContentSetting
           />
         </SettingItem>
 
+        <SettingItem
+          icon={<Delete size={18} />}
+          title="切换时回删"
+          description="切换到下一条语录前，先按打字节奏回删当前内容。"
+          disabled={draftAnimationMode !== "typewriter"}
+          control={
+            <FormSwitch
+              checked={draftTypewriterBackspaceEnabled}
+              disabled={draftAnimationMode !== "typewriter"}
+              onCheckedChange={handleTypewriterBackspaceChange}
+              aria-label="切换时回删"
+            />
+          }
+        />
+
         <div className={styles.preview} data-testid="quote-animation-preview">
           <div className={styles.previewHeader}>
             <div>
@@ -225,6 +256,7 @@ export function ContentSettingsPanel({ onRegisterSave, section }: ContentSetting
               className={styles.previewQuote}
               quote={PREVIEW_QUOTES[previewIndex]}
               animationMode={draftAnimationMode}
+              typewriterBackspaceEnabled={draftTypewriterBackspaceEnabled}
               typingSpeed={draftTypingSpeed}
               replayKey={previewReplayKey}
             />

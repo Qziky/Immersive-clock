@@ -66,11 +66,13 @@ describe("appSettings", () => {
     const s = getAppSettings();
     expect(s.version).toBe(3);
     expect(s.general.timeSync.provider).toBe("httpDate");
+    expect(s.study.display.timeProgressMode).toBe("day");
     expect(s.study.display.showTime).toBe(true);
     expect(s.general.quote.autoRefreshEnabled).toBe(true);
     expect(s.general.quote.autoRefreshIntervalSec).toBe(600);
     expect(s.general.quote.animationMode).toBe("typewriter");
     expect(s.general.quote.typingSpeed).toBe("normal");
+    expect(s.general.quote.typewriterBackspaceEnabled).toBe(true);
     expect(s.general.quote.channels).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ id: "local-inspirational", enabled: true, weight: 40 }),
@@ -95,6 +97,8 @@ describe("appSettings", () => {
 
     const s = getAppSettings();
     expect(s.study.display.showQuote).toBe(false);
+    expect(s.study.display.timeProgressMode).toBe("day");
+    expect(s.study.display.showWeather).toBe(true);
     expect(s.study.display.showTime).toBe(true);
     expect(s.study.display.showDate).toBe(true);
   });
@@ -410,6 +414,7 @@ describe("appSettings", () => {
             autoRefreshIntervalSec: null,
             animationMode: "slide",
             typingSpeed: "instant",
+            typewriterBackspaceEnabled: "invalid",
             channels: [
               { id: "hitokoto-api", enabled: "bad", weight: "bad" },
               { id: "hitokoto-api", enabled: false, weight: 44 },
@@ -426,6 +431,7 @@ describe("appSettings", () => {
     expect(loaded.general.quote.autoRefreshIntervalSec).toBe(600);
     expect(loaded.general.quote.animationMode).toBe("typewriter");
     expect(loaded.general.quote.typingSpeed).toBe("normal");
+    expect(loaded.general.quote.typewriterBackspaceEnabled).toBe(true);
     expect(loaded.general.quote.channels.find((channel) => channel.id === "hitokoto-api")).toEqual(
       expect.objectContaining({ enabled: true, weight: 20 })
     );
@@ -441,6 +447,7 @@ describe("appSettings", () => {
       autoRefreshIntervalSec: 5000,
       animationMode: "crossfade",
       typingSpeed: "fast",
+      typewriterBackspaceEnabled: false,
     });
 
     expect(setItemSpy).toHaveBeenCalledTimes(1);
@@ -450,6 +457,7 @@ describe("appSettings", () => {
     expect(saved.general.quote.autoRefreshIntervalSec).toBe(1800);
     expect(saved.general.quote.animationMode).toBe("crossfade");
     expect(saved.general.quote.typingSpeed).toBe("fast");
+    expect(saved.general.quote.typewriterBackspaceEnabled).toBe(false);
     expect(saved.general.quote).not.toHaveProperty("lastUpdated");
     expect(saved.general.quote.channels[0]).not.toHaveProperty("apiEndpoint");
   });
@@ -479,8 +487,10 @@ describe("appSettings", () => {
 
     expect(migrated.general.quote.animationMode).toBe("typewriter");
     expect(migrated.general.quote.typingSpeed).toBe("normal");
+    expect(migrated.general.quote.typewriterBackspaceEnabled).toBe(true);
     expect(saved.general.quote.animationMode).toBe("typewriter");
     expect(saved.general.quote.typingSpeed).toBe("normal");
+    expect(saved.general.quote.typewriterBackspaceEnabled).toBe(true);
   });
 
   it("normalizeAppSettings 会在不写入存储的情况下规范化导入候选", () => {
@@ -497,11 +507,48 @@ describe("appSettings", () => {
     expect(localStorage.getItem(APP_SETTINGS_KEY)).toBe(original);
   });
 
+  it.each([
+    ["缺失", undefined],
+    ["非法", "semester"],
+  ])("启动迁移会将 v3 %s进度模式归一为 day 并写回", (_label, candidate) => {
+    const stored = getAppSettings();
+    const serialized = JSON.parse(JSON.stringify(stored));
+    if (candidate === undefined) {
+      delete serialized.study.display.timeProgressMode;
+    } else {
+      serialized.study.display.timeProgressMode = candidate;
+    }
+    localStorage.setItem(APP_SETTINGS_KEY, JSON.stringify(serialized));
+    const setItemSpy = vi.spyOn(localStorage, "setItem");
+
+    const migrated = migrateStoredAppSettings();
+    const saved = JSON.parse(localStorage.getItem(APP_SETTINGS_KEY) ?? "{}");
+
+    expect(migrated.version).toBe(3);
+    expect(migrated.study.display.timeProgressMode).toBe("day");
+    expect(saved.study.display.timeProgressMode).toBe("day");
+    expect(setItemSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("启动迁移会保留显式 schedule 进度模式", () => {
+    const stored = getAppSettings();
+    stored.study.display.timeProgressMode = "schedule";
+    localStorage.setItem(APP_SETTINGS_KEY, JSON.stringify(stored));
+    const setItemSpy = vi.spyOn(localStorage, "setItem");
+
+    const migrated = migrateStoredAppSettings();
+
+    expect(migrated.version).toBe(3);
+    expect(migrated.study.display.timeProgressMode).toBe("schedule");
+    expect(setItemSpy).not.toHaveBeenCalled();
+  });
+
   it("恢复默认设置时保留课程、倒计时和语录内容，但重置外观与功能偏好", () => {
     const current = getAppSettings();
     current.general.startup.initialMode = "study";
     current.general.quote.animationMode = "crossfade";
     current.general.quote.typingSpeed = "fast";
+    current.general.quote.typewriterBackspaceEnabled = false;
     current.general.quote.customChannels = [
       {
         id: "custom:test",
@@ -534,6 +581,7 @@ describe("appSettings", () => {
     expect(reset.general.startup.initialMode).toBe("clock");
     expect(reset.general.quote.animationMode).toBe("crossfade");
     expect(reset.general.quote.typingSpeed).toBe("fast");
+    expect(reset.general.quote.typewriterBackspaceEnabled).toBe(false);
     expect(reset.general.quote.customChannels[0]?.quotes).toEqual(["保留内容"]);
     expect(reset.study.countdownItems[0]?.name).toBe("考试");
     expect(reset.study.schedule[0]?.name).toBe("数学");

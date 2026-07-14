@@ -294,6 +294,7 @@ describe("dataManagement", () => {
     const importedQuote = settings.general.quote as unknown as Record<string, unknown>;
     importedQuote.animationMode = "slide";
     importedQuote.typingSpeed = "instant";
+    importedQuote.typewriterBackspaceEnabled = "invalid";
     const legacyBundle = await prepareBackup({
       format: "immersive-clock-settings",
       version: 2,
@@ -309,6 +310,7 @@ describe("dataManagement", () => {
     expect(plainSettings.backup.domains.settings.data.general.quote).toMatchObject({
       animationMode: "typewriter",
       typingSpeed: "normal",
+      typewriterBackspaceEnabled: true,
     });
   });
 

@@ -31,7 +31,7 @@ export function WeatherPresentation({
   const { className: descriptionClassName, ...descriptionProps } = descriptionAttributes ?? {};
 
   return (
-    <div className={styles.weather} title={title}>
+    <div aria-label="天气" className={styles.weather} title={title}>
       <div
         {...temperatureProps}
         className={mergeClassNames(styles.temperature, temperatureClassName)}

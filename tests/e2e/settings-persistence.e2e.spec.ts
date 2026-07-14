@@ -69,6 +69,87 @@ test("设置持久化：修改目标年份并保存", async ({ page }) => {
   expect(storedYearAfterReload).toBe(2029);
 });
 
+test("自习显示：计划进度与天气可独立控制并持久化", async ({ page }) => {
+  await page.goto("/");
+
+  let dialog = await openStudySettings(page);
+  await dialog.getByRole("button", { name: "自习显示" }).click();
+
+  const statusBarSwitch = dialog.getByRole("switch", { name: "计划进度" });
+  const weatherSwitch = dialog.getByRole("switch", { name: "天气" });
+  await expect(statusBarSwitch).toBeChecked();
+  await expect(weatherSwitch).toBeChecked();
+  await statusBarSwitch.click();
+  await dialog.getByRole("button", { name: "保存" }).click();
+
+  await expect(page.getByRole("progressbar")).toBeHidden();
+  await expect(page.getByLabel("天气", { exact: true })).toBeVisible();
+
+  await page.reload();
+  dialog = await openStudySettings(page);
+  await dialog.getByRole("button", { name: "自习显示" }).click();
+  await expect(dialog.getByRole("switch", { name: "计划进度" })).not.toBeChecked();
+  await expect(dialog.getByRole("switch", { name: "天气" })).toBeChecked();
+  await dialog.getByRole("switch", { name: "计划进度" }).click();
+  await dialog.getByRole("switch", { name: "天气" }).click();
+  await dialog.getByRole("button", { name: "保存" }).click();
+
+  await expect(page.getByRole("progressbar")).toBeVisible();
+  await expect(page.getByLabel("天气", { exact: true })).toBeHidden();
+});
+
+test("自习显示：进度模式默认今日，取消不保存并可持久化课时模式", async ({ page }) => {
+  await page.goto("/");
+
+  let dialog = await openStudySettings(page);
+  await dialog.getByRole("button", { name: "自习显示" }).click();
+  let progressMode = dialog.getByRole("radiogroup", { name: "进度模式" });
+  let dayProgressOption = progressMode.getByRole("radio", { name: "今日进度" });
+  const progressSwitch = dialog.getByRole("switch", { name: "计划进度" });
+  await expect(dayProgressOption).toBeChecked();
+
+  await progressSwitch.click();
+  await expect(dayProgressOption).toBeDisabled();
+  await expect(dayProgressOption).toBeChecked();
+  await progressSwitch.click();
+  await expect(dayProgressOption).toBeEnabled();
+  await expect(dayProgressOption).toBeChecked();
+
+  await progressMode.getByRole("radio", { name: "课时进度" }).click();
+  await dialog.getByRole("button", { name: "取消" }).click();
+
+  expect(
+    await page.evaluate(() => {
+      const raw = localStorage.getItem("AppSettings");
+      return raw ? (JSON.parse(raw)?.study?.display?.timeProgressMode ?? null) : null;
+    })
+  ).toBe("day");
+
+  dialog = await openStudySettings(page);
+  await dialog.getByRole("button", { name: "自习显示" }).click();
+  progressMode = dialog.getByRole("radiogroup", { name: "进度模式" });
+  dayProgressOption = progressMode.getByRole("radio", { name: "今日进度" });
+  await expect(dayProgressOption).toBeChecked();
+  await progressMode.getByRole("radio", { name: "课时进度" }).click();
+  await dialog.getByRole("button", { name: "保存" }).click();
+
+  await expect(page.getByRole("progressbar")).toBeVisible();
+  await expect(page.getByRole("progressbar", { name: "今日进度" })).toHaveCount(0);
+
+  expect(
+    await page.evaluate(() => {
+      const raw = localStorage.getItem("AppSettings");
+      return raw ? (JSON.parse(raw)?.study?.display?.timeProgressMode ?? null) : null;
+    })
+  ).toBe("schedule");
+
+  await page.reload();
+  dialog = await openStudySettings(page);
+  await dialog.getByRole("button", { name: "自习显示" }).click();
+  progressMode = dialog.getByRole("radiogroup", { name: "进度模式" });
+  await expect(progressMode.getByRole("radio", { name: "课时进度" })).toBeChecked();
+});
+
 test("组件外观：实时预览、取消回滚并在保存后持久化", async ({ page }) => {
   await page.goto("/");
   let dialog = await openStudySettings(page);
@@ -80,7 +161,7 @@ test("组件外观：实时预览、取消回滚并在保存后持久化", async
   const objectTabs = dialog.getByRole("tablist", { name: "时钟调整对象" });
   const preview = dialog.getByLabel("时钟外观预览");
   const previewTime = preview.getByText("12:45:09");
-  const previewDate = preview.getByText("2026年7月13日 星期一");
+  const previewDate = preview.getByText("2026年7月13日星期一");
   await objectTabs.getByRole("tab", { name: "日期" }).hover();
   await expect(previewDate).toHaveAttribute("data-preview-highlighted", "true");
   await dialog.getByRole("heading", { name: "时钟", level: 3, exact: true }).hover();
@@ -142,8 +223,8 @@ test("页面背景：可在整体背景和应用预设之间切换", async ({ pa
   let dialog = await openStudySettings(page);
   await dialog.getByRole("button", { name: "视觉外观" }).click();
   await dialog.getByRole("button", { name: "时间显示", exact: true }).click();
-  let previewCanvas = dialog.getByLabel("时钟外观预览").locator(":scope > div");
-  await expect(previewCanvas).toHaveCSS("background-color", "rgb(18, 52, 86)");
+  let previewStage = dialog.getByLabel("时钟外观预览").locator('[data-preview-stage="clock"]');
+  await expect(previewStage).toHaveCSS("background-color", "rgb(18, 52, 86)");
 
   await dialog.getByRole("radio", { name: "应用预设" }).check({ force: true });
   await dialog.getByRole("button", { name: "保存" }).click();
@@ -158,9 +239,9 @@ test("页面背景：可在整体背景和应用预设之间切换", async ({ pa
   dialog = page.getByRole("dialog", { name: "设置" });
   await dialog.getByRole("button", { name: "视觉外观" }).click();
   await dialog.getByRole("button", { name: "时间显示", exact: true }).click();
-  previewCanvas = dialog.getByLabel("时钟外观预览").locator(":scope > div");
+  previewStage = dialog.getByLabel("时钟外观预览").locator('[data-preview-stage="clock"]');
   await dialog.getByRole("radio", { name: "跟随整体" }).check({ force: true });
-  await expect(previewCanvas).toHaveCSS("background-color", "rgb(18, 52, 86)");
+  await expect(previewStage).toHaveCSS("background-color", "rgb(18, 52, 86)");
   await dialog.getByRole("button", { name: "保存" }).click();
 
   expect(
@@ -195,7 +276,11 @@ test("组件外观：多事件倒计时可按实例保存覆盖", async ({ page 
 
   dialog = await openStudySettings(page);
   await dialog.getByRole("button", { name: "视觉外观" }).click();
-  await dialog.getByRole("button", { name: "事件倒计时", exact: true }).click();
+  await dialog.getByRole("button", { name: "顶部信息栏", exact: true }).click();
+  await dialog
+    .getByRole("radiogroup", { name: "顶部信息栏内容" })
+    .getByRole("radio", { name: "事件倒计时", exact: true })
+    .click();
   await dialog.getByRole("radio", { name: "指定事件" }).check({ force: true });
   await dialog.getByRole("button", { name: "指定事件" }).click();
   await page.getByRole("option", { name: "高考倒计时" }).click();
@@ -251,8 +336,14 @@ test("设置导航：一级分类切换后只显示当前二级分区", async ({
   ).toHaveCount(0);
   await expect(settingsNavigation.getByRole("button", { name: "语录", exact: true })).toBeVisible();
   await expect(
-    settingsNavigation.getByRole("button", { name: "事件倒计时", exact: true })
+    settingsNavigation.getByRole("button", { name: "顶部信息栏", exact: true })
   ).toBeVisible();
+  await expect(settingsNavigation.getByRole("button", { name: "天气", exact: true })).toHaveCount(
+    0
+  );
+  await expect(
+    settingsNavigation.getByRole("button", { name: "事件倒计时", exact: true })
+  ).toHaveCount(0);
   await expect(dialog.getByRole("button", { name: "启动页面" })).toBeHidden();
 
   await dialog.getByRole("button", { name: "环境提醒" }).click();
@@ -385,9 +476,9 @@ test.describe("移动端设置抽屉", () => {
 
     const componentMenu = dialog.getByRole("navigation", { name: "视觉外观子分类" });
     await expect(componentMenu).toBeVisible();
-    expect(await componentMenu.getByRole("button").count()).toBe(8);
+    expect(await componentMenu.getByRole("button").count()).toBe(4);
 
-    const lastItem = componentMenu.getByRole("button", { name: "事件倒计时" });
+    const lastItem = componentMenu.getByRole("button", { name: "顶部信息栏" });
     await lastItem.scrollIntoViewIfNeeded();
     await expect(lastItem).toBeInViewport();
     expect(

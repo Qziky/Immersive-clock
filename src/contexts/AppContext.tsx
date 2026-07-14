@@ -18,6 +18,7 @@ function loadQuoteSettingsState(): QuoteSettingsState {
     autoRefreshIntervalSec: settings.general.quote.autoRefreshIntervalSec,
     animationMode: settings.general.quote.animationMode,
     typingSpeed: settings.general.quote.typingSpeed,
+    typewriterBackspaceEnabled: settings.general.quote.typewriterBackspaceEnabled,
   };
 }
 

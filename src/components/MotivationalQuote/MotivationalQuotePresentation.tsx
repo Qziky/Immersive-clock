@@ -19,6 +19,7 @@ interface MotivationalQuotePresentationProps {
   staticCursorTarget?: "attribution" | "text";
   textAttributes?: PresentationAttributes<HTMLAttributes<HTMLSpanElement>>;
   textStyle?: CSSProperties;
+  typewriterBackspaceEnabled?: boolean;
   typingSpeed: QuoteTypingSpeed;
 }
 
@@ -33,6 +34,7 @@ export function MotivationalQuotePresentation({
   staticCursorTarget,
   textAttributes,
   textStyle,
+  typewriterBackspaceEnabled = true,
   typingSpeed,
 }: MotivationalQuotePresentationProps) {
   const { className: buttonClassName, ...buttonProps } = buttonAttributes ?? {};
@@ -55,6 +57,7 @@ export function MotivationalQuotePresentation({
           staticCursorTarget={staticCursorTarget}
           textAttributes={textAttributes}
           textStyle={textStyle}
+          typewriterBackspaceEnabled={typewriterBackspaceEnabled}
           typingSpeed={typingSpeed}
         />
       </button>

@@ -10,41 +10,49 @@ const CROSSFADE_DURATION_MS = 240;
 const REDUCED_MOTION_QUERY = "(prefers-reduced-motion: reduce)";
 
 interface TypingRhythm {
+  backspace: number;
   cjk: number;
   latin: number;
   whitespace: number;
   commaPause: number;
   sentencePause: number;
   attributionPause: number;
+  maximumBackspaceDuration: number;
   maximumDuration: number;
 }
 
 const TYPING_RHYTHMS: Record<QuoteTypingSpeed, TypingRhythm> = {
   slow: {
+    backspace: 62,
     cjk: 110,
     latin: 72,
     whitespace: 36,
     commaPause: 180,
     sentencePause: 360,
     attributionPause: 360,
+    maximumBackspaceDuration: 4_000,
     maximumDuration: 12_000,
   },
   normal: {
+    backspace: 42,
     cjk: 76,
     latin: 48,
     whitespace: 24,
     commaPause: 120,
     sentencePause: 240,
     attributionPause: 240,
+    maximumBackspaceDuration: 3_000,
     maximumDuration: 8_000,
   },
   fast: {
+    backspace: 26,
     cjk: 44,
     latin: 28,
     whitespace: 16,
     commaPause: 70,
     sentencePause: 140,
     attributionPause: 140,
+    maximumBackspaceDuration: 2_000,
     maximumDuration: 5_000,
   },
 };
@@ -53,7 +61,9 @@ interface QuotePresentation {
   animationKey: string;
   attribution: string;
   contentKey: string;
+  seed: string;
   text: string;
+  typingSpeed: QuoteTypingSpeed;
 }
 
 interface TypewriterTimeline {
@@ -64,10 +74,21 @@ interface TypewriterTimeline {
   textThresholds: number[];
 }
 
-interface TypewriterFrame {
-  animationKey: string;
+interface BackspaceTimeline {
+  duration: number;
+  thresholds: number[];
+}
+
+type TypewriterPhase = "typing" | "backspacing" | "complete";
+
+interface TypewriterState {
+  activePresentation: QuotePresentation;
   attributionCount: number;
-  isComplete: boolean;
+  pendingPresentation: QuotePresentation | null;
+  phase: TypewriterPhase;
+  phaseKey: number;
+  startingAttributionCount: number;
+  startingTextCount: number;
   textCount: number;
 }
 
@@ -94,6 +115,7 @@ export interface QuoteRevealProps {
   staticCursorTarget?: "attribution" | "text";
   textAttributes?: PresentationAttributes<HTMLAttributes<HTMLSpanElement>>;
   textStyle?: CSSProperties;
+  typewriterBackspaceEnabled?: boolean;
   typingSpeed: QuoteTypingSpeed;
 }
 
@@ -193,6 +215,26 @@ function createTypewriterTimeline(
     duration: unscaledDuration * scale,
     text: textGraphemes,
     textThresholds: textResult.thresholds.map((threshold) => threshold * scale),
+  };
+}
+
+function createBackspaceTimeline(
+  graphemeCount: number,
+  speed: QuoteTypingSpeed,
+  seed: string
+): BackspaceTimeline {
+  const rhythm = TYPING_RHYTHMS[speed];
+  let elapsed = 0;
+  const thresholds = Array.from({ length: graphemeCount }, (_, index) => {
+    elapsed += rhythm.backspace * intervalJitter(seed, "backspace", index);
+    return elapsed;
+  });
+  const scale =
+    elapsed > rhythm.maximumBackspaceDuration ? rhythm.maximumBackspaceDuration / elapsed : 1;
+
+  return {
+    duration: elapsed * scale,
+    thresholds: thresholds.map((threshold) => threshold * scale),
   };
 }
 
@@ -356,67 +398,163 @@ function StaticReveal({
   );
 }
 
+function createTypingState(presentation: QuotePresentation, phaseKey = 0): TypewriterState {
+  return {
+    activePresentation: presentation,
+    attributionCount: 0,
+    pendingPresentation: null,
+    phase: "typing",
+    phaseKey,
+    startingAttributionCount: 0,
+    startingTextCount: 0,
+    textCount: 0,
+  };
+}
+
 function TypewriterReveal({
   cursorAttributes,
   cursorStyle,
   presentation,
-  quoteId,
   textAttributes,
   textStyle,
-  typingSpeed,
+  typewriterBackspaceEnabled,
 }: {
   cursorAttributes?: PresentationAttributes<HTMLAttributes<HTMLSpanElement>>;
   cursorStyle?: CSSProperties;
   presentation: QuotePresentation;
-  quoteId: string;
   textAttributes?: PresentationAttributes<HTMLAttributes<HTMLSpanElement>>;
   textStyle?: CSSProperties;
-  typingSpeed: QuoteTypingSpeed;
+  typewriterBackspaceEnabled: boolean;
 }) {
-  const [animationSeed] = useState(quoteId);
-  const timeline = useMemo(
+  const [state, setState] = useState<TypewriterState>(() => createTypingState(presentation));
+  const activeTimeline = useMemo(
     () =>
       createTypewriterTimeline(
-        presentation.text,
-        presentation.attribution,
-        typingSpeed,
-        animationSeed
+        state.activePresentation.text,
+        state.activePresentation.attribution,
+        state.activePresentation.typingSpeed,
+        state.activePresentation.seed
       ),
-    [animationSeed, presentation.attribution, presentation.text, typingSpeed]
+    [state.activePresentation]
   );
-  const [frame, setFrame] = useState<TypewriterFrame>(() => ({
-    animationKey: presentation.animationKey,
-    attributionCount: 0,
-    isComplete: timeline.duration === 0,
-    textCount: 0,
-  }));
+  const backspaceTimeline = useMemo(
+    () =>
+      createBackspaceTimeline(
+        state.startingAttributionCount + state.startingTextCount,
+        state.activePresentation.typingSpeed,
+        state.activePresentation.seed
+      ),
+    [
+      state.activePresentation.seed,
+      state.activePresentation.typingSpeed,
+      state.startingAttributionCount,
+      state.startingTextCount,
+    ]
+  );
 
   useEffect(() => {
-    const animationKey = presentation.animationKey;
-    const initialFrame: TypewriterFrame = {
-      animationKey,
-      attributionCount: 0,
-      isComplete: timeline.duration === 0,
-      textCount: 0,
-    };
-    setFrame(initialFrame);
-    if (timeline.duration === 0) return undefined;
+    setState((current) => {
+      const activeMatches = current.activePresentation.animationKey === presentation.animationKey;
+
+      if (!typewriterBackspaceEnabled) {
+        if (activeMatches && current.phase !== "backspacing") return current;
+        return createTypingState(presentation, current.phaseKey + 1);
+      }
+
+      if (current.phase === "backspacing") {
+        if (current.pendingPresentation?.animationKey === presentation.animationKey) return current;
+        return { ...current, pendingPresentation: presentation };
+      }
+      if (activeMatches) return current;
+      if (current.textCount === 0 && current.attributionCount === 0) {
+        return createTypingState(presentation, current.phaseKey + 1);
+      }
+
+      return {
+        ...current,
+        pendingPresentation: presentation,
+        phase: "backspacing",
+        phaseKey: current.phaseKey + 1,
+        startingAttributionCount: current.attributionCount,
+        startingTextCount: current.textCount,
+      };
+    });
+  }, [presentation, typewriterBackspaceEnabled]);
+
+  useEffect(() => {
+    if (state.phase === "complete") return undefined;
+
+    const phase = state.phase;
+    const phaseKey = state.phaseKey;
+    const timelineDuration =
+      phase === "typing" ? activeTimeline.duration : backspaceTimeline.duration;
+    if (timelineDuration === 0) {
+      setState((current) => {
+        if (current.phaseKey !== phaseKey || current.phase !== phase) return current;
+        if (phase === "typing") {
+          return {
+            ...current,
+            attributionCount: activeTimeline.attribution.length,
+            phase: "complete",
+            textCount: activeTimeline.text.length,
+          };
+        }
+        return current.pendingPresentation
+          ? createTypingState(current.pendingPresentation, current.phaseKey + 1)
+          : { ...current, attributionCount: 0, phase: "complete", textCount: 0 };
+      });
+      return undefined;
+    }
 
     const startedAt = performance.now();
     let animationFrame = 0;
-    let lastTextCount = 0;
-    let lastAttributionCount = 0;
+    let lastAttributionCount = phase === "typing" ? 0 : state.startingAttributionCount;
+    let lastTextCount = phase === "typing" ? 0 : state.startingTextCount;
+    let lastRemovedCount = 0;
 
     const update = (timestamp: number) => {
       const elapsed = Math.max(0, timestamp - startedAt);
-      const textCount = revealedCount(timeline.textThresholds, elapsed);
-      const attributionCount = revealedCount(timeline.attributionThresholds, elapsed);
-      const isComplete = elapsed >= timeline.duration;
+      const isComplete = elapsed >= timelineDuration;
 
-      if (textCount !== lastTextCount || attributionCount !== lastAttributionCount || isComplete) {
-        lastTextCount = textCount;
-        lastAttributionCount = attributionCount;
-        setFrame({ animationKey, attributionCount, isComplete, textCount });
+      if (phase === "typing") {
+        const textCount = revealedCount(activeTimeline.textThresholds, elapsed);
+        const attributionCount = revealedCount(activeTimeline.attributionThresholds, elapsed);
+        if (
+          textCount !== lastTextCount ||
+          attributionCount !== lastAttributionCount ||
+          isComplete
+        ) {
+          lastTextCount = textCount;
+          lastAttributionCount = attributionCount;
+          setState((current) => {
+            if (current.phaseKey !== phaseKey || current.phase !== phase) return current;
+            return {
+              ...current,
+              attributionCount,
+              phase: isComplete ? "complete" : current.phase,
+              textCount,
+            };
+          });
+        }
+      } else {
+        const removedCount = revealedCount(backspaceTimeline.thresholds, elapsed);
+        if (removedCount !== lastRemovedCount || isComplete) {
+          lastRemovedCount = removedCount;
+          const removedAttributionCount = Math.min(removedCount, state.startingAttributionCount);
+          const removedTextCount = Math.max(0, removedCount - state.startingAttributionCount);
+          const attributionCount = state.startingAttributionCount - removedAttributionCount;
+          const textCount = state.startingTextCount - removedTextCount;
+
+          setState((current) => {
+            if (current.phaseKey !== phaseKey || current.phase !== phase) return current;
+            if (isComplete) {
+              return current.pendingPresentation
+                ? createTypingState(current.pendingPresentation, current.phaseKey + 1)
+                : { ...current, attributionCount: 0, phase: "complete", textCount: 0 };
+            }
+            return { ...current, attributionCount, textCount };
+          });
+        }
       }
 
       if (!isComplete) animationFrame = window.requestAnimationFrame(update);
@@ -424,38 +562,34 @@ function TypewriterReveal({
 
     animationFrame = window.requestAnimationFrame(update);
     return () => window.cancelAnimationFrame(animationFrame);
-  }, [presentation.animationKey, timeline]);
+  }, [
+    activeTimeline,
+    backspaceTimeline,
+    state.phase,
+    state.phaseKey,
+    state.startingAttributionCount,
+    state.startingTextCount,
+  ]);
 
-  const activeFrame =
-    frame.animationKey === presentation.animationKey
-      ? frame
-      : {
-          animationKey: presentation.animationKey,
-          attributionCount: 0,
-          isComplete: false,
-          textCount: 0,
-        };
-  const visibleText = timeline.text.slice(0, activeFrame.textCount).join("");
-  const visibleAttribution = timeline.attribution.slice(0, activeFrame.attributionCount).join("");
-  const remainingText = timeline.text.slice(activeFrame.textCount).join("");
-  const remainingAttribution = timeline.attribution.slice(activeFrame.attributionCount).join("");
-  const cursorTarget = activeFrame.isComplete
-    ? undefined
-    : activeFrame.attributionCount > 0
-      ? "attribution"
-      : "text";
+  const visibleText = activeTimeline.text.slice(0, state.textCount).join("");
+  const visibleAttribution = activeTimeline.attribution.slice(0, state.attributionCount).join("");
+  const remainingText = activeTimeline.text.slice(state.textCount).join("");
+  const remainingAttribution = activeTimeline.attribution.slice(state.attributionCount).join("");
+  const cursorTarget =
+    state.phase === "complete" ? undefined : state.attributionCount > 0 ? "attribution" : "text";
 
   return (
     <>
-      <LayoutCopy presentation={presentation} textStyle={textStyle} />
+      <LayoutCopy presentation={state.activePresentation} textStyle={textStyle} />
       <span
         className={styles.quoteLayer}
         data-quote-layer="current"
         data-quote-reveal-layer="current"
-        data-typing-complete={activeFrame.isComplete}
+        data-typing-complete={state.phase === "complete"}
+        data-typing-phase={state.phase}
       >
         <QuoteContent
-          attribution={presentation.attribution}
+          attribution={state.activePresentation.attribution}
           attributionRemainder={remainingAttribution}
           attributionText={visibleAttribution}
           cursorAttributes={cursorAttributes}
@@ -567,6 +701,7 @@ export function QuoteReveal({
   staticCursorTarget,
   textAttributes,
   textStyle,
+  typewriterBackspaceEnabled = true,
   typingSpeed = "normal",
 }: QuoteRevealProps) {
   const attributionText = formatQuoteAttribution(quote);
@@ -574,8 +709,15 @@ export function QuoteReveal({
   const contentKey = JSON.stringify([quote.text, attribution]);
   const animationKey = `${contentKey}:${animationMode}:${typingSpeed}:${String(replayKey)}`;
   const presentation = useMemo<QuotePresentation>(
-    () => ({ animationKey, attribution, contentKey, text: quote.text }),
-    [animationKey, attribution, contentKey, quote.text]
+    () => ({
+      animationKey,
+      attribution,
+      contentKey,
+      seed: quote.id,
+      text: quote.text,
+      typingSpeed,
+    }),
+    [animationKey, attribution, contentKey, quote.id, quote.text, typingSpeed]
   );
   const prefersReducedMotion = usePrefersReducedMotion();
   const [reducedContentKey, setReducedContentKey] = useState<string | null>(() =>
@@ -594,6 +736,7 @@ export function QuoteReveal({
       data-animation-mode={skipMotion ? "none" : animationMode}
       data-quote-animation={skipMotion ? "none" : animationMode}
       data-quote-reveal="true"
+      data-typewriter-backspace-enabled={typewriterBackspaceEnabled}
     >
       {skipMotion || animationMode === "none" ? (
         <StaticReveal
@@ -614,12 +757,10 @@ export function QuoteReveal({
         <TypewriterReveal
           cursorAttributes={cursorAttributes}
           cursorStyle={cursorStyle}
-          key={presentation.contentKey}
           presentation={presentation}
-          quoteId={quote.id}
           textAttributes={textAttributes}
           textStyle={textStyle}
-          typingSpeed={typingSpeed}
+          typewriterBackspaceEnabled={typewriterBackspaceEnabled}
         />
       )}
     </span>

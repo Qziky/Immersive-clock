@@ -3,6 +3,7 @@ import {
   CalendarDays,
   CheckCircle2,
   Clock3,
+  CloudSun,
   Eye,
   FileText,
   RotateCw,
@@ -13,6 +14,7 @@ import React, { useEffect, useMemo, useState } from "react";
 
 import { useAppDispatch, useAppState } from "../../../contexts/AppContext";
 import { AppMode, CountdownItem } from "../../../types";
+import type { StudyDisplaySettings, StudyTimeProgressMode } from "../../../types";
 import {
   Button as FormButton,
   FormSection,
@@ -81,9 +83,11 @@ export const BasicSettingsPanel: React.FC<BasicSettingsPanelProps> = ({
   );
 
   // 自习组件显示草稿（时间始终显示，不提供开关）
-  const defaultDisplay = useMemo(
+  const defaultDisplay = useMemo<StudyDisplaySettings>(
     () => ({
       showStatusBar: true,
+      timeProgressMode: "day",
+      showWeather: true,
       showNoiseMonitor: true,
       showCountdown: true,
       showQuote: true,
@@ -92,9 +96,21 @@ export const BasicSettingsPanel: React.FC<BasicSettingsPanelProps> = ({
     }),
     []
   );
-  const [draftDisplay, setDraftDisplay] = useState<typeof defaultDisplay>({
+  const [draftDisplay, setDraftDisplay] = useState<StudyDisplaySettings>({
     ...(study.display || defaultDisplay),
   });
+  const timeProgressModeOptions = useMemo(
+    () =>
+      [
+        { label: "今日进度", value: "day", disabled: !draftDisplay.showStatusBar },
+        { label: "课时进度", value: "schedule", disabled: !draftDisplay.showStatusBar },
+      ] satisfies Array<{
+        label: string;
+        value: StudyTimeProgressMode;
+        disabled: boolean;
+      }>,
+    [draftDisplay.showStatusBar]
+  );
 
   // 子分区保存注册
   const countdownSaveRef = React.useRef<() => void>(() => {});
@@ -470,18 +486,51 @@ export const BasicSettingsPanel: React.FC<BasicSettingsPanelProps> = ({
         description="选择自习页面显示的组件，时间始终显示。"
         hidden={isSectionHidden("display")}
       >
-        <SettingGrid columns={2}>
+        <SettingGrid>
           <SettingItem
             icon={<Eye size={18} />}
-            title="状态栏"
-            description="显示顶部学习状态与辅助信息。"
+            title="计划进度"
+            description="在顶部信息栏显示当前时间范围的进度。"
             control={
               <FormSwitch
                 checked={!!draftDisplay.showStatusBar}
                 onCheckedChange={(checked) =>
                   setDraftDisplay((prev) => ({ ...prev, showStatusBar: checked }))
                 }
-                aria-label="状态栏"
+                aria-label="计划进度"
+              />
+            }
+          />
+          <SettingItem
+            icon={<CalendarClock size={18} />}
+            title="进度模式"
+            description="默认显示今日 24 小时进度，也可按课程表显示课时与课间进度。"
+            tone="info"
+            disabled={!draftDisplay.showStatusBar}
+          >
+            <FormSegmented
+              ariaLabel="进度模式"
+              value={draftDisplay.timeProgressMode}
+              options={timeProgressModeOptions}
+              onChange={(value) =>
+                setDraftDisplay((previous) => ({
+                  ...previous,
+                  timeProgressMode: value,
+                }))
+              }
+            />
+          </SettingItem>
+          <SettingItem
+            icon={<CloudSun size={18} />}
+            title="天气"
+            description="显示当前天气与温度信息。"
+            control={
+              <FormSwitch
+                checked={!!draftDisplay.showWeather}
+                onCheckedChange={(checked) =>
+                  setDraftDisplay((prev) => ({ ...prev, showWeather: checked }))
+                }
+                aria-label="天气"
               />
             }
           />

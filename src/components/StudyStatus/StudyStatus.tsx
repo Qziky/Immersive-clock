@@ -1,23 +1,29 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 
 import { useComponentAppearance } from "../../contexts/AppearanceContext";
+import type { StudyTimeProgressMode } from "../../types";
 import { DEFAULT_SCHEDULE, StudyPeriod } from "../../types/studySchedule";
 import { logger } from "../../utils/logger";
 import { subscribeSettingsEvent, SETTINGS_EVENTS } from "../../utils/settingsEvents";
 import { readStudySchedule } from "../../utils/studyScheduleStorage";
 import { getAdjustedDate } from "../../utils/timeSync";
 
+import { getDayGreeting } from "./dayGreeting";
 import { StudyStatusPresentation } from "./StudyStatusPresentation";
 
 // 当前状态类型
 export type StudyStatusType = {
   isInClass: boolean;
   currentPeriod: StudyPeriod | null;
+  hasProgress: boolean;
   progress: number; // 0-100
   remainingSeconds: number;
+  stageAriaText: string;
   stageText: string;
   statusText: string;
 };
+
+const SECONDS_PER_DAY = 24 * 60 * 60;
 
 function timeStringToSeconds(timeString: string): number {
   const [hours, minutes] = timeString.split(":").map(Number);
@@ -51,6 +57,22 @@ export function formatRemainingTime(remainingSeconds: number): string {
   return minutes > 0 ? `还剩 ${hours} 小时 ${minutes} 分钟` : `还剩 ${hours} 小时`;
 }
 
+export function calculateDayProgress(now: Date): StudyStatusType {
+  const elapsedSeconds = now.getHours() * 60 * 60 + now.getMinutes() * 60 + now.getSeconds();
+  const greeting = getDayGreeting(now);
+
+  return {
+    isInClass: false,
+    currentPeriod: null,
+    hasProgress: true,
+    progress: (elapsedSeconds / SECONDS_PER_DAY) * 100,
+    remainingSeconds: SECONDS_PER_DAY - elapsedSeconds,
+    stageAriaText: greeting.ariaText,
+    stageText: greeting.text,
+    statusText: "今日进度",
+  };
+}
+
 export function calculateStudyStatus(targetSchedule: StudyPeriod[], now: Date): StudyStatusType {
   const currentSeconds = now.getHours() * 60 * 60 + now.getMinutes() * 60 + now.getSeconds();
   const sortedSchedule = [...targetSchedule].sort(
@@ -65,13 +87,16 @@ export function calculateStudyStatus(targetSchedule: StudyPeriod[], now: Date): 
       const totalDuration = endSeconds - startSeconds;
       const elapsed = currentSeconds - startSeconds;
       const progress = Math.min(100, Math.max(0, (elapsed / totalDuration) * 100));
+      const stageText = getProgressStage(progress, true);
 
       return {
         isInClass: true,
         currentPeriod: period,
+        hasProgress: true,
         progress,
         remainingSeconds: Math.max(0, endSeconds - currentSeconds),
-        stageText: getProgressStage(progress, true),
+        stageAriaText: stageText,
+        stageText,
         statusText: period.name,
       };
     }
@@ -86,13 +111,16 @@ export function calculateStudyStatus(targetSchedule: StudyPeriod[], now: Date): 
       const totalBreakDuration = nextStartSeconds - currentEndSeconds;
       const breakElapsed = currentSeconds - currentEndSeconds;
       const progress = Math.min(100, Math.max(0, (breakElapsed / totalBreakDuration) * 100));
+      const stageText = getProgressStage(progress, false);
 
       return {
         isInClass: false,
         currentPeriod,
+        hasProgress: true,
         progress,
         remainingSeconds: Math.max(0, nextStartSeconds - currentSeconds),
-        stageText: getProgressStage(progress, false),
+        stageAriaText: stageText,
+        stageText,
         statusText: `${currentPeriod.name} 下课`,
       };
     }
@@ -101,22 +129,24 @@ export function calculateStudyStatus(targetSchedule: StudyPeriod[], now: Date): 
   return {
     isInClass: false,
     currentPeriod: null,
+    hasProgress: false,
     progress: 0,
     remainingSeconds: 0,
+    stageAriaText: "",
     stageText: "",
     statusText: "未在自习时间",
   };
 }
 
 interface StudyStatusProps {
-  // 移除onSettingsClick，设置功能已整合到统一设置面板
+  mode?: StudyTimeProgressMode;
 }
 
 /**
- * 智能自习状态管理组件
- * 功能：显示当前自习状态和进度条
+ * 计划进度组件
+ * 功能：按设置显示今日 24 小时进度或课时进度
  */
-const StudyStatus: React.FC<StudyStatusProps> = () => {
+const StudyStatus: React.FC<StudyStatusProps> = ({ mode = "day" }) => {
   const containerAppearance = useComponentAppearance("studyStatus", "surface", {
     kind: "surface",
   });
@@ -124,14 +154,7 @@ const StudyStatus: React.FC<StudyStatusProps> = () => {
   const progressAppearance = useComponentAppearance("studyStatus", "progress");
   const fillAppearance = useComponentAppearance("studyStatus", "fill", { kind: "surface" });
   const [schedule, setSchedule] = useState<StudyPeriod[]>(DEFAULT_SCHEDULE);
-  const [currentStatus, setCurrentStatus] = useState<StudyStatusType>({
-    isInClass: false,
-    currentPeriod: null,
-    progress: 0,
-    remainingSeconds: 0,
-    stageText: "",
-    statusText: "未在自习时间",
-  });
+  const [currentTime, setCurrentTime] = useState<Date>(getAdjustedDate);
 
   const normalizeSchedule = useCallback((input: StudyPeriod[]): StudyPeriod[] => {
     return input.map((p, index) => {
@@ -146,20 +169,6 @@ const StudyStatus: React.FC<StudyStatusProps> = () => {
     });
   }, []);
 
-  const calculateStatusForSchedule = useCallback(
-    (targetSchedule: StudyPeriod[]): StudyStatusType => {
-      return calculateStudyStatus(targetSchedule, getAdjustedDate());
-    },
-    []
-  );
-
-  /**
-   * 计算当前状态
-   */
-  const calculateCurrentStatus = useCallback((): StudyStatusType => {
-    return calculateStatusForSchedule(schedule);
-  }, [schedule, calculateStatusForSchedule]);
-
   /**
    * 加载课程表（函数级注释：优先从 AppSettings 读取，读取失败则回退默认课程表）
    */
@@ -169,7 +178,6 @@ const StudyStatus: React.FC<StudyStatusProps> = () => {
       if (Array.isArray(data) && data.length > 0) {
         const next = normalizeSchedule(data);
         setSchedule(next);
-        setCurrentStatus(calculateStatusForSchedule(next));
         return;
       }
     } catch (error) {
@@ -177,8 +185,7 @@ const StudyStatus: React.FC<StudyStatusProps> = () => {
     }
     // 如果加载失败或没有保存的数据，使用默认课程表
     setSchedule(DEFAULT_SCHEDULE);
-    setCurrentStatus(calculateStatusForSchedule(DEFAULT_SCHEDULE));
-  }, [normalizeSchedule, calculateStatusForSchedule]);
+  }, [normalizeSchedule]);
 
   // 组件初始化时加载课程表
   useEffect(() => {
@@ -200,24 +207,26 @@ const StudyStatus: React.FC<StudyStatusProps> = () => {
     };
   }, [loadSchedule]);
 
-  // 每秒更新状态
+  // 每秒读取一次校准时间，进度由当前模式和课表直接派生。
   useEffect(() => {
-    const updateStatus = () => {
-      setCurrentStatus(calculateCurrentStatus());
-    };
-
-    // 立即更新一次
-    updateStatus();
-
-    // 设置定时器每秒更新
-    const interval = setInterval(updateStatus, 1000);
+    const interval = setInterval(() => setCurrentTime(getAdjustedDate()), 1000);
 
     return () => clearInterval(interval);
-  }, [calculateCurrentStatus]);
+  }, []);
 
-  const roundedProgress = Math.round(currentStatus.progress);
-  const hasProgress = currentStatus.currentPeriod !== null;
+  const currentStatus = useMemo(
+    () =>
+      mode === "day"
+        ? calculateDayProgress(currentTime)
+        : calculateStudyStatus(schedule, currentTime),
+    [currentTime, mode, schedule]
+  );
+
+  const displayedProgress =
+    mode === "day" ? Math.floor(currentStatus.progress) : Math.round(currentStatus.progress);
+  const hasProgress = currentStatus.hasProgress;
   const remainingTimeText = formatRemainingTime(currentStatus.remainingSeconds);
+  const progressLabel = mode === "day" ? "今日进度" : `${currentStatus.statusText}进度`;
 
   return (
     <StudyStatusPresentation
@@ -225,15 +234,15 @@ const StudyStatus: React.FC<StudyStatusProps> = () => {
       labelAttributes={{ style: labelAppearance }}
       progress={currentStatus.progress}
       progressAttributes={{ style: progressAppearance }}
-      progressText={`${roundedProgress}%`}
+      progressText={`${displayedProgress}%`}
       remainingTimeText={hasProgress ? remainingTimeText : undefined}
       rootAttributes={{
-        "aria-label": `${currentStatus.statusText}进度`,
+        "aria-label": progressLabel,
         "aria-valuemax": 100,
         "aria-valuemin": 0,
-        "aria-valuenow": roundedProgress,
+        "aria-valuenow": displayedProgress,
         "aria-valuetext": hasProgress
-          ? `${currentStatus.stageText}，${remainingTimeText}`
+          ? `${currentStatus.stageAriaText}，${remainingTimeText}`
           : currentStatus.statusText,
         role: "progressbar",
         style: containerAppearance,

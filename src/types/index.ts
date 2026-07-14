@@ -106,9 +106,15 @@ export interface StopwatchState {
 /**
  * 自习页面组件显示设置
  */
+export type StudyTimeProgressMode = "day" | "schedule";
+
 export interface StudyDisplaySettings {
   /** 是否显示状态栏 */
   showStatusBar: boolean;
+  /** 计划进度模式：今日全天或课时安排 */
+  timeProgressMode: StudyTimeProgressMode;
+  /** 是否显示天气 */
+  showWeather: boolean;
   /** 是否显示噪音监测 */
   showNoiseMonitor: boolean;
   /** 是否显示倒计时 */

@@ -36,6 +36,8 @@ describe("appReducer", () => {
         customDate: "",
         display: {
           showStatusBar: true,
+          timeProgressMode: "day",
+          showWeather: true,
           showNoiseMonitor: true,
           showCountdown: true,
           showQuote: true,
@@ -55,6 +57,7 @@ describe("appReducer", () => {
         autoRefreshIntervalSec: 600,
         animationMode: "typewriter",
         typingSpeed: "normal",
+        typewriterBackspaceEnabled: true,
       },
       announcement: {
         isVisible: false,
@@ -207,6 +210,7 @@ describe("appReducer", () => {
               autoRefreshIntervalSec: 90,
               animationMode: "crossfade",
               typingSpeed: "fast",
+              typewriterBackspaceEnabled: false,
               channels: [{ id: "hitokoto-api", enabled: false, weight: 23 }],
               customChannels: [
                 {
@@ -230,6 +234,7 @@ describe("appReducer", () => {
         autoRefreshIntervalSec: 90,
         animationMode: "crossfade",
         typingSpeed: "fast",
+        typewriterBackspaceEnabled: false,
       });
       expect(initialState.quoteChannels.channels).toEqual(
         expect.arrayContaining([
@@ -268,6 +273,7 @@ describe("appReducer", () => {
         autoRefreshIntervalSec: 1800,
         animationMode: "none" as const,
         typingSpeed: "slow" as const,
+        typewriterBackspaceEnabled: false,
       };
 
       const newState = appReducer(state, {
@@ -281,6 +287,7 @@ describe("appReducer", () => {
         autoRefreshIntervalSec: 600,
         animationMode: "typewriter",
         typingSpeed: "normal",
+        typewriterBackspaceEnabled: true,
       });
       expect(setItemSpy).not.toHaveBeenCalled();
       setItemSpy.mockRestore();

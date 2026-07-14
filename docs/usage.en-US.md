@@ -61,10 +61,14 @@ This document explains Immersive Clock features, operations, and details. Use th
 - Noise settings:
   - Microphone calibration and baseline slider.
   - Auto pop report (on by default), preferences are persisted.
+- Study display:
+  - Plan Progress shows today's progress from 00:00 to 24:00 by default.
+  - Day Progress adds a short greeting that changes from early morning through late night.
+  - Under Workspace -> Study Display -> Progress Mode, select Schedule Progress to show the current scheduled session or break instead.
 - Quote settings:
   - Manage local channels and three independent online channels: Hitokoto, Jinrishici, and Advice Slip. Each channel can be enabled or disabled and assigned its own weight.
   - Hitokoto supports Literature, Poetry, and Philosophy categories. Auto-refresh has a separate switch and an interval from 30 seconds to 30 minutes.
-  - Under Display Effects, choose Natural Typing, Smooth Display, or Show Immediately. Natural Typing offers Slow, Standard, and Fast speeds with a replayable live preview.
+  - Under Display Effects, choose Natural Typing, Smooth Display, or Show Immediately. Natural Typing offers Slow, Standard, and Fast speeds, an enabled-by-default backspace-on-switch option, and a replayable live preview.
 - Schedule:
   - Add/Edit/Delete sessions; persisted to local storage.
 
@@ -73,6 +77,14 @@ This document explains Immersive Clock features, operations, and details. Use th
 - Weather component shows city location and multiple real-time parameters.
 - If location is denied, it falls back to IP-based sources.
 - Manual refresh in settings to get the latest weather.
+
+## Component Appearance
+
+Under **Settings -> Visual Appearance**, **Overall Style** manages shared fonts, page backgrounds,
+and appearance resources. **Time Display** groups Clock, Countdown, Stopwatch, and Study Time;
+**Top Information Bar** groups the bar surface, Weather, Noise Monitor, Plan Progress, and Event
+Countdown. Each component has a deterministic preview that reflects the current draft and highlights
+the selected target. Changes are persisted only after selecting Save.
 
 ## Noise Monitoring & Reports
 
@@ -85,7 +97,7 @@ This document explains Immersive Clock features, operations, and details. Use th
 - Online channels include Hitokoto, Jinrishici, and Advice Slip. Each can be enabled or disabled and assigned its own display weight; Hitokoto also supports Literature, Poetry, and Philosophy categories.
 - Hitokoto and Jinrishici provide Chinese content, while Advice Slip provides English content, so enabling multiple online channels may produce a mix of Chinese and English quotes.
 - Auto-refresh has a dedicated switch with an interval from 30 seconds to 30 minutes. Manual refresh tries online services first and keeps the current quote if all attempts fail.
-- Quotes can use Natural Typing, Smooth Display, or Show Immediately. Natural Typing has three speed presets. The settings preview reflects the draft immediately, while the Study page changes only after you select Save.
+- Quotes can use Natural Typing, Smooth Display, or Show Immediately. Natural Typing has three speed presets and, by default, backspaces the current quote before switching to the next one; this behavior can be disabled with Backspace on Switch. The settings preview reflects the draft immediately, while the Study page changes only after you select Save.
 - When the system preference for reduced motion is enabled, the latest quote appears in full without an entrance animation.
 - If an online service is unavailable, the app tries other enabled and healthy online channels, persisted quotes from the last 7 days, and then local channels. Local quotes remain available offline.
 - Jinrishici's free service is limited to non-commercial use. It processes the device's public IP and, as recommended by the provider, stores a Token/Cookie on the device. The app only persists normalized quote content, not the raw IP, Token, or warning returned by the service.

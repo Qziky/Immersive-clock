@@ -9,6 +9,7 @@ const mockQuoteSettings = vi.hoisted<QuoteSettingsState>(() => ({
   autoRefreshEnabled: false,
   autoRefreshIntervalSec: 600,
   animationMode: "typewriter",
+  typewriterBackspaceEnabled: true,
   typingSpeed: "normal",
 }));
 
@@ -23,11 +24,13 @@ vi.mock("../../../MotivationalQuote", () => ({
     animationMode,
     quote,
     replayKey,
+    typewriterBackspaceEnabled,
     typingSpeed,
   }: {
     animationMode: string;
     quote: { id: string; text: string };
     replayKey: number;
+    typewriterBackspaceEnabled: boolean;
     typingSpeed: string;
   }) => (
     <span
@@ -35,6 +38,7 @@ vi.mock("../../../MotivationalQuote", () => ({
       data-animation-mode={animationMode}
       data-quote-id={quote.id}
       data-replay-key={replayKey}
+      data-typewriter-backspace-enabled={typewriterBackspaceEnabled}
       data-typing-speed={typingSpeed}
     >
       {quote.text}
@@ -60,6 +64,7 @@ describe("ContentSettingsPanel", () => {
     mockQuoteSettings.autoRefreshEnabled = false;
     mockQuoteSettings.autoRefreshIntervalSec = 600;
     mockQuoteSettings.animationMode = "typewriter";
+    mockQuoteSettings.typewriterBackspaceEnabled = true;
     mockQuoteSettings.typingSpeed = "normal";
     channelSave.mockReset();
     registeredSave = undefined;
@@ -76,7 +81,7 @@ describe("ContentSettingsPanel", () => {
     );
   }
 
-  it("提供两个语义化选项组，并在非打字模式下禁用但保留速度", async () => {
+  it("提供语义化动效选项，并在非打字模式下禁用但保留打字偏好", async () => {
     const user = userEvent.setup();
     renderEffects();
 
@@ -85,6 +90,9 @@ describe("ContentSettingsPanel", () => {
     expect(screen.getByRole("radiogroup", { name: "打字速度" })).toBeInTheDocument();
     expect(screen.getByRole("radio", { name: "自然打字" })).toBeChecked();
     expect(screen.getByRole("radio", { name: "标准" })).toBeChecked();
+    const backspaceSwitch = screen.getByRole("switch", { name: "切换时回删" });
+    expect(backspaceSwitch).toBeChecked();
+    expect(backspaceSwitch).toBeEnabled();
 
     await user.click(screen.getByRole("radio", { name: "平滑显示" }));
 
@@ -93,6 +101,8 @@ describe("ContentSettingsPanel", () => {
       expect(radio).toBeDisabled();
     }
     expect(screen.getByRole("radio", { name: "标准" })).toBeChecked();
+    expect(backspaceSwitch).toBeChecked();
+    expect(backspaceSwitch).toBeDisabled();
   });
 
   it("切换选项和点击重播时轮换示例并重新播放", async () => {
@@ -108,13 +118,18 @@ describe("ContentSettingsPanel", () => {
     expect(reveal).toHaveAttribute("data-replay-key", "1");
     expect(reveal).toHaveAttribute("data-typing-speed", "fast");
 
+    await user.click(screen.getByRole("switch", { name: "切换时回删" }));
+    expect(reveal).toHaveAttribute("data-quote-id", "quote-animation-preview-focus");
+    expect(reveal).toHaveAttribute("data-replay-key", "2");
+    expect(reveal).toHaveAttribute("data-typewriter-backspace-enabled", "false");
+
     const replayButton = screen.getByRole("button", { name: "重播语录动画预览" });
     expect(replayButton).toHaveAttribute("title", "重播语录动画预览");
     await user.click(replayButton);
 
     expect(replayButton).toHaveFocus();
-    expect(reveal).toHaveAttribute("data-quote-id", "quote-animation-preview-focus");
-    expect(reveal).toHaveAttribute("data-replay-key", "2");
+    expect(reveal).toHaveAttribute("data-quote-id", "quote-animation-preview-patience");
+    expect(reveal).toHaveAttribute("data-replay-key", "3");
   });
 
   it("只在统一保存时提交完整语录草稿", async () => {
@@ -122,6 +137,7 @@ describe("ContentSettingsPanel", () => {
     renderEffects();
 
     await user.click(screen.getByRole("radio", { name: "快速" }));
+    await user.click(screen.getByRole("switch", { name: "切换时回删" }));
     await user.click(screen.getByRole("radio", { name: "直接显示" }));
     expect(channelSave).not.toHaveBeenCalled();
 
@@ -132,6 +148,7 @@ describe("ContentSettingsPanel", () => {
       autoRefreshEnabled: false,
       autoRefreshIntervalSec: 600,
       animationMode: "none",
+      typewriterBackspaceEnabled: false,
       typingSpeed: "fast",
     });
   });

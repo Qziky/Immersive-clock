@@ -55,10 +55,6 @@ type SettingsPaneId =
   | "appearanceTime"
   | "appearanceStudyQuote"
   | "appearanceStudyTopDock"
-  | "appearanceStudyWeather"
-  | "appearanceStudyNoise"
-  | "appearanceStudyStatus"
-  | "appearanceStudyCountdown"
   | "weatherAlerts"
   | "weatherLocation"
   | "weatherLive"
@@ -255,46 +251,10 @@ const paneItems: SettingsPane[] = [
     value: "appearanceStudyTopDock",
     group: "appearance",
     label: "顶部信息栏",
-    description: "设置顶栏表面、边框与阴影。",
+    description: "设置栏体及天气、噪音、计划进度与事件信息。",
     icon: <SlidersHorizontal size={20} aria-hidden="true" />,
     panel: "appearance",
     section: "studyTopDock",
-  },
-  {
-    value: "appearanceStudyWeather",
-    group: "appearance",
-    label: "天气",
-    description: "设置温度、描述与图标。",
-    icon: <CloudSun size={20} aria-hidden="true" />,
-    panel: "appearance",
-    section: "studyWeather",
-  },
-  {
-    value: "appearanceStudyNoise",
-    group: "appearance",
-    label: "噪音监测",
-    description: "设置状态、辅助文字与指示灯。",
-    icon: <Mic2 size={20} aria-hidden="true" />,
-    panel: "appearance",
-    section: "studyNoise",
-  },
-  {
-    value: "appearanceStudyStatus",
-    group: "appearance",
-    label: "课时状态",
-    description: "设置课时状态与进度样式。",
-    icon: <CalendarClock size={20} aria-hidden="true" />,
-    panel: "appearance",
-    section: "studyStatus",
-  },
-  {
-    value: "appearanceStudyCountdown",
-    group: "appearance",
-    label: "事件倒计时",
-    description: "设置事件名称、数字、单位与实例。",
-    icon: <TimerReset size={20} aria-hidden="true" />,
-    panel: "appearance",
-    section: "studyCountdown",
   },
   {
     value: "weatherAlerts",

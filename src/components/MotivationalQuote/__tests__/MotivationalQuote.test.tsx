@@ -62,6 +62,7 @@ describe("MotivationalQuote", () => {
         animationMode: "typewriter",
         autoRefreshEnabled: false,
         autoRefreshIntervalSec: 30,
+        typewriterBackspaceEnabled: true,
         typingSpeed: "normal",
       },
     });
@@ -106,13 +107,14 @@ describe("MotivationalQuote", () => {
     expect(refreshButton).toHaveAttribute("title", "正在刷新语录");
   });
 
-  it("将设置中的动画模式和速度传给展示层", () => {
+  it("将设置中的动画模式、速度和回删开关传给展示层", () => {
     componentMocks.useAppState.mockReturnValue({
       quoteChannels: { channels: [] },
       quoteSettings: {
         animationMode: "none",
         autoRefreshEnabled: false,
         autoRefreshIntervalSec: 30,
+        typewriterBackspaceEnabled: false,
         typingSpeed: "fast",
       },
     });
@@ -122,6 +124,10 @@ describe("MotivationalQuote", () => {
     expect(container.querySelector('[data-quote-reveal="true"]')).toHaveAttribute(
       "data-animation-mode",
       "none"
+    );
+    expect(container.querySelector('[data-quote-reveal="true"]')).toHaveAttribute(
+      "data-typewriter-backspace-enabled",
+      "false"
     );
     expect(container.querySelector("[data-quote-layout-copy]")).not.toBeInTheDocument();
   });

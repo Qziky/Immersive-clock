@@ -74,11 +74,26 @@ async function openAppearanceEditor(page: Page, viewport: { width: number; heigh
   return dialog;
 }
 
+async function openQuoteChannelManager(page: Page) {
+  await page.getByRole("button", { name: "打开设置" }).click();
+  const dialog = page.getByRole("dialog", { name: "设置" });
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole("button", { name: "内容语录" }).click();
+  await dialog.getByRole("button", { name: "语录渠道" }).click();
+  await expect(dialog.getByRole("heading", { name: "语录频道管理" })).toBeVisible();
+  await expect(dialog.locator("article")).toHaveCount(5);
+  return dialog;
+}
+
 async function selectAppearanceSection(
   dialog: Locator,
   viewport: { width: number; height: number },
   sectionName: string
 ) {
+  const topDockSectionNames = ["顶部信息栏", "天气", "噪音监测", "计划进度", "事件倒计时"];
+  const navigationSectionName = topDockSectionNames.includes(sectionName)
+    ? "顶部信息栏"
+    : sectionName;
   if (viewport.width <= 720) {
     const subnavigation = dialog.getByRole("navigation", { name: "视觉外观子分类" });
     if (!(await subnavigation.isVisible())) {
@@ -87,11 +102,18 @@ async function selectAppearanceSection(
         .getByRole("button", { name: "视觉外观", exact: true })
         .click();
     }
-    await subnavigation.getByRole("button", { name: sectionName, exact: true }).click();
-    return;
+    await subnavigation.getByRole("button", { name: navigationSectionName, exact: true }).click();
+  } else {
+    await dialog.getByRole("button", { name: navigationSectionName, exact: true }).click();
   }
 
-  await dialog.getByRole("button", { name: sectionName, exact: true }).click();
+  if (topDockSectionNames.includes(sectionName)) {
+    const optionName = sectionName === "顶部信息栏" ? "栏体" : sectionName;
+    await dialog
+      .getByRole("radiogroup", { name: "顶部信息栏内容" })
+      .getByRole("radio", { name: optionName, exact: true })
+      .click();
+  }
 }
 
 async function readPreviewLayout(preview: Locator) {
@@ -153,6 +175,22 @@ for (const viewport of [
 for (const viewport of [
   { width: 1440, height: 900 },
   { width: 390, height: 844 },
+]) {
+  test(`语录渠道视觉快照 ${viewport.width}×${viewport.height}`, async ({ page }) => {
+    await prepareVisualPage(page, viewport, { type: "default" });
+    await openQuoteChannelManager(page);
+
+    await expect(page).toHaveScreenshot(`quote-channels-${viewport.width}x${viewport.height}.png`, {
+      animations: "disabled",
+      caret: "hide",
+      maxDiffPixelRatio: 0.01,
+    });
+  });
+}
+
+for (const viewport of [
+  { width: 1440, height: 900 },
+  { width: 390, height: 844 },
   { width: 320, height: 568 },
 ]) {
   test(`外观编辑器视觉快照 ${viewport.width}×${viewport.height}`, async ({ page }) => {
@@ -173,8 +211,10 @@ for (const viewport of [
     );
 
     for (const preview of [
-      { label: "天气外观预览", section: "天气" },
-      { label: "顶部信息栏外观预览", section: "顶部信息栏" },
+      { label: "天气外观预览", minimumAreaUtilization: 0.45, section: "天气" },
+      { label: "顶部信息栏外观预览", minimumAreaUtilization: 0.45, section: "顶部信息栏" },
+      { label: "计划进度外观预览", minimumAreaUtilization: 0.25, section: "计划进度" },
+      { label: "事件倒计时外观预览", minimumAreaUtilization: 0.35, section: "事件倒计时" },
     ]) {
       await selectAppearanceSection(dialog, viewport, preview.section);
       const componentPreview = dialog.getByLabel(preview.label);
@@ -184,8 +224,70 @@ for (const viewport of [
         fitsHorizontally: true,
         fitsVertically: true,
       });
-      expect(componentLayout?.areaUtilization).toBeGreaterThan(0.45);
+      expect(componentLayout?.areaUtilization).toBeGreaterThan(preview.minimumAreaUtilization);
       expect(componentLayout?.utilization).toBeGreaterThan(0.7);
+
+      if (["顶部信息栏", "事件倒计时"].includes(preview.section)) {
+        const highlightedTarget = componentPreview.locator('[data-preview-highlighted="true"]');
+        const highlightFrame = componentPreview.locator('[data-preview-highlight-frame="true"]');
+        await expect(highlightedTarget).toHaveCount(1);
+        await expect(highlightFrame).toHaveCount(1);
+        const highlightLayout = await highlightFrame.evaluate((element) => {
+          const canvas = element.parentElement;
+          const target = canvas?.querySelector<HTMLElement>('[data-preview-highlighted="true"]');
+          const canvasBounds = canvas?.getBoundingClientRect();
+          const frameBounds = element.getBoundingClientRect();
+          const targetBounds = target?.getBoundingClientRect();
+          const frameStyle = window.getComputedStyle(element);
+          return {
+            borderWidth: Number(frameStyle.borderTopWidth.replace("px", "")),
+            frameOutsets: targetBounds
+              ? {
+                  bottom: frameBounds.bottom - targetBounds.bottom,
+                  left: targetBounds.left - frameBounds.left,
+                  right: frameBounds.right - targetBounds.right,
+                  top: targetBounds.top - frameBounds.top,
+                }
+              : null,
+            frameContainsTarget: Boolean(
+              targetBounds &&
+              frameBounds.left <= targetBounds.left + 1 &&
+              frameBounds.right >= targetBounds.right - 1 &&
+              frameBounds.top <= targetBounds.top + 1 &&
+              frameBounds.bottom >= targetBounds.bottom - 1
+            ),
+            minimumCanvasInset: canvasBounds
+              ? Math.min(
+                  frameBounds.left - canvasBounds.left,
+                  canvasBounds.right - frameBounds.right,
+                  frameBounds.top - canvasBounds.top,
+                  canvasBounds.bottom - frameBounds.bottom
+                )
+              : -1,
+            frameFitsCanvas: Boolean(
+              canvasBounds &&
+              frameBounds.left >= canvasBounds.left &&
+              frameBounds.right <= canvasBounds.right &&
+              frameBounds.top >= canvasBounds.top &&
+              frameBounds.bottom <= canvasBounds.bottom
+            ),
+          };
+        });
+        expect(highlightLayout).toMatchObject({
+          borderWidth: 2,
+          frameContainsTarget: true,
+          frameFitsCanvas: true,
+        });
+        expect(highlightLayout.minimumCanvasInset).toBeGreaterThanOrEqual(5);
+
+        if (preview.section === "顶部信息栏") {
+          expect(highlightLayout.frameOutsets).not.toBeNull();
+          for (const outset of Object.values(highlightLayout.frameOutsets ?? {})) {
+            expect(outset).toBeGreaterThanOrEqual(4);
+            expect(outset).toBeLessThanOrEqual(6);
+          }
+        }
+      }
     }
   });
 }

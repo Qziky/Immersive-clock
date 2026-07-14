@@ -13,6 +13,7 @@ type QuotePreferenceSeed = {
 
 type QuoteAnimationSeed = {
   animationMode?: "typewriter" | "crossfade" | "none";
+  typewriterBackspaceEnabled?: boolean;
   typingSpeed?: "slow" | "normal" | "fast";
 };
 
@@ -36,6 +37,7 @@ async function seedQuoteSettings(
               autoRefreshEnabled: false,
               autoRefreshIntervalSec: 600,
               animationMode: quoteAnimation.animationMode ?? "typewriter",
+              typewriterBackspaceEnabled: quoteAnimation.typewriterBackspaceEnabled ?? true,
               typingSpeed: quoteAnimation.typingSpeed ?? "normal",
               channels: quoteChannels,
               customChannels: [],
@@ -121,6 +123,93 @@ async function expectSettingsWithoutHorizontalOverflow(page: Page, dialog: Locat
   expect(
     await settingsContainer.evaluate((element) => element.scrollWidth <= element.clientWidth)
   ).toBe(true);
+}
+
+async function expectQuoteChannelGeometry(dialog: Locator) {
+  const channelCards = dialog.locator("article");
+  await expect(channelCards).toHaveCount(5);
+
+  const layout = await channelCards.evaluateAll((cards) =>
+    cards.map((card, cardIndex) => {
+      const cardBounds = card.getBoundingClientRect();
+      const controls = Array.from(
+        card.querySelectorAll<HTMLElement>(
+          'input[type="number"], button[aria-expanded], [role="switch"]'
+        )
+      )
+        .filter((control) => control.closest("article") === card)
+        .filter((control) => {
+          const bounds = control.getBoundingClientRect();
+          const style = window.getComputedStyle(control);
+          return bounds.width > 0 && bounds.height > 0 && style.visibility !== "hidden";
+        })
+        .map((control) => {
+          const bounds = control.getBoundingClientRect();
+          return {
+            name: control.getAttribute("aria-label") ?? control.getAttribute("type") ?? "control",
+            bottom: bounds.bottom,
+            left: bounds.left,
+            right: bounds.right,
+            top: bounds.top,
+          };
+        });
+
+      const overlappingControls: string[] = [];
+      controls.forEach((control, controlIndex) => {
+        controls.slice(controlIndex + 1).forEach((otherControl) => {
+          const overlapWidth =
+            Math.min(control.right, otherControl.right) - Math.max(control.left, otherControl.left);
+          const overlapHeight =
+            Math.min(control.bottom, otherControl.bottom) - Math.max(control.top, otherControl.top);
+          if (overlapWidth > 1 && overlapHeight > 1) {
+            overlappingControls.push(`${control.name}/${otherControl.name}`);
+          }
+        });
+      });
+
+      const nextCardBounds = cards[cardIndex + 1]?.getBoundingClientRect();
+      return {
+        cardFitsHorizontally:
+          controls.every(
+            (control) =>
+              control.left >= cardBounds.left - 1 && control.right <= cardBounds.right + 1
+          ) && card.scrollWidth <= card.clientWidth + 1,
+        controlCount: controls.length,
+        doesNotOverlapNextCard: !nextCardBounds || cardBounds.bottom <= nextCardBounds.top + 1,
+        overlappingControls,
+      };
+    })
+  );
+
+  for (const cardLayout of layout) {
+    expect(cardLayout.cardFitsHorizontally).toBe(true);
+    expect(cardLayout.controlCount).toBeGreaterThanOrEqual(2);
+    expect(cardLayout.doesNotOverlapNextCard).toBe(true);
+    expect(cardLayout.overlappingControls).toEqual([]);
+  }
+}
+
+async function expectExpandedDetailsContained(card: Locator, details: Locator, nextCard: Locator) {
+  const layout = await Promise.all([
+    card.boundingBox(),
+    details.boundingBox(),
+    nextCard.boundingBox(),
+  ]);
+  const [cardBounds, detailsBounds, nextCardBounds] = layout;
+
+  expect(cardBounds).not.toBeNull();
+  expect(detailsBounds).not.toBeNull();
+  expect(nextCardBounds).not.toBeNull();
+  expect((detailsBounds?.x ?? 0) + 1).toBeGreaterThanOrEqual(cardBounds?.x ?? 0);
+  expect((detailsBounds?.x ?? 0) + (detailsBounds?.width ?? 0)).toBeLessThanOrEqual(
+    (cardBounds?.x ?? 0) + (cardBounds?.width ?? 0) + 1
+  );
+  expect((detailsBounds?.y ?? 0) + (detailsBounds?.height ?? 0)).toBeLessThanOrEqual(
+    (cardBounds?.y ?? 0) + (cardBounds?.height ?? 0) + 1
+  );
+  expect((cardBounds?.y ?? 0) + (cardBounds?.height ?? 0)).toBeLessThanOrEqual(
+    (nextCardBounds?.y ?? 0) + 1
+  );
 }
 
 test("在线语录：一言主线路失败后使用国际线路", async ({ page }) => {
@@ -373,6 +462,66 @@ test("语录设置：三个在线频道可见且保存后保持启停与权重",
   await expect(reloadedAdvice.getByRole("spinbutton")).toHaveValue("37");
 });
 
+for (const viewport of [
+  { width: 1440, height: 900 },
+  { width: 720, height: 900 },
+  { width: 390, height: 844 },
+]) {
+  test(`语录渠道：${viewport.width}px 下控件与展开区保持在卡片内`, async ({ page }) => {
+    await page.setViewportSize(viewport);
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await seedQuoteSettings(page, [
+      { id: "local-inspirational", enabled: true, weight: 40 },
+      { id: "university-mottos", enabled: true, weight: 40 },
+      { id: "hitokoto-api", enabled: true, weight: 20, hitokotoCategories: ["d", "i", "k"] },
+      { id: "jinrishici-api", enabled: true, weight: 10 },
+      { id: "advice-slip-api", enabled: true, weight: 10 },
+    ]);
+
+    await page.goto("/");
+    const dialog = await openQuoteChannels(page);
+    await expectSettingsWithoutHorizontalOverflow(page, dialog);
+    await expectQuoteChannelGeometry(dialog);
+
+    const channelCards = dialog.locator("article");
+    const localCard = channelCards.filter({ hasText: "本地励志语录" });
+    const localEditorButton = localCard.getByRole("button", { name: "编辑语录" });
+    const localDetails = dialog.locator(
+      `#${await localEditorButton.getAttribute("aria-controls")}`
+    );
+    await expect(localEditorButton).toHaveAttribute("aria-expanded", "false");
+    await expect(localDetails).toHaveAttribute("aria-hidden", "true");
+    await expect(localDetails).toHaveAttribute("inert", "");
+
+    await localEditorButton.click();
+    await expect(localEditorButton).toHaveAttribute("aria-expanded", "true");
+    await expect(localDetails).toHaveAttribute("aria-hidden", "false");
+    expect(await localDetails.getAttribute("inert")).toBeNull();
+    await expectQuoteChannelGeometry(dialog);
+    await expectExpandedDetailsContained(localCard, localDetails, channelCards.nth(1));
+
+    await localEditorButton.click();
+    await expect(localDetails).toHaveAttribute("aria-hidden", "true");
+
+    const hitokotoCard = channelCards.filter({ hasText: "一言" });
+    const categoryButton = hitokotoCard.getByRole("button", { name: "分类设置" });
+    const categoryDetails = dialog.locator(
+      `#${await categoryButton.getAttribute("aria-controls")}`
+    );
+    await expect(categoryButton).toHaveAttribute("aria-expanded", "false");
+    await expect(categoryDetails).toHaveAttribute("aria-hidden", "true");
+    await expect(categoryDetails).toHaveAttribute("inert", "");
+
+    await categoryButton.click();
+    await expect(categoryButton).toHaveAttribute("aria-expanded", "true");
+    await expect(categoryDetails).toHaveAttribute("aria-hidden", "false");
+    expect(await categoryDetails.getAttribute("inert")).toBeNull();
+    await expectQuoteChannelGeometry(dialog);
+    await expectExpandedDetailsContained(hitokotoCard, categoryDetails, channelCards.nth(3));
+    await expectSettingsWithoutHorizontalOverflow(page, dialog);
+  });
+}
+
 test("语录设置：显示效果在移动与桌面端可预览、保存并重载", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await seedQuoteSettings(page, [
@@ -391,11 +540,17 @@ test("语录设置：显示效果在移动与桌面端可预览、保存并重�
 
   await page.goto("/");
   let dialog = await openQuoteEffects(page);
+  let backspaceSwitch = dialog.getByRole("switch", { name: "切换时回删" });
+  await expect(backspaceSwitch).toBeChecked();
+  await backspaceSwitch.click();
+  await expect(backspaceSwitch).not.toBeChecked();
   await dialog.getByRole("radio", { name: "快速" }).click();
   await dialog.getByRole("radio", { name: "平滑显示" }).click();
 
   await expect(dialog.getByRole("radio", { name: "快速" })).toBeChecked();
   await expect(dialog.getByRole("radio", { name: "快速" })).toBeDisabled();
+  await expect(backspaceSwitch).not.toBeChecked();
+  await expect(backspaceSwitch).toBeDisabled();
   let preview = dialog.getByTestId("quote-animation-preview");
   const reveal = preview.locator('[data-quote-animation="crossfade"]');
   await expect(reveal).toBeVisible();
@@ -420,10 +575,12 @@ test("语录设置：显示效果在移动与桌面端可预览、保存并重�
       page.evaluate(() => {
         const raw = localStorage.getItem("AppSettings");
         const quote = raw ? JSON.parse(raw)?.general?.quote : null;
-        return `${quote?.animationMode}:${quote?.typingSpeed}`;
+        return `${quote?.animationMode}:${quote?.typingSpeed}:${String(
+          quote?.typewriterBackspaceEnabled
+        )}`;
       })
     )
-    .toBe("crossfade:fast");
+    .toBe("crossfade:fast:false");
 
   const quoteButton = page.getByRole("button", { name: "刷新语录" });
   const mainReveal = quoteButton.locator('[data-quote-reveal="true"]');
@@ -437,6 +594,9 @@ test("语录设置：显示效果在移动与桌面端可预览、保存并重�
   dialog = await openQuoteEffects(page);
   await expect(dialog.getByRole("radio", { name: "平滑显示" })).toBeChecked();
   await expect(dialog.getByRole("radio", { name: "快速" })).toBeChecked();
+  backspaceSwitch = dialog.getByRole("switch", { name: "切换时回删" });
+  await expect(backspaceSwitch).not.toBeChecked();
+  await expect(backspaceSwitch).toBeDisabled();
   await expectSettingsWithoutHorizontalOverflow(page, dialog);
 
   preview = dialog.getByTestId("quote-animation-preview");

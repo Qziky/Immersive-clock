@@ -3,7 +3,7 @@ import React, { useState, useCallback, useEffect, useRef, useMemo } from "react"
 import { useAppState } from "../../contexts/AppContext";
 import { useAppearance, useComponentAppearance } from "../../contexts/AppearanceContext";
 import { useTimer } from "../../hooks/useTimer";
-import { CountdownItem } from "../../types";
+import { CountdownItem, type StudyDisplaySettings } from "../../types";
 import { DEFAULT_SCHEDULE, StudyPeriod } from "../../types/studySchedule";
 import { appearanceBackgroundToCss } from "../../utils/appearanceModel";
 import { formatClock } from "../../utils/formatTime";
@@ -181,10 +181,12 @@ export function Study() {
     ];
   })();
 
-  const display = useMemo(
+  const display = useMemo<StudyDisplaySettings>(
     () =>
       study.display || {
         showStatusBar: true,
+        timeProgressMode: "day",
+        showWeather: true,
         showNoiseMonitor: true,
         showCountdown: true,
         showQuote: true,
@@ -340,8 +342,11 @@ export function Study() {
       data-background-type={backgroundSettings.type}
       style={containerStyle}
     >
-      {/* 顶部：环境、课时与倒计时共用一条状态栏。 */}
-      {(display.showStatusBar || display.showNoiseMonitor || display.showCountdown) && (
+      {/* 顶部：环境、计划进度与倒计时共用一条状态栏。 */}
+      {(display.showStatusBar ||
+        display.showWeather ||
+        display.showNoiseMonitor ||
+        display.showCountdown) && (
         <StudyTopDockPresentation
           countdownContent={
             display.showCountdown ? (
@@ -365,8 +370,12 @@ export function Study() {
             ) : undefined
           }
           rootAttributes={{ style: topDockAppearance }}
-          statusContent={display.showStatusBar ? <StudyStatus /> : undefined}
-          weatherContent={display.showStatusBar ? <Weather /> : undefined}
+          statusContent={
+            display.showStatusBar ? (
+              <StudyStatus mode={display.timeProgressMode ?? "day"} />
+            ) : undefined
+          }
+          weatherContent={display.showWeather ? <Weather /> : undefined}
         />
       )}
 

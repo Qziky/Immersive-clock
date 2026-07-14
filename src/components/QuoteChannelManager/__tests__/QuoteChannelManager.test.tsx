@@ -38,6 +38,7 @@ describe("QuoteChannelManager", () => {
         autoRefreshIntervalSec: 30,
         animationMode: "typewriter",
         typingSpeed: "normal",
+        typewriterBackspaceEnabled: true,
       },
     });
   });
@@ -53,6 +54,9 @@ describe("QuoteChannelManager", () => {
     expect(screen.getByText("English")).toBeInTheDocument();
     expect(screen.queryByText(/今日诗词免费版仅限非商业使用/)).not.toBeInTheDocument();
 
+    const hitokotoCard = getChannelCard("一言");
+    expect(within(hitokotoCard).getByRole("spinbutton", { name: "权重" })).toHaveValue(20);
+
     const categoryButtons = screen.getAllByRole("button", { name: "分类设置" });
     expect(categoryButtons).toHaveLength(1);
     expect(
@@ -62,27 +66,25 @@ describe("QuoteChannelManager", () => {
       within(getChannelCard("Advice Slip")).queryByRole("button", { name: "分类设置" })
     ).not.toBeInTheDocument();
 
-    expect(categoryButtons[0]).toHaveAttribute("aria-expanded", "false");
-    fireEvent.click(categoryButtons[0]);
-    expect(categoryButtons[0]).toHaveAttribute("aria-expanded", "true");
-    expect(
-      within(getChannelCard("一言")).getByRole("switch", { name: "文学分类" })
-    ).toBeInTheDocument();
-    expect(
-      within(getChannelCard("一言")).getByRole("switch", { name: "动画分类" })
-    ).toBeInTheDocument();
-    expect(
-      within(getChannelCard("一言")).getByRole("switch", { name: "影视分类" })
-    ).toBeInTheDocument();
-    expect(
-      within(getChannelCard("一言")).getByRole("switch", { name: "网易云分类" })
-    ).toBeInTheDocument();
-    expect(
-      within(getChannelCard("一言")).getByRole("switch", { name: "诗词分类" })
-    ).toBeInTheDocument();
-    expect(
-      within(getChannelCard("一言")).getByRole("switch", { name: "哲学分类" })
-    ).toBeInTheDocument();
+    const categoryButton = categoryButtons[0];
+    const categoryDetailsId = "quote-channel-categories-hitokoto-api";
+    const categoryDetails = document.getElementById(categoryDetailsId);
+    expect(categoryButton).toHaveAttribute("aria-expanded", "false");
+    expect(categoryButton).toHaveAttribute("aria-controls", categoryDetailsId);
+    expect(categoryDetails).toHaveAttribute("aria-hidden", "true");
+    fireEvent.click(categoryButton);
+    expect(categoryButton).toHaveAttribute("aria-expanded", "true");
+    expect(categoryDetails).toHaveAttribute("aria-hidden", "false");
+    expect(within(hitokotoCard).getByRole("switch", { name: "文学分类" })).toBeInTheDocument();
+    expect(within(hitokotoCard).getByRole("switch", { name: "动画分类" })).toBeInTheDocument();
+    expect(within(hitokotoCard).getByRole("switch", { name: "影视分类" })).toBeInTheDocument();
+    expect(within(hitokotoCard).getByRole("switch", { name: "网易云分类" })).toBeInTheDocument();
+    expect(within(hitokotoCard).getByRole("switch", { name: "诗词分类" })).toBeInTheDocument();
+    expect(within(hitokotoCard).getByRole("switch", { name: "哲学分类" })).toBeInTheDocument();
+
+    fireEvent.click(categoryButton);
+    expect(categoryButton).toHaveAttribute("aria-expanded", "false");
+    expect(categoryDetails).toHaveAttribute("aria-hidden", "true");
   });
 
   it("频道切换、权重与顺序修改保留为草稿，并通过注册回调一次保存", () => {
@@ -94,23 +96,32 @@ describe("QuoteChannelManager", () => {
 
     const hitokotoCard = getChannelCard("一言");
     fireEvent.click(within(hitokotoCard).getByRole("switch", { name: "停用一言" }));
-    fireEvent.change(within(hitokotoCard).getByRole("spinbutton"), {
+    fireEvent.change(within(hitokotoCard).getByRole("spinbutton", { name: "权重" }), {
       target: { value: "73" },
     });
 
     const localCard = getChannelCard("本地励志语录");
+    expect(within(localCard).getByRole("spinbutton", { name: "权重" })).toHaveValue(40);
     const editButton = within(localCard).getByRole("button", { name: "编辑语录" });
+    const editorDetailsId = "quote-channel-editor-local-inspirational";
+    const editorDetails = document.getElementById(editorDetailsId);
     expect(editButton).toHaveAttribute("aria-expanded", "false");
+    expect(editButton).toHaveAttribute("aria-controls", editorDetailsId);
+    expect(editorDetails).toHaveAttribute("aria-hidden", "true");
     fireEvent.click(editButton);
     expect(editButton).toHaveAttribute("aria-expanded", "true");
+    expect(editorDetails).toHaveAttribute("aria-hidden", "false");
     fireEvent.click(within(localCard).getByRole("radio", { name: "顺序" }));
 
     expect(within(hitokotoCard).getByRole("switch", { name: "启用一言" })).toHaveAttribute(
       "aria-checked",
       "false"
     );
-    expect(within(hitokotoCard).getByRole("spinbutton")).toHaveValue(73);
+    expect(within(hitokotoCard).getByRole("spinbutton", { name: "权重" })).toHaveValue(73);
     expect(within(localCard).getByRole("radio", { name: "顺序" })).toBeChecked();
+    fireEvent.click(editButton);
+    expect(editButton).toHaveAttribute("aria-expanded", "false");
+    expect(editorDetails).toHaveAttribute("aria-hidden", "true");
     expect(managerMocks.saveQuoteSettings).not.toHaveBeenCalled();
     expect(managerMocks.dispatch).not.toHaveBeenCalled();
     expect(registeredSave).toBeTypeOf("function");
@@ -120,6 +131,7 @@ describe("QuoteChannelManager", () => {
       autoRefreshIntervalSec: 90,
       animationMode: "crossfade",
       typingSpeed: "fast",
+      typewriterBackspaceEnabled: false,
     };
     act(() => {
       registeredSave?.(refreshSettings);

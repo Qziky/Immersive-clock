@@ -109,6 +109,7 @@ export interface PersistedQuoteSettings {
   autoRefreshIntervalSec: number;
   animationMode: QuoteAnimationMode;
   typingSpeed: QuoteTypingSpeed;
+  typewriterBackspaceEnabled: boolean;
   channels: QuoteChannelPreference[];
   customChannels: CustomQuoteChannel[];
 }
@@ -122,4 +123,5 @@ export interface QuoteSettingsState {
   autoRefreshIntervalSec: number;
   animationMode: QuoteAnimationMode;
   typingSpeed: QuoteTypingSpeed;
+  typewriterBackspaceEnabled: boolean;
 }
