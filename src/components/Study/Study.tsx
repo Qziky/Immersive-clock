@@ -184,8 +184,6 @@ export function Study() {
   const display = useMemo<StudyDisplaySettings>(
     () =>
       study.display || {
-        showStatusBar: true,
-        timeProgressMode: "day",
         showWeather: true,
         showNoiseMonitor: true,
         showCountdown: true,
@@ -194,6 +192,13 @@ export function Study() {
         showDate: true,
       },
     [study.display]
+  );
+  const hasStudyInfo = useMemo(
+    () =>
+      study.infoCarousel?.items.some(
+        (item) => item.enabled && (item.source !== "custom" || Boolean(item.text.trim()))
+      ) ?? true,
+    [study.infoCarousel]
   );
 
   /** 测量倒计时可视项尺寸（函数级注释：读取轮播容器高度，保证切换时位移与单项高度一致） */
@@ -342,8 +347,8 @@ export function Study() {
       data-background-type={backgroundSettings.type}
       style={containerStyle}
     >
-      {/* 顶部：环境、计划进度与倒计时共用一条状态栏。 */}
-      {(display.showStatusBar ||
+      {/* 顶部：环境、进度信息与倒计时共用一条状态栏。 */}
+      {(hasStudyInfo ||
         display.showWeather ||
         display.showNoiseMonitor ||
         display.showCountdown) && (
@@ -370,11 +375,7 @@ export function Study() {
             ) : undefined
           }
           rootAttributes={{ style: topDockAppearance }}
-          statusContent={
-            display.showStatusBar ? (
-              <StudyStatus mode={display.timeProgressMode ?? "day"} />
-            ) : undefined
-          }
+          statusContent={hasStudyInfo ? <StudyStatus /> : undefined}
           weatherContent={display.showWeather ? <Weather /> : undefined}
         />
       )}

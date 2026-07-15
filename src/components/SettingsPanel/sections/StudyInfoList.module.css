@@ -1,0 +1,116 @@
+.root {
+  display: grid;
+  gap: var(--ui-space-4);
+  min-width: 0;
+}
+
+.toolbar {
+  align-items: end;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ui-space-3);
+  justify-content: space-between;
+  min-width: 0;
+}
+
+.addField {
+  flex: 0 1 380px;
+  max-width: min(100%, 380px);
+  min-width: min(100%, 260px);
+  width: 380px;
+}
+
+.helperText {
+  color: var(--ui-color-text-subtle);
+  font-size: var(--ui-font-size-xs);
+  line-height: 1.4;
+}
+
+.emptyState {
+  border: 1px dashed var(--ui-color-border-strong);
+  border-radius: var(--ui-radius-md);
+  color: var(--ui-color-text-muted);
+  font-size: var(--ui-font-size-sm);
+  padding: 20px 16px;
+  text-align: center;
+}
+
+.list {
+  display: grid;
+  gap: var(--ui-space-3);
+  list-style: none;
+  margin: 0;
+  min-width: 0;
+  padding: 0;
+}
+
+.listItem {
+  min-width: 0;
+}
+
+.item {
+  align-items: start;
+}
+
+.actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ui-space-1);
+  justify-content: flex-end;
+  min-width: 0;
+}
+
+.dragHandle {
+  align-items: center;
+  border-radius: var(--ui-radius-sm);
+  color: var(--ui-color-text-subtle);
+  cursor: grab;
+  display: inline-flex;
+  height: 32px;
+  justify-content: center;
+  touch-action: none;
+  width: 24px;
+}
+
+.dragHandle:active {
+  cursor: grabbing;
+}
+
+.configGrid {
+  align-items: end;
+  display: grid;
+  gap: var(--ui-space-3);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  min-width: 0;
+}
+
+.deleteButton {
+  justify-self: start;
+}
+
+@media (max-width: 600px), (pointer: coarse), (any-pointer: coarse) {
+  .dragHandle {
+    display: none;
+  }
+}
+
+@media (max-width: 520px) {
+  .toolbar {
+    align-items: stretch;
+    display: grid;
+  }
+
+  .addField {
+    max-width: 100%;
+    width: 100%;
+  }
+
+  .configGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .actions {
+    justify-content: flex-start;
+  }
+}

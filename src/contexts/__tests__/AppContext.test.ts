@@ -35,8 +35,6 @@ describe("appReducer", () => {
         customName: "",
         customDate: "",
         display: {
-          showStatusBar: true,
-          timeProgressMode: "day",
           showWeather: true,
           showNoiseMonitor: true,
           showCountdown: true,
@@ -319,11 +317,14 @@ describe("appReducer", () => {
       );
 
       expect(getInitialState().study.infoCarousel).toMatchObject({
-        autoRotate: false,
         intervalSec: 9,
         items: expect.arrayContaining([
-          expect.objectContaining({ id: "custom-reload", text: "重载后仍显示" }),
-          expect.objectContaining({ source: "progress" }),
+          expect.objectContaining({
+            id: "custom-reload",
+            backgroundProgressKind: "day",
+            text: "重载后仍显示",
+          }),
+          expect.objectContaining({ source: "progress", progressKind: "day" }),
         ]),
       });
     });
@@ -332,12 +333,12 @@ describe("appReducer", () => {
       const newState = appReducer(state, {
         type: "SET_INFO_CAROUSEL",
         payload: {
-          autoRotate: false,
           intervalSec: 90,
           items: [
             {
               id: "custom-focus",
               source: "custom",
+              backgroundProgressKind: "day",
               enabled: true,
               order: 0,
               text: "  保持专注  ",
@@ -347,13 +348,13 @@ describe("appReducer", () => {
       });
 
       expect(newState.study.infoCarousel).toMatchObject({
-        autoRotate: false,
         intervalSec: 30,
       });
       expect(newState.study.infoCarousel?.items).toEqual(
         expect.arrayContaining([
           expect.objectContaining({ id: "custom-focus", text: "保持专注" }),
-          expect.objectContaining({ source: "progress" }),
+          expect.objectContaining({ source: "progress", progressKind: "day" }),
+          expect.objectContaining({ source: "progress", progressKind: "schedule" }),
           expect.objectContaining({ source: "nextSchedule" }),
           expect.objectContaining({ source: "rain" }),
         ])

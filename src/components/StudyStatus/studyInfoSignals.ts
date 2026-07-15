@@ -1,4 +1,9 @@
-import type { StudyInfoCarouselSettings, StudyInfoItemConfig, StudyInfoSource } from "../../types";
+import type {
+  StudyInfoCarouselSettings,
+  StudyInfoItemConfig,
+  StudyInfoSource,
+  StudyProgressKind,
+} from "../../types";
 import type { StudyPeriod } from "../../types/studySchedule";
 import {
   getDefaultStudyInfoCarousel,
@@ -7,16 +12,23 @@ import {
 } from "../../utils/appSettings";
 import type { MinutelyRainStats } from "../../utils/minutelyPrecipLogic";
 
-export type { StudyInfoCarouselSettings, StudyInfoItemConfig, StudyInfoSource } from "../../types";
+export type {
+  StudyInfoCarouselSettings,
+  StudyInfoItemConfig,
+  StudyInfoSource,
+  StudyProgressKind,
+} from "../../types";
 
-/** 中央信息的来源。用户配置只保存来源和顺序，优先级由运行时状态决定。 */
+/** 用户配置只保存来源和顺序，优先级由运行时状态决定。 */
 export type StudyInfoPriority = "critical" | "timely" | "routine";
 
 export type StudyInfoDisplayMode = "interrupt" | "rotating";
 
 export interface StudyInfoSignal {
-  id: string;
+  /** 持久化配置项 ID；天气和课程事件变化不会改变当前轮播位置。 */
+  itemId: string;
   source: StudyInfoSource;
+  progressKind: StudyProgressKind;
   priority: StudyInfoPriority;
   displayMode: StudyInfoDisplayMode;
   primaryText: string;
@@ -24,8 +36,9 @@ export interface StudyInfoSignal {
   ariaText: string;
   eventAt?: number;
   expiresAt?: number;
+  /** 事件身份仅用于切换动画和读屏去重。 */
   dedupeKey: string;
-  /** 配置顺序只用于同优先级信号稳定排序，不需要持久化。 */
+  /** 配置顺序只用于信号稳定排序，不需要额外持久化。 */
   order?: number;
 }
 
@@ -56,6 +69,11 @@ export interface StudyInfoProgressSnapshot {
   hasProgress: boolean;
 }
 
+type ProgressItemConfig = Extract<StudyInfoItemConfig, { source: "progress" }>;
+type NextScheduleItemConfig = Extract<StudyInfoItemConfig, { source: "nextSchedule" }>;
+type RainItemConfig = Extract<StudyInfoItemConfig, { source: "rain" }>;
+type CustomItemConfig = Extract<StudyInfoItemConfig, { source: "custom" }>;
+
 export const MAX_STUDY_INFO_ITEMS = MAX_PERSISTED_STUDY_INFO_ITEMS;
 export const DEFAULT_STUDY_INFO_CAROUSEL: StudyInfoCarouselSettings = getDefaultStudyInfoCarousel();
 
@@ -83,32 +101,36 @@ function resolveConfigItems(
   return normalizePersistedStudyInfoCarousel(settings).items;
 }
 
-function isEnabled(
-  items: StudyInfoItemConfig[],
-  source: StudyInfoSource
-): StudyInfoItemConfig | null {
-  return items.find((item) => item.source === source && item.enabled) ?? null;
+function sortEnabledItems(items: StudyInfoItemConfig[]): StudyInfoItemConfig[] {
+  return items
+    .filter((item) => item.enabled)
+    .sort((first, second) => first.order - second.order || first.id.localeCompare(second.id));
+}
+
+export function getStudyInfoItemProgressKind(item: StudyInfoItemConfig): StudyProgressKind {
+  return item.source === "progress" ? item.progressKind : item.backgroundProgressKind;
 }
 
 function buildProgressSignal(
   progress: StudyInfoProgressSnapshot,
-  config: StudyInfoItemConfig
-): StudyInfoSignal | null {
-  if (!progress.hasProgress) return null;
-  const primaryText = progress.stageText || progress.statusText;
-  const secondaryText = progress.remainingTimeText;
-  const ariaText = [progress.stageAriaText || primaryText, secondaryText]
-    .filter(Boolean)
-    .join("，");
+  config: ProgressItemConfig
+): StudyInfoSignal {
+  const primaryText = progress.hasProgress ? progress.stageText || progress.statusText : "";
+  const secondaryText = progress.hasProgress ? progress.remainingTimeText : undefined;
+  const ariaText = progress.hasProgress
+    ? [progress.stageAriaText || primaryText, secondaryText].filter(Boolean).join("，")
+    : progress.statusText;
+
   return {
-    id: config.id,
+    itemId: config.id,
     source: "progress",
+    progressKind: config.progressKind,
     priority: "routine",
     displayMode: "rotating",
     primaryText,
     secondaryText,
     ariaText,
-    dedupeKey: `progress:${progress.statusText}:${primaryText}`,
+    dedupeKey: `progress:${config.progressKind}:${progress.statusText}:${primaryText}`,
     order: config.order,
   };
 }
@@ -116,7 +138,7 @@ function buildProgressSignal(
 function buildNextScheduleSignal(
   schedule: StudyPeriod[],
   nowMs: number,
-  config: StudyInfoItemConfig
+  config: NextScheduleItemConfig
 ): StudyInfoSignal | null {
   const now = new Date(nowMs);
   const next = schedule
@@ -129,19 +151,22 @@ function buildNextScheduleSignal(
   if (!next) return null;
 
   const minutes = Math.max(0, Math.ceil((next.startAt - nowMs) / 60000));
+  if (config.leadMinutes !== "always" && minutes > config.leadMinutes) return null;
+
   const priority: StudyInfoPriority =
     minutes <= 5 ? "critical" : minutes <= 15 ? "timely" : "routine";
   const primaryText = next.period.name;
   const secondaryText = minutes <= 5 ? "即将开始" : `${formatMinutes(minutes)}后开始`;
-  const ariaText = `${primaryText}，${secondaryText}`;
+
   return {
-    id: `next-schedule:${next.period.id}`,
+    itemId: config.id,
     source: "nextSchedule",
+    progressKind: config.backgroundProgressKind,
     priority,
     displayMode: priority === "critical" ? "interrupt" : "rotating",
     primaryText,
     secondaryText,
-    ariaText,
+    ariaText: `${primaryText}，${secondaryText}`,
     eventAt: next.startAt,
     expiresAt: next.startAt,
     dedupeKey: `next-schedule:${next.period.id}:${next.startAt}`,
@@ -152,10 +177,11 @@ function buildNextScheduleSignal(
 function buildRainSignal(
   weather: StudyInfoWeatherSnapshot | undefined,
   nowMs: number,
-  config: StudyInfoItemConfig
+  config: RainItemConfig
 ): StudyInfoSignal | null {
-  if (!weather || weather.stale || (weather.freshness && weather.freshness !== "fresh"))
+  if (!weather || weather.stale || (weather.freshness && weather.freshness !== "fresh")) {
     return null;
+  }
   const stats = weather.stats;
   if (stats?.hasReliableTimestamps === false) return null;
   const phase = String(
@@ -195,25 +221,24 @@ function buildRainSignal(
   } else {
     if (leadMinutes == null || rainStartAt == null) return null;
     const safeLead = Math.max(0, Math.ceil(leadMinutes));
-    if (safeLead > 30) return null;
+    if (safeLead > config.leadMinutes) return null;
     priority = safeLead <= 10 ? "critical" : "timely";
-    eventAt = rainStartAt ?? nowMs + safeLead * 60000;
+    eventAt = rainStartAt;
     expiresAt = rainEndAt ?? undefined;
     primaryText = `预计 ${formatMinutes(safeLead)}后下雨`;
     secondaryText =
       durationMinutes != null ? `预计持续 ${formatMinutes(durationMinutes)}` : undefined;
   }
 
-  const ariaText = [primaryText, secondaryText].filter(Boolean).join("，");
-
   return {
-    id: `rain:${rainStartAt ?? "active"}`,
+    itemId: config.id,
     source: "rain",
+    progressKind: config.backgroundProgressKind,
     priority,
     displayMode: priority === "critical" ? "interrupt" : "rotating",
     primaryText,
     secondaryText,
-    ariaText,
+    ariaText: [primaryText, secondaryText].filter(Boolean).join("，"),
     eventAt,
     expiresAt,
     // 同一阶段保持稳定，开始下雨时切换一次键，让读屏播报状态变化。
@@ -222,77 +247,98 @@ function buildRainSignal(
   };
 }
 
-function priorityRank(priority: StudyInfoPriority): number {
-  return priority === "critical" ? 0 : priority === "timely" ? 1 : 2;
+function buildCustomSignal(config: CustomItemConfig): StudyInfoSignal | null {
+  if (!config.text) return null;
+  return {
+    itemId: config.id,
+    source: "custom",
+    progressKind: config.backgroundProgressKind,
+    priority: "routine",
+    displayMode: "rotating",
+    primaryText: config.text,
+    ariaText: config.text,
+    dedupeKey: `custom:${config.id}:${config.text}`,
+    order: config.order,
+  };
+}
+
+function sortSignals(first: StudyInfoSignal, second: StudyInfoSignal): number {
+  const firstCritical = first.priority === "critical";
+  const secondCritical = second.priority === "critical";
+  if (firstCritical !== secondCritical) return firstCritical ? -1 : 1;
+
+  const eventDifference =
+    firstCritical && secondCritical
+      ? (first.eventAt ?? Number.MAX_SAFE_INTEGER) - (second.eventAt ?? Number.MAX_SAFE_INTEGER)
+      : 0;
+  return (
+    eventDifference ||
+    (first.order ?? 0) - (second.order ?? 0) ||
+    first.itemId.localeCompare(second.itemId)
+  );
 }
 
 /**
- * 根据当前状态生成标准化信息信号。该函数无副作用，便于在设置页预览和单元测试中复用。
+ * 根据当前状态生成标准化信息信号。条件提示没有内容时不会进入实际轮播队列。
  */
 export function resolveStudyInfoSignals(params: {
   now: Date | number;
-  progress: StudyInfoProgressSnapshot;
+  progress: Record<StudyProgressKind, StudyInfoProgressSnapshot>;
   schedule?: StudyPeriod[];
   weather?: StudyInfoWeatherSnapshot;
   settings?: StudyInfoCarouselSettings;
 }): StudyInfoSignal[] {
   const nowMs = typeof params.now === "number" ? params.now : params.now.getTime();
-  const items = resolveConfigItems(params.settings);
+  const items = sortEnabledItems(resolveConfigItems(params.settings));
   const signals: StudyInfoSignal[] = [];
-  const progressConfig = isEnabled(items, "progress");
-  if (progressConfig) {
-    const signal = buildProgressSignal(params.progress, progressConfig);
-    if (signal) signals.push(signal);
-  }
 
-  const scheduleConfig = isEnabled(items, "nextSchedule");
-  if (scheduleConfig && params.schedule) {
-    const signal = buildNextScheduleSignal(params.schedule, nowMs, scheduleConfig);
+  for (const item of items) {
+    let signal: StudyInfoSignal | null = null;
+    switch (item.source) {
+      case "progress":
+        signal = buildProgressSignal(params.progress[item.progressKind], item);
+        break;
+      case "nextSchedule":
+        signal = params.schedule ? buildNextScheduleSignal(params.schedule, nowMs, item) : null;
+        break;
+      case "rain":
+        signal = buildRainSignal(params.weather, nowMs, item);
+        break;
+      case "custom":
+        signal = buildCustomSignal(item);
+        break;
+    }
     if (signal) signals.push(signal);
-  }
-
-  const rainConfig = isEnabled(items, "rain");
-  if (rainConfig) {
-    const signal = buildRainSignal(params.weather, nowMs, rainConfig);
-    if (signal) signals.push(signal);
-  }
-
-  for (const item of items.filter(
-    (candidate) => candidate.source === "custom" && candidate.enabled && candidate.text
-  )) {
-    signals.push({
-      id: item.id,
-      source: "custom",
-      priority: "routine",
-      displayMode: "rotating",
-      primaryText: item.text as string,
-      ariaText: item.text as string,
-      dedupeKey: `custom:${item.id}:${item.text}`,
-      order: item.order,
-    });
   }
 
   return signals
     .filter((signal) => signal.expiresAt == null || signal.expiresAt > nowMs)
     .filter(
       (signal, index, all) =>
-        all.findIndex((candidate) => candidate.dedupeKey === signal.dedupeKey) === index
+        all.findIndex((candidate) => candidate.itemId === signal.itemId) === index
     )
-    .sort((first, second) => {
-      const priorityDifference = priorityRank(first.priority) - priorityRank(second.priority);
-      if (priorityDifference) return priorityDifference;
-      const eventDifference =
-        first.priority === "routine"
-          ? 0
-          : (first.eventAt ?? Number.MAX_SAFE_INTEGER) -
-            (second.eventAt ?? Number.MAX_SAFE_INTEGER);
-      return (
-        eventDifference ||
-        (first.order ?? 0) - (second.order ?? 0) ||
-        first.id.localeCompare(second.id)
-      );
-    })
+    .sort(sortSignals)
     .slice(0, MAX_STUDY_INFO_ITEMS);
+}
+
+/** 当配置非空但条件提示均无内容时，为首项保留其背景进度。 */
+export function resolveStudyInfoStandbySignal(
+  settings: StudyInfoCarouselSettings | undefined
+): StudyInfoSignal | null {
+  const firstItem = sortEnabledItems(resolveConfigItems(settings))[0];
+  if (!firstItem) return null;
+
+  return {
+    itemId: firstItem.id,
+    source: firstItem.source,
+    progressKind: getStudyInfoItemProgressKind(firstItem),
+    priority: "routine",
+    displayMode: "rotating",
+    primaryText: "",
+    ariaText: "",
+    dedupeKey: `standby:${firstItem.id}`,
+    order: firstItem.order,
+  };
 }
 
 /** 兼容“信息条目”命名的别名，供设置预览和后续来源扩展复用。 */

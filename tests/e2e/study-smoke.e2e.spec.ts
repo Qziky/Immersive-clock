@@ -12,6 +12,11 @@ async function openStudyDisplaySettings(page: Page) {
   return dialog;
 }
 
+async function addStudyInfo(page: Page, dialog: Locator, optionName: string) {
+  await dialog.getByRole("button", { name: "添加信息" }).click();
+  await page.getByRole("option", { name: optionName, exact: false }).click();
+}
+
 async function expectStatusColumnsDoNotOverlap(statusRoot: Locator) {
   const left = await statusRoot.locator('[class*="statusText"]').first().boundingBox();
   const center = await statusRoot.locator('[class*="progressRhythm"]').first().boundingBox();
@@ -69,18 +74,16 @@ test("中央信息：取消不保存，自定义消息保存后可重载", async
   await page.goto("/");
 
   let dialog = await openStudyDisplaySettings(page);
-  await dialog.getByRole("button", { name: "添加消息" }).click();
-  await dialog.getByLabel("消息内容").fill("这条消息不应保存");
+  await addStudyInfo(page, dialog, "新建自定义文案");
+  await dialog.getByLabel("文案内容").fill("这条消息不应保存");
   await dialog.getByRole("button", { name: "取消" }).click();
   await expect(dialog).toBeHidden();
 
   dialog = await openStudyDisplaySettings(page);
-  await expect(dialog.getByLabel("消息内容")).toHaveCount(0);
-  await dialog.getByRole("switch", { name: "启用当前进度" }).click();
-  await dialog.getByRole("switch", { name: "启用下一课时" }).click();
-  await dialog.getByRole("switch", { name: "启用短时降雨" }).click();
-  await dialog.getByRole("button", { name: "添加消息" }).click();
-  await dialog.getByLabel("消息内容").fill("记得完成今日复盘");
+  await expect(dialog.getByLabel("文案内容")).toHaveCount(0);
+  await dialog.getByRole("button", { name: "移出24 小时进度" }).click();
+  await addStudyInfo(page, dialog, "新建自定义文案");
+  await dialog.getByLabel("文案内容").fill("记得完成今日复盘");
   await dialog.getByRole("button", { name: "保存" }).click();
 
   const statusRoot = page.getByRole("progressbar", { name: "今日进度" }).locator("..");
@@ -98,7 +101,8 @@ test("中央信息：取消不保存，自定义消息保存后可重载", async
 
   await page.reload();
   dialog = await openStudyDisplaySettings(page);
-  await expect(dialog.getByLabel("消息内容")).toHaveValue("记得完成今日复盘");
+  await dialog.getByRole("button", { name: "配置记得完成今日复盘" }).click();
+  await expect(dialog.getByLabel("文案内容")).toHaveValue("记得完成今日复盘");
 });
 
 test("中央信息：隐藏天气组件后仍显示共享快照中的降雨主次信息", async ({ page }) => {
@@ -110,26 +114,24 @@ test("中央信息：隐藏天气组件后仍显示共享快照中的降雨主�
     localStorage.setItem(
       "AppSettings",
       JSON.stringify({
-        version: 3,
+        version: 4,
         study: {
           display: {
-            showStatusBar: true,
             showWeather: false,
             showNoiseMonitor: false,
             showCountdown: false,
           },
           infoCarousel: {
-            autoRotate: false,
             intervalSec: 6,
             items: [
-              { id: "progress-default", source: "progress", enabled: false, order: 0 },
               {
-                id: "next-schedule-default",
-                source: "nextSchedule",
-                enabled: false,
-                order: 1,
+                id: "rain-default",
+                source: "rain",
+                backgroundProgressKind: "day",
+                leadMinutes: 30,
+                enabled: true,
+                order: 0,
               },
-              { id: "rain-default", source: "rain", enabled: true, order: 2 },
             ],
           },
         },
@@ -193,43 +195,30 @@ for (const viewport of [
         localStorage.setItem(
           "AppSettings",
           JSON.stringify({
-            version: 3,
+            version: 4,
             study: {
               display: {
-                showStatusBar: true,
                 showWeather: false,
                 showNoiseMonitor: false,
                 showCountdown: false,
               },
               infoCarousel: {
-                autoRotate: false,
                 intervalSec: 6,
                 items: [
                   {
-                    id: "progress-default",
-                    source: "progress",
-                    enabled: false,
-                    order: 0,
-                  },
-                  {
-                    id: "next-schedule-default",
-                    source: "nextSchedule",
-                    enabled: false,
-                    order: 1,
-                  },
-                  { id: "rain-default", source: "rain", enabled: false, order: 2 },
-                  {
                     id: "custom-long-first",
                     source: "custom",
+                    backgroundProgressKind: "day",
                     enabled: true,
-                    order: 3,
+                    order: 0,
                     text: first,
                   },
                   {
                     id: "custom-long-second",
                     source: "custom",
+                    backgroundProgressKind: "day",
                     enabled: true,
-                    order: 4,
+                    order: 1,
                     text: second,
                   },
                 ],

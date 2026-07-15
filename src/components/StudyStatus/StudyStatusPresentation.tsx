@@ -19,6 +19,7 @@ interface StudyStatusPresentationProps {
   stageText?: string;
   statusText: string;
   hasProgress?: boolean;
+  showProgressMeta?: boolean;
   infoCanAdvance?: boolean;
   infoSignal?: StudyInfoSignal | null;
   infoSignalManaged?: boolean;
@@ -37,6 +38,7 @@ export function StudyStatusPresentation({
   stageText,
   statusText,
   hasProgress,
+  showProgressMeta,
   infoCanAdvance = false,
   infoSignal,
   infoSignalManaged = false,
@@ -57,7 +59,7 @@ export function StudyStatusPresentation({
   const { className: labelClassName, ...labelProps } = labelAttributes ?? {};
   const { className: progressClassName, ...progressProps } = progressAttributes ?? {};
   const showRhythm = Boolean(stageText && remainingTimeText);
-  const showProgressMeta = hasProgress ?? showRhythm;
+  const shouldShowProgressMeta = showProgressMeta ?? hasProgress ?? showRhythm;
   const infoPrimaryText = infoSignalManaged
     ? infoSignal?.primaryText
     : (infoSignal?.primaryText ?? stageText);
@@ -76,9 +78,17 @@ export function StudyStatusPresentation({
           ? "feature.message"
           : "feature.progress";
   const infoInteractive = Boolean(infoCanAdvance && onInfoNext);
+  const showInfoRegion = showInfo || infoSignalManaged;
+  const infoControlLabel = showInfo
+    ? infoAriaText || undefined
+    : infoInteractive
+      ? "切换中央信息"
+      : undefined;
 
   // 同一事件保留稳定键，倒计时更新不会重复播报或重播切换动画。
-  const liveKey = infoSignal ? `${infoSignal.dedupeKey}:${infoSignal.priority}` : "legacy";
+  const liveKey = infoSignal
+    ? `${infoSignal.itemId}:${infoSignal.dedupeKey}:${infoSignal.priority}`
+    : "legacy";
   const previousLiveKeyRef = useRef<string>("");
   const infoHoveredRef = useRef(false);
   const infoFocusedRef = useRef(false);
@@ -116,13 +126,13 @@ export function StudyStatusPresentation({
         <div {...labelProps} className={classNames(styles.statusText, labelClassName)}>
           {statusText}
         </div>
-        {showInfo ? (
+        {showInfoRegion ? (
           <div
             className={styles.progressRhythm}
             role={infoInteractive ? "button" : undefined}
             tabIndex={infoInteractive ? 0 : undefined}
-            aria-label={infoAriaText || undefined}
-            title={infoAriaText || undefined}
+            aria-label={infoControlLabel}
+            title={infoControlLabel}
             onClick={infoInteractive ? onInfoNext : undefined}
             onKeyDown={handleInfoKeyDown}
             onMouseEnter={() => {
@@ -142,23 +152,25 @@ export function StudyStatusPresentation({
               onInfoPauseChange?.(infoHoveredRef.current);
             }}
           >
-            <span key={liveKey} className={styles.infoContent}>
-              <AppIcon className={styles.infoIcon} name={infoIcon} />
-              <span className={styles.infoCopy}>
-                <span className={styles.stageText}>{infoPrimaryText}</span>
-                {infoSecondaryText ? (
-                  <>
-                    <span className={styles.rhythmSeparator} aria-hidden="true">
-                      ·
-                    </span>
-                    <span className={styles.remainingTime}>{infoSecondaryText}</span>
-                  </>
-                ) : null}
+            {showInfo ? (
+              <span key={liveKey} className={styles.infoContent}>
+                <AppIcon className={styles.infoIcon} name={infoIcon} />
+                <span className={styles.infoCopy}>
+                  <span className={styles.stageText}>{infoPrimaryText}</span>
+                  {infoSecondaryText ? (
+                    <>
+                      <span className={styles.rhythmSeparator} aria-hidden="true">
+                        ·
+                      </span>
+                      <span className={styles.remainingTime}>{infoSecondaryText}</span>
+                    </>
+                  ) : null}
+                </span>
               </span>
-            </span>
+            ) : null}
           </div>
         ) : null}
-        {showProgressMeta ? (
+        {shouldShowProgressMeta ? (
           <span {...progressProps} className={classNames(styles.progressMeta, progressClassName)}>
             {progressText}
           </span>

@@ -67,9 +67,10 @@ describe("appSettings", () => {
 
   it("getAppSettings 在无存储时返回默认配置", () => {
     const s = getAppSettings();
-    expect(s.version).toBe(3);
+    expect(s.version).toBe(4);
     expect(s.general.timeSync.provider).toBe("httpDate");
-    expect(s.study.display.timeProgressMode).toBe("day");
+    expect(s.study.display).not.toHaveProperty("showStatusBar");
+    expect(s.study.display).not.toHaveProperty("timeProgressMode");
     expect(s.study.display.showTime).toBe(true);
     expect(s.general.quote.autoRefreshEnabled).toBe(true);
     expect(s.general.quote.autoRefreshIntervalSec).toBe(600);
@@ -86,15 +87,33 @@ describe("appSettings", () => {
       ])
     );
     expect(s.general.quote.customChannels).toEqual([]);
-    expect(s.study.infoCarousel).toMatchObject({ autoRotate: true, intervalSec: 6 });
+    expect(s.study.infoCarousel).toMatchObject({ intervalSec: 6 });
+    expect(s.study.infoCarousel).not.toHaveProperty("autoRotate");
     expect(s.study.infoCarousel.items.map((item) => item.source)).toEqual([
+      "progress",
       "progress",
       "nextSchedule",
       "rain",
     ]);
+    expect(s.study.infoCarousel.items).toEqual([
+      expect.objectContaining({ source: "progress", progressKind: "day", enabled: true }),
+      expect.objectContaining({ source: "progress", progressKind: "schedule", enabled: false }),
+      expect.objectContaining({
+        source: "nextSchedule",
+        backgroundProgressKind: "day",
+        leadMinutes: "always",
+        enabled: false,
+      }),
+      expect.objectContaining({
+        source: "rain",
+        backgroundProgressKind: "day",
+        leadMinutes: 30,
+        enabled: false,
+      }),
+    ]);
   });
 
-  it("normalizeStudyInfoCarousel 会补齐内置来源、去重并限制 20 条", () => {
+  it("normalizeStudyInfoCarousel 会补齐内置配置、按类型去重并依用户顺序限制 20 条", () => {
     consumeStudyInfoLimitAdjustedNotice();
     const customItems = Array.from({ length: MAX_STUDY_INFO_ITEMS + 5 }, (_, index) => ({
       id: `custom-${index}`,
@@ -104,27 +123,41 @@ describe("appSettings", () => {
       text: `消息 ${index}`,
     }));
     const normalized = normalizeStudyInfoCarousel({
-      autoRotate: false,
       intervalSec: 99,
       items: [
         ...customItems,
-        { id: "progress-default", source: "progress", enabled: false, order: 99 },
-        { id: "progress-duplicate", source: "progress", enabled: true, order: 1 },
+        {
+          id: "progress-default",
+          source: "progress",
+          progressKind: "day",
+          enabled: true,
+          order: 99,
+        },
+        {
+          id: "progress-duplicate",
+          source: "progress",
+          progressKind: "day",
+          enabled: true,
+          order: 1,
+        },
       ],
     });
 
-    expect(normalized.autoRotate).toBe(false);
     expect(normalized.intervalSec).toBe(30);
-    expect(normalized.items).toHaveLength(customItems.length + 3);
+    expect(normalized).not.toHaveProperty("autoRotate");
+    expect(normalized.items).toHaveLength(customItems.length + 4);
     expect(normalized.items.filter((item) => item.enabled)).toHaveLength(MAX_STUDY_INFO_ITEMS);
-    expect(normalized.items.filter((item) => item.source !== "custom")).toHaveLength(3);
-    expect(normalized.items.find((item) => item.source === "progress")?.enabled).toBe(false);
-    expect(normalized.items.find((item) => item.source === "nextSchedule")?.enabled).toBe(true);
-    expect(normalized.items.find((item) => item.source === "rain")?.enabled).toBe(true);
-    expect(normalized.items.find((item) => item.id === "custom-17")?.enabled).toBe(true);
-    expect(normalized.items.find((item) => item.id === "custom-18")).toMatchObject({
+    expect(normalized.items.filter((item) => item.source !== "custom")).toHaveLength(4);
+    expect(
+      normalized.items.find((item) => item.source === "progress" && item.progressKind === "day")
+        ?.enabled
+    ).toBe(false);
+    expect(normalized.items.find((item) => item.source === "nextSchedule")?.enabled).toBe(false);
+    expect(normalized.items.find((item) => item.source === "rain")?.enabled).toBe(false);
+    expect(normalized.items.find((item) => item.id === "custom-19")?.enabled).toBe(true);
+    expect(normalized.items.find((item) => item.id === "custom-20")).toMatchObject({
       enabled: false,
-      text: "消息 18",
+      text: "消息 20",
     });
     expect(new Set(normalized.items.map((item) => item.id)).size).toBe(normalized.items.length);
     expect(consumeStudyInfoLimitAdjustedNotice()).toBe(false);
@@ -151,7 +184,6 @@ describe("appSettings", () => {
         version: 3,
         study: {
           infoCarousel: {
-            autoRotate: true,
             intervalSec: 6,
             items: Array.from({ length: MAX_STUDY_INFO_ITEMS + 1 }, (_, index) => ({
               id: `legacy-${index}`,
@@ -184,9 +216,11 @@ describe("appSettings", () => {
     expect(normalized.items.some((item) => item.id === "custom-empty")).toBe(false);
     expect(normalized.items.map((item) => item.source)).toEqual([
       "progress",
+      "progress",
       "nextSchedule",
       "rain",
     ]);
+    expect(normalized.items.every((item) => !item.enabled)).toBe(true);
   });
 
   it("getAppSettings 能对 study.display 做深合并，避免缺字段", () => {
@@ -201,7 +235,7 @@ describe("appSettings", () => {
 
     const s = getAppSettings();
     expect(s.study.display.showQuote).toBe(false);
-    expect(s.study.display.timeProgressMode).toBe("day");
+    expect(s.study.display).not.toHaveProperty("timeProgressMode");
     expect(s.study.display.showWeather).toBe(true);
     expect(s.study.display.showTime).toBe(true);
     expect(s.study.display.showDate).toBe(true);
@@ -270,7 +304,7 @@ describe("appSettings", () => {
 
     updateStudySettings({
       display: { showCountdown: false },
-      infoCarousel: { autoRotate: false },
+      infoCarousel: { intervalSec: 12 },
       alerts: { minutelyPrecip: true },
       background: { colorAlpha: 0.8 },
     });
@@ -279,9 +313,8 @@ describe("appSettings", () => {
     expect(s.study.display.showQuote).toBe(false);
     expect(s.study.display.showCountdown).toBe(false);
     expect(s.study.display.showTime).toBe(true);
-    expect(s.study.infoCarousel.autoRotate).toBe(false);
-    expect(s.study.infoCarousel.intervalSec).toBe(6);
-    expect(s.study.infoCarousel.items).toHaveLength(3);
+    expect(s.study.infoCarousel.intervalSec).toBe(12);
+    expect(s.study.infoCarousel.items).toHaveLength(4);
     expect(s.study.style.digitOpacity).toBe(0.5);
     expect(s.study.alerts.weatherAlert).toBe(true);
     expect(s.study.alerts.minutelyPrecip).toBe(true);
@@ -560,7 +593,7 @@ describe("appSettings", () => {
 
     expect(setItemSpy).toHaveBeenCalledTimes(1);
     const saved = JSON.parse(localStorage.getItem(APP_SETTINGS_KEY) ?? "{}");
-    expect(saved.version).toBe(3);
+    expect(saved.version).toBe(4);
     expect(saved.general.quote.autoRefreshEnabled).toBe(true);
     expect(saved.general.quote.autoRefreshIntervalSec).toBe(1800);
     expect(saved.general.quote.animationMode).toBe("crossfade");
@@ -618,37 +651,186 @@ describe("appSettings", () => {
   it.each([
     ["缺失", undefined],
     ["非法", "semester"],
-  ])("启动迁移会将 v3 %s进度模式归一为 day 并写回", (_label, candidate) => {
-    const stored = getAppSettings();
-    const serialized = JSON.parse(JSON.stringify(stored));
-    if (candidate === undefined) {
-      delete serialized.study.display.timeProgressMode;
-    } else {
-      serialized.study.display.timeProgressMode = candidate;
-    }
-    localStorage.setItem(APP_SETTINGS_KEY, JSON.stringify(serialized));
+  ])("v3 %s进度模式会迁移为 day 进度项并移除旧显示字段", (_label, candidate) => {
+    localStorage.setItem(
+      APP_SETTINGS_KEY,
+      JSON.stringify({
+        version: 3,
+        study: {
+          display: {
+            showStatusBar: true,
+            ...(candidate === undefined ? {} : { timeProgressMode: candidate }),
+          },
+        },
+      })
+    );
     const setItemSpy = vi.spyOn(localStorage, "setItem");
 
     const migrated = migrateStoredAppSettings();
     const saved = JSON.parse(localStorage.getItem(APP_SETTINGS_KEY) ?? "{}");
+    const enabledProgress = migrated.study.infoCarousel.items.find(
+      (item) => item.source === "progress" && item.enabled
+    );
 
-    expect(migrated.version).toBe(3);
-    expect(migrated.study.display.timeProgressMode).toBe("day");
-    expect(saved.study.display.timeProgressMode).toBe("day");
+    expect(migrated.version).toBe(4);
+    expect(enabledProgress).toMatchObject({ source: "progress", progressKind: "day" });
+    expect(migrated.study.display).not.toHaveProperty("showStatusBar");
+    expect(migrated.study.display).not.toHaveProperty("timeProgressMode");
+    expect(saved.study.display).not.toHaveProperty("showStatusBar");
+    expect(saved.study.display).not.toHaveProperty("timeProgressMode");
     expect(setItemSpy).toHaveBeenCalledTimes(1);
   });
 
-  it("启动迁移会保留显式 schedule 进度模式", () => {
-    const stored = getAppSettings();
-    stored.study.display.timeProgressMode = "schedule";
-    localStorage.setItem(APP_SETTINGS_KEY, JSON.stringify(stored));
-    const setItemSpy = vi.spyOn(localStorage, "setItem");
+  it("v3 会把进度模式迁移到进度项和每个提示项的背景", () => {
+    localStorage.setItem(
+      APP_SETTINGS_KEY,
+      JSON.stringify({
+        version: 3,
+        study: {
+          display: { showStatusBar: true, timeProgressMode: "schedule" },
+          infoCarousel: {
+            autoRotate: false,
+            intervalSec: 12,
+            items: [
+              { id: "progress-default", source: "progress", enabled: true, order: 0 },
+              { id: "next-schedule-default", source: "nextSchedule", enabled: true, order: 1 },
+              { id: "rain-default", source: "rain", enabled: true, order: 2 },
+              {
+                id: "custom-review",
+                source: "custom",
+                enabled: true,
+                order: 3,
+                text: "完成复盘",
+              },
+            ],
+          },
+        },
+      })
+    );
 
     const migrated = migrateStoredAppSettings();
 
-    expect(migrated.version).toBe(3);
-    expect(migrated.study.display.timeProgressMode).toBe("schedule");
-    expect(setItemSpy).not.toHaveBeenCalled();
+    expect(migrated.study.infoCarousel.intervalSec).toBe(12);
+    expect(migrated.study.infoCarousel).not.toHaveProperty("autoRotate");
+    expect(migrated.study.infoCarousel.items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ source: "progress", progressKind: "schedule", enabled: true }),
+        expect.objectContaining({
+          source: "nextSchedule",
+          backgroundProgressKind: "schedule",
+          leadMinutes: "always",
+        }),
+        expect.objectContaining({
+          source: "rain",
+          backgroundProgressKind: "schedule",
+          leadMinutes: 30,
+        }),
+        expect.objectContaining({
+          source: "custom",
+          backgroundProgressKind: "schedule",
+          text: "完成复盘",
+        }),
+      ])
+    );
+    expect(
+      migrated.study.infoCarousel.items.find(
+        (item) => item.source === "progress" && item.progressKind === "day"
+      )?.enabled
+    ).toBe(false);
+  });
+
+  it("v3 隐藏状态栏会迁移为全部信息项停用", () => {
+    const migrated = normalizeAppSettings({
+      version: 3,
+      study: {
+        display: { showStatusBar: false, timeProgressMode: "schedule" },
+        infoCarousel: {
+          autoRotate: true,
+          intervalSec: 9,
+          items: [
+            { id: "progress-default", source: "progress", enabled: true, order: 0 },
+            { id: "rain-default", source: "rain", enabled: true, order: 1 },
+          ],
+        },
+      },
+    });
+
+    expect(migrated.study.infoCarousel.items.every((item) => !item.enabled)).toBe(true);
+    expect(migrated.study.infoCarousel.intervalSec).toBe(9);
+  });
+
+  it("v4 信息项可无损往返并保留各自的进度绑定和提示窗口", () => {
+    const normalized = normalizeAppSettings({
+      version: 4,
+      study: {
+        infoCarousel: {
+          autoRotate: false,
+          intervalSec: 15,
+          items: [
+            {
+              id: "progress-day",
+              source: "progress",
+              progressKind: "day",
+              enabled: true,
+              order: 0,
+            },
+            {
+              id: "progress-schedule",
+              source: "progress",
+              progressKind: "schedule",
+              enabled: true,
+              order: 1,
+            },
+            {
+              id: "next",
+              source: "nextSchedule",
+              backgroundProgressKind: "schedule",
+              leadMinutes: 60,
+              enabled: true,
+              order: 2,
+            },
+            {
+              id: "rain",
+              source: "rain",
+              backgroundProgressKind: "day",
+              leadMinutes: 10,
+              enabled: true,
+              order: 3,
+            },
+            {
+              id: "custom",
+              source: "custom",
+              backgroundProgressKind: "schedule",
+              text: "保持专注",
+              enabled: true,
+              order: 4,
+            },
+          ],
+        },
+      },
+    });
+
+    expect(normalized.study.infoCarousel).not.toHaveProperty("autoRotate");
+    expect(normalized.study.infoCarousel.items).toEqual([
+      expect.objectContaining({ source: "progress", progressKind: "day" }),
+      expect.objectContaining({ source: "progress", progressKind: "schedule" }),
+      expect.objectContaining({
+        source: "nextSchedule",
+        backgroundProgressKind: "schedule",
+        leadMinutes: 60,
+      }),
+      expect.objectContaining({
+        source: "rain",
+        backgroundProgressKind: "day",
+        leadMinutes: 10,
+      }),
+      expect.objectContaining({
+        source: "custom",
+        backgroundProgressKind: "schedule",
+        text: "保持专注",
+      }),
+    ]);
+    expect(normalizeAppSettings(JSON.parse(JSON.stringify(normalized)))).toEqual(normalized);
   });
 
   it("恢复默认设置时保留课程、倒计时和语录内容，但重置外观与功能偏好", () => {
@@ -679,14 +861,20 @@ describe("appSettings", () => {
       },
     ];
     current.study.infoCarousel = {
-      autoRotate: false,
       intervalSec: 24,
       items: [
-        { id: "progress-default", source: "progress", enabled: false, order: 0 },
+        {
+          id: "progress-day-default",
+          source: "progress",
+          progressKind: "day",
+          enabled: false,
+          order: 0,
+        },
         {
           id: "custom-review",
           source: "custom",
-          enabled: false,
+          backgroundProgressKind: "schedule",
+          enabled: true,
           order: 7,
           text: "完成今日复盘",
         },
@@ -707,16 +895,18 @@ describe("appSettings", () => {
     expect(reset.general.quote.customChannels[0]?.quotes).toEqual(["保留内容"]);
     expect(reset.study.countdownItems[0]?.name).toBe("考试");
     expect(reset.study.schedule[0]?.name).toBe("数学");
-    expect(reset.study.infoCarousel.autoRotate).toBe(true);
     expect(reset.study.infoCarousel.intervalSec).toBe(6);
-    expect(reset.study.infoCarousel.items.find((item) => item.source === "progress")?.enabled).toBe(
-      true
-    );
+    expect(
+      reset.study.infoCarousel.items.find(
+        (item) => item.source === "progress" && item.progressKind === "day"
+      )?.enabled
+    ).toBe(true);
     expect(
       reset.study.infoCarousel.items.find((item) => item.id === "custom-review")
     ).toMatchObject({
       enabled: false,
       order: 7,
+      backgroundProgressKind: "schedule",
       text: "完成今日复盘",
     });
     expect(reset.appearance.global.background.type).toBe("default");

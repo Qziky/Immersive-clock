@@ -2,8 +2,9 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 
 import { useComponentAppearance } from "../../contexts/AppearanceContext";
 import { useMinutelyWeatherSnapshot } from "../../hooks/useMinutelyWeatherSnapshot";
-import type { StudyInfoCarouselSettings, StudyTimeProgressMode } from "../../types";
-import { DEFAULT_SCHEDULE, StudyPeriod } from "../../types/studySchedule";
+import type { StudyInfoCarouselSettings, StudyProgressKind } from "../../types";
+import { DEFAULT_SCHEDULE } from "../../types/studySchedule";
+import type { StudyPeriod } from "../../types/studySchedule";
 import { getAppSettings, getDefaultStudyInfoCarousel } from "../../utils/appSettings";
 import { logger } from "../../utils/logger";
 import { subscribeSettingsEvent, SETTINGS_EVENTS } from "../../utils/settingsEvents";
@@ -11,7 +12,11 @@ import { readStudySchedule } from "../../utils/studyScheduleStorage";
 import { getAdjustedDate } from "../../utils/timeSync";
 
 import { getDayGreeting } from "./dayGreeting";
-import { resolveStudyInfoSignals, type StudyInfoWeatherSnapshot } from "./studyInfoSignals";
+import {
+  resolveStudyInfoSignals,
+  resolveStudyInfoStandbySignal,
+  type StudyInfoWeatherSnapshot,
+} from "./studyInfoSignals";
 import { StudyStatusPresentation } from "./StudyStatusPresentation";
 import { useStudyInfoCarousel } from "./useStudyInfoCarousel";
 
@@ -26,6 +31,19 @@ export type StudyStatusType = {
   stageText: string;
   statusText: string;
 };
+
+export interface StudyProgressSnapshot {
+  kind: StudyProgressKind;
+  status: StudyStatusType;
+  progress: number;
+  displayedProgress: number;
+  progressText: string;
+  remainingTimeText?: string;
+  stageText?: string;
+  statusText: string;
+  progressLabel: string;
+  ariaValueText: string;
+}
 
 const SECONDS_PER_DAY = 24 * 60 * 60;
 
@@ -143,7 +161,8 @@ export function calculateStudyStatus(targetSchedule: StudyPeriod[], now: Date): 
 }
 
 interface StudyStatusProps {
-  mode?: StudyTimeProgressMode;
+  /** @deprecated 进度类型现由轮播条目决定，仅为旧调用方保留。 */
+  mode?: StudyProgressKind;
 }
 
 function readInfoCarouselSettings(): StudyInfoCarouselSettings {
@@ -154,11 +173,36 @@ function readInfoCarouselSettings(): StudyInfoCarouselSettings {
   }
 }
 
-/**
- * 计划进度组件
- * 功能：按设置显示今日 24 小时进度或课时进度
- */
-const StudyStatus: React.FC<StudyStatusProps> = ({ mode = "day" }) => {
+export function createProgressSnapshot(
+  kind: StudyProgressKind,
+  status: StudyStatusType
+): StudyProgressSnapshot {
+  const displayedProgress =
+    kind === "day" ? Math.floor(status.progress) : Math.round(status.progress);
+  const remainingTimeText = status.hasProgress
+    ? formatRemainingTime(status.remainingSeconds)
+    : undefined;
+  const ariaValueText = status.hasProgress
+    ? [status.stageAriaText, remainingTimeText].filter(Boolean).join("，")
+    : status.statusText;
+
+  return {
+    kind,
+    status,
+    progress: status.progress,
+    displayedProgress,
+    progressText: `${displayedProgress}%`,
+    remainingTimeText,
+    stageText: status.hasProgress ? status.stageText : undefined,
+    statusText: status.statusText,
+    progressLabel:
+      kind === "day" ? "今日进度" : status.hasProgress ? `${status.statusText}进度` : "课时进度",
+    ariaValueText,
+  };
+}
+
+/** 顶部进度与信息组件：当前信息和其绑定的背景进度始终作为同一帧展示。 */
+const StudyStatus: React.FC<StudyStatusProps> = () => {
   const containerAppearance = useComponentAppearance("studyStatus", "surface", {
     kind: "surface",
   });
@@ -236,26 +280,20 @@ const StudyStatus: React.FC<StudyStatusProps> = ({ mode = "day" }) => {
     };
   }, [loadSchedule]);
 
-  // 每秒读取一次校准时间，进度由当前模式和课表直接派生。
+  // 每秒读取一次校准时间，两种进度快照都从同一时刻派生。
   useEffect(() => {
     const interval = setInterval(() => setCurrentTime(getAdjustedDate()), 1000);
 
     return () => clearInterval(interval);
   }, []);
 
-  const currentStatus = useMemo(
-    () =>
-      mode === "day"
-        ? calculateDayProgress(currentTime)
-        : calculateStudyStatus(schedule, currentTime),
-    [currentTime, mode, schedule]
+  const progressSnapshots = useMemo<Record<StudyProgressKind, StudyProgressSnapshot>>(
+    () => ({
+      day: createProgressSnapshot("day", calculateDayProgress(currentTime)),
+      schedule: createProgressSnapshot("schedule", calculateStudyStatus(schedule, currentTime)),
+    }),
+    [currentTime, schedule]
   );
-
-  const displayedProgress =
-    mode === "day" ? Math.floor(currentStatus.progress) : Math.round(currentStatus.progress);
-  const hasProgress = currentStatus.hasProgress;
-  const remainingTimeText = formatRemainingTime(currentStatus.remainingSeconds);
-  const progressLabel = mode === "day" ? "今日进度" : `${currentStatus.statusText}进度`;
 
   const weatherSnapshot = useMemo<StudyInfoWeatherSnapshot | undefined>(() => {
     if (!rainSourceEnabled) return undefined;
@@ -273,56 +311,64 @@ const StudyStatus: React.FC<StudyStatusProps> = ({ mode = "day" }) => {
       resolveStudyInfoSignals({
         now: currentTime,
         progress: {
-          stageText: currentStatus.stageText,
-          stageAriaText: currentStatus.stageAriaText,
-          remainingTimeText: hasProgress ? remainingTimeText : undefined,
-          statusText: currentStatus.statusText,
-          hasProgress,
+          day: {
+            stageText: progressSnapshots.day.status.stageText,
+            stageAriaText: progressSnapshots.day.status.stageAriaText,
+            remainingTimeText: progressSnapshots.day.remainingTimeText,
+            statusText: progressSnapshots.day.statusText,
+            hasProgress: progressSnapshots.day.status.hasProgress,
+          },
+          schedule: {
+            stageText: progressSnapshots.schedule.status.stageText,
+            stageAriaText: progressSnapshots.schedule.status.stageAriaText,
+            remainingTimeText: progressSnapshots.schedule.remainingTimeText,
+            statusText: progressSnapshots.schedule.statusText,
+            hasProgress: progressSnapshots.schedule.status.hasProgress,
+          },
         },
         schedule,
         weather: weatherSnapshot,
         settings: infoCarouselSettings,
       }),
-    [
-      currentStatus,
-      currentTime,
-      hasProgress,
-      infoCarouselSettings,
-      remainingTimeText,
-      schedule,
-      weatherSnapshot,
-    ]
+    [currentTime, infoCarouselSettings, progressSnapshots, schedule, weatherSnapshot]
   );
   const infoCarousel = useStudyInfoCarousel({
     signals: infoSignals,
-    autoRotate: infoCarouselSettings.autoRotate,
     intervalSec: infoCarouselSettings.intervalSec,
   });
+  const standbySignal = useMemo(
+    () => resolveStudyInfoStandbySignal(infoCarouselSettings),
+    [infoCarouselSettings]
+  );
+  const activeSignal = infoCarousel.currentSignal ?? standbySignal;
+
+  if (!activeSignal) return null;
+
+  const activeProgress = progressSnapshots[activeSignal.progressKind];
 
   return (
     <StudyStatusPresentation
       fillAttributes={{ style: fillAppearance }}
       labelAttributes={{ style: labelAppearance }}
-      progress={currentStatus.progress}
+      progress={activeProgress.progress}
       progressAttributes={{ style: progressAppearance }}
-      progressText={`${displayedProgress}%`}
-      hasProgress={hasProgress}
-      remainingTimeText={hasProgress ? remainingTimeText : undefined}
+      progressText={activeProgress.progressText}
+      hasProgress={activeProgress.status.hasProgress}
+      showProgressMeta
+      remainingTimeText={activeProgress.remainingTimeText}
       rootAttributes={{
-        "aria-label": progressLabel,
+        "aria-label": activeProgress.progressLabel,
         "aria-valuemax": 100,
         "aria-valuemin": 0,
-        "aria-valuenow": displayedProgress,
-        "aria-valuetext": hasProgress
-          ? `${currentStatus.stageAriaText}，${remainingTimeText}`
-          : currentStatus.statusText,
+        "aria-valuenow": activeProgress.displayedProgress,
+        "aria-valuetext": activeProgress.ariaValueText,
         role: "progressbar",
         style: containerAppearance,
       }}
-      stageText={hasProgress ? currentStatus.stageText : undefined}
-      statusText={currentStatus.statusText}
+      stageText={activeProgress.stageText}
+      statusText={activeProgress.statusText}
       infoCanAdvance={infoCarousel.canAdvance}
-      infoSignal={infoCarousel.currentSignal}
+      infoSignal={activeSignal}
       infoSignalManaged
       onInfoNext={infoCarousel.next}
       onInfoPauseChange={infoCarousel.setPaused}

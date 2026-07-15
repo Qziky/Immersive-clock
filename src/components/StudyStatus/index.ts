@@ -5,7 +5,9 @@ export { DEFAULT_SCHEDULE } from "../../types/studySchedule";
 export {
   DEFAULT_STUDY_INFO_CAROUSEL,
   MAX_STUDY_INFO_ITEMS,
+  getStudyInfoItemProgressKind,
   resolveStudyInfoSignals,
+  resolveStudyInfoStandbySignal,
 } from "./studyInfoSignals";
 export { normalizeStudyInfoCarousel } from "../../utils/appSettings";
 export type {
@@ -16,5 +18,6 @@ export type {
   StudyInfoSignal,
   StudyInfoSource,
   StudyInfoWeatherSnapshot,
+  StudyProgressKind,
 } from "./studyInfoSignals";
 export { useStudyInfoCarousel } from "./useStudyInfoCarousel";

@@ -226,7 +226,7 @@ const paneItems: SettingsPane[] = [
     value: "appearanceStudyTopDock",
     group: "appearance",
     label: "顶部信息栏",
-    description: "设置栏体及天气、噪音、计划进度与事件信息。",
+    description: "设置栏体及天气、噪音、进度信息与事件信息。",
     icon: "feature.workspace",
     panel: "appearance",
     section: "studyTopDock",

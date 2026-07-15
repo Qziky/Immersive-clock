@@ -18,8 +18,10 @@ import {
   AppMode,
   type StudyInfoCarouselSettings,
   type StudyInfoItemConfig,
+  type StudyNextScheduleLeadMinutes,
+  type StudyProgressKind,
+  type StudyRainLeadMinutes,
   type StudyInfoSource,
-  type StudyTimeProgressMode,
 } from "../types";
 import type { AppearanceSettingsV2 } from "../types/appearance";
 import type {
@@ -147,7 +149,7 @@ export interface AppSettings {
 
 export const APP_SETTINGS_KEY = "AppSettings";
 export const APP_SETTINGS_QUARANTINE_KEY = "immersive-clock:quarantine:app-settings";
-export const CURRENT_SETTINGS_VERSION = 3;
+export const CURRENT_SETTINGS_VERSION = 4;
 
 /** 中央信息轮播的硬上限，配置与运行时都应遵守该值。 */
 export const MAX_STUDY_INFO_ITEMS = 20;
@@ -157,7 +159,8 @@ export const DEFAULT_STUDY_INFO_INTERVAL_SEC = 6;
 export const MAX_STUDY_INFO_TEXT_LENGTH = 80;
 
 export const STUDY_INFO_BUILTIN_IDS = {
-  progress: "progress-default",
+  progressDay: "progress-day-default",
+  progressSchedule: "progress-schedule-default",
   nextSchedule: "next-schedule-default",
   rain: "rain-default",
 } as const;
@@ -199,7 +202,7 @@ function isErrorCenterMode(value: unknown): value is "off" | "memory" | "persist
   return value === "off" || value === "memory" || value === "persist";
 }
 
-function normalizeStudyTimeProgressMode(value: unknown): StudyTimeProgressMode {
+function normalizeStudyProgressKind(value: unknown): StudyProgressKind {
   return value === "schedule" ? "schedule" : "day";
 }
 
@@ -213,25 +216,51 @@ function isStudyInfoSource(value: unknown): value is StudyInfoSource {
   return value === "progress" || value === "nextSchedule" || value === "rain" || value === "custom";
 }
 
+function isStudyProgressKind(value: unknown): value is StudyProgressKind {
+  return value === "day" || value === "schedule";
+}
+
+function normalizeNextScheduleLeadMinutes(value: unknown): StudyNextScheduleLeadMinutes {
+  return value === "always" || value === 120 || value === 60 || value === 30 || value === 15
+    ? value
+    : "always";
+}
+
+function normalizeRainLeadMinutes(value: unknown): StudyRainLeadMinutes {
+  return value === 60 || value === 30 || value === 15 || value === 10 ? value : 30;
+}
+
 function createDefaultStudyInfoItems(): StudyInfoItemConfig[] {
   return [
     {
-      id: STUDY_INFO_BUILTIN_IDS.progress,
+      id: STUDY_INFO_BUILTIN_IDS.progressDay,
       source: "progress",
+      progressKind: "day",
       enabled: true,
       order: 0,
     },
     {
+      id: STUDY_INFO_BUILTIN_IDS.progressSchedule,
+      source: "progress",
+      progressKind: "schedule",
+      enabled: false,
+      order: 1,
+    },
+    {
       id: STUDY_INFO_BUILTIN_IDS.nextSchedule,
       source: "nextSchedule",
-      enabled: true,
-      order: 1,
+      backgroundProgressKind: "day",
+      leadMinutes: "always",
+      enabled: false,
+      order: 2,
     },
     {
       id: STUDY_INFO_BUILTIN_IDS.rain,
       source: "rain",
-      enabled: true,
-      order: 2,
+      backgroundProgressKind: "day",
+      leadMinutes: 30,
+      enabled: false,
+      order: 3,
     },
   ];
 }
@@ -239,7 +268,6 @@ function createDefaultStudyInfoItems(): StudyInfoItemConfig[] {
 /** 返回新对象，避免调用方修改全局默认值。 */
 export function getDefaultStudyInfoCarousel(): StudyInfoCarouselSettings {
   return {
-    autoRotate: true,
     intervalSec: DEFAULT_STUDY_INFO_INTERVAL_SEC,
     items: createDefaultStudyInfoItems(),
   };
@@ -254,7 +282,17 @@ function normalizeStudyInfoInterval(value: unknown): number {
   );
 }
 
-function normalizeStudyInfoItem(value: unknown, fallbackOrder: number): StudyInfoItemConfig | null {
+interface StudyInfoNormalizationOptions {
+  /** v1-v3 共用全局进度模式，迁移时应覆盖条目中不存在的 v4 字段。 */
+  legacyProgressKind?: StudyProgressKind;
+  forceAllDisabled?: boolean;
+}
+
+function normalizeStudyInfoItem(
+  value: unknown,
+  fallbackOrder: number,
+  options: StudyInfoNormalizationOptions
+): StudyInfoItemConfig | null {
   if (!isRecord(value) || typeof value.id !== "string" || !isStudyInfoSource(value.source)) {
     return null;
   }
@@ -263,20 +301,60 @@ function normalizeStudyInfoItem(value: unknown, fallbackOrder: number): StudyInf
 
   const orderValue = parseStoredNumber(value.order);
   const order = Number.isFinite(orderValue) ? Math.round(orderValue) : fallbackOrder;
-  const item: StudyInfoItemConfig = {
+  const base = {
     id,
-    source: value.source,
-    enabled: typeof value.enabled === "boolean" ? value.enabled : true,
+    enabled: options.forceAllDisabled
+      ? false
+      : typeof value.enabled === "boolean"
+        ? value.enabled
+        : true,
     order,
   };
 
-  if (value.source === "custom") {
-    if (typeof value.text !== "string") return null;
-    const text = value.text.trim().slice(0, MAX_STUDY_INFO_TEXT_LENGTH);
-    if (!text) return null;
-    item.text = text;
+  const progressKind =
+    options.legacyProgressKind ??
+    (isStudyProgressKind(value.backgroundProgressKind) ? value.backgroundProgressKind : "day");
+
+  switch (value.source) {
+    case "progress":
+      return {
+        ...base,
+        source: "progress",
+        progressKind:
+          options.legacyProgressKind ??
+          (isStudyProgressKind(value.progressKind) ? value.progressKind : "day"),
+      };
+    case "nextSchedule":
+      return {
+        ...base,
+        source: "nextSchedule",
+        backgroundProgressKind: progressKind,
+        leadMinutes: normalizeNextScheduleLeadMinutes(value.leadMinutes),
+      };
+    case "rain":
+      return {
+        ...base,
+        source: "rain",
+        backgroundProgressKind: progressKind,
+        leadMinutes: normalizeRainLeadMinutes(value.leadMinutes),
+      };
+    case "custom": {
+      if (typeof value.text !== "string") return null;
+      const text = value.text.trim().slice(0, MAX_STUDY_INFO_TEXT_LENGTH);
+      if (!text) return null;
+      return {
+        ...base,
+        source: "custom",
+        backgroundProgressKind: progressKind,
+        text,
+      };
+    }
   }
-  return item;
+}
+
+function getStudyInfoBuiltinKey(item: StudyInfoItemConfig): string | null {
+  if (item.source === "progress") return `progress:${item.progressKind}`;
+  return item.source === "custom" ? null : item.source;
 }
 
 interface StudyInfoCarouselNormalizationResult {
@@ -286,25 +364,27 @@ interface StudyInfoCarouselNormalizationResult {
 
 /**
  * 归一化中央信息配置：过滤非法条目、去重，并将启用的有效条目限制为 20。
- * 超额条目会被禁用而非删除；内置来源优先，其次按用户 order 与原始顺序选择。
+ * 超额条目会被禁用而非删除，严格按用户 order 与原始顺序保留前 20 个启用项。
  */
 function normalizeStudyInfoCarouselWithMetadata(
-  value: unknown
+  value: unknown,
+  options: StudyInfoNormalizationOptions = {}
 ): StudyInfoCarouselNormalizationResult {
   const defaults = getDefaultStudyInfoCarousel();
   const source = isRecord(value) ? value : {};
   const rawItems = Array.isArray(source.items) ? source.items : null;
   const parsedItems: Array<{ item: StudyInfoItemConfig; index: number }> = [];
   const seenIds = new Set<string>();
-  const seenBuiltinSources = new Set<Exclude<StudyInfoSource, "custom">>();
+  const seenBuiltinKeys = new Set<string>();
 
   if (rawItems) {
     rawItems.forEach((candidate, index) => {
-      const item = normalizeStudyInfoItem(candidate, index);
+      const item = normalizeStudyInfoItem(candidate, index, options);
       if (!item || seenIds.has(item.id)) return;
-      if (item.source !== "custom") {
-        if (seenBuiltinSources.has(item.source)) return;
-        seenBuiltinSources.add(item.source);
+      const builtinKey = getStudyInfoBuiltinKey(item);
+      if (builtinKey) {
+        if (seenBuiltinKeys.has(builtinKey)) return;
+        seenBuiltinKeys.add(builtinKey);
       }
       seenIds.add(item.id);
       parsedItems.push({ item, index });
@@ -313,16 +393,27 @@ function normalizeStudyInfoCarouselWithMetadata(
     defaults.items.forEach((item, index) => parsedItems.push({ item, index }));
   }
 
-  // 配置文件可能来自早期版本或手工编辑：保证三个内置来源始终有一个可配置开关。
+  // 配置文件可能来自早期版本或手工编辑：保证四个内置配置始终可供再次添加。
   // 已存在的来源（即使被禁用）会原样保留，避免迁移时意外重新启用。
-  const existingSources = new Set(parsedItems.map(({ item }) => item.source));
+  const existingBuiltinKeys = new Set(
+    parsedItems
+      .map(({ item }) => getStudyInfoBuiltinKey(item))
+      .filter((key): key is string => key !== null)
+  );
   const maxOrder = parsedItems.reduce((maximum, entry) => Math.max(maximum, entry.item.order), -1);
   defaults.items.forEach((defaultItem, index) => {
-    if (existingSources.has(defaultItem.source)) return;
+    const builtinKey = getStudyInfoBuiltinKey(defaultItem);
+    if (!builtinKey || existingBuiltinKeys.has(builtinKey)) return;
     let id = defaultItem.id;
     if (seenIds.has(id)) id = `${id}-${index}`;
-    const item = { ...defaultItem, id, order: maxOrder + index + 1 };
+    const item = {
+      ...defaultItem,
+      id,
+      enabled: rawItems === null && !options.forceAllDisabled ? defaultItem.enabled : false,
+      order: maxOrder + index + 1,
+    } as StudyInfoItemConfig;
     seenIds.add(id);
+    existingBuiltinKeys.add(builtinKey);
     parsedItems.push({ item, index: parsedItems.length + index });
   });
 
@@ -332,15 +423,7 @@ function normalizeStudyInfoCarouselWithMetadata(
   const enabledItemIds = new Set(
     parsedItems
       .filter(({ item }) => item.enabled)
-      .sort((left, right) => {
-        const leftBuiltin = left.item.source === "custom" ? 1 : 0;
-        const rightBuiltin = right.item.source === "custom" ? 1 : 0;
-        return (
-          leftBuiltin - rightBuiltin ||
-          left.item.order - right.item.order ||
-          left.index - right.index
-        );
-      })
+      .sort((left, right) => left.item.order - right.item.order || left.index - right.index)
       .slice(0, MAX_STUDY_INFO_ITEMS)
       .map(({ item }) => item.id)
   );
@@ -355,7 +438,6 @@ function normalizeStudyInfoCarouselWithMetadata(
 
   return {
     settings: {
-      autoRotate: typeof source.autoRotate === "boolean" ? source.autoRotate : defaults.autoRotate,
       intervalSec: normalizeStudyInfoInterval(source.intervalSec),
       items: normalizedItems,
     },
@@ -366,6 +448,57 @@ function normalizeStudyInfoCarouselWithMetadata(
 /** 纯配置归一化入口；迁移提示由启动迁移单独记录。 */
 export function normalizeStudyInfoCarousel(value: unknown): StudyInfoCarouselSettings {
   return normalizeStudyInfoCarouselWithMetadata(value).settings;
+}
+
+function normalizeStoredStudyInfoCarouselWithMetadata(
+  value: unknown,
+  storedVersion: number,
+  legacyDisplay: Record<string, unknown>
+): StudyInfoCarouselNormalizationResult {
+  if (storedVersion >= 4) return normalizeStudyInfoCarouselWithMetadata(value);
+
+  const legacyProgressKind = normalizeStudyProgressKind(legacyDisplay.timeProgressMode);
+  const legacyVisible = legacyDisplay.showStatusBar !== false;
+  const source = isRecord(value) ? value : {};
+  const hasStoredItems = Array.isArray(source.items);
+  const candidate = hasStoredItems
+    ? source
+    : {
+        ...source,
+        items: [
+          {
+            id: "progress-default",
+            source: "progress",
+            enabled: legacyVisible,
+            order: 0,
+          },
+          {
+            id: STUDY_INFO_BUILTIN_IDS.nextSchedule,
+            source: "nextSchedule",
+            enabled: false,
+            order: 1,
+          },
+          {
+            id: STUDY_INFO_BUILTIN_IDS.rain,
+            source: "rain",
+            enabled: false,
+            order: 2,
+          },
+        ],
+      };
+
+  return normalizeStudyInfoCarouselWithMetadata(candidate, {
+    legacyProgressKind,
+    forceAllDisabled: !legacyVisible,
+  });
+}
+
+function normalizeStoredStudyInfoCarousel(
+  value: unknown,
+  storedVersion: number,
+  legacyDisplay: Record<string, unknown>
+): StudyInfoCarouselSettings {
+  return normalizeStoredStudyInfoCarouselWithMetadata(value, storedVersion, legacyDisplay).settings;
 }
 
 function normalizeQuoteRefreshInterval(value: unknown): number {
@@ -639,8 +772,6 @@ const DEFAULT_SETTINGS: AppSettings = {
     countdownMode: "gaokao", // 默认值
     customCountdown: { name: "", date: "" },
     display: {
-      showStatusBar: true,
-      timeProgressMode: "day",
       showWeather: true,
       showNoiseMonitor: true,
       showCountdown: true,
@@ -692,6 +823,24 @@ function createDefaultAppSettings(modifiedAt = Date.now()): AppSettings {
       ...structuredClone(DEFAULT_SETTINGS.general),
       quote: createDefaultQuoteSettings(),
     },
+  };
+}
+
+function normalizeStudyDisplaySettings(value: unknown): StudyDisplaySettings {
+  const source = isRecord(value) ? value : {};
+  const defaults = DEFAULT_SETTINGS.study.display;
+  return {
+    showWeather:
+      typeof source.showWeather === "boolean" ? source.showWeather : defaults.showWeather,
+    showNoiseMonitor:
+      typeof source.showNoiseMonitor === "boolean"
+        ? source.showNoiseMonitor
+        : defaults.showNoiseMonitor,
+    showCountdown:
+      typeof source.showCountdown === "boolean" ? source.showCountdown : defaults.showCountdown,
+    showQuote: typeof source.showQuote === "boolean" ? source.showQuote : defaults.showQuote,
+    showTime: typeof source.showTime === "boolean" ? source.showTime : defaults.showTime,
+    showDate: typeof source.showDate === "boolean" ? source.showDate : defaults.showDate,
   };
 }
 
@@ -820,12 +969,12 @@ export function normalizeAppSettings(value: unknown): AppSettings {
     study: {
       ...DEFAULT_SETTINGS.study,
       ...parsedStudy,
-      infoCarousel: normalizeStudyInfoCarousel(parsedStudy.infoCarousel),
-      display: {
-        ...DEFAULT_SETTINGS.study.display,
-        ...parsedDisplay,
-        timeProgressMode: normalizeStudyTimeProgressMode(parsedDisplay.timeProgressMode),
-      },
+      infoCarousel: normalizeStoredStudyInfoCarousel(
+        parsedStudy.infoCarousel,
+        storedVersion,
+        parsedDisplay
+      ),
+      display: normalizeStudyDisplaySettings(parsedDisplay),
       style: { ...DEFAULT_SETTINGS.study.style, ...parsedStyle },
       alerts: mergedStudyAlerts,
       background: { ...DEFAULT_SETTINGS.study.background, ...parsedStudyBackground },
@@ -999,9 +1148,9 @@ export function resetAppSettings(): void {
 export function resetAppSettingsPreservingUserContent(): AppSettings {
   const current = getAppSettings();
   const defaults = createDefaultAppSettings();
-  const preservedInfoItems = (current.study.infoCarousel?.items ?? []).filter(
-    (item) => item.source === "custom"
-  );
+  const preservedInfoItems = (current.study.infoCarousel?.items ?? [])
+    .filter((item) => item.source === "custom")
+    .map((item) => ({ ...item, enabled: false }));
   const next: AppSettings = {
     ...defaults,
     general: {
@@ -1127,7 +1276,13 @@ export function migrateStoredAppSettings(): AppSettings {
   const parsedGeneral = isRecord(parsed.general) ? parsed.general : {};
   const parsedStudy = isRecord(parsed.study) ? parsed.study : {};
   const parsedDisplay = isRecord(parsedStudy.display) ? parsedStudy.display : {};
-  if (normalizeStudyInfoCarouselWithMetadata(parsedStudy.infoCarousel).limitAdjusted) {
+  if (
+    normalizeStoredStudyInfoCarouselWithMetadata(
+      parsedStudy.infoCarousel,
+      storedVersion,
+      parsedDisplay
+    ).limitAdjusted
+  ) {
     studyInfoLimitAdjustedSinceLoad = true;
   }
   migrateLegacyQuoteCursors(parsedGeneral.quote, storedVersion);
@@ -1169,7 +1324,7 @@ export function migrateStoredAppSettings(): AppSettings {
   const quoteNeedsNormalization =
     JSON.stringify(parsedGeneral.quote) !== JSON.stringify(normalized.general.quote);
   const displayNeedsNormalization =
-    parsedDisplay.timeProgressMode !== normalized.study.display.timeProgressMode;
+    JSON.stringify(parsedDisplay) !== JSON.stringify(normalized.study.display);
   const infoCarouselNeedsNormalization =
     !Object.prototype.hasOwnProperty.call(parsedStudy, "infoCarousel") ||
     JSON.stringify(parsedStudy.infoCarousel) !== JSON.stringify(normalized.study.infoCarousel);

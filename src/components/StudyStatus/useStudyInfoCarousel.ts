@@ -4,7 +4,6 @@ import type { StudyInfoSignal } from "./studyInfoSignals";
 
 export interface UseStudyInfoCarouselOptions {
   signals: StudyInfoSignal[];
-  autoRotate?: boolean;
   intervalSec?: number;
 }
 
@@ -19,7 +18,7 @@ export interface UseStudyInfoCarouselResult {
 }
 
 function getSignalIds(signals: StudyInfoSignal[]): string {
-  return signals.map((signal) => signal.id).join("|");
+  return signals.map((signal) => signal.itemId).join("|");
 }
 
 /**
@@ -28,13 +27,12 @@ function getSignalIds(signals: StudyInfoSignal[]): string {
  */
 export function useStudyInfoCarousel({
   signals,
-  autoRotate = true,
   intervalSec = 6,
 }: UseStudyInfoCarouselOptions): UseStudyInfoCarouselResult {
   const normalizedSignals = useMemo(
     () =>
       signals.filter(
-        (signal, index) => signals.findIndex((item) => item.id === signal.id) === index
+        (signal, index) => signals.findIndex((item) => item.itemId === signal.itemId) === index
       ),
     [signals]
   );
@@ -50,14 +48,14 @@ export function useStudyInfoCarousel({
   const rotatingSignalIds = getSignalIds(rotatingSignals);
   const timelySignalIds = rotatingSignals
     .filter((signal) => signal.priority === "timely")
-    .map((signal) => signal.id);
+    .map((signal) => signal.itemId);
   const timelySignalIdsKey = timelySignalIds.join("|");
   const criticalSignalCount = criticalSignals.length;
   const rotatingSignalCount = rotatingSignals.length;
   const criticalSignalsRef = useRef(criticalSignals);
   const rotatingSignalsRef = useRef(rotatingSignals);
 
-  const [activeId, setActiveId] = useState<string | null>(normalizedSignals[0]?.id ?? null);
+  const [activeId, setActiveId] = useState<string | null>(normalizedSignals[0]?.itemId ?? null);
   const activeIdRef = useRef<string | null>(activeId);
   const routineBeforeInterruptRef = useRef<string | null>(null);
   const previousCriticalIdsRef = useRef<string>("");
@@ -94,28 +92,29 @@ export function useStudyInfoCarousel({
     const hadCritical = previousCriticalIdsRef.current.length > 0;
     const hasCritical = currentCriticalIds.length > 0;
     const activeIsCritical =
-      !!activeIdRef.current && criticalSignals.some((signal) => signal.id === activeIdRef.current);
+      !!activeIdRef.current &&
+      criticalSignals.some((signal) => signal.itemId === activeIdRef.current);
 
     if (hasCritical && !hadCritical) {
       if (
         activeIdRef.current &&
-        rotatingSignals.some((signal) => signal.id === activeIdRef.current)
+        rotatingSignals.some((signal) => signal.itemId === activeIdRef.current)
       ) {
         routineBeforeInterruptRef.current = activeIdRef.current;
       }
       if (!activeIsCritical) {
-        setActiveId(criticalSignals[0].id);
+        setActiveId(criticalSignals[0].itemId);
       }
     } else if (!hasCritical && hadCritical) {
       const restoreId = routineBeforeInterruptRef.current;
       routineBeforeInterruptRef.current = null;
-      if (restoreId && rotatingSignals.some((signal) => signal.id === restoreId)) {
+      if (restoreId && rotatingSignals.some((signal) => signal.itemId === restoreId)) {
         setActiveId(restoreId);
       } else {
         setActiveId((current) =>
-          current && rotatingSignals.some((signal) => signal.id === current)
+          current && rotatingSignals.some((signal) => signal.itemId === current)
             ? current
-            : (rotatingSignals[0]?.id ?? normalizedSignals[0]?.id ?? null)
+            : (rotatingSignals[0]?.itemId ?? normalizedSignals[0]?.itemId ?? null)
         );
       }
     } else if (
@@ -123,16 +122,16 @@ export function useStudyInfoCarousel({
       hadCritical &&
       currentCriticalIds !== previousCriticalIdsRef.current
     ) {
-      setActiveId(criticalSignals[0].id);
+      setActiveId(criticalSignals[0].itemId);
     } else if (normalizedSignals.length === 0) {
       setActiveId(null);
     } else if (
       !activeIdRef.current ||
-      !normalizedSignals.some((signal) => signal.id === activeIdRef.current)
+      !normalizedSignals.some((signal) => signal.itemId === activeIdRef.current)
     ) {
-      setActiveId(normalizedSignals[0].id);
+      setActiveId(normalizedSignals[0].itemId);
     } else if (hasCritical && !activeIsCritical) {
-      setActiveId(criticalSignals[0].id);
+      setActiveId(criticalSignals[0].itemId);
     }
 
     previousCriticalIdsRef.current = currentCriticalIds;
@@ -163,7 +162,7 @@ export function useStudyInfoCarousel({
     if (queue.length <= 1) return;
     if (currentCriticalSignals.length === 0) {
       const pendingTimelyId = pendingTimelyIdsRef.current.find((id) =>
-        queue.some((signal) => signal.id === id)
+        queue.some((signal) => signal.itemId === id)
       );
       if (pendingTimelyId) {
         pendingTimelyIdsRef.current = pendingTimelyIdsRef.current.filter(
@@ -173,15 +172,14 @@ export function useStudyInfoCarousel({
         return;
       }
     }
-    const currentIndex = queue.findIndex((signal) => signal.id === activeIdRef.current);
+    const currentIndex = queue.findIndex((signal) => signal.itemId === activeIdRef.current);
     const nextSignal = queue[(currentIndex + 1 + queue.length) % queue.length] ?? queue[0];
-    setActiveId(nextSignal.id);
+    setActiveId(nextSignal.itemId);
   }, []);
 
   useEffect(() => {
     const queueLength = criticalSignalCount > 0 ? criticalSignalCount : rotatingSignalCount;
     const canRotate =
-      autoRotate &&
       !reducedMotion &&
       !paused &&
       !documentHidden &&
@@ -192,7 +190,6 @@ export function useStudyInfoCarousel({
     const timer = window.setInterval(next, safeInterval * 1000);
     return () => window.clearInterval(timer);
   }, [
-    autoRotate,
     criticalSignalCount,
     criticalSignalIds,
     documentHidden,
@@ -207,7 +204,7 @@ export function useStudyInfoCarousel({
   const currentSignal = useMemo(() => {
     if (normalizedSignals.length === 0) return null;
     const queue = criticalSignals.length > 0 ? criticalSignals : normalizedSignals;
-    return queue.find((signal) => signal.id === activeId) ?? queue[0] ?? null;
+    return queue.find((signal) => signal.itemId === activeId) ?? queue[0] ?? null;
   }, [activeId, criticalSignals, normalizedSignals]);
   const canAdvance = (criticalSignalCount > 0 ? criticalSignalCount : rotatingSignalCount) > 1;
 

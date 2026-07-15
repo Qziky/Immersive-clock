@@ -2,17 +2,10 @@ import React, { useEffect, useMemo, useState } from "react";
 
 import { useAppDispatch, useAppState } from "../../../contexts/AppContext";
 import { AppMode, CountdownItem } from "../../../types";
-import type {
-  StudyDisplaySettings,
-  StudyInfoCarouselSettings,
-  StudyInfoItemConfig,
-  StudyInfoSource,
-  StudyTimeProgressMode,
-} from "../../../types";
+import type { StudyDisplaySettings, StudyInfoCarouselSettings } from "../../../types";
 import {
   Button as FormButton,
   FormSection,
-  IconButton,
   InfoPanel,
   Inline as FormButtonGroup,
   Input as FormInput,
@@ -23,16 +16,12 @@ import {
   Slider as FormSlider,
   StatusPill,
   Switch as FormSwitch,
-  type AppIconName,
 } from "../../../ui";
 import {
   consumeStudyInfoLimitAdjustedNotice,
   getAppSettings,
   getDefaultStudyInfoCarousel,
   MAX_STUDY_INFO_ITEMS,
-  MAX_STUDY_INFO_INTERVAL_SEC,
-  MAX_STUDY_INFO_TEXT_LENGTH,
-  MIN_STUDY_INFO_INTERVAL_SEC,
   normalizeStudyInfoCarousel,
   updateGeneralSettings,
   updateStudySettings,
@@ -42,6 +31,7 @@ import { resolveStartupMode } from "../../../utils/startupMode";
 import { ScheduleEditor } from "../../ScheduleSettings/ScheduleSettings";
 
 import { CountdownManagerPanel } from "./CountdownManagerPanel";
+import { StudyInfoList } from "./StudyInfoList";
 
 /**
  * 基础设置分段组件的属性
@@ -93,8 +83,6 @@ export const BasicSettingsPanel: React.FC<BasicSettingsPanelProps> = ({
   // 自习组件显示草稿（时间始终显示，不提供开关）
   const defaultDisplay = useMemo<StudyDisplaySettings>(
     () => ({
-      showStatusBar: true,
-      timeProgressMode: "day",
       showWeather: true,
       showNoiseMonitor: true,
       showCountdown: true,
@@ -107,124 +95,8 @@ export const BasicSettingsPanel: React.FC<BasicSettingsPanelProps> = ({
   const [draftDisplay, setDraftDisplay] = useState<StudyDisplaySettings>({
     ...(study.display || defaultDisplay),
   });
-  const timeProgressModeOptions = useMemo(
-    () =>
-      [
-        { label: "今日进度", value: "day", disabled: !draftDisplay.showStatusBar },
-        { label: "课时进度", value: "schedule", disabled: !draftDisplay.showStatusBar },
-      ] satisfies Array<{
-        label: string;
-        value: StudyTimeProgressMode;
-        disabled: boolean;
-      }>,
-    [draftDisplay.showStatusBar]
-  );
 
-  const enabledInfoCount = draftInfoCarousel.items.filter(
-    (item) => item.enabled && (item.source !== "custom" || Boolean(item.text?.trim()))
-  ).length;
-
-  const updateInfoItems = (items: StudyInfoItemConfig[]) => {
-    setDraftInfoCarousel((current) => ({ ...current, items }));
-  };
-
-  const updateInfoItem = (id: string, patch: Partial<StudyInfoItemConfig>) => {
-    updateInfoItems(
-      draftInfoCarousel.items.map((item) => (item.id === id ? { ...item, ...patch } : item))
-    );
-  };
-
-  const setInfoItemEnabled = (id: string, enabled: boolean) => {
-    const current = draftInfoCarousel.items.find((item) => item.id === id);
-    const becomesEffective = current?.source !== "custom" || Boolean(current.text?.trim());
-    if (
-      !current ||
-      (enabled && !current.enabled && becomesEffective && enabledInfoCount >= MAX_STUDY_INFO_ITEMS)
-    ) {
-      return;
-    }
-    updateInfoItem(id, { enabled });
-  };
-
-  const updateCustomInfoText = (id: string, text: string) => {
-    const current = draftInfoCarousel.items.find((item) => item.id === id);
-    if (!current || current.source !== "custom") return;
-    const becomesEffective = current.enabled && !current.text?.trim() && Boolean(text.trim());
-    updateInfoItem(id, {
-      text,
-      ...(becomesEffective && enabledInfoCount >= MAX_STUDY_INFO_ITEMS ? { enabled: false } : {}),
-    });
-  };
-
-  const addCustomInfoItem = () => {
-    if (enabledInfoCount >= MAX_STUDY_INFO_ITEMS) return;
-    const existingIds = new Set(draftInfoCarousel.items.map((item) => item.id));
-    let suffix = draftInfoCarousel.items.length + 1;
-    let id = `custom-${Date.now()}-${suffix}`;
-    while (existingIds.has(id)) {
-      suffix += 1;
-      id = `custom-${Date.now()}-${suffix}`;
-    }
-    updateInfoItems([
-      ...draftInfoCarousel.items,
-      {
-        id,
-        source: "custom",
-        enabled: true,
-        order: draftInfoCarousel.items.length,
-        text: "",
-      },
-    ]);
-  };
-
-  const removeCustomInfoItem = (id: string) => {
-    updateInfoItems(
-      draftInfoCarousel.items
-        .filter((item) => item.id !== id)
-        .map((item, index) => ({ ...item, order: index }))
-    );
-  };
-
-  const moveCustomInfoItem = (id: string, direction: -1 | 1) => {
-    const items = draftInfoCarousel.items;
-    const customIndexes = items.reduce<number[]>((indexes, item, index) => {
-      if (item.source === "custom") indexes.push(index);
-      return indexes;
-    }, []);
-    const currentIndex = customIndexes.indexOf(items.findIndex((item) => item.id === id));
-    const targetIndex = currentIndex + direction;
-    if (currentIndex < 0 || targetIndex < 0 || targetIndex >= customIndexes.length) return;
-    const next = [...items];
-    const sourceIndex = customIndexes[currentIndex];
-    const destinationIndex = customIndexes[targetIndex];
-    [next[sourceIndex], next[destinationIndex]] = [next[destinationIndex], next[sourceIndex]];
-    updateInfoItems(next.map((item, itemIndex) => ({ ...item, order: itemIndex })));
-  };
-
-  const infoSourceMeta: Record<
-    Exclude<StudyInfoSource, "custom">,
-    {
-      title: string;
-      description: string;
-      icon: AppIconName;
-    }
-  > = {
-    progress: {
-      title: "当前进度",
-      description: "显示当前自习节奏与剩余时间。",
-      icon: "feature.progress",
-    },
-    nextSchedule: {
-      title: "下一课时",
-      description: "在临近课时前提示即将开始的课程。",
-      icon: "feature.event",
-    },
-    rain: {
-      title: "短时降雨",
-      description: "显示分钟级预报中的将要下雨或正在下雨状态。",
-      icon: "feature.weatherPrecipitation",
-    },
-  };
+  const enabledInfoCount = draftInfoCarousel.items.filter((item) => item.enabled).length;
 
   // 子分区保存注册
   const countdownSaveRef = React.useRef<() => void>(() => {});
@@ -605,38 +477,6 @@ export const BasicSettingsPanel: React.FC<BasicSettingsPanelProps> = ({
       >
         <SettingGrid>
           <SettingItem
-            icon="feature.progress"
-            title="计划进度"
-            description="在顶部信息栏显示当前时间范围的进度。"
-            control={
-              <FormSwitch
-                checked={!!draftDisplay.showStatusBar}
-                onCheckedChange={(checked) =>
-                  setDraftDisplay((prev) => ({ ...prev, showStatusBar: checked }))
-                }
-                aria-label="计划进度"
-              />
-            }
-          />
-          <SettingItem
-            icon="feature.progress"
-            title="进度模式"
-            description="默认显示今日 24 小时进度，也可按课程表显示课时与课间进度。"
-            disabled={!draftDisplay.showStatusBar}
-          >
-            <FormSegmented
-              ariaLabel="进度模式"
-              value={draftDisplay.timeProgressMode}
-              options={timeProgressModeOptions}
-              onChange={(value) =>
-                setDraftDisplay((previous) => ({
-                  ...previous,
-                  timeProgressMode: value,
-                }))
-              }
-            />
-          </SettingItem>
-          <SettingItem
             icon="feature.weather"
             title="天气"
             description="显示当前天气与温度信息。"
@@ -711,9 +551,9 @@ export const BasicSettingsPanel: React.FC<BasicSettingsPanelProps> = ({
       </FormSection>
 
       <FormSection
-        title="中央信息"
+        title="顶部进度与信息"
         variant="plain"
-        description="让顶部中央区域优先显示当前进度、下一课时、短时降雨和自定义消息。"
+        description="统一安排顶部进度和提示信息；选择多项后会按列表顺序自动轮播。"
         action={
           <StatusPill tone={enabledInfoCount > 0 ? "success" : "warning"}>
             {enabledInfoCount} / {MAX_STUDY_INFO_ITEMS} 条启用
@@ -724,158 +564,10 @@ export const BasicSettingsPanel: React.FC<BasicSettingsPanelProps> = ({
         {showInfoLimitAdjustedNotice && (
           <InfoPanel tone="warning" title="已调整轮播上限">
             原配置启用了超过 {MAX_STUDY_INFO_ITEMS}
-            条信息，超出部分已按内置来源优先和原有顺序关闭，消息内容仍保留。
+            条信息，超出部分已按原有顺序关闭，消息内容和配置仍保留。
           </InfoPanel>
         )}
-
-        <SettingItem
-          icon="feature.carousel"
-          title="自动轮播"
-          description="多个常规信息之间自动切换；临近课时或降雨提醒会自动优先显示。"
-          control={
-            <FormSwitch
-              checked={draftInfoCarousel.autoRotate}
-              onCheckedChange={(checked) =>
-                setDraftInfoCarousel((current) => ({ ...current, autoRotate: checked }))
-              }
-              aria-label="中央信息自动轮播"
-            />
-          }
-        />
-
-        <SettingItem
-          icon="feature.carousel"
-          title="轮播间隔"
-          description="仅影响常规信息；数值限制在 3 到 30 秒。"
-          disabled={!draftInfoCarousel.autoRotate}
-        >
-          <FormSlider
-            aria-label="信息轮播间隔"
-            label="信息轮播间隔"
-            min={MIN_STUDY_INFO_INTERVAL_SEC}
-            max={MAX_STUDY_INFO_INTERVAL_SEC}
-            step={1}
-            value={Math.max(
-              MIN_STUDY_INFO_INTERVAL_SEC,
-              Math.min(MAX_STUDY_INFO_INTERVAL_SEC, draftInfoCarousel.intervalSec)
-            )}
-            onChange={(value) =>
-              setDraftInfoCarousel((current) => ({
-                ...current,
-                intervalSec: Math.round(value),
-              }))
-            }
-            formatValue={(value) => `${Math.round(value)} 秒`}
-            rangeLabels={[`${MIN_STUDY_INFO_INTERVAL_SEC} 秒`, `${MAX_STUDY_INFO_INTERVAL_SEC} 秒`]}
-            disabled={!draftInfoCarousel.autoRotate}
-          />
-        </SettingItem>
-
-        <SettingItem
-          icon="appearance.preview"
-          title="内置信息来源"
-          description="关闭来源不会删除配置；重新启用后会恢复到轮播队列。"
-        />
-        <SettingGrid>
-          {draftInfoCarousel.items
-            .filter((item) => item.source !== "custom")
-            .map((item) => {
-              const meta = infoSourceMeta[item.source as Exclude<StudyInfoSource, "custom">];
-              return (
-                <SettingItem
-                  key={item.id}
-                  icon={meta.icon}
-                  title={meta.title}
-                  description={meta.description}
-                  control={
-                    <FormSwitch
-                      checked={item.enabled}
-                      onCheckedChange={(checked) => setInfoItemEnabled(item.id, checked)}
-                      aria-label={`启用${meta.title}`}
-                      disabled={!item.enabled && enabledInfoCount >= MAX_STUDY_INFO_ITEMS}
-                    />
-                  }
-                />
-              );
-            })}
-        </SettingGrid>
-
-        <SettingItem
-          icon="feature.message"
-          title={`自定义消息（${draftInfoCarousel.items.filter((item) => item.source === "custom").length} 条）`}
-          description={`最多 ${MAX_STUDY_INFO_ITEMS} 条有效轮播信息，每条最多 ${MAX_STUDY_INFO_TEXT_LENGTH} 个字。`}
-          control={
-            <FormButton
-              type="button"
-              variant="secondary"
-              size="sm"
-              icon="action.add"
-              onClick={addCustomInfoItem}
-              disabled={enabledInfoCount >= MAX_STUDY_INFO_ITEMS}
-              aria-label="添加消息"
-            >
-              添加消息
-            </FormButton>
-          }
-        />
-        <SettingGrid columns={1}>
-          {draftInfoCarousel.items
-            .map((item) => ({ item }))
-            .filter(({ item }) => item.source === "custom")
-            .map(({ item }, customIndex, customItems) => (
-              <SettingItem
-                key={item.id}
-                icon="feature.message"
-                title={`自定义消息 ${customIndex + 1}`}
-                description="空白消息不会进入实际轮播。"
-              >
-                <FormInput
-                  label="消息内容"
-                  value={item.text ?? ""}
-                  maxLength={MAX_STUDY_INFO_TEXT_LENGTH}
-                  placeholder="例如：记得完成今日复盘"
-                  onChange={(event) => updateCustomInfoText(item.id, event.target.value)}
-                />
-                <FormButtonGroup align="left" gap="sm" wrap={false}>
-                  <FormSwitch
-                    checked={item.enabled}
-                    onCheckedChange={(checked) => setInfoItemEnabled(item.id, checked)}
-                    aria-label={`启用自定义消息 ${customIndex + 1}`}
-                    disabled={!item.enabled && enabledInfoCount >= MAX_STUDY_INFO_ITEMS}
-                  />
-                  <IconButton
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    icon="action.moveUp"
-                    aria-label={`上移自定义消息 ${customIndex + 1}`}
-                    title="上移"
-                    onClick={() => moveCustomInfoItem(item.id, -1)}
-                    disabled={customIndex === 0}
-                  />
-                  <IconButton
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    icon="action.moveDown"
-                    aria-label={`下移自定义消息 ${customIndex + 1}`}
-                    title="下移"
-                    onClick={() => moveCustomInfoItem(item.id, 1)}
-                    disabled={customIndex === customItems.length - 1}
-                  />
-                  <IconButton
-                    type="button"
-                    variant="danger"
-                    size="sm"
-                    icon="action.delete"
-                    aria-label={`删除自定义消息 ${customIndex + 1}`}
-                    title="删除"
-                    onClick={() => removeCustomInfoItem(item.id)}
-                  />
-                </FormButtonGroup>
-              </SettingItem>
-            ))}
-        </SettingGrid>
+        <StudyInfoList settings={draftInfoCarousel} onChange={setDraftInfoCarousel} />
       </FormSection>
 
       <FormSection

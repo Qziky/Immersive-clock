@@ -1,8 +1,9 @@
-import { act, cleanup, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { MinutelyWeatherSnapshot } from "../../../services/minutelyWeatherRuntime";
+import type { StudyInfoItemConfig } from "../../../types";
 import { broadcastSettingsEvent, SETTINGS_EVENTS } from "../../../utils/settingsEvents";
 import { getDayGreeting } from "../dayGreeting";
 import StudyStatus, {
@@ -61,6 +62,16 @@ const schedule = [
 
 function atTime(hours: number, minutes: number, seconds = 0): Date {
   return new Date(2026, 6, 13, hours, minutes, seconds);
+}
+
+function writeInfoCarousel(items: StudyInfoItemConfig[], intervalSec = 6): void {
+  localStorage.setItem(
+    "AppSettings",
+    JSON.stringify({
+      version: 4,
+      study: { infoCarousel: { intervalSec, items } },
+    })
+  );
 }
 
 beforeEach(() => {
@@ -185,8 +196,17 @@ describe("StudyStatus 界面", () => {
   it("显示中央节奏信息，不渲染轨道圆点", () => {
     mocks.readStudySchedule.mockReturnValue(schedule);
     mocks.getAdjustedDate.mockImplementation(() => atTime(20, 13));
+    writeInfoCarousel([
+      {
+        id: "progress-schedule",
+        source: "progress",
+        progressKind: "schedule",
+        enabled: true,
+        order: 0,
+      },
+    ]);
 
-    const { container } = render(<StudyStatus mode="schedule" />);
+    const { container } = render(<StudyStatus />);
     const progressbar = screen.getByRole("progressbar", { name: "第1节自习进度" });
 
     expect(progressbar).toHaveAttribute("aria-valuenow", "90");
@@ -197,20 +217,42 @@ describe("StudyStatus 界面", () => {
     expect(container.querySelector("[data-progress-cursor]")).not.toBeInTheDocument();
   });
 
-  it("切换模式时立即渲染同一模式的文案、进度和无障碍属性", () => {
+  it("轮播时原子切换中央文案、背景进度和无障碍属性", () => {
+    vi.useFakeTimers();
     mocks.readStudySchedule.mockReturnValue(schedule);
     mocks.getAdjustedDate.mockImplementation(() => atTime(20, 13));
+    writeInfoCarousel(
+      [
+        {
+          id: "progress-day",
+          source: "progress",
+          progressKind: "day",
+          enabled: true,
+          order: 0,
+        },
+        {
+          id: "progress-schedule",
+          source: "progress",
+          progressKind: "schedule",
+          enabled: true,
+          order: 1,
+        },
+      ],
+      3
+    );
 
-    const { rerender } = render(<StudyStatus mode="day" />);
+    render(<StudyStatus />);
     expect(screen.getByRole("progressbar", { name: "今日进度" })).toHaveAttribute(
       "aria-valuenow",
       "84"
     );
+    expect(screen.getByText("晚上好 (´▽｀)ノ♪")).toBeInTheDocument();
 
-    rerender(<StudyStatus mode="schedule" />);
+    act(() => vi.advanceTimersByTime(3000));
     const progressbar = screen.getByRole("progressbar", { name: "第1节自习进度" });
     expect(progressbar).toHaveAttribute("aria-valuenow", "90");
     expect(progressbar).toHaveAttribute("aria-valuetext", "准备收尾，还剩 7 分钟");
+    expect(screen.getByText("准备收尾")).toBeInTheDocument();
     expect(screen.queryByText("今日进度")).not.toBeInTheDocument();
   });
 
@@ -248,29 +290,16 @@ describe("StudyStatus 界面", () => {
       updatedAt: current.getTime(),
       error: null,
     };
-    localStorage.setItem(
-      "AppSettings",
-      JSON.stringify({
-        version: 3,
-        study: {
-          display: { showStatusBar: true, showWeather: false },
-          infoCarousel: {
-            autoRotate: false,
-            intervalSec: 6,
-            items: [
-              { id: "progress-default", source: "progress", enabled: false, order: 0 },
-              {
-                id: "next-schedule-default",
-                source: "nextSchedule",
-                enabled: false,
-                order: 1,
-              },
-              { id: "rain-default", source: "rain", enabled: true, order: 2 },
-            ],
-          },
-        },
-      })
-    );
+    writeInfoCarousel([
+      {
+        id: "rain",
+        source: "rain",
+        backgroundProgressKind: "day",
+        leadMinutes: 30,
+        enabled: true,
+        order: 0,
+      },
+    ]);
 
     render(<StudyStatus />);
 
@@ -300,39 +329,113 @@ describe("StudyStatus 界面", () => {
 
     act(() => {
       broadcastSettingsEvent(SETTINGS_EVENTS.SettingsSaved);
-      localStorage.setItem(
-        "AppSettings",
-        JSON.stringify({
-          version: 3,
-          study: {
-            infoCarousel: {
-              autoRotate: false,
-              intervalSec: 6,
-              items: [
-                { id: "progress-default", source: "progress", enabled: false, order: 0 },
-                {
-                  id: "next-schedule-default",
-                  source: "nextSchedule",
-                  enabled: false,
-                  order: 1,
-                },
-                { id: "rain-default", source: "rain", enabled: false, order: 2 },
-                {
-                  id: "custom-saved",
-                  source: "custom",
-                  enabled: true,
-                  order: 3,
-                  text: "保存后立即显示",
-                },
-              ],
-            },
-          },
-        })
-      );
+      writeInfoCarousel([
+        {
+          id: "custom-saved",
+          source: "custom",
+          backgroundProgressKind: "day",
+          enabled: true,
+          order: 0,
+          text: "保存后立即显示",
+        },
+      ]);
     });
 
     expect(screen.queryByLabelText("保存后立即显示")).not.toBeInTheDocument();
     act(() => vi.advanceTimersByTime(0));
     expect(screen.getByLabelText("保存后立即显示")).toBeInTheDocument();
+  });
+
+  it("提示型信息使用条目绑定的课时背景进度", () => {
+    mocks.readStudySchedule.mockReturnValue(schedule);
+    mocks.getAdjustedDate.mockImplementation(() => atTime(20, 13));
+    writeInfoCarousel([
+      {
+        id: "custom-schedule",
+        source: "custom",
+        backgroundProgressKind: "schedule",
+        enabled: true,
+        order: 0,
+        text: "记得整理错题",
+      },
+    ]);
+
+    render(<StudyStatus />);
+
+    expect(screen.getByTitle("记得整理错题")).toBeInTheDocument();
+    expect(screen.getByText("第1节自习")).toBeInTheDocument();
+    expect(screen.getByText("90%")).toBeInTheDocument();
+    expect(screen.getByRole("progressbar", { name: "第1节自习进度" })).toHaveAttribute(
+      "aria-valuenow",
+      "90"
+    );
+  });
+
+  it("条件提示暂时无内容时保留首项背景，中央区域留空", () => {
+    mocks.readStudySchedule.mockReturnValue(schedule);
+    mocks.getAdjustedDate.mockImplementation(() => atTime(22, 0));
+    writeInfoCarousel([
+      {
+        id: "next-schedule",
+        source: "nextSchedule",
+        backgroundProgressKind: "schedule",
+        leadMinutes: "always",
+        enabled: true,
+        order: 0,
+      },
+    ]);
+
+    render(<StudyStatus />);
+
+    expect(screen.getByRole("progressbar", { name: "课时进度" })).toHaveAttribute(
+      "aria-valuetext",
+      "未在自习时间"
+    );
+    expect(screen.getByText("未在自习时间")).toBeInTheDocument();
+    expect(screen.getByText("0%")).toBeInTheDocument();
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+  });
+
+  it("课时空态仍可通过点击、Enter 和空格切换其他信息", () => {
+    mocks.readStudySchedule.mockReturnValue(schedule);
+    mocks.getAdjustedDate.mockImplementation(() => atTime(22, 0));
+    writeInfoCarousel([
+      {
+        id: "progress-schedule",
+        source: "progress",
+        progressKind: "schedule",
+        enabled: true,
+        order: 0,
+      },
+      {
+        id: "custom-day",
+        source: "custom",
+        backgroundProgressKind: "day",
+        enabled: true,
+        order: 1,
+        text: "整理今日笔记",
+      },
+    ]);
+
+    render(<StudyStatus />);
+
+    fireEvent.click(screen.getByRole("button", { name: "切换中央信息" }));
+    expect(screen.getByTitle("整理今日笔记")).toBeInTheDocument();
+
+    fireEvent.keyDown(screen.getByRole("button", { name: "整理今日笔记" }), { key: "Enter" });
+    expect(screen.getByRole("button", { name: "切换中央信息" })).toBeInTheDocument();
+
+    fireEvent.keyDown(screen.getByRole("button", { name: "切换中央信息" }), { key: " " });
+    expect(screen.getByTitle("整理今日笔记")).toBeInTheDocument();
+  });
+
+  it("列表没有任何启用条目时不渲染顶部组件", () => {
+    mocks.readStudySchedule.mockReturnValue(schedule);
+    mocks.getAdjustedDate.mockImplementation(() => atTime(22, 0));
+    writeInfoCarousel([]);
+
+    render(<StudyStatus />);
+
+    expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
   });
 });

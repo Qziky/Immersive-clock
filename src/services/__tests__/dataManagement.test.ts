@@ -5,6 +5,7 @@ import type { NoiseSliceSummary } from "../../types/noise";
 import {
   APP_SETTINGS_KEY,
   APP_SETTINGS_QUARANTINE_KEY,
+  CURRENT_SETTINGS_VERSION,
   getAppSettings,
   getDefaultAppSettings,
 } from "../../utils/appSettings";
@@ -265,17 +266,44 @@ describe("dataManagement", () => {
   it("备份恢复会保留中央信息轮播与自定义消息", async () => {
     const settings = settingsWithBackground();
     settings.study.infoCarousel = {
-      autoRotate: false,
       intervalSec: 12,
       items: [
-        { id: "progress-default", source: "progress", enabled: true, order: 0 },
-        { id: "next-schedule-default", source: "nextSchedule", enabled: false, order: 1 },
-        { id: "rain-default", source: "rain", enabled: true, order: 2 },
+        {
+          id: "progress-day-default",
+          source: "progress",
+          progressKind: "day",
+          enabled: true,
+          order: 0,
+        },
+        {
+          id: "progress-schedule-default",
+          source: "progress",
+          progressKind: "schedule",
+          enabled: false,
+          order: 1,
+        },
+        {
+          id: "next-schedule-default",
+          source: "nextSchedule",
+          backgroundProgressKind: "day",
+          leadMinutes: "always",
+          enabled: false,
+          order: 2,
+        },
+        {
+          id: "rain-default",
+          source: "rain",
+          backgroundProgressKind: "schedule",
+          leadMinutes: 30,
+          enabled: true,
+          order: 3,
+        },
         {
           id: "custom-review",
           source: "custom",
+          backgroundProgressKind: "day",
           enabled: true,
-          order: 3,
+          order: 4,
           text: "完成今日复盘",
         },
       ],
@@ -287,13 +315,58 @@ describe("dataManagement", () => {
     await restoreBackup(prepared);
 
     expect(getAppSettings().study.infoCarousel).toMatchObject({
-      autoRotate: false,
       intervalSec: 12,
       items: expect.arrayContaining([
         expect.objectContaining({ id: "next-schedule-default", enabled: false }),
+        expect.objectContaining({ id: "rain-default", backgroundProgressKind: "schedule" }),
         expect.objectContaining({ id: "custom-review", text: "完成今日复盘" }),
       ]),
     });
+  });
+
+  it("导入 v3 设置时保留原版本并迁移信息背景进度", async () => {
+    const legacySettings = {
+      version: 3,
+      study: {
+        display: {
+          showStatusBar: true,
+          timeProgressMode: "schedule",
+        },
+        infoCarousel: {
+          autoRotate: false,
+          intervalSec: 12,
+          items: [
+            { id: "progress-default", source: "progress", enabled: true, order: 0 },
+            {
+              id: "custom-review",
+              source: "custom",
+              enabled: true,
+              order: 1,
+              text: "完成今日复盘",
+            },
+          ],
+        },
+      },
+    };
+
+    const prepared = await prepareBackup(JSON.stringify(backupWith(legacySettings, [])));
+    await restoreBackup(prepared);
+
+    const restored = getAppSettings();
+    expect(restored.version).toBe(CURRENT_SETTINGS_VERSION);
+    expect(restored.study.display).not.toHaveProperty("showStatusBar");
+    expect(restored.study.display).not.toHaveProperty("timeProgressMode");
+    expect(restored.study.infoCarousel).not.toHaveProperty("autoRotate");
+    expect(restored.study.infoCarousel.items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ source: "progress", progressKind: "schedule", enabled: true }),
+        expect.objectContaining({
+          id: "custom-review",
+          backgroundProgressKind: "schedule",
+          text: "完成今日复盘",
+        }),
+      ])
+    );
   });
 
   it("创建备份超过 150MB 时拒绝导出", async () => {
@@ -595,6 +668,7 @@ describe("dataManagement", () => {
     settings.study.infoCarousel.items.push({
       id: "custom-reset",
       source: "custom",
+      backgroundProgressKind: "day",
       enabled: false,
       order: 3,
       text: "保留自定义消息",

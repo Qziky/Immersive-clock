@@ -468,11 +468,17 @@
 }
 
 .dropdownValue {
+  flex: 1;
   min-width: 0;
   overflow: hidden;
   text-align: left;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.dropdownTriggerIcon {
+  color: var(--ui-color-text-muted);
+  flex: 0 0 auto;
 }
 
 .dropdownPlaceholder {

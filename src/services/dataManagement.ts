@@ -426,7 +426,6 @@ function normalizeImportedSettings(value: unknown): Record<string, unknown> {
 
   validateConfiguredUrls(candidate);
   validateLegacyInlineImages(candidate);
-  candidate.version = CURRENT_SETTINGS_VERSION;
   candidate.modifiedAt = Date.now();
   const normalized = cloneJson(normalizeAppSettings(candidate)) as unknown as Record<
     string,

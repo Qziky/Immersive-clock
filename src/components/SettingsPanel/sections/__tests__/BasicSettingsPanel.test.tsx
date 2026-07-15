@@ -1,8 +1,8 @@
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { StudyInfoCarouselSettings } from "../../../../types";
+import type { StudyInfoCarouselSettings, StudyInfoItemConfig } from "../../../../types";
 import {
   APP_SETTINGS_KEY,
   consumeStudyInfoLimitAdjustedNotice,
@@ -12,13 +12,8 @@ import { BasicSettingsPanel } from "../BasicSettingsPanel";
 
 const dispatch = vi.hoisted(() => vi.fn());
 const infoCarousel = vi.hoisted<StudyInfoCarouselSettings>(() => ({
-  autoRotate: true,
   intervalSec: 6,
-  items: [
-    { id: "progress-default", source: "progress", enabled: true, order: 0 },
-    { id: "next-schedule-default", source: "nextSchedule", enabled: true, order: 1 },
-    { id: "rain-default", source: "rain", enabled: true, order: 2 },
-  ],
+  items: [],
 }));
 const studyState = vi.hoisted(() => ({
   targetYear: 2027,
@@ -26,8 +21,6 @@ const studyState = vi.hoisted(() => ({
   countdownItems: [],
   infoCarousel,
   display: {
-    showStatusBar: true,
-    timeProgressMode: "day" as const,
     showWeather: true,
     showNoiseMonitor: true,
     showCountdown: true,
@@ -50,6 +43,46 @@ vi.mock("../CountdownManagerPanel", () => ({
   CountdownManagerPanel: () => <div data-testid="countdown-manager" />,
 }));
 
+function defaultInfoItems(): StudyInfoItemConfig[] {
+  return [
+    {
+      id: "progress-day-default",
+      source: "progress",
+      progressKind: "day",
+      enabled: true,
+      order: 0,
+    },
+    {
+      id: "progress-schedule-default",
+      source: "progress",
+      progressKind: "schedule",
+      enabled: false,
+      order: 1,
+    },
+    {
+      id: "next-schedule-default",
+      source: "nextSchedule",
+      backgroundProgressKind: "day",
+      leadMinutes: "always",
+      enabled: false,
+      order: 2,
+    },
+    {
+      id: "rain-default",
+      source: "rain",
+      backgroundProgressKind: "day",
+      leadMinutes: 30,
+      enabled: false,
+      order: 3,
+    },
+  ];
+}
+
+async function selectAddInformation(user: ReturnType<typeof userEvent.setup>, optionName: RegExp) {
+  await user.click(screen.getByRole("button", { name: "添加信息" }));
+  await user.click(screen.getByRole("option", { name: optionName }));
+}
+
 describe("BasicSettingsPanel 中央信息设置", () => {
   let registeredSave: (() => void) | undefined;
 
@@ -58,13 +91,8 @@ describe("BasicSettingsPanel 中央信息设置", () => {
     consumeStudyInfoLimitAdjustedNotice();
     dispatch.mockReset();
     registeredSave = undefined;
-    infoCarousel.autoRotate = true;
     infoCarousel.intervalSec = 6;
-    infoCarousel.items = [
-      { id: "progress-default", source: "progress", enabled: true, order: 0 },
-      { id: "next-schedule-default", source: "nextSchedule", enabled: true, order: 1 },
-      { id: "rain-default", source: "rain", enabled: true, order: 2 },
-    ];
+    infoCarousel.items = defaultInfoItems();
   });
 
   function renderPanel() {
@@ -80,113 +108,137 @@ describe("BasicSettingsPanel 中央信息设置", () => {
     );
   }
 
-  it("编辑来源和自定义消息后只在统一保存时派发", async () => {
+  function getSavedCarousel(): StudyInfoCarouselSettings {
+    act(() => registeredSave?.());
+    const saveAction = dispatch.mock.calls
+      .map(([action]) => action)
+      .find((action) => action.type === "SET_INFO_CAROUSEL");
+    return saveAction?.payload as StudyInfoCarouselSettings;
+  }
+
+  it("只显示已选条目，移除旧进度设置和自动轮播开关", () => {
+    renderPanel();
+
+    expect(screen.getByText("顶部进度与信息")).toBeInTheDocument();
+    const selectedList = screen.getByLabelText("已选中央信息");
+    expect(within(selectedList).getByText("24 小时进度")).toBeInTheDocument();
+    expect(within(selectedList).queryByText("课时/课间进度")).not.toBeInTheDocument();
+    expect(screen.queryByRole("switch", { name: "计划进度" })).not.toBeInTheDocument();
+    expect(screen.queryByText("进度模式")).not.toBeInTheDocument();
+    expect(screen.queryByRole("switch", { name: "中央信息自动轮播" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("slider", { name: "信息轮播间隔" })).not.toBeInTheDocument();
+    expect(screen.getByText("1 / 20 条启用")).toBeInTheDocument();
+  });
+
+  it("添加两类信息后自动提供间隔，并保存背景、提前量和跨类型顺序", async () => {
     const user = userEvent.setup();
     renderPanel();
 
-    expect(screen.getByText("中央信息")).toBeInTheDocument();
-    await user.click(screen.getByRole("switch", { name: "启用短时降雨" }));
-    await user.click(screen.getByRole("button", { name: "添加消息" }));
-    await user.type(screen.getByPlaceholderText("例如：记得完成今日复盘"), "完成今日复盘");
+    await selectAddInformation(user, /^课时\/课间进度/);
+    expect(screen.getByRole("slider", { name: "信息轮播间隔" })).toBeEnabled();
+    fireEvent.change(screen.getByRole("slider", { name: "信息轮播间隔" }), {
+      target: { value: "12" },
+    });
+
+    await selectAddInformation(user, /^下一课时/);
+    await user.click(screen.getByRole("button", { name: "配置下一课时" }));
+    await user.selectOptions(screen.getByLabelText("背景进度"), "schedule");
+    await user.selectOptions(screen.getByLabelText("显示时机"), "60");
+    expect(screen.getByLabelText("拖动下一课时排序")).toHaveAttribute("draggable", "true");
+    await user.click(screen.getByRole("button", { name: "上移下一课时" }));
+    expect(screen.getByRole("status")).toHaveTextContent("已将下一课时移至第 2 项");
 
     expect(dispatch).not.toHaveBeenCalledWith(
       expect.objectContaining({ type: "SET_INFO_CAROUSEL" })
     );
 
-    act(() => registeredSave?.());
-
-    expect(dispatch).toHaveBeenCalledWith({
-      type: "SET_INFO_CAROUSEL",
-      payload: expect.objectContaining({
-        autoRotate: true,
-        intervalSec: 6,
-        items: expect.arrayContaining([
-          expect.objectContaining({ source: "rain", enabled: false }),
-          expect.objectContaining({ source: "custom", text: "完成今日复盘" }),
-        ]),
-      }),
+    const saved = getSavedCarousel();
+    expect(saved).toMatchObject({ intervalSec: 12 });
+    expect(saved).not.toHaveProperty("autoRotate");
+    expect(
+      saved.items
+        .filter((item) => item.enabled)
+        .sort((left, right) => left.order - right.order)
+        .map((item) =>
+          item.source === "progress" ? `${item.source}:${item.progressKind}` : item.source
+        )
+    ).toEqual(["progress:day", "nextSchedule", "progress:schedule"]);
+    expect(saved.items.find((item) => item.source === "nextSchedule")).toMatchObject({
+      backgroundProgressKind: "schedule",
+      leadMinutes: 60,
     });
   });
 
-  it("达到 20 条有效配置时禁用添加，关闭内置来源后释放名额", async () => {
+  it("移出和恢复自定义文案时保留配置，且支持永久删除", async () => {
     const user = userEvent.setup();
-    infoCarousel.items = [
-      { id: "progress-default", source: "progress", enabled: true, order: 0 },
-      { id: "next-schedule-default", source: "nextSchedule", enabled: true, order: 1 },
-      { id: "rain-default", source: "rain", enabled: true, order: 2 },
-      ...Array.from({ length: 17 }, (_, index) => ({
-        id: `custom-${index}`,
-        source: "custom" as const,
-        enabled: true,
-        order: index + 3,
-        text: `消息 ${index + 1}`,
-      })),
-    ];
-
     renderPanel();
 
-    const addButton = screen.getByRole("button", { name: "添加消息" });
-    expect(addButton).toBeDisabled();
-    expect(screen.getByText("20 / 20 条启用")).toBeInTheDocument();
+    await selectAddInformation(user, /^新建自定义文案/);
+    await user.type(screen.getByLabelText("文案内容"), "完成今日复盘");
+    await user.selectOptions(screen.getByLabelText("背景进度"), "schedule");
+    await user.click(screen.getByRole("button", { name: "移出完成今日复盘" }));
 
-    await user.click(screen.getByRole("switch", { name: "启用短时降雨" }));
-    expect(addButton).toBeEnabled();
-    expect(screen.getByText("19 / 20 条启用")).toBeInTheDocument();
+    expect(screen.queryByText("完成今日复盘")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "添加信息" }));
+    const restoreOption = screen.getByRole("option", {
+      name: /^恢复：完成今日复盘/,
+    });
+    expect(restoreOption).toBeEnabled();
 
-    await user.click(addButton);
-    const messageInputs = screen.getAllByPlaceholderText("例如：记得完成今日复盘");
-    await user.type(messageInputs[messageInputs.length - 1], "新增消息");
-    expect(addButton).toBeDisabled();
-    expect(screen.getByText("20 / 20 条启用")).toBeInTheDocument();
+    await user.click(restoreOption);
+    expect(screen.getByText("完成今日复盘")).toBeInTheDocument();
+    expect(screen.getByLabelText("文案内容")).toHaveValue("完成今日复盘");
+    expect(screen.getByLabelText("背景进度")).toHaveValue("schedule");
+
+    const saved = getSavedCarousel();
+    expect(saved.items.find((item) => item.source === "custom")).toMatchObject({
+      enabled: true,
+      backgroundProgressKind: "schedule",
+      text: "完成今日复盘",
+    });
+
+    await user.click(screen.getByRole("button", { name: "永久删除" }));
+    expect(screen.queryByText("完成今日复盘")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "添加信息" }));
+    expect(screen.queryByRole("option", { name: /^恢复：完成今日复盘/ })).not.toBeInTheDocument();
   });
 
-  it("支持编辑、启停、排序、删除及独立轮播设置，并在保存时一次提交", async () => {
+  it("达到 20 条后禁止继续添加，移出一项后释放名额", async () => {
     const user = userEvent.setup();
     infoCarousel.items = [
-      { id: "progress-default", source: "progress", enabled: true, order: 0 },
-      { id: "next-schedule-default", source: "nextSchedule", enabled: true, order: 1 },
-      { id: "rain-default", source: "rain", enabled: true, order: 2 },
-      { id: "custom-a", source: "custom", enabled: true, order: 3, text: "消息 A" },
-      { id: "custom-b", source: "custom", enabled: true, order: 4, text: "消息 B" },
-      { id: "custom-c", source: "custom", enabled: true, order: 5, text: "消息 C" },
+      ...Array.from({ length: 20 }, (_, index) => ({
+        id: `custom-${index}`,
+        source: "custom" as const,
+        backgroundProgressKind: "day" as const,
+        enabled: true,
+        order: index,
+        text: `消息 ${index + 1}`,
+      })),
+      ...defaultInfoItems().map((item, index) => ({ ...item, enabled: false, order: index + 20 })),
     ];
+
     renderPanel();
 
-    const autoRotate = screen.getByRole("switch", { name: "中央信息自动轮播" });
-    const interval = screen.getByRole("slider", { name: "信息轮播间隔" });
-    await user.click(autoRotate);
-    expect(interval).toBeDisabled();
-    await user.click(autoRotate);
-    fireEvent.change(interval, { target: { value: "12" } });
+    expect(screen.getByText("20 / 20 条启用")).toBeInTheDocument();
+    const addDropdown = screen.getByRole("button", { name: "添加信息" });
+    await user.click(addDropdown);
+    expect(screen.getByRole("option", { name: /^新建自定义文案/ })).toBeDisabled();
+    await user.click(screen.getByRole("button", { name: "移出消息 1" }));
+    expect(screen.getByText("19 / 20 条启用")).toBeInTheDocument();
+    await user.click(addDropdown);
+    expect(screen.getByRole("option", { name: /^新建自定义文案/ })).toBeEnabled();
+  });
 
-    const inputs = screen.getAllByLabelText("消息内容");
-    await user.clear(inputs[1]);
-    await user.type(inputs[1], "消息 B 已编辑");
-    await user.click(screen.getByRole("switch", { name: "启用自定义消息 2" }));
-    await user.click(screen.getByRole("button", { name: "上移自定义消息 3" }));
-    expect(
-      screen.getAllByLabelText("消息内容").map((input) => input.getAttribute("value"))
-    ).toEqual(["消息 A", "消息 C", "消息 B 已编辑"]);
-    await user.click(screen.getByRole("button", { name: "删除自定义消息 1" }));
+  it("清空列表后显示隐藏提示，并可恢复内置来源", async () => {
+    const user = userEvent.setup();
+    renderPanel();
 
-    act(() => registeredSave?.());
+    await user.click(screen.getByRole("button", { name: "移出24 小时进度" }));
+    expect(screen.getByText("未选择信息，顶部进度与信息将隐藏。")).toBeInTheDocument();
+    expect(screen.getByText("0 / 20 条启用")).toBeInTheDocument();
 
-    const saveAction = dispatch.mock.calls
-      .map(([action]) => action)
-      .find((action) => action.type === "SET_INFO_CAROUSEL");
-    expect(saveAction?.payload).toMatchObject({ autoRotate: true, intervalSec: 12 });
-    expect(
-      saveAction?.payload.items
-        .filter((item: { source: string }) => item.source === "custom")
-        .map((item: { enabled: boolean; order: number; text?: string }) => ({
-          enabled: item.enabled,
-          order: item.order,
-          text: item.text,
-        }))
-    ).toEqual([
-      { enabled: true, order: 3, text: "消息 C" },
-      { enabled: false, order: 4, text: "消息 B 已编辑" },
-    ]);
+    await selectAddInformation(user, /^24 小时进度/);
+    expect(screen.getByText("24 小时进度")).toBeInTheDocument();
   });
 
   it("超额旧配置迁移提示只在首次打开时显示", () => {

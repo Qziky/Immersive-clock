@@ -253,7 +253,7 @@ describe("AppearanceSettingsPanel", () => {
     );
 
     const contentSelector = screen.getByRole("radiogroup", { name: "顶部信息栏内容" });
-    for (const optionName of ["栏体", "天气", "噪音监测", "计划进度", "事件倒计时"]) {
+    for (const optionName of ["栏体", "天气", "噪音监测", "顶部进度与信息", "事件倒计时"]) {
       expect(within(contentSelector).getByRole("radio", { name: optionName })).toBeInTheDocument();
     }
     expect(within(contentSelector).getByRole("radio", { name: "栏体" })).toBeChecked();
@@ -266,10 +266,10 @@ describe("AppearanceSettingsPanel", () => {
     );
     expect(within(preview).getByText("26°")).toHaveClass(weatherStyles.temperature);
     expect(within(preview).getByText("晴")).toHaveClass(weatherStyles.weatherText);
-    expect(preview.querySelector('[data-app-icon="weather.clearDay"]')).toBeInTheDocument();
+    expect(preview.querySelector('img[alt="晴朗"]')).toHaveClass(weatherStyles.weatherIcon);
 
-    fireEvent.click(within(contentSelector).getByRole("radio", { name: "计划进度" }));
-    const progressPreview = screen.getByLabelText("计划进度外观预览");
+    fireEvent.click(within(contentSelector).getByRole("radio", { name: "顶部进度与信息" }));
+    const progressPreview = screen.getByLabelText("顶部进度与信息外观预览");
     const dayProgress = progressPreview.querySelector('[role="progressbar"]');
     expect(dayProgress).not.toBeNull();
     expect(dayProgress).toHaveAttribute("aria-label", "今日进度");

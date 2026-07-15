@@ -77,23 +77,19 @@ async function prepareStudyVisualPage(page: Page, viewport: { width: number; hei
         showDate: true,
         showNoiseMonitor: false,
         showQuote: false,
-        showStatusBar: true,
         showTime: true,
         showWeather: false,
-        timeProgressMode: "day",
       },
       infoCarousel: {
-        autoRotate: false,
         intervalSec: 6,
         items: [
-          { id: "progress-default", source: "progress", enabled: true, order: 0 },
           {
-            id: "next-schedule-default",
-            source: "nextSchedule",
-            enabled: false,
-            order: 1,
+            id: "progress-day-default",
+            source: "progress",
+            progressKind: "day",
+            enabled: true,
+            order: 0,
           },
-          { id: "rain-default", source: "rain", enabled: false, order: 2 },
         ],
       },
     };
@@ -158,7 +154,7 @@ async function selectAppearanceSection(
   viewport: { width: number; height: number },
   sectionName: string
 ) {
-  const topDockSectionNames = ["顶部信息栏", "天气", "噪音监测", "计划进度", "事件倒计时"];
+  const topDockSectionNames = ["顶部信息栏", "天气", "噪音监测", "顶部进度与信息", "事件倒计时"];
   const navigationSectionName = topDockSectionNames.includes(sectionName)
     ? "顶部信息栏"
     : sectionName;
@@ -281,7 +277,11 @@ for (const viewport of [
     for (const preview of [
       { label: "天气外观预览", minimumAreaUtilization: 0.45, section: "天气" },
       { label: "顶部信息栏外观预览", minimumAreaUtilization: 0.45, section: "顶部信息栏" },
-      { label: "计划进度外观预览", minimumAreaUtilization: 0.25, section: "计划进度" },
+      {
+        label: "顶部进度与信息外观预览",
+        minimumAreaUtilization: 0.25,
+        section: "顶部进度与信息",
+      },
       { label: "事件倒计时外观预览", minimumAreaUtilization: 0.35, section: "事件倒计时" },
     ]) {
       await selectAppearanceSection(dialog, viewport, preview.section);

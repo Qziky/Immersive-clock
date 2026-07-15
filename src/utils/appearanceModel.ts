@@ -279,8 +279,8 @@ export const APPEARANCE_COMPONENTS: readonly AppearanceComponentDefinition[] = [
   {
     id: "studyStatus",
     scene: "study",
-    label: "计划进度",
-    description: "状态文字、进度数字与进度表面",
+    label: "顶部进度与信息",
+    description: "状态文字、提示信息、进度数字与进度表面",
     slots: [
       { id: "label", label: "状态文字", kind: "text", defaultStyle: PRIMARY_TEXT },
       {
@@ -302,7 +302,7 @@ export const APPEARANCE_COMPONENTS: readonly AppearanceComponentDefinition[] = [
       },
     ],
     supportsSurface: true,
-    containerLabel: "计划进度整体",
+    containerLabel: "顶部进度与信息整体",
     defaultContainerStyle: {
       backgroundColor: "#e8e9e0",
       backgroundOpacity: 0.045,

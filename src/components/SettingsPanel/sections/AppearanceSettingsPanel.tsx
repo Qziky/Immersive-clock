@@ -71,7 +71,7 @@ const TOP_DOCK_COMPONENT_OPTIONS = [
   { label: "栏体", value: "studyTopDock" },
   { label: "天气", value: "studyWeather" },
   { label: "噪音监测", value: "studyNoise" },
-  { label: "计划进度", value: "studyStatus" },
+  { label: "顶部进度与信息", value: "studyStatus" },
   { label: "事件倒计时", value: "studyCountdown" },
 ] as const;
 
@@ -800,11 +800,7 @@ export function AppearanceSettingsPanel({ section = "overview" }: AppearanceSett
 
           <FormSection title="恢复外观" description="恢复操作只修改草稿，保存后才会生效。">
             <FormButtonGroup align="left">
-              <FormButton
-                variant="secondary"
-                icon="action.reset"
-                onClick={handleGlobalReset}
-              >
+              <FormButton variant="secondary" icon="action.reset" onClick={handleGlobalReset}>
                 恢复整体样式
               </FormButton>
               <FormButton variant="danger" icon="action.delete" onClick={handleAllReset}>
@@ -938,11 +934,7 @@ export function AppearanceSettingsPanel({ section = "overview" }: AppearanceSett
               )}
 
               <FormButtonGroup align="left" className={styles.componentReset}>
-                <FormButton
-                  variant="secondary"
-                  icon="action.reset"
-                  onClick={resetCurrentComponent}
-                >
+                <FormButton variant="secondary" icon="action.reset" onClick={resetCurrentComponent}>
                   {instanceId ? "恢复此事件样式" : `恢复${definition.label}样式`}
                 </FormButton>
               </FormButtonGroup>

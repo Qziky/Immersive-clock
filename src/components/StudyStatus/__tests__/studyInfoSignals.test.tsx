@@ -1,25 +1,100 @@
 import { act, fireEvent, render, renderHook, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import type { StudyInfoCarouselSettings } from "../../../types";
+import type {
+  StudyInfoCarouselSettings,
+  StudyInfoItemConfig,
+  StudyProgressKind,
+} from "../../../types";
 import type { MinutelyRainStats } from "../../../utils/minutelyPrecipLogic";
 import {
-  DEFAULT_STUDY_INFO_CAROUSEL,
   MAX_STUDY_INFO_ITEMS,
   resolveStudyInfoSignals,
+  resolveStudyInfoStandbySignal,
+  type StudyInfoProgressSnapshot,
   type StudyInfoSignal,
 } from "../studyInfoSignals";
 import { StudyStatusPresentation } from "../StudyStatusPresentation";
 import { useStudyInfoCarousel } from "../useStudyInfoCarousel";
 
 const now = new Date(2026, 6, 14, 10, 0, 0);
-const progress = {
+const dayProgress: StudyInfoProgressSnapshot = {
+  stageText: "上午好",
+  stageAriaText: "上午好",
+  remainingTimeText: "还剩 14 小时",
+  statusText: "今日进度",
+  hasProgress: true,
+};
+const scheduleProgress: StudyInfoProgressSnapshot = {
   stageText: "保持专注",
   stageAriaText: "保持专注",
   remainingTimeText: "还剩 30 分钟",
   statusText: "第1节自习",
   hasProgress: true,
 };
+const progress: Record<StudyProgressKind, StudyInfoProgressSnapshot> = {
+  day: dayProgress,
+  schedule: scheduleProgress,
+};
+
+function settings(items: StudyInfoItemConfig[], intervalSec = 6): StudyInfoCarouselSettings {
+  return { intervalSec, items };
+}
+
+function progressItem(
+  progressKind: StudyProgressKind,
+  order: number,
+  enabled = true
+): StudyInfoItemConfig {
+  return {
+    id: `progress-${progressKind}`,
+    source: "progress",
+    progressKind,
+    enabled,
+    order,
+  };
+}
+
+function nextScheduleItem(
+  leadMinutes: "always" | 120 | 60 | 30 | 15 = "always",
+  backgroundProgressKind: StudyProgressKind = "day",
+  order = 0
+): StudyInfoItemConfig {
+  return {
+    id: "next-schedule",
+    source: "nextSchedule",
+    backgroundProgressKind,
+    leadMinutes,
+    enabled: true,
+    order,
+  };
+}
+
+function rainItem(
+  leadMinutes: 60 | 30 | 15 | 10 = 30,
+  backgroundProgressKind: StudyProgressKind = "day",
+  order = 0
+): StudyInfoItemConfig {
+  return {
+    id: "rain",
+    source: "rain",
+    backgroundProgressKind,
+    leadMinutes,
+    enabled: true,
+    order,
+  };
+}
+
+function customItem(id: string, text: string, order: number): StudyInfoItemConfig {
+  return {
+    id,
+    source: "custom",
+    backgroundProgressKind: "day",
+    text,
+    enabled: true,
+    order,
+  };
+}
 
 function scheduleAt(startTime: string) {
   return [{ id: "next", name: "第2节自习", startTime, endTime: "11:00" }];
@@ -51,19 +126,21 @@ function rainStats(overrides: Partial<MinutelyRainStats>): MinutelyRainStats {
     rainStartAt,
     rainEndAt,
     leadMinutes,
+    hasReliableTimestamps: true,
     ...overrides,
   };
 }
 
-function routineSignal(id: string): StudyInfoSignal {
+function routineSignal(itemId: string, progressKind: StudyProgressKind = "day"): StudyInfoSignal {
   return {
-    id,
-    source: id === "progress" ? "progress" : "custom",
+    itemId,
+    source: itemId === "progress" ? "progress" : "custom",
+    progressKind,
     priority: "routine",
     displayMode: "rotating",
-    primaryText: id,
-    ariaText: id,
-    dedupeKey: id,
+    primaryText: itemId,
+    ariaText: itemId,
+    dedupeKey: itemId,
   };
 }
 
@@ -74,151 +151,142 @@ afterEach(() => {
 });
 
 describe("StudyStatus 中央信号", () => {
-  it("持续显示下一课时，并按 15/5 分钟阈值提升优先级", () => {
-    const routineSignals = resolveStudyInfoSignals({
+  it("同时生成两种进度帧，课时空态也不会被过滤", () => {
+    const emptyScheduleProgress = {
+      ...scheduleProgress,
+      stageText: "",
+      stageAriaText: "",
+      remainingTimeText: undefined,
+      statusText: "未在自习时间",
+      hasProgress: false,
+    };
+    const signals = resolveStudyInfoSignals({
+      now,
+      progress: { day: dayProgress, schedule: emptyScheduleProgress },
+      settings: settings([progressItem("day", 0), progressItem("schedule", 1)]),
+    });
+
+    expect(signals.map((signal) => [signal.itemId, signal.progressKind])).toEqual([
+      ["progress-day", "day"],
+      ["progress-schedule", "schedule"],
+    ]);
+    expect(signals[1]).toMatchObject({ primaryText: "", ariaText: "未在自习时间" });
+  });
+
+  it("按条目提前窗口过滤下一课时，并保留 15/5 分钟智能优先级", () => {
+    const outsideWindow = resolveStudyInfoSignals({
       now,
       progress,
       schedule: scheduleAt("10:16"),
+      settings: settings([nextScheduleItem(15, "schedule")]),
     });
-    const routine = routineSignals.find((signal) => signal.source === "nextSchedule");
-    const timely = resolveStudyInfoSignals({ now, progress, schedule: scheduleAt("10:15") }).find(
-      (signal) => signal.source === "nextSchedule"
-    );
-    const critical = resolveStudyInfoSignals({ now, progress, schedule: scheduleAt("10:05") }).find(
-      (signal) => signal.source === "nextSchedule"
-    );
-
-    expect(routine?.priority).toBe("routine");
-    expect(routineSignals.map((signal) => signal.source)).toEqual(["progress", "nextSchedule"]);
-    expect(timely?.priority).toBe("timely");
-    expect(critical?.priority).toBe("critical");
-    expect(critical?.displayMode).toBe("interrupt");
-    expect(
-      resolveStudyInfoSignals({ now, progress, schedule: scheduleAt("09:59") }).some(
-        (signal) => signal.source === "nextSchedule"
-      )
-    ).toBe(false);
-  });
-
-  it("按 30/10 分钟窗口调度将雨消息，正在下雨时始终打断", () => {
+    const routine = resolveStudyInfoSignals({
+      now,
+      progress,
+      schedule: scheduleAt("10:16"),
+      settings: settings([nextScheduleItem("always", "schedule")]),
+    })[0];
     const timely = resolveStudyInfoSignals({
       now,
       progress,
-      weather: { stats: rainStats({ leadMinutes: 30 }), freshness: "fresh" },
-    }).find((signal) => signal.source === "rain");
+      schedule: scheduleAt("10:15"),
+      settings: settings([nextScheduleItem(15, "schedule")]),
+    })[0];
     const critical = resolveStudyInfoSignals({
       now,
       progress,
-      weather: { stats: rainStats({ leadMinutes: 10 }), freshness: "fresh" },
-    }).find((signal) => signal.source === "rain");
-    const raining = resolveStudyInfoSignals({
-      now,
-      progress,
-      weather: {
-        stats: rainStats({ isRainingNow: true, leadMinutes: 0, remainingMinutes: 8 }),
-        freshness: "fresh",
-      },
-    }).find((signal) => signal.source === "rain");
-
-    expect(timely?.priority).toBe("timely");
-    expect(critical?.priority).toBe("critical");
-    expect(raining?.priority).toBe("critical");
-    expect(raining?.secondaryText).toBe("预计还剩 8 分钟");
-    expect(
-      resolveStudyInfoSignals({
-        now,
-        progress,
-        weather: { stats: rainStats({ leadMinutes: 31 }), freshness: "fresh" },
-      }).some((signal) => signal.source === "rain")
-    ).toBe(false);
-
-    const sameRainAfterStart = resolveStudyInfoSignals({
-      now: now.getTime() + 10 * 60 * 1000,
-      progress,
-      weather: {
-        stats: rainStats({ isRainingNow: true, leadMinutes: 10 }),
-        freshness: "fresh",
-      },
-    }).find((signal) => signal.source === "rain");
-    expect(sameRainAfterStart?.id).toBe(critical?.id);
-    expect(sameRainAfterStart?.dedupeKey).not.toBe(critical?.dedupeKey);
-  });
-
-  it("忽略过期天气并把有效运行队列限制为 20 条", () => {
-    const items = [
-      ...DEFAULT_STUDY_INFO_CAROUSEL.items,
-      ...Array.from({ length: 30 }, (_, index) => ({
-        id: `custom-${index}`,
-        source: "custom" as const,
-        enabled: true,
-        order: index + 3,
-        text: `消息 ${index}`,
-      })),
-    ];
-    const settings: StudyInfoCarouselSettings = {
-      ...DEFAULT_STUDY_INFO_CAROUSEL,
-      items,
-    };
-    const signals = resolveStudyInfoSignals({
-      now,
-      progress,
-      settings,
-      weather: { stats: rainStats({}), freshness: "stale" },
-    });
-
-    expect(signals.length).toBeLessThanOrEqual(MAX_STUDY_INFO_ITEMS);
-    expect(signals.some((signal) => signal.source === "rain")).toBe(false);
-    expect(signals.filter((signal) => signal.source === "custom")).toHaveLength(17);
-  });
-
-  it("多个 critical 按事件时间和配置顺序稳定排列", () => {
-    const settings: StudyInfoCarouselSettings = {
-      autoRotate: true,
-      intervalSec: 3,
-      items: [
-        { id: "next-schedule-default", source: "nextSchedule", enabled: true, order: 0 },
-        { id: "rain-default", source: "rain", enabled: true, order: 1 },
-        { id: "progress-default", source: "progress", enabled: true, order: 2 },
-      ],
-    };
-    const earlierRainSignals = resolveStudyInfoSignals({
-      now,
-      progress,
       schedule: scheduleAt("10:05"),
-      settings,
+      settings: settings([nextScheduleItem(15, "schedule")]),
+    })[0];
+
+    expect(outsideWindow).toEqual([]);
+    expect(routine).toMatchObject({ priority: "routine", progressKind: "schedule" });
+    expect(timely.priority).toBe("timely");
+    expect(critical).toMatchObject({ priority: "critical", displayMode: "interrupt" });
+  });
+
+  it("按条目提前窗口过滤降雨，事件阶段只改变 dedupeKey", () => {
+    const rainStartAt = now.getTime() + 31 * 60 * 1000;
+    const rainingAt = rainStartAt;
+    const outsideWindow = resolveStudyInfoSignals({
+      now,
+      progress,
+      settings: settings([rainItem(30, "schedule")]),
+      weather: { stats: rainStats({ leadMinutes: 31 }), freshness: "fresh" },
+    });
+    const beforeRain = resolveStudyInfoSignals({
+      now,
+      progress,
+      settings: settings([rainItem(60, "schedule")]),
+      weather: { stats: rainStats({ leadMinutes: 31 }), freshness: "fresh" },
+    })[0];
+    const whileRaining = resolveStudyInfoSignals({
+      now: now.getTime() + 31 * 60 * 1000,
+      progress,
+      settings: settings([rainItem(60, "schedule")]),
       weather: {
         stats: rainStats({
-          leadMinutes: 4,
-          startInMinutes: 4,
+          leadMinutes: 31,
+          isRainingNow: true,
+          remainingMinutes: 8,
+          rainStartAt,
+          rainEndAt: rainingAt + 8 * 60 * 1000,
         }),
         freshness: "fresh",
       },
-    });
+    })[0];
 
-    expect(
-      earlierRainSignals
-        .filter((signal) => signal.priority === "critical")
-        .map((signal) => signal.source)
-    ).toEqual(["rain", "nextSchedule"]);
-
-    const simultaneousSignals = resolveStudyInfoSignals({
-      now,
-      progress,
-      schedule: scheduleAt("10:05"),
-      settings,
-      weather: { stats: rainStats({ leadMinutes: 5, startInMinutes: 5 }), freshness: "fresh" },
+    expect(outsideWindow).toEqual([]);
+    expect(beforeRain).toMatchObject({
+      itemId: "rain",
+      progressKind: "schedule",
+      priority: "timely",
     });
-    expect(
-      simultaneousSignals
-        .filter((signal) => signal.priority === "critical")
-        .map((signal) => signal.source)
-    ).toEqual(["nextSchedule", "rain"]);
+    expect(whileRaining).toMatchObject({ itemId: "rain", priority: "critical" });
+    expect(whileRaining.dedupeKey).not.toBe(beforeRain.dedupeKey);
   });
 
-  it("过滤已经过期的事件信号", () => {
+  it("普通信息保持用户顺序，timely 不会在解析阶段越过前项", () => {
     const signals = resolveStudyInfoSignals({
       now,
       progress,
+      schedule: scheduleAt("10:15"),
+      settings: settings([
+        customItem("first", "第一条", 0),
+        nextScheduleItem(15, "day", 1),
+        progressItem("day", 2),
+      ]),
+    });
+
+    expect(signals.map((signal) => signal.itemId)).toEqual([
+      "first",
+      "next-schedule",
+      "progress-day",
+    ]);
+  });
+
+  it("多个 critical 按事件时间和配置顺序稳定排列", () => {
+    const signals = resolveStudyInfoSignals({
+      now,
+      progress,
+      schedule: scheduleAt("10:05"),
+      settings: settings([nextScheduleItem(15, "day", 0), rainItem(30, "day", 1)]),
+      weather: { stats: rainStats({ leadMinutes: 4 }), freshness: "fresh" },
+    });
+
+    expect(
+      signals.filter((signal) => signal.priority === "critical").map((signal) => signal.source)
+    ).toEqual(["rain", "nextSchedule"]);
+  });
+
+  it("过滤过期天气和过量信息，严格保留前 20 条", () => {
+    const items = Array.from({ length: 30 }, (_, index) =>
+      customItem(`custom-${index}`, `消息 ${index}`, index)
+    );
+    const signals = resolveStudyInfoSignals({
+      now,
+      progress,
+      settings: settings(items),
       weather: {
         phase: "raining",
         freshness: "fresh",
@@ -231,7 +299,19 @@ describe("StudyStatus 中央信号", () => {
       },
     });
 
-    expect(signals.some((signal) => signal.source === "rain")).toBe(false);
+    expect(signals).toHaveLength(MAX_STUDY_INFO_ITEMS);
+    expect(signals[signals.length - 1]?.itemId).toBe("custom-19");
+  });
+
+  it("无有效条件提示时提供首项背景的待机信号，空列表则返回 null", () => {
+    const configured = settings([nextScheduleItem(15, "schedule")]);
+    expect(resolveStudyInfoSignals({ now, progress, settings: configured })).toEqual([]);
+    expect(resolveStudyInfoStandbySignal(configured)).toMatchObject({
+      itemId: "next-schedule",
+      progressKind: "schedule",
+      primaryText: "",
+    });
+    expect(resolveStudyInfoStandbySignal(settings([]))).toBeNull();
   });
 });
 
@@ -240,39 +320,39 @@ describe("StudyStatus 信息调度器", () => {
     const progressSignal = routineSignal("progress");
     const customSignal = routineSignal("custom");
     const rainSignal: StudyInfoSignal = {
-      ...routineSignal("rain"),
+      ...routineSignal("rain", "schedule"),
       source: "rain",
       priority: "critical",
       displayMode: "interrupt",
     };
-    const { result, rerender } = renderHook(
-      ({ signals }) => useStudyInfoCarousel({ signals, autoRotate: false }),
-      { initialProps: { signals: [progressSignal, customSignal] } }
-    );
+    const { result, rerender } = renderHook(({ signals }) => useStudyInfoCarousel({ signals }), {
+      initialProps: { signals: [progressSignal, customSignal] },
+    });
 
     act(() => result.current.next());
-    expect(result.current.currentSignal?.id).toBe("custom");
+    expect(result.current.currentSignal?.itemId).toBe("custom");
 
     rerender({ signals: [rainSignal, progressSignal, customSignal] });
-    expect(result.current.currentSignal?.id).toBe("rain");
+    expect(result.current.currentSignal).toMatchObject({
+      itemId: "rain",
+      progressKind: "schedule",
+    });
 
     rerender({ signals: [progressSignal, customSignal] });
-    expect(result.current.currentSignal?.id).toBe("custom");
+    expect(result.current.currentSignal?.itemId).toBe("custom");
   });
 
-  it("按设置间隔自动切换普通消息", () => {
+  it("有效队列超过一条时按设置间隔自动切换", () => {
     vi.useFakeTimers();
     const signals = [routineSignal("progress"), routineSignal("custom")];
-    const { result } = renderHook(() =>
-      useStudyInfoCarousel({ signals, autoRotate: true, intervalSec: 3 })
-    );
+    const { result } = renderHook(() => useStudyInfoCarousel({ signals, intervalSec: 3 }));
 
-    expect(result.current.currentSignal?.id).toBe("progress");
+    expect(result.current.currentSignal?.itemId).toBe("progress");
     act(() => vi.advanceTimersByTime(3000));
-    expect(result.current.currentSignal?.id).toBe("custom");
+    expect(result.current.currentSignal?.itemId).toBe("custom");
   });
 
-  it("每秒重建信号对象时不会重置轮播计时器", () => {
+  it("每秒更新内容和事件键时不会重置轮播位置或计时器", () => {
     vi.useFakeTimers();
     const { result, rerender } = renderHook(
       ({ tick }) =>
@@ -280,8 +360,8 @@ describe("StudyStatus 信息调度器", () => {
           signals: [routineSignal("progress"), routineSignal("custom")].map((signal) => ({
             ...signal,
             secondaryText: String(tick),
+            dedupeKey: `${signal.itemId}:${tick}`,
           })),
-          autoRotate: true,
           intervalSec: 3,
         }),
       { initialProps: { tick: 0 } }
@@ -292,10 +372,10 @@ describe("StudyStatus 信息调度器", () => {
       act(() => vi.advanceTimersByTime(1000));
     }
 
-    expect(result.current.currentSignal?.id).toBe("custom");
+    expect(result.current.currentSignal?.itemId).toBe("custom");
   });
 
-  it("timely 运行中到来不会打断当前消息，后续轮播仍会经过完整队列", () => {
+  it("timely 到来不会立即打断，但会成为下一条", () => {
     const timely: StudyInfoSignal = {
       ...routineSignal("schedule"),
       source: "nextSchedule",
@@ -303,20 +383,16 @@ describe("StudyStatus 信息调度器", () => {
     };
     const progressSignal = routineSignal("progress");
     const customSignal = routineSignal("custom");
-    const { result, rerender } = renderHook(
-      ({ signals }) => useStudyInfoCarousel({ signals, autoRotate: false }),
-      { initialProps: { signals: [progressSignal, customSignal] } }
-    );
+    const { result, rerender } = renderHook(({ signals }) => useStudyInfoCarousel({ signals }), {
+      initialProps: { signals: [progressSignal, customSignal] },
+    });
 
-    expect(result.current.currentSignal?.id).toBe("progress");
-
-    rerender({ signals: [timely, progressSignal, customSignal] });
-    expect(result.current.currentSignal?.id).toBe("progress");
-
+    rerender({ signals: [progressSignal, timely, customSignal] });
+    expect(result.current.currentSignal?.itemId).toBe("progress");
     act(() => result.current.next());
-    expect(result.current.currentSignal?.id).toBe("schedule");
+    expect(result.current.currentSignal?.itemId).toBe("schedule");
     act(() => result.current.next());
-    expect(result.current.currentSignal?.id).toBe("progress");
+    expect(result.current.currentSignal?.itemId).toBe("custom");
   });
 
   it("多个 critical 会在关键队列内轮换，不会露出 routine", () => {
@@ -336,14 +412,13 @@ describe("StudyStatus 信息调度器", () => {
     const { result } = renderHook(() =>
       useStudyInfoCarousel({
         signals: [first, second, routineSignal("progress")],
-        autoRotate: true,
         intervalSec: 3,
       })
     );
 
-    expect(result.current.currentSignal?.id).toBe("first-critical");
+    expect(result.current.currentSignal?.itemId).toBe("first-critical");
     act(() => vi.advanceTimersByTime(3000));
-    expect(result.current.currentSignal?.id).toBe("second-critical");
+    expect(result.current.currentSignal?.itemId).toBe("second-critical");
     expect(result.current.currentSignal?.priority).toBe("critical");
   });
 
@@ -352,24 +427,22 @@ describe("StudyStatus 信息调度器", () => {
     let hidden = false;
     vi.spyOn(document, "hidden", "get").mockImplementation(() => hidden);
     const signals = [routineSignal("progress"), routineSignal("custom")];
-    const { result } = renderHook(() =>
-      useStudyInfoCarousel({ signals, autoRotate: true, intervalSec: 3 })
-    );
+    const { result } = renderHook(() => useStudyInfoCarousel({ signals, intervalSec: 3 }));
 
     act(() => result.current.setPaused(true));
     act(() => vi.advanceTimersByTime(3000));
-    expect(result.current.currentSignal?.id).toBe("progress");
+    expect(result.current.currentSignal?.itemId).toBe("progress");
 
     act(() => result.current.setPaused(false));
     hidden = true;
     act(() => document.dispatchEvent(new Event("visibilitychange")));
     act(() => vi.advanceTimersByTime(3000));
-    expect(result.current.currentSignal?.id).toBe("progress");
+    expect(result.current.currentSignal?.itemId).toBe("progress");
 
     hidden = false;
     act(() => document.dispatchEvent(new Event("visibilitychange")));
     act(() => vi.advanceTimersByTime(3000));
-    expect(result.current.currentSignal?.id).toBe("custom");
+    expect(result.current.currentSignal?.itemId).toBe("custom");
   });
 
   it("减少动态效果时关闭自动轮播，但保留手动切换", () => {
@@ -388,26 +461,23 @@ describe("StudyStatus 信息调度器", () => {
       }))
     );
     const signals = [routineSignal("progress"), routineSignal("custom")];
-    const { result } = renderHook(() =>
-      useStudyInfoCarousel({ signals, autoRotate: true, intervalSec: 3 })
-    );
+    const { result } = renderHook(() => useStudyInfoCarousel({ signals, intervalSec: 3 }));
 
     act(() => vi.advanceTimersByTime(3000));
-    expect(result.current.currentSignal?.id).toBe("progress");
+    expect(result.current.currentSignal?.itemId).toBe("progress");
     act(() => result.current.next());
-    expect(result.current.currentSignal?.id).toBe("custom");
+    expect(result.current.currentSignal?.itemId).toBe("custom");
   });
 
   it("空队列返回 null，并能在条目恢复后重新选择", () => {
-    const { result, rerender } = renderHook(
-      ({ signals }) => useStudyInfoCarousel({ signals, autoRotate: false }),
-      { initialProps: { signals: [] as StudyInfoSignal[] } }
-    );
+    const { result, rerender } = renderHook(({ signals }) => useStudyInfoCarousel({ signals }), {
+      initialProps: { signals: [] as StudyInfoSignal[] },
+    });
     expect(result.current.currentSignal).toBeNull();
     act(() => result.current.next());
 
     rerender({ signals: [routineSignal("progress")] });
-    expect(result.current.currentSignal?.id).toBe("progress");
+    expect(result.current.currentSignal?.itemId).toBe("progress");
     rerender({ signals: [] });
     expect(result.current.currentSignal).toBeNull();
   });
@@ -514,55 +584,6 @@ describe("StudyStatus 信息展示", () => {
       />
     );
     expect(screen.getByRole("status")).toHaveTextContent("准备收尾");
-  });
-
-  it("仅在消息或优先级变化时重建动画内容，倒计时更新保持当前节点", () => {
-    const first = { ...routineSignal("progress"), secondaryText: "还剩 30 分钟" };
-    const { container, rerender } = render(
-      <StudyStatusPresentation
-        progress={50}
-        progressText="50%"
-        statusText="今日进度"
-        infoSignal={first}
-        infoSignalManaged
-      />
-    );
-    const firstContent = container.querySelector('[class*="infoContent"]');
-    expect(firstContent).not.toBeNull();
-
-    rerender(
-      <StudyStatusPresentation
-        progress={50}
-        progressText="50%"
-        statusText="今日进度"
-        infoSignal={{ ...first, secondaryText: "还剩 29 分钟" }}
-        infoSignalManaged
-      />
-    );
-    expect(container.querySelector('[class*="infoContent"]')).toBe(firstContent);
-
-    rerender(
-      <StudyStatusPresentation
-        progress={50}
-        progressText="50%"
-        statusText="今日进度"
-        infoSignal={{ ...first, priority: "timely" }}
-        infoSignalManaged
-      />
-    );
-    const timelyContent = container.querySelector('[class*="infoContent"]');
-    expect(timelyContent).not.toBe(firstContent);
-
-    rerender(
-      <StudyStatusPresentation
-        progress={50}
-        progressText="50%"
-        statusText="今日进度"
-        infoSignal={routineSignal("custom")}
-        infoSignalManaged
-      />
-    );
-    expect(container.querySelector('[class*="infoContent"]')).not.toBe(timelyContent);
   });
 
   it("悬停和聚焦分别维持暂停，两个状态都结束后才恢复", () => {

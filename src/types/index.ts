@@ -103,16 +103,13 @@ export interface StopwatchState {
   isActive: boolean;
 }
 
-/**
- * 自习页面组件显示设置
- */
-export type StudyTimeProgressMode = "day" | "schedule";
+/** 自习页顶部可用的进度快照类型。 */
+export type StudyProgressKind = "day" | "schedule";
+
+/** @deprecated 使用 StudyProgressKind；仅用于兼容尚未迁移的调用方。 */
+export type StudyTimeProgressMode = StudyProgressKind;
 
 export interface StudyDisplaySettings {
-  /** 是否显示状态栏 */
-  showStatusBar: boolean;
-  /** 计划进度模式：今日全天或课时安排 */
-  timeProgressMode: StudyTimeProgressMode;
   /** 是否显示天气 */
   showWeather: boolean;
   /** 是否显示噪音监测 */
@@ -156,18 +153,39 @@ export interface CountdownItem {
 /** 中央信息来源。 */
 export type StudyInfoSource = "progress" | "nextSchedule" | "rain" | "custom";
 
-/** 中央信息轮播条目配置。内置来源不需要 text，自定义来源必须提供 text。 */
-export interface StudyInfoItemConfig {
+interface StudyInfoItemBase {
   id: string;
-  source: StudyInfoSource;
   enabled: boolean;
   order: number;
-  text?: string;
 }
+
+export type StudyNextScheduleLeadMinutes = "always" | 120 | 60 | 30 | 15;
+export type StudyRainLeadMinutes = 60 | 30 | 15 | 10;
+
+/** 中央信息轮播条目配置。提示型条目独立绑定一个背景进度快照。 */
+export type StudyInfoItemConfig =
+  | (StudyInfoItemBase & {
+      source: "progress";
+      progressKind: StudyProgressKind;
+    })
+  | (StudyInfoItemBase & {
+      source: "nextSchedule";
+      backgroundProgressKind: StudyProgressKind;
+      leadMinutes: StudyNextScheduleLeadMinutes;
+    })
+  | (StudyInfoItemBase & {
+      source: "rain";
+      backgroundProgressKind: StudyProgressKind;
+      leadMinutes: StudyRainLeadMinutes;
+    })
+  | (StudyInfoItemBase & {
+      source: "custom";
+      backgroundProgressKind: StudyProgressKind;
+      text: string;
+    });
 
 /** 自习页顶部中央信息轮播设置。 */
 export interface StudyInfoCarouselSettings {
-  autoRotate: boolean;
   intervalSec: number;
   items: StudyInfoItemConfig[];
 }

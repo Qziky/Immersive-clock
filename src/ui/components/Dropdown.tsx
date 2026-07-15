@@ -30,6 +30,7 @@ export interface DropdownProps {
   label?: string;
   hint?: string;
   error?: string;
+  prefixIcon?: AppIconName;
   placeholder?: string;
   value?: DropdownValue | DropdownValue[];
   defaultValue?: DropdownValue | DropdownValue[];
@@ -69,6 +70,7 @@ export function Dropdown({
   label,
   hint,
   error,
+  prefixIcon,
   placeholder = "请选择",
   value,
   defaultValue,
@@ -88,6 +90,7 @@ export function Dropdown({
 }: DropdownProps) {
   const generatedId = useId();
   const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [internalValue, setInternalValue] = useState(defaultValue);
@@ -147,11 +150,23 @@ export function Dropdown({
     const rect = trigger.getBoundingClientRect();
     const resolvedWidth = formatMenuWidth(menuWidth ?? width, rect.width);
     const numericWidth = typeof resolvedWidth === "number" ? resolvedWidth : rect.width;
-    const left = Math.max(8, Math.min(rect.left, window.innerWidth - numericWidth - 8));
+    const viewportInset = 8;
+    const menuGap = 8;
+    const menuHeight = menuRef.current?.offsetHeight ?? 0;
+    const availableBelow = window.innerHeight - rect.bottom - menuGap - viewportInset;
+    const availableAbove = rect.top - menuGap - viewportInset;
+    const openAbove = menuHeight > availableBelow && availableAbove > availableBelow;
+    const preferredTop = openAbove ? rect.top - menuGap - menuHeight : rect.bottom + menuGap;
+    const maximumTop = Math.max(viewportInset, window.innerHeight - menuHeight - viewportInset);
+    const left = Math.max(
+      viewportInset,
+      Math.min(rect.left, window.innerWidth - numericWidth - viewportInset)
+    );
+    const top = Math.max(viewportInset, Math.min(preferredTop, maximumTop));
 
     setMenuStyle({
       left,
-      top: rect.bottom + 8,
+      top,
       width: resolvedWidth,
     });
   }, [menuWidth, width]);
@@ -161,7 +176,6 @@ export function Dropdown({
       return undefined;
     }
 
-    updatePosition();
     const closeOnPointerDown = (event: PointerEvent) => {
       const trigger = triggerRef.current;
       const target = event.target;
@@ -196,6 +210,11 @@ export function Dropdown({
       window.removeEventListener("scroll", updatePosition, true);
     };
   }, [generatedId, isOpen, isTop, updatePosition]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    updatePosition();
+  }, [filteredGroups, isOpen, updatePosition]);
 
   const commitValue = (nextValue: DropdownValue | DropdownValue[] | undefined) => {
     if (value === undefined) {
@@ -238,6 +257,7 @@ export function Dropdown({
     isPresent && typeof document !== "undefined"
       ? createPortal(
           <div
+            ref={menuRef}
             className={styles.dropdownMenu}
             data-dropdown-menu={generatedId}
             data-ui-motion={shouldAnimate ? "default" : "none"}
@@ -344,6 +364,14 @@ export function Dropdown({
         aria-invalid={error ? true : undefined}
         aria-labelledby={label ? `${generatedId}-label` : undefined}
       >
+        {prefixIcon && (
+          <AppIcon
+            aria-hidden="true"
+            className={styles.dropdownTriggerIcon}
+            name={prefixIcon}
+            size="sm"
+          />
+        )}
         <span className={styles.dropdownValue}>{displayText}</span>
         <AppIcon className={styles.dropdownChevron} name="action.expand" size="sm" />
       </button>
