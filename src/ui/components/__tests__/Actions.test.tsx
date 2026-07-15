@@ -11,6 +11,8 @@ const primitiveStyles = readFileSync(
   resolve("src/ui/components/primitives.module.css"),
   "utf8"
 ).replace(/\r\n/g, "\n");
+const tokenStyles = readFileSync(resolve("src/ui/tokens.css"), "utf8").replace(/\r\n/g, "\n");
+const globalUiStyles = readFileSync(resolve("src/ui/global-ui.css"), "utf8").replace(/\r\n/g, "\n");
 
 describe("action controls", () => {
   it("labels icon buttons and uses the label as the default title", () => {
@@ -73,12 +75,38 @@ describe("action controls", () => {
     ["ghost", "iconButtonGhost"],
     ["danger", "iconButtonDanger"],
     ["overlay", "iconButtonOverlay"],
+    ["minimal", "iconButtonMinimal"],
   ] as const)("applies the %s icon button variant", (variant, expectedClass) => {
     render(<IconButton aria-label={`${variant} 按钮`} icon="action.search" variant={variant} />);
 
     expect(screen.getByRole("button", { name: `${variant} 按钮` }).className).toContain(
       expectedClass
     );
+  });
+
+  it("keeps the minimal icon button borderless and color-stable while scaling on hover", () => {
+    expect(primitiveStyles).toContain(`.iconButtonMinimal {
+  background: transparent;
+  border: 0;
+  color: inherit;
+  transition:
+    opacity var(--ui-transition-gentle),
+    transform var(--ui-transition-gentle);
+}
+
+.iconButtonMinimal:hover:not(:disabled) {
+  background: transparent;
+  border: 0;
+  color: inherit;
+  transform: scale(var(--ui-motion-hover-scale));
+}
+
+.iconButtonMinimal:active:not(:disabled) {
+  transform: scale(1);
+}`);
+    expect(tokenStyles).toContain("--ui-motion-hover-scale: 1.04;");
+    expect(tokenStyles).toContain("--ui-transition-gentle: var(--ui-motion-duration-exit) ease;");
+    expect(globalUiStyles).toContain("--ui-motion-hover-scale: 1;");
   });
 
   it("exposes pressed state when provided", () => {
@@ -118,6 +146,7 @@ describe("action controls", () => {
   it.each([
     ["success", "buttonSuccess"],
     ["text", "buttonText"],
+    ["minimal", "buttonMinimal"],
     ["overlay", "buttonOverlay"],
   ] as const)("applies the %s text button variant", (variant, expectedClass) => {
     render(<Button variant={variant}>{variant} 操作</Button>);
@@ -125,6 +154,25 @@ describe("action controls", () => {
     expect(screen.getByRole("button", { name: `${variant} 操作` }).className).toContain(
       expectedClass
     );
+  });
+
+  it("keeps the minimal text button container transparent on hover", () => {
+    expect(primitiveStyles).toContain(`.buttonMinimal {
+  background: transparent;
+  border: 0;
+  color: inherit;
+  padding-inline: var(--ui-space-1);
+  transition:
+    color var(--ui-transition-gentle),
+    opacity var(--ui-transition-gentle),
+    transform var(--ui-transition-gentle);
+}
+
+.buttonMinimal:hover:not(:disabled) {
+  background: transparent;
+  border: 0;
+  color: inherit;
+}`);
   });
 
   it("supports subtle and strong overlay emphasis", () => {

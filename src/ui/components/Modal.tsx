@@ -19,6 +19,7 @@ export interface ModalProps {
   width?: "sm" | "md" | "lg" | "xl" | "xxl";
   maxWidth?: "sm" | "md" | "lg" | "xl" | "xxl";
   placement?: "center" | "left";
+  surface?: "default" | "strong";
   showCloseButton?: boolean;
   closeOnBackdrop?: boolean;
   closeOnEscape?: boolean;
@@ -28,7 +29,10 @@ export interface ModalProps {
   fullScreen?: boolean;
   compactBodyTop?: boolean;
   bodyPadding?: "default" | "compact" | "none";
+  bodyDividers?: boolean;
   bodyClassName?: string;
+  footerPadding?: "default" | "compact";
+  footerDivider?: boolean;
   closeButtonDataTour?: string;
   motion?: UiMotionMode;
   className?: string;
@@ -69,6 +73,7 @@ export function Modal({
   width = "md",
   maxWidth,
   placement = "center",
+  surface = "default",
   showCloseButton = true,
   closeOnBackdrop = false,
   closeOnEscape = true,
@@ -78,7 +83,10 @@ export function Modal({
   fullScreen = false,
   compactBodyTop = false,
   bodyPadding = "default",
+  bodyDividers = true,
   bodyClassName,
+  footerPadding = "default",
+  footerDivider = false,
   closeButtonDataTour,
   motion = "default",
   className,
@@ -194,6 +202,7 @@ export function Modal({
         ref={panelRef}
         className={classNames(
           styles.modalPanel,
+          surface === "strong" && styles.modalPanelSurfaceStrong,
           fullScreen && styles.modalPanelFullscreen,
           isLeft && styles.modalPanelLeft,
           className
@@ -235,6 +244,7 @@ export function Modal({
           <div
             className={classNames(
               styles.modalBody,
+              !bodyDividers && styles.modalBodyNoDividers,
               bodyPadding === "compact" && styles.modalBodyPaddingCompact,
               bodyPadding === "none" && styles.modalBodyPaddingNone,
               compactBodyTop && bodyPadding === "default" && styles.modalBodyCompactTop,
@@ -244,7 +254,17 @@ export function Modal({
           >
             {children}
           </div>
-          {footer && <footer className={styles.modalFooter}>{footer}</footer>}
+          {footer && (
+            <footer
+              className={classNames(
+                styles.modalFooter,
+                footerPadding === "compact" && styles.modalFooterPaddingCompact,
+                footerDivider && styles.modalFooterDivider
+              )}
+            >
+              {footer}
+            </footer>
+          )}
         </OverlayLayerBoundary>
       </section>
     </div>,

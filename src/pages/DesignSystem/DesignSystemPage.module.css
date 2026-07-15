@@ -365,6 +365,37 @@
   width: fit-content;
 }
 
+.tabsOverflowStage {
+  max-width: 380px;
+  min-width: 0;
+  width: 100%;
+}
+
+.tabsStickyStage {
+  background: var(--ui-color-bg-muted);
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-md);
+  height: 176px;
+  min-width: 0;
+  overflow: auto;
+}
+
+.tabsStickyLead {
+  align-items: center;
+  color: var(--ui-color-text-subtle);
+  display: flex;
+  font-size: var(--ui-font-size-xs);
+  height: 56px;
+  margin: 0;
+  padding: 0 var(--ui-space-3);
+}
+
+.tabsStickyContent {
+  display: grid;
+  gap: var(--ui-space-3);
+  padding: var(--ui-space-3);
+}
+
 .unpaddedCardContent {
   padding: var(--ui-space-3);
 }

@@ -47,6 +47,13 @@ import {
   useFeedback,
   type AppIconName,
   type AppIconSize,
+  type ButtonOverlayEmphasis,
+  type ButtonVariant,
+  type ConfirmDialogProps,
+  type IconButtonProps,
+  type ModalProps,
+  type RadioGroupProps,
+  type TabsProps,
   type TimePickerValue,
   type ToastMessage,
 } from "../../ui";
@@ -123,6 +130,8 @@ const MOTION_TOKENS = [
   ["--ui-motion-duration-ambient-normal", "环境动效：常规"],
   ["--ui-motion-duration-ambient-slow", "环境动效：缓慢"],
   ["--ui-motion-ease-ambient", "环境动效缓动"],
+  ["--ui-motion-hover-scale", "悬停轻微放大"],
+  ["--ui-transition-gentle", "柔和交互过渡"],
 ] as const;
 
 const RADIUS_TOKENS = [["--ui-radius-round", "全圆角"]] as const;
@@ -145,6 +154,121 @@ const DROPDOWN_GROUPS = [
     ],
   },
 ] as const;
+
+const BUTTON_OVERLAY_STATE_BY_EMPHASIS = {
+  subtle: "overlay-subtle",
+  strong: "overlay-strong",
+} satisfies Record<ButtonOverlayEmphasis, string>;
+
+const BUTTON_STATE_BY_VARIANT = {
+  primary: "primary",
+  secondary: "secondary",
+  ghost: "ghost",
+  danger: "danger",
+  success: "success",
+  text: "text",
+  minimal: "minimal",
+  overlay: "overlay",
+} satisfies Record<ButtonVariant, string>;
+
+const ICON_BUTTON_STATE_BY_VARIANT = {
+  default: "default",
+  ghost: "ghost",
+  danger: "danger",
+  overlay: "overlay",
+  minimal: "minimal",
+} satisfies Record<NonNullable<IconButtonProps["variant"]>, string>;
+
+const RADIO_GROUP_STATE_BY_VARIANT = {
+  segmented: "segmented",
+  list: "list",
+} satisfies Record<NonNullable<RadioGroupProps["variant"]>, string>;
+
+const CONFIRM_DIALOG_STATE_BY_VARIANT = {
+  default: "default",
+  danger: "danger",
+} satisfies Record<NonNullable<ConfirmDialogProps["variant"]>, string>;
+
+const MODAL_WIDTH_STATE_BY_VALUE = {
+  sm: "width-sm",
+  md: "width-md",
+  lg: "width-lg",
+  xl: "width-xl",
+  xxl: "width-xxl",
+} satisfies Record<NonNullable<ModalProps["width"]>, string>;
+
+const MODAL_PLACEMENT_STATE_BY_VALUE = {
+  center: "placement-center",
+  left: "placement-left",
+} satisfies Record<NonNullable<ModalProps["placement"]>, string>;
+
+const MODAL_SURFACE_STATE_BY_VALUE = {
+  default: "surface-default",
+  strong: "surface-strong",
+} satisfies Record<NonNullable<ModalProps["surface"]>, string>;
+
+const MODAL_BODY_PADDING_STATE_BY_VALUE = {
+  default: "body-padding-default",
+  compact: "body-padding-compact",
+  none: "body-padding-none",
+} satisfies Record<NonNullable<ModalProps["bodyPadding"]>, string>;
+
+const MODAL_FOOTER_PADDING_STATE_BY_VALUE = {
+  default: "footer-padding-default",
+  compact: "footer-padding-compact",
+} satisfies Record<NonNullable<ModalProps["footerPadding"]>, string>;
+
+const TABS_VARIANT_STATE_BY_VALUE = {
+  underlined: "underlined",
+  pill: "pill",
+  browser: "browser",
+  announcement: "announcement",
+  overlay: "overlay",
+} satisfies Record<NonNullable<TabsProps["variant"]>, string>;
+
+const TABS_SIZE_STATE_BY_VALUE = {
+  sm: "size-sm",
+  md: "size-md",
+  lg: "size-lg",
+} satisfies Record<NonNullable<TabsProps["size"]>, string>;
+
+type ModalWidth = NonNullable<ModalProps["width"]>;
+type ModalPlacement = NonNullable<ModalProps["placement"]>;
+type ModalSurface = NonNullable<ModalProps["surface"]>;
+type ModalBodyPadding = NonNullable<ModalProps["bodyPadding"]>;
+type ModalFooterPadding = NonNullable<ModalProps["footerPadding"]>;
+type ModalHeaderMode = "divider" | "flat" | "hidden";
+
+const MODAL_WIDTH_OPTIONS = (Object.keys(MODAL_WIDTH_STATE_BY_VALUE) as ModalWidth[]).map(
+  (value) => ({ value, label: value.toUpperCase() })
+);
+
+const MODAL_PLACEMENT_OPTIONS = [
+  { value: "center", label: "居中" },
+  { value: "left", label: "左侧抽屉" },
+] satisfies Array<{ value: ModalPlacement; label: string }>;
+
+const MODAL_SURFACE_OPTIONS = [
+  { value: "default", label: "默认玻璃" },
+  { value: "strong", label: "高对比玻璃" },
+] satisfies Array<{ value: ModalSurface; label: string }>;
+
+const MODAL_HEADER_OPTIONS = [
+  { value: "divider", label: "标准标题栏" },
+  { value: "flat", label: "无标题分隔" },
+  { value: "hidden", label: "隐藏标题栏" },
+] satisfies Array<{ value: ModalHeaderMode; label: string }>;
+
+const MODAL_BODY_PADDING_OPTIONS = [
+  { value: "default", label: "默认" },
+  { value: "compact", label: "紧凑" },
+  { value: "none", label: "无" },
+] satisfies Array<{ value: ModalBodyPadding; label: string }>;
+
+const MODAL_FOOTER_PADDING_OPTIONS = [
+  { value: "default", label: "默认" },
+  { value: "compact", label: "紧凑" },
+] satisfies Array<{ value: ModalFooterPadding; label: string }>;
 
 function TokenExample() {
   return (
@@ -277,17 +401,24 @@ function ButtonExample() {
         <Button variant="secondary">次要</Button>
         <Button variant="ghost">幽灵</Button>
         <Button variant="text">文本</Button>
+        <Button variant="minimal">极简</Button>
         <Button variant="success">成功</Button>
         <Button variant="danger">危险</Button>
       </Inline>
       <div className={styles.overlayStage}>
         <Inline>
-          <Button variant="overlay" overlayEmphasis="subtle" icon="action.configure">
-            弱覆盖层
-          </Button>
-          <Button variant="overlay" overlayEmphasis="strong" icon="action.apply">
-            强覆盖层
-          </Button>
+          {(Object.keys(BUTTON_OVERLAY_STATE_BY_EMPHASIS) as ButtonOverlayEmphasis[]).map(
+            (emphasis) => (
+              <Button
+                key={emphasis}
+                variant="overlay"
+                overlayEmphasis={emphasis}
+                icon={emphasis === "strong" ? "action.apply" : "action.configure"}
+              >
+                {emphasis === "strong" ? "强覆盖层" : "弱覆盖层"}
+              </Button>
+            )
+          )}
         </Inline>
       </div>
       <Inline>
@@ -311,6 +442,7 @@ function IconButtonExample() {
         <IconButton icon="action.configure" aria-label="小型默认设置按钮" size="sm" />
         <IconButton icon="feature.audio" aria-label="中型幽灵声音按钮" size="md" variant="ghost" />
         <IconButton icon="action.delete" aria-label="大型危险删除按钮" size="lg" variant="danger" />
+        <IconButton icon="status.help" aria-label="极简 HUD 帮助按钮" variant="minimal" />
         <IconButton icon="feature.notification" aria-label="已选择通知按钮" pressed />
         <IconButton icon="feature.sync" aria-label="加载同步按钮" loading />
         <IconButton icon="feature.weather" aria-label="禁用天气按钮" disabled />
@@ -328,6 +460,7 @@ function IconButtonExample() {
 function SelectionExample() {
   const [checked, setChecked] = useState(true);
   const [radio, setRadio] = useState("auto");
+  const [listRadio, setListRadio] = useState("day");
   const [switchValue, setSwitchValue] = useState(true);
 
   return (
@@ -349,6 +482,18 @@ function SelectionExample() {
           { value: "auto", label: "自动" },
           { value: "manual", label: "手动" },
           { value: "locked", label: "锁定", disabled: true },
+        ]}
+      />
+      <RadioGroup
+        label="列表模式"
+        variant="list"
+        value={listRadio}
+        onChange={setListRadio}
+        error="“计划进度”暂不可用"
+        options={[
+          { value: "day", label: "24 小时进度" },
+          { value: "schedule", label: "课时与课间进度" },
+          { value: "plan", label: "计划进度", disabled: true },
         ]}
       />
       <Stack>
@@ -636,24 +781,39 @@ function ToastViewportExample() {
 }
 
 function ConfirmDialogExample() {
-  const [open, setOpen] = useState(false);
+  const [openVariant, setOpenVariant] = useState<NonNullable<ConfirmDialogProps["variant"]> | null>(
+    null
+  );
   const [pending, setPending] = useState(false);
 
   return (
     <Inline>
-      <Button variant="danger" onClick={() => setOpen(true)}>
+      <Button variant="primary" onClick={() => setOpenVariant("default")}>
+        打开常规确认
+      </Button>
+      <Button variant="danger" onClick={() => setOpenVariant("danger")}>
         打开危险确认
       </Button>
       <Switch checked={pending} onCheckedChange={setPending} label="待处理状态" />
       <ConfirmDialog
-        isOpen={open}
+        isOpen={openVariant === "default"}
+        title="应用组件设置？"
+        description="常规确认使用主要操作按钮，并将取消操作作为初始焦点。"
+        confirmLabel="应用"
+        variant="default"
+        pending={pending}
+        onCancel={() => setOpenVariant(null)}
+        onConfirm={() => setOpenVariant(null)}
+      />
+      <ConfirmDialog
+        isOpen={openVariant === "danger"}
         title="删除本地记录？"
         description="此操作仅用于展示真实确认对话框，不会修改任何数据。"
         confirmLabel="删除"
         variant="danger"
         pending={pending}
-        onCancel={() => setOpen(false)}
-        onConfirm={() => setOpen(false)}
+        onCancel={() => setOpenVariant(null)}
+        onConfirm={() => setOpenVariant(null)}
       />
     </Inline>
   );
@@ -702,29 +862,82 @@ function FeedbackProviderExample() {
 
 function ModalExample() {
   const [open, setOpen] = useState(false);
-  const [padding, setPadding] = useState<"default" | "compact" | "none">("compact");
+  const [width, setWidth] = useState<ModalWidth>("sm");
+  const [placement, setPlacement] = useState<ModalPlacement>("center");
+  const [surface, setSurface] = useState<ModalSurface>("default");
+  const [headerMode, setHeaderMode] = useState<ModalHeaderMode>("divider");
+  const [fullScreen, setFullScreen] = useState(false);
+  const [bodyPadding, setBodyPadding] = useState<ModalBodyPadding>("compact");
+  const [bodyDividers, setBodyDividers] = useState(true);
+  const [footerPadding, setFooterPadding] = useState<ModalFooterPadding>("default");
+  const [footerDivider, setFooterDivider] = useState(false);
 
   return (
     <Stack>
-      <RadioGroup
-        ariaLabel="弹窗正文内边距"
-        value={padding}
-        onChange={setPadding}
-        options={[
-          { value: "default", label: "默认" },
-          { value: "compact", label: "紧凑" },
-          { value: "none", label: "无" },
-        ]}
-      />
+      <Grid minColumnWidth={180}>
+        <Select
+          label="宽度"
+          value={width}
+          options={MODAL_WIDTH_OPTIONS}
+          onChange={(event) => setWidth(event.target.value as ModalWidth)}
+        />
+        <Select
+          label="位置"
+          value={placement}
+          options={MODAL_PLACEMENT_OPTIONS}
+          onChange={(event) => setPlacement(event.target.value as ModalPlacement)}
+        />
+        <Select
+          label="表面"
+          value={surface}
+          options={MODAL_SURFACE_OPTIONS}
+          onChange={(event) => setSurface(event.target.value as ModalSurface)}
+        />
+        <Select
+          label="标题栏"
+          value={headerMode}
+          options={MODAL_HEADER_OPTIONS}
+          onChange={(event) => setHeaderMode(event.target.value as ModalHeaderMode)}
+        />
+        <Select
+          label="正文内边距"
+          value={bodyPadding}
+          options={MODAL_BODY_PADDING_OPTIONS}
+          onChange={(event) => setBodyPadding(event.target.value as ModalBodyPadding)}
+        />
+        <Select
+          label="页脚内边距"
+          value={footerPadding}
+          options={MODAL_FOOTER_PADDING_OPTIONS}
+          onChange={(event) => setFooterPadding(event.target.value as ModalFooterPadding)}
+        />
+        <Stack gap="sm">
+          <Switch checked={fullScreen} onCheckedChange={setFullScreen} label="全屏弹窗" />
+          <Switch checked={bodyDividers} onCheckedChange={setBodyDividers} label="显示正文分隔线" />
+          <Switch
+            checked={footerDivider}
+            onCheckedChange={setFooterDivider}
+            label="显示页脚分隔线"
+          />
+        </Stack>
+      </Grid>
       <Button variant="primary" onClick={() => setOpen(true)}>
         打开弹窗
       </Button>
       <Modal
         isOpen={open}
         title="弹窗组件"
-        width="sm"
-        bodyPadding={padding}
+        width={width}
+        placement={placement}
+        surface={surface}
+        headerDivider={headerMode === "divider"}
+        hideHeader={headerMode === "hidden"}
+        fullScreen={fullScreen}
+        bodyPadding={bodyPadding}
+        bodyDividers={bodyDividers}
         bodyClassName={styles.modalBodyExample}
+        footerPadding={footerPadding}
+        footerDivider={footerDivider}
         onClose={() => setOpen(false)}
         footer={
           <Inline justify="flex-end">
@@ -735,7 +948,14 @@ function ModalExample() {
           </Inline>
         }
       >
-        <p className={styles.muted}>真实 Portal、焦点圈定、Escape 和焦点恢复行为。</p>
+        <Stack gap="sm">
+          <p className={styles.muted}>真实 Portal、焦点圈定、Escape 和焦点恢复行为。</p>
+          <Inline gap="sm">
+            <StatusPill tone="accent">{width.toUpperCase()}</StatusPill>
+            <StatusPill tone="neutral">{placement === "left" ? "左侧" : "居中"}</StatusPill>
+            <StatusPill tone="neutral">{fullScreen ? "全屏" : "窗口"}</StatusPill>
+          </Inline>
+        </Stack>
       </Modal>
     </Stack>
   );
@@ -833,14 +1053,15 @@ function TabsStatesExample() {
     { value: "forms", label: "表单" },
   ];
   const rows = [
-    { id: "sm", label: "小", size: "sm" as const, items },
+    { id: "sm", label: "小", size: "sm" as const, items, scrollable: true },
     {
       id: "md",
       label: "中",
       size: "md" as const,
       items: [...items, { value: "disabled", label: "禁用", disabled: true }],
+      scrollable: true,
     },
-    { id: "lg", label: "大", size: "lg" as const, items },
+    { id: "lg", label: "大 / 静态", size: "lg" as const, items, scrollable: false },
   ];
 
   return (
@@ -855,6 +1076,7 @@ function TabsStatesExample() {
             <Tabs
               label={`${entry.label}尺寸选项卡`}
               size={entry.size}
+              scrollable={entry.scrollable}
               value={value}
               onChange={setValue}
               items={entry.items}
@@ -863,6 +1085,63 @@ function TabsStatesExample() {
         </div>
       ))}
     </div>
+  );
+}
+
+function TabsOverflowExample() {
+  const [overflowValue, setOverflowValue] = useState("overview");
+  const [stickyValue, setStickyValue] = useState("overview");
+  const overflowItems = [
+    { value: "overview", label: "组件总览" },
+    { value: "interaction", label: "交互与键盘行为" },
+    { value: "responsive", label: "响应式与窄屏布局" },
+    { value: "accessibility", label: "无障碍语义" },
+    { value: "visual", label: "视觉回归基线" },
+  ];
+  const stickyItems = [
+    { value: "overview", label: "总览" },
+    { value: "interaction", label: "交互" },
+    { value: "responsive", label: "响应式" },
+  ];
+
+  return (
+    <Grid minColumnWidth={280}>
+      <Stack gap="sm">
+        <strong>横向溢出</strong>
+        <div className={styles.tabsOverflowStage}>
+          <Tabs
+            label="横向滚动选项卡"
+            scrollable
+            value={overflowValue}
+            onChange={setOverflowValue}
+            items={overflowItems}
+          />
+        </div>
+      </Stack>
+      <Stack gap="sm">
+        <strong>滚动容器内吸顶</strong>
+        <div
+          className={styles.tabsStickyStage}
+          ref={(element) => {
+            if (element && element.scrollTop === 0) element.scrollTop = 56;
+          }}
+        >
+          <p className={styles.tabsStickyLead}>滚动前内容</p>
+          <Tabs
+            label="吸顶选项卡"
+            sticky
+            scrollable
+            value={stickyValue}
+            onChange={setStickyValue}
+            items={stickyItems}
+          />
+          <div className={styles.tabsStickyContent}>
+            <InfoPanel title="当前区域">吸顶导航会保留在滚动容器顶部。</InfoPanel>
+            <InfoPanel title="后续内容">继续滚动时，选项卡仍保持可见。</InfoPanel>
+          </div>
+        </div>
+      </Stack>
+    </Grid>
   );
 }
 
@@ -985,13 +1264,20 @@ function MetricsInfoExample() {
   );
 }
 
-function SettingsShellDemo({ variant }: { variant?: "drawer" }) {
+function SettingsShellDemo({
+  variant,
+  disabled = false,
+}: {
+  variant?: "drawer";
+  disabled?: boolean;
+}) {
   const [activeItem, setActiveItem] = useState("appearance");
 
   return (
     <SettingsShell
       variant={variant}
-      title="设置中心"
+      title={disabled ? "设置中心（整体禁用）" : "设置中心"}
+      disabled={disabled}
       contentTitle="显示与外观"
       contentDescription="分组导航、紧凑 rail 和移动端抽屉由公共组合统一处理。"
       activeItem={activeItem}
@@ -1017,6 +1303,14 @@ function SettingsShellDemo({ variant }: { variant?: "drawer" }) {
             { value: "audio", label: "声音", icon: "feature.audio", disabled: true },
           ],
         },
+        {
+          value: "experiments",
+          label: "实验功能",
+          description: "当前环境不可用",
+          icon: "feature.data",
+          disabled: true,
+          items: [{ value: "sync-lab", label: "同步实验", icon: "feature.sync" }],
+        },
       ]}
       footer={
         <Inline justify="flex-end">
@@ -1039,6 +1333,10 @@ function SettingsShellExample() {
 
 function SettingsShellDrawerExample() {
   return <SettingsShellDemo variant="drawer" />;
+}
+
+function SettingsShellDisabledExample() {
+  return <SettingsShellDemo disabled />;
 }
 
 function PortalExample() {
@@ -1169,13 +1467,8 @@ export const COMPONENT_CATALOG: readonly ComponentCatalogEntry[] = [
     kind: "visual",
     publicExports: ["Button"],
     requiredStates: [
-      "primary",
-      "secondary",
-      "ghost",
-      "text",
-      "overlay",
-      "success",
-      "danger",
+      ...Object.values(BUTTON_STATE_BY_VARIANT),
+      ...Object.values(BUTTON_OVERLAY_STATE_BY_EMPHASIS),
       "sizes",
       "icon",
       "loading",
@@ -1187,13 +1480,8 @@ export const COMPONENT_CATALOG: readonly ComponentCatalogEntry[] = [
         "button-matrix",
         "公开状态",
         [
-          "primary",
-          "secondary",
-          "ghost",
-          "text",
-          "overlay",
-          "success",
-          "danger",
+          ...Object.values(BUTTON_STATE_BY_VARIANT),
+          ...Object.values(BUTTON_OVERLAY_STATE_BY_EMPHASIS),
           "sizes",
           "icon",
           "loading",
@@ -1212,10 +1500,7 @@ export const COMPONENT_CATALOG: readonly ComponentCatalogEntry[] = [
     kind: "visual",
     publicExports: ["IconButton"],
     requiredStates: [
-      "default",
-      "ghost",
-      "danger",
-      "overlay",
+      ...Object.values(ICON_BUTTON_STATE_BY_VARIANT),
       "size-sm",
       "size-md",
       "size-lg",
@@ -1228,10 +1513,7 @@ export const COMPONENT_CATALOG: readonly ComponentCatalogEntry[] = [
         "icon-button-matrix",
         "公开状态",
         [
-          "default",
-          "ghost",
-          "danger",
-          "overlay",
+          ...Object.values(ICON_BUTTON_STATE_BY_VARIANT),
           "size-sm",
           "size-md",
           "size-lg",
@@ -1250,12 +1532,24 @@ export const COMPONENT_CATALOG: readonly ComponentCatalogEntry[] = [
     section: "actions",
     kind: "visual",
     publicExports: ["Checkbox", "RadioGroup", "Switch"],
-    requiredStates: ["checked", "unchecked", "segmented", "disabled", "error"],
+    requiredStates: [
+      "checked",
+      "unchecked",
+      ...Object.values(RADIO_GROUP_STATE_BY_VARIANT),
+      "disabled",
+      "error",
+    ],
     examples: [
       makeExample(
         "selection-matrix",
         "选择状态",
-        ["checked", "unchecked", "segmented", "disabled", "error"],
+        [
+          "checked",
+          "unchecked",
+          ...Object.values(RADIO_GROUP_STATE_BY_VARIANT),
+          "disabled",
+          "error",
+        ],
         SelectionExample
       ),
     ],
@@ -1457,12 +1751,18 @@ export const COMPONENT_CATALOG: readonly ComponentCatalogEntry[] = [
     section: "feedback",
     kind: "behavior",
     publicExports: ["ConfirmDialog"],
-    requiredStates: ["closed", "open", "danger", "pending", "focus"],
+    requiredStates: [
+      "closed",
+      "open",
+      ...Object.values(CONFIRM_DIALOG_STATE_BY_VARIANT),
+      "pending",
+      "focus",
+    ],
     examples: [
       makeExample(
         "confirm-dialog-interactive",
         "可操作确认",
-        ["closed", "open", "danger", "pending", "focus"],
+        ["closed", "open", ...Object.values(CONFIRM_DIALOG_STATE_BY_VARIANT), "pending", "focus"],
         ConfirmDialogExample
       ),
     ],
@@ -1493,12 +1793,48 @@ export const COMPONENT_CATALOG: readonly ComponentCatalogEntry[] = [
     section: "feedback",
     kind: "behavior",
     publicExports: ["Modal"],
-    requiredStates: ["closed", "open", "escape", "focus-restore", "body-padding", "footer"],
+    requiredStates: [
+      "closed",
+      "open",
+      "escape",
+      "focus-restore",
+      ...Object.values(MODAL_WIDTH_STATE_BY_VALUE),
+      ...Object.values(MODAL_PLACEMENT_STATE_BY_VALUE),
+      ...Object.values(MODAL_SURFACE_STATE_BY_VALUE),
+      "header-divider",
+      "header-flat",
+      "header-hidden",
+      "fullscreen",
+      ...Object.values(MODAL_BODY_PADDING_STATE_BY_VALUE),
+      "body-dividers-on",
+      "body-dividers-off",
+      ...Object.values(MODAL_FOOTER_PADDING_STATE_BY_VALUE),
+      "footer-divider",
+      "footer",
+    ],
     examples: [
       makeExample(
         "modal-interactive",
         "可操作弹窗",
-        ["closed", "open", "escape", "focus-restore", "body-padding", "footer"],
+        [
+          "closed",
+          "open",
+          "escape",
+          "focus-restore",
+          ...Object.values(MODAL_WIDTH_STATE_BY_VALUE),
+          ...Object.values(MODAL_PLACEMENT_STATE_BY_VALUE),
+          ...Object.values(MODAL_SURFACE_STATE_BY_VALUE),
+          "header-divider",
+          "header-flat",
+          "header-hidden",
+          "fullscreen",
+          ...Object.values(MODAL_BODY_PADDING_STATE_BY_VALUE),
+          "body-dividers-on",
+          "body-dividers-off",
+          ...Object.values(MODAL_FOOTER_PADDING_STATE_BY_VALUE),
+          "footer-divider",
+          "footer",
+        ],
         ModalExample
       ),
     ],
@@ -1554,28 +1890,34 @@ export const COMPONENT_CATALOG: readonly ComponentCatalogEntry[] = [
     kind: "behavior",
     publicExports: ["Tabs"],
     requiredStates: [
-      "underlined",
-      "pill",
-      "browser",
-      "announcement",
-      "overlay",
-      "sizes",
+      ...Object.values(TABS_VARIANT_STATE_BY_VALUE),
+      ...Object.values(TABS_SIZE_STATE_BY_VALUE),
       "selected",
       "disabled",
       "keyboard",
+      "scrollable",
+      "static",
+      "sticky",
+      "overflow",
     ],
     examples: [
       makeExample(
         "tabs-variants",
         "变体对比",
-        ["underlined", "pill", "browser", "announcement", "overlay", "selected"],
+        [...Object.values(TABS_VARIANT_STATE_BY_VALUE), "selected"],
         TabsVariantsExample
       ),
       makeExample(
         "tabs-states",
         "尺寸与状态",
-        ["sizes", "disabled", "keyboard"],
+        [...Object.values(TABS_SIZE_STATE_BY_VALUE), "disabled", "keyboard", "static"],
         TabsStatesExample
+      ),
+      makeExample(
+        "tabs-overflow",
+        "滚动与吸顶",
+        ["scrollable", "sticky", "overflow"],
+        TabsOverflowExample
       ),
     ],
   },
@@ -1640,7 +1982,9 @@ export const COMPONENT_CATALOG: readonly ComponentCatalogEntry[] = [
     requiredStates: [
       "groups",
       "active",
-      "disabled",
+      "group-disabled",
+      "item-disabled",
+      "shell-disabled",
       "content",
       "footer",
       "responsive",
@@ -1652,7 +1996,16 @@ export const COMPONENT_CATALOG: readonly ComponentCatalogEntry[] = [
       makeExample(
         "settings-shell-grouped",
         "默认分组设置骨架",
-        ["groups", "active", "disabled", "content", "footer", "responsive", "default"],
+        [
+          "groups",
+          "active",
+          "group-disabled",
+          "item-disabled",
+          "content",
+          "footer",
+          "responsive",
+          "default",
+        ],
         SettingsShellExample
       ),
       makeExample(
@@ -1660,6 +2013,12 @@ export const COMPONENT_CATALOG: readonly ComponentCatalogEntry[] = [
         "Modal 内嵌抽屉",
         ["drawer", "compact", "responsive"],
         SettingsShellDrawerExample
+      ),
+      makeExample(
+        "settings-shell-disabled",
+        "整体禁用",
+        ["shell-disabled"],
+        SettingsShellDisabledExample
       ),
     ],
   },

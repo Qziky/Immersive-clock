@@ -59,19 +59,21 @@
   - 噪音切片 IndexedDB 幂等迁移、事务失败回退、索引读写、保留期限、原子替换、元数据与事件通知：[noiseSliceService.test.ts](file:///d:/Desktop/Immersive-clock/src/utils/__tests__/noiseSliceService.test.ts) → [noiseSliceService.ts](file:///d:/Desktop/Immersive-clock/src/utils/noiseSliceService.ts) / [db.ts](file:///d:/Desktop/Immersive-clock/src/utils/db.ts)
   - 噪音评分引擎：[noiseScoreEngine.test.ts](file:///d:/Desktop/Immersive-clock/src/utils/__tests__/noiseScoreEngine.test.ts) → [noiseScoreEngine.ts](file:///d:/Desktop/Immersive-clock/src/utils/noiseScoreEngine.ts)
   - 噪音历史构建：[noiseHistoryBuilder.test.ts](file:///d:/Desktop/Immersive-clock/src/utils/__tests__/noiseHistoryBuilder.test.ts) → [noiseHistoryBuilder.ts](file:///d:/Desktop/Immersive-clock/src/utils/noiseHistoryBuilder.ts)
+  - 噪音报告单图/三图切换、主图评分与事件叠加层、可访问图表数量和偏好持久化：`src/components/NoiseReportModal/__tests__/NoiseReportModal.test.tsx` → `src/components/NoiseReportModal/NoiseReportModal.tsx`
 - **公告**
   - 公告隐藏一周逻辑/版本强制显示：[announcementStorage.test.ts](file:///d:/Desktop/Immersive-clock/src/utils/__tests__/announcementStorage.test.ts) → [announcementStorage.ts](file:///d:/Desktop/Immersive-clock/src/utils/announcementStorage.ts)
 - **通用**
-  - UI Catalog 的 43 个运行时公共导出精确匹配、登记唯一性、示例 ID、必需状态及非视觉基础设施覆盖：`src/pages/DesignSystem/__tests__/componentCatalog.test.tsx` → `src/pages/DesignSystem/componentCatalog.tsx` / `src/ui/index.ts`
+  - UI Catalog 的 43 个运行时公共导出精确匹配、登记唯一性、示例 ID、必需状态双向精确覆盖、公开联合类型穷尽映射及非视觉基础设施关系：`src/pages/DesignSystem/__tests__/componentCatalog.test.tsx` → `src/pages/DesignSystem/componentCatalog.tsx` / `src/ui/index.ts`
   - 语义图标注册表全量渲染、尺寸令牌、`currentColor`、固定描边和装饰性无障碍属性：`src/ui/icons/__tests__/AppIcon.test.tsx` → `src/ui/icons/AppIcon.tsx` / `src/ui/icons/appIconRegistry.ts`
-  - Button/IconButton 语义图标槽、加载态名称、尺寸、危险变体、`aria-pressed`，以及 Modal、Toast、Stepper 纯图标宿主：`src/ui/components/__tests__/Actions.test.tsx` → `src/ui/components/Button.tsx` / `src/ui/components/IconButton.tsx`
+  - Button/IconButton 语义图标槽、加载态名称、尺寸、危险与极简变体、HUD hover 颜色稳定与柔和放大反馈、透明文字命令及 `aria-pressed`：`src/ui/components/__tests__/Actions.test.tsx` → `src/ui/components/Button.tsx` / `src/ui/components/IconButton.tsx`
   - 日志封装：[logger.test.ts](file:///d:/Desktop/Immersive-clock/src/utils/__tests__/logger.test.ts) → [logger.ts](file:///d:/Desktop/Immersive-clock/src/utils/logger.ts)
   - 时间格式化工具：[formatTime.test.ts](file:///d:/Desktop/Immersive-clock/src/utils/__tests__/formatTime.test.ts) → [formatTime.ts](file:///d:/Desktop/Immersive-clock/src/utils/formatTime.ts)
-  - Modal Portal UI scope、背景 `inert`、初始焦点、焦点圈定/恢复、`closeOnEscape`、顶层 Escape/遮罩响应与焦点交接、底层 Modal 的 `inert`/`aria-hidden`、嵌套与同级浮层栈、Dropdown 层级和左侧抽屉 placement：[Modal.test.tsx](file:///d:/Desktop/Immersive-clock/src/ui/components/__tests__/Modal.test.tsx) → [Modal.tsx](file:///d:/Desktop/Immersive-clock/src/ui/components/Modal.tsx) / [overlayStack.ts](file:///d:/Desktop/Immersive-clock/src/ui/utils/overlayStack.ts) / [Dropdown.tsx](file:///d:/Desktop/Immersive-clock/src/ui/components/Dropdown.tsx)
+  - Modal Portal UI scope、背景 `inert`、初始焦点、焦点圈定/恢复、`closeOnEscape`、顶层 Escape/遮罩响应与焦点交接、底层 Modal 的 `inert`/`aria-hidden`、嵌套与同级浮层栈、Dropdown 层级、左侧抽屉 placement，以及正文/底栏密度、分隔线与表面状态：[Modal.test.tsx](file:///d:/Desktop/Immersive-clock/src/ui/components/__tests__/Modal.test.tsx) → [Modal.tsx](file:///d:/Desktop/Immersive-clock/src/ui/components/Modal.tsx) / [overlayStack.ts](file:///d:/Desktop/Immersive-clock/src/ui/utils/overlayStack.ts) / [Dropdown.tsx](file:///d:/Desktop/Immersive-clock/src/ui/components/Dropdown.tsx)
   - Dropdown 的受控/非受控选择、ghost 状态、显式菜单宽度、上下翻转、视口钳制、Escape 焦点恢复及外部点击焦点保留：`src/ui/components/__tests__/Dropdown.test.tsx` → `src/ui/components/Dropdown.tsx`
+  - RadioGroup 的受控回写、segmented/list 结构、禁用与错误状态：`src/ui/components/__tests__/RadioGroup.test.tsx` → `src/ui/components/RadioGroup.tsx`
   - Popover/Menu 的上下翻转、四边钳制、动态尺寸重定位，以及 Tooltip 长文本的窄屏水平钳制：`src/ui/components/__tests__/Popover.test.tsx` + `src/ui/components/__tests__/Tooltip.test.tsx` → `src/ui/components/Popover.tsx` / `src/ui/components/Tooltip.tsx`
   - SettingsShell 分组展开、每组最近条目、紧凑 rail/子菜单、遮罩、Escape 焦点恢复、drawer variant 和减少动态效果：`src/ui/components/__tests__/SettingsShell.test.tsx` → `src/ui/components/SettingsShell.tsx`
-  - Tabs 可访问属性、禁用态、roving tabindex、左右键与 Home/End 键盘导航：[Tabs.test.tsx](file:///d:/Desktop/Immersive-clock/src/ui/components/__tests__/Tabs.test.tsx) → [Tabs.tsx](file:///d:/Desktop/Immersive-clock/src/ui/components/Tabs.tsx)
+  - Tabs 可访问属性、禁用态、roving tabindex、左右键与 Home/End 键盘导航，以及 announcement/sticky/static 布局状态：[Tabs.test.tsx](file:///d:/Desktop/Immersive-clock/src/ui/components/__tests__/Tabs.test.tsx) → [Tabs.tsx](file:///d:/Desktop/Immersive-clock/src/ui/components/Tabs.tsx)
   - Feedback/Toast/Confirm：三条可见队列、Portal scope、悬停/聚焦续时、同 ID 原位更新并重置计时、带操作通知常驻、手动关闭、异步确认结果与安全操作初始焦点：[Feedback.test.tsx](file:///d:/Desktop/Immersive-clock/src/ui/components/__tests__/Feedback.test.tsx) → [Feedback.tsx](file:///d:/Desktop/Immersive-clock/src/ui/components/Feedback.tsx) / [ToastViewport.tsx](file:///d:/Desktop/Immersive-clock/src/ui/components/ToastViewport.tsx) / [ConfirmDialog.tsx](file:///d:/Desktop/Immersive-clock/src/ui/components/ConfirmDialog.tsx)
   - UI 基础契约：`FormSection variant="plain"`、危险 Toast 的 `role="alert"`、通用 Portal UI scope：[Foundation.test.tsx](file:///d:/Desktop/Immersive-clock/src/ui/components/__tests__/Foundation.test.tsx) → [FormComponents.tsx](file:///d:/Desktop/Immersive-clock/src/ui/components/FormComponents.tsx) / [Toast.tsx](file:///d:/Desktop/Immersive-clock/src/ui/components/Toast.tsx) / [Accessibility.tsx](file:///d:/Desktop/Immersive-clock/src/ui/components/Accessibility.tsx)
   - UI presence 保留时长、显式关闭动效、初始及运行时 `prefers-reduced-motion` 响应：[usePresence.test.tsx](file:///d:/Desktop/Immersive-clock/src/ui/utils/__tests__/usePresence.test.tsx) → [usePresence.ts](file:///d:/Desktop/Immersive-clock/src/ui/utils/usePresence.ts)
@@ -99,13 +101,17 @@
 - 设置分组导航、进度与提示信息统一列表、天气独立显示、遮罩不可关闭、移动全屏纵向紧凑导航与当前项滚动，以及目标年份、错误中心和内联课程表的统一保存/取消：[settings-persistence.e2e.spec.ts](file:///d:/Desktop/Immersive-clock/tests/e2e/settings-persistence.e2e.spec.ts)
 - 设置抽屉进出轨迹、页面标题到分组和设置项的入场顺序、条件内容进入、移动子菜单 presence、横向溢出和浏览器减少动效行为：[settings-motion.e2e.spec.ts](file:///d:/Desktop/Immersive-clock/tests/e2e/settings-motion.e2e.spec.ts)
 - 公告 320px Tabs/问卷边界/底栏说明，噪音历史折叠与字段错误、报告空态/有数据态、SVG 可访问描述，以及 Toast 右下角定位/底栏避让/Modal 层级：[modal-redesign.e2e.spec.ts](file:///d:/Desktop/Immersive-clock/tests/e2e/modal-redesign.e2e.spec.ts)
-- 固定时间、禁用动效的设置与外观编辑器三视口快照、语录渠道桌面/移动快照、默认/纯黑/自定义主背景快照，以及主界面和自习页图标在 1440px/390px/320px 的视觉基线：[visual-regression.e2e.spec.ts](file:///d:/Desktop/Immersive-clock/tests/e2e/visual-regression.e2e.spec.ts)
-- DesignSystem Catalog 各 section、浮层固定打开态及 `1440×900`、`390×844`、`320×568` 的 Windows Edge 视觉基线：`tests/e2e/design-system-visual.e2e.spec.ts`
+- 固定时间、禁用动效的设置与外观编辑器三视口快照、语录渠道桌面/移动快照、默认/纯黑/自定义主背景快照，以及主界面和自习页图标在 1440px/390px/320px 的视觉基线、左下角指引按钮视口边界、极简 HUD hover 放大/颜色稳定性与版本号透明 hover 表面：[visual-regression.e2e.spec.ts](file:///d:/Desktop/Immersive-clock/tests/e2e/visual-regression.e2e.spec.ts)
+- DesignSystem Catalog 各 section、浮层固定打开态及 `1440×900`、`390×844`、`320×568` 的 Windows Edge 串行视觉基线：`tests/e2e/design-system-visual.e2e.spec.ts`
 
 ## UI 治理门禁
 
-- ESLint 禁止业务 TSX 新增原生公共控件、直接导入 `lucide-react` 或深层导入任意
-  `src/ui/**` 子路径；测试、`src/ui` 及 DesignSystem 的图标注册表审计不受深层导入限制。
+- ESLint 禁止全部非测试业务 TSX 新增原生公共控件、直接导入 `lucide-react` 或深层导入任意
+  `src/ui/**` 子路径；仅 `src/ui` 实现、测试夹具和 Catalog 对
+  `src/ui/icons/appIconRegistry` 的精确导入不受对应限制。
+- UI governance 契约测试精确锁定两处带说明的原生按钮例外、唯一 Catalog 深层导入，并用
+  ESLint 配置探针覆盖 App、components、contexts、hooks、pages、组件库与测试范围：
+  `src/ui/__tests__/uiGovernance.test.ts` → `eslint.config.cjs`。
 - Stylelint 禁止业务 CSS 通过 `[data-ui-*]`、`[aria-*]` 或 `[role]` 重绘公共组件，并禁止
   未登记文件新增命名色或其他硬编码颜色。领域数据色与第三方适配例外逐文件记录在
   `stylelint.config.cjs`，路径与原因记录在 `docs/wiki/development.md`。

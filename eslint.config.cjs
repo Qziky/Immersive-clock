@@ -8,6 +8,25 @@ const globals = require("globals");
 const { FlatCompat } = require("@eslint/eslintrc");
 const compat = new FlatCompat({ baseDirectory: __dirname });
 
+const businessTsxFiles = ["src/**/*.tsx"];
+const businessTsxIgnores = [
+  "src/ui/**",
+  "src/**/__tests__/**",
+  "src/**/*.test.tsx",
+  "src/**/*.spec.tsx",
+];
+const restrictedIconImports = [
+  {
+    name: "lucide-react",
+    message: "请使用 src/ui 导出的 AppIcon 与语义 AppIconName",
+  },
+];
+const restrictedUiDeepImport = {
+  group: ["**/ui/**"],
+  message: "业务代码必须从 src/ui 公共入口导入；通用工具请从 src/utils 导入",
+};
+const prettierRule = ["warn", { endOfLine: "auto" }];
+
 module.exports = [
   js.configs.recommended,
   ...compat.extends(
@@ -20,7 +39,7 @@ module.exports = [
   ),
   {
     rules: {
-      "prettier/prettier": "warn",
+      "prettier/prettier": prettierRule,
     },
   },
   {
@@ -41,17 +60,12 @@ module.exports = [
       "@typescript-eslint": tsPlugin,
     },
     rules: {
-      "prettier/prettier": "warn",
+      "prettier/prettier": prettierRule,
       "no-console": ["warn", { allow: ["warn", "error"] }],
       "no-restricted-imports": [
         "error",
         {
-          paths: [
-            {
-              name: "lucide-react",
-              message: "请使用 src/ui 导出的 AppIcon 与语义 AppIconName",
-            },
-          ],
+          paths: restrictedIconImports,
         },
       ],
       "react/react-in-jsx-scope": "off",
@@ -89,8 +103,8 @@ module.exports = [
     },
   },
   {
-    files: ["src/components/**/*.tsx", "src/pages/**/*.tsx"],
-    ignores: ["src/**/__tests__/**", "src/**/*.test.tsx", "src/**/*.spec.tsx"],
+    files: businessTsxFiles,
+    ignores: businessTsxIgnores,
     rules: {
       "react/forbid-elements": [
         "error",
@@ -118,27 +132,30 @@ module.exports = [
     },
   },
   {
-    files: ["src/components/**/*.tsx", "src/pages/**/*.tsx"],
-    ignores: [
-      "src/**/__tests__/**",
-      "src/**/*.test.tsx",
-      "src/**/*.spec.tsx",
-      "src/pages/DesignSystem/**",
-    ],
+    files: businessTsxFiles,
+    ignores: [...businessTsxIgnores, "src/pages/DesignSystem/componentCatalog.tsx"],
     rules: {
       "no-restricted-imports": [
         "error",
         {
-          paths: [
-            {
-              name: "lucide-react",
-              message: "请使用 src/ui 导出的 AppIcon 与语义 AppIconName",
-            },
-          ],
+          paths: restrictedIconImports,
+          patterns: [restrictedUiDeepImport],
+        },
+      ],
+    },
+  },
+  {
+    files: ["src/pages/DesignSystem/componentCatalog.tsx"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          paths: restrictedIconImports,
           patterns: [
             {
-              group: ["**/ui/**"],
-              message: "业务代码必须从 src/ui 公共入口导入；通用工具请从 src/utils 导入",
+              regex: "^(?!\\.\\./\\.\\./ui/icons/appIconRegistry$)(?:.*\\/)?ui\\/",
+              message:
+                "Catalog 仅可深层导入 src/ui/icons/appIconRegistry；其他导出必须使用 src/ui 公共入口",
             },
           ],
         },

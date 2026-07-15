@@ -20,6 +20,8 @@ const SCREENSHOT_OPTIONS = {
   maxDiffPixelRatio: 0.01,
 };
 
+test.describe.configure({ mode: "serial" });
+
 test.beforeEach(({ browserName }, testInfo) => {
   test.skip(
     testInfo.project.name !== "msedge" || browserName !== "chromium",

@@ -249,4 +249,36 @@ describe("Modal", () => {
     expect(body?.className).toContain(expectedClass);
     expect(body).toHaveClass("consumer-body");
   });
+
+  it("applies public footer padding and divider options", () => {
+    render(
+      <Modal
+        isOpen
+        title="紧凑底栏"
+        footer={<span>底栏操作</span>}
+        footerDivider
+        footerPadding="compact"
+        onClose={vi.fn()}
+      >
+        内容
+      </Modal>
+    );
+
+    const footer = screen.getByText("底栏操作").closest("footer");
+    expect(footer?.className).toContain("modalFooterPaddingCompact");
+    expect(footer?.className).toContain("modalFooterDivider");
+  });
+
+  it("applies public surface and body divider options", () => {
+    render(
+      <Modal isOpen title="强表面弹窗" surface="strong" bodyDividers={false} onClose={vi.fn()}>
+        强表面内容
+      </Modal>
+    );
+
+    const dialog = screen.getByRole("dialog", { name: "强表面弹窗" });
+    const body = dialog.querySelector("[data-ui-modal-body]");
+    expect(dialog.className).toContain("modalPanelSurfaceStrong");
+    expect(body?.className).toContain("modalBodyNoDividers");
+  });
 });

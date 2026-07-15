@@ -196,9 +196,13 @@ const AnnouncementModal: React.FC<AnnouncementModalProps> = ({
       title="系统公告"
       maxWidth="xl"
       headerDivider={false}
+      surface="strong"
       className={styles.announcementModal}
       bodyClassName={styles.modalBody}
       bodyPadding="none"
+      bodyDividers={false}
+      footerDivider
+      footerPadding="compact"
       footer={
         <div className={styles.footer}>
           <div className={styles.footerPreference}>
@@ -221,7 +225,6 @@ const AnnouncementModal: React.FC<AnnouncementModalProps> = ({
       <div ref={containerRef} className={styles.container}>
         <div className={styles.tabBar}>
           <Tabs
-            className={styles.tabs}
             items={ANNOUNCEMENT_TABS.map((tab) => ({
               key: tab.key,
               id: `announcement-tab-${tab.key}`,

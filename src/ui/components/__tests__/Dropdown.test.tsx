@@ -10,6 +10,38 @@ const options = [
 ];
 
 describe("Dropdown", () => {
+  it("updates an uncontrolled selection and reports the selected value", async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    render(
+      <Dropdown defaultValue="clock" label="非受控模式" onChange={onChange} options={options} />
+    );
+
+    const trigger = screen.getByRole("button", { name: "非受控模式" });
+    expect(trigger).toHaveTextContent("时钟");
+
+    await user.click(trigger);
+    await user.click(screen.getByRole("option", { name: "自习" }));
+
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onChange).toHaveBeenCalledWith("study");
+    expect(trigger).toHaveTextContent("自习");
+    expect(trigger).toHaveAttribute("aria-expanded", "false");
+  });
+
+  it("reports a controlled selection without mutating the supplied value", async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    render(<Dropdown label="受控模式" onChange={onChange} options={options} value="clock" />);
+
+    const trigger = screen.getByRole("button", { name: "受控模式" });
+    await user.click(trigger);
+    await user.click(screen.getByRole("option", { name: "自习" }));
+
+    expect(onChange).toHaveBeenCalledWith("study");
+    expect(trigger).toHaveTextContent("时钟");
+  });
+
   it("applies default and ghost trigger variants", () => {
     render(
       <>

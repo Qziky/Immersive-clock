@@ -155,11 +155,12 @@
 }
 
 .bottomTools {
+  align-self: flex-end;
   align-items: center;
   display: inline-flex;
   flex: 0 0 auto;
   gap: 8px;
-  height: 100%;
+  height: auto;
   margin-right: auto;
   min-width: 0;
   pointer-events: auto;
@@ -169,26 +170,7 @@
 .tourButton {
   color: inherit;
   pointer-events: auto;
-  transition:
-    color 0.18s ease,
-    opacity 0.18s ease,
-    transform 0.18s ease;
   z-index: 1;
-}
-
-.tourButton:hover {
-  color: var(--bottom-chrome-hover);
-  transform: translateY(-1px);
-}
-
-.tourButton:focus-visible {
-  color: var(--bottom-chrome-hover);
-  outline: var(--ui-focus-ring);
-  outline-offset: var(--ui-space-1);
-}
-
-.tourButton:active {
-  transform: translateY(0);
 }
 
 @media (max-width: 768px) {
@@ -223,15 +205,6 @@
   .timeDisplay {
     transition: none;
   }
-
-  .tourButton {
-    transition: none;
-  }
-
-  .tourButton:hover,
-  .tourButton:active {
-    transform: none;
-  }
 }
 
 /* 高对比度模式支持 */
@@ -250,10 +223,6 @@
   .clockPage::before,
   .clockPage::after {
     display: none;
-  }
-
-  .tourButton:hover {
-    color: #ffffff;
   }
 }
 

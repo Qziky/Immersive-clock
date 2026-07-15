@@ -165,4 +165,26 @@ describe("Tabs", () => {
     expect(screen.getByRole("tablist").className).toContain("tabsOverlay");
     expect(screen.getByRole("tab", { name: "时钟" }).className).toContain("tabButtonOverlay");
   });
+
+  it("exposes announcement, sticky and non-scrollable layout states", () => {
+    render(
+      <Tabs
+        value="announcement"
+        variant="announcement"
+        scrollable={false}
+        sticky
+        items={[
+          { value: "announcement", label: "公告" },
+          { value: "changelog", label: "更新日志" },
+        ]}
+        onChange={vi.fn()}
+      />
+    );
+
+    const tablist = screen.getByRole("tablist");
+    expect(tablist.className).toContain("tabsAnnouncement");
+    expect(tablist.className).toContain("tabsStatic");
+    expect(tablist.className).toContain("tabsSticky");
+    expect(tablist.className).not.toContain("tabsScrollable");
+  });
 });

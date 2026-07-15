@@ -431,7 +431,7 @@ export function ClockPage() {
               aria-label="重播新手指引"
               icon="status.help"
               size="sm"
-              variant="ghost"
+              variant="minimal"
             />
           </div>
         )}

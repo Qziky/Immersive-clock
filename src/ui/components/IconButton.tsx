@@ -13,7 +13,7 @@ export interface IconButtonProps extends Omit<
   "aria-label": string;
   icon: AppIconName;
   size?: "sm" | "md" | "lg";
-  variant?: "default" | "ghost" | "danger" | "overlay";
+  variant?: "default" | "ghost" | "danger" | "overlay" | "minimal";
   pressed?: boolean;
   loading?: boolean;
 }
@@ -35,6 +35,7 @@ const variantClassMap = {
   ghost: styles.iconButtonGhost,
   danger: styles.iconButtonDanger,
   overlay: styles.iconButtonOverlay,
+  minimal: styles.iconButtonMinimal,
 } as const;
 
 export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(function IconButton(

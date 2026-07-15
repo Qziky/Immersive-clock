@@ -2,7 +2,8 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import userEvent from "@testing-library/user-event";
+import { describe, expect, it, vi } from "vitest";
 
 import { Checkbox } from "../Checkbox";
 import { RadioGroup } from "../RadioGroup";
@@ -13,6 +14,66 @@ const primitiveStyles = readFileSync(
 ).replace(/\r\n/g, "\n");
 
 describe("RadioGroup", () => {
+  it("reports changes while keeping selection controlled by the value prop", async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    const options = [
+      { value: "normal", label: "标准" },
+      { value: "fast", label: "快速" },
+    ] as const;
+    const { rerender } = render(
+      <RadioGroup ariaLabel="显示速度" value="normal" options={options} onChange={onChange} />
+    );
+
+    await user.click(screen.getByRole("radio", { name: "快速" }));
+
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onChange).toHaveBeenCalledWith("fast");
+    expect(screen.getByRole("radio", { name: "标准" })).toBeChecked();
+    expect(screen.getByRole("radio", { name: "快速" })).not.toBeChecked();
+
+    rerender(
+      <RadioGroup ariaLabel="显示速度" value="fast" options={options} onChange={onChange} />
+    );
+    expect(screen.getByRole("radio", { name: "快速" })).toBeChecked();
+  });
+
+  it("prevents selecting a disabled option", async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    render(
+      <RadioGroup
+        ariaLabel="显示速度"
+        value="normal"
+        options={[
+          { value: "normal", label: "标准" },
+          { value: "fast", label: "快速", disabled: true },
+        ]}
+        onChange={onChange}
+      />
+    );
+
+    const disabledOption = screen.getByRole("radio", { name: "快速" });
+    expect(disabledOption).toBeDisabled();
+    await user.click(disabledOption);
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("renders its error content next to the group", () => {
+    render(
+      <RadioGroup
+        label="显示速度"
+        value="normal"
+        options={[{ value: "normal", label: "标准" }]}
+        error="请选择显示速度"
+        onChange={() => {}}
+      />
+    );
+
+    expect(screen.getByRole("radiogroup", { name: "显示速度" })).toBeInTheDocument();
+    expect(screen.getByText("请选择显示速度")).toBeInTheDocument();
+  });
+
   it("anchors each hidden radio input to its visible row", () => {
     render(
       <RadioGroup

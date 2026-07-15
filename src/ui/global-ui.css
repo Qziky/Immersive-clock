@@ -69,6 +69,7 @@
     --ui-motion-distance-sm: 0;
     --ui-motion-distance-md: 0;
     --ui-motion-distance-lg: 0;
+    --ui-motion-hover-scale: 1;
     --ui-motion-press-scale: 1;
   }
 

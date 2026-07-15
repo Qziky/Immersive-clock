@@ -34,7 +34,7 @@ export function AuthorInfo({ onVersionClick }: AuthorInfoProps) {
           onClick={handleVersionClick}
           title="点击查看公告"
           aria-label={`版本 v${appVersion}，点击查看更新公告`}
-          variant="text"
+          variant="minimal"
           size="sm"
         >
           v{appVersion}

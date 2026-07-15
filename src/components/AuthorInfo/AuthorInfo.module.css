@@ -11,7 +11,7 @@
   max-width: min(52vw, 340px);
   min-width: 0;
   pointer-events: auto;
-  transition: color 0.18s ease;
+  transition: color var(--ui-transition-gentle);
 }
 
 .version {
@@ -42,7 +42,7 @@
   display: inline-flex;
   height: 100%;
   text-decoration: none;
-  transition: color 0.18s ease;
+  transition: color var(--ui-transition-gentle);
   line-height: 1;
 }
 

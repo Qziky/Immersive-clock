@@ -69,11 +69,11 @@ npm run test:e2e
 ## 组件库治理
 
 - 可复用视觉控件、公开 variant 和交互状态由 `src/ui/` 持有，并统一从
-  `src/ui/index.ts` 导出。业务代码不得深层导入 `src/ui/**`；DesignSystem 展厅可为登记内部
-  图标注册表保留明确例外。
-- `src/components/` 与 `src/pages/` 只负责领域数据、页面布局和公共控件组合，不使用原生
-  `button`、`input`、`select`、`textarea` 重复实现控件。确有领域语义的原生按钮必须在单行
-  `eslint-disable` 中说明原因。
+  `src/ui/index.ts` 导出。所有非测试业务 TSX 不得深层导入 `src/ui/**`；DesignSystem Catalog
+  仅可精确导入 `src/ui/icons/appIconRegistry` 以枚举语义图标。
+- `src/ui/` 之外的业务组件只负责领域数据、页面布局和公共控件组合，不使用原生 `button`、
+  `input`、`select`、`textarea` 重复实现控件。确有领域语义的原生按钮必须在单行
+  `eslint-disable` 中说明原因，并由 UI governance 契约测试锁定文件、元素和说明。
 - 业务 CSS 只控制外部布局、定位和领域呈现，不使用任何 `[data-ui-*]`、`[aria-*]` 或
   `[role]` 属性选择器覆盖公共组件内部样式。`src/styles/tour.css` 是第三方 `driver.js` 的
   精确适配例外。

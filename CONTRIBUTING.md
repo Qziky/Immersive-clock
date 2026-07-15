@@ -186,6 +186,7 @@ npm run test
 如涉及页面交互或重大 UI 改动，建议追加：
 
 ```bash
+npm run check:ui
 npm run test:e2e
 ```
 

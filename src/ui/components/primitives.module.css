@@ -130,6 +130,23 @@
   background: var(--ui-color-accent-soft);
 }
 
+.buttonMinimal {
+  background: transparent;
+  border: 0;
+  color: inherit;
+  padding-inline: var(--ui-space-1);
+  transition:
+    color var(--ui-transition-gentle),
+    opacity var(--ui-transition-gentle),
+    transform var(--ui-transition-gentle);
+}
+
+.buttonMinimal:hover:not(:disabled) {
+  background: transparent;
+  border: 0;
+  color: inherit;
+}
+
 .buttonOverlay {
   -webkit-backdrop-filter: blur(var(--ui-glass-blur-soft));
   backdrop-filter: blur(var(--ui-glass-blur-soft));
@@ -288,6 +305,26 @@
 .iconButtonOverlay:hover:not(:disabled) {
   background: var(--ui-glass-surface-strong);
   border-color: var(--ui-glass-border-strong);
+}
+
+.iconButtonMinimal {
+  background: transparent;
+  border: 0;
+  color: inherit;
+  transition:
+    opacity var(--ui-transition-gentle),
+    transform var(--ui-transition-gentle);
+}
+
+.iconButtonMinimal:hover:not(:disabled) {
+  background: transparent;
+  border: 0;
+  color: inherit;
+  transform: scale(var(--ui-motion-hover-scale));
+}
+
+.iconButtonMinimal:active:not(:disabled) {
+  transform: scale(1);
 }
 
 .iconButtonPressed,
@@ -1299,7 +1336,10 @@
 }
 
 .tabsScrollable {
+  overscroll-behavior-inline: contain;
   overflow-x: auto;
+  scroll-padding-inline: var(--ui-space-2);
+  scrollbar-width: thin;
 }
 
 .tabsScrollable > .tabButton {
@@ -1339,7 +1379,13 @@
 
 .tabsAnnouncement {
   border-bottom: 0;
-  gap: var(--ui-space-3);
+  gap: var(--ui-space-4);
+}
+
+@media (max-width: 720px) {
+  .tabsAnnouncement {
+    gap: var(--ui-space-1);
+  }
 }
 
 .tabsOverlay {
@@ -2015,6 +2061,11 @@
   width: min(100%, 520px);
 }
 
+.modalPanelSurfaceStrong {
+  background: var(--ui-glass-surface-strong);
+  border-color: var(--ui-glass-border);
+}
+
 .modalPanel[data-ui-motion="default"][data-ui-presence="entering"] {
   animation: uiModalIn var(--ui-motion-duration-slow) var(--ui-motion-ease-emphasized) both;
 }
@@ -2092,6 +2143,17 @@
   padding-bottom: max(var(--ui-space-4), env(safe-area-inset-bottom));
 }
 
+.modalFooterPaddingCompact {
+  padding: var(--ui-space-3)
+    max(calc(var(--ui-space-4) + var(--ui-space-1)), env(safe-area-inset-right))
+    max(var(--ui-space-3), env(safe-area-inset-bottom))
+    max(calc(var(--ui-space-4) + var(--ui-space-1)), env(safe-area-inset-left));
+}
+
+.modalFooterDivider {
+  border-top: 1px solid var(--ui-glass-border);
+}
+
 .modalBody {
   border-bottom: 1px solid var(--ui-glass-border);
   border-top: 1px solid var(--ui-glass-border);
@@ -2102,6 +2164,11 @@
   padding: var(--ui-space-4) max(var(--ui-space-4), env(safe-area-inset-right))
     max(var(--ui-space-4), env(safe-area-inset-bottom))
     max(var(--ui-space-4), env(safe-area-inset-left));
+}
+
+.modalBodyNoDividers {
+  border-bottom: 0;
+  border-top: 0;
 }
 
 .modalBodyCompactTop {

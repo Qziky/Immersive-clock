@@ -13,6 +13,7 @@ export type ButtonVariant =
   | "danger"
   | "success"
   | "text"
+  | "minimal"
   | "overlay";
 export type ButtonSize = "sm" | "md" | "lg";
 export type ButtonOverlayEmphasis = "subtle" | "strong";
@@ -32,6 +33,7 @@ const variantClassMap: Record<ButtonVariant, string> = {
   danger: styles.buttonDanger,
   success: styles.buttonSuccess,
   text: styles.buttonText,
+  minimal: styles.buttonMinimal,
   overlay: styles.buttonOverlay,
 };
 

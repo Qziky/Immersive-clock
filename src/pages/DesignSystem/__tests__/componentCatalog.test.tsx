@@ -37,8 +37,13 @@ describe("component catalog contract", () => {
     for (const entry of COMPONENT_CATALOG) {
       const coverage = getCatalogStateCoverage(entry);
       const missingStates = entry.requiredStates.filter((state) => !coverage.has(state));
+      const unexpectedStates = [...coverage].filter(
+        (state) => !entry.requiredStates.includes(state)
+      );
 
+      expect(findDuplicates(entry.requiredStates), `${entry.id} 存在重复必需状态`).toEqual([]);
       expect(missingStates, `${entry.id} 缺少状态示例`).toEqual([]);
+      expect(unexpectedStates, `${entry.id} 示例声明了未登记状态`).toEqual([]);
       expect(entry.examples.length, `${entry.id} 必须包含确定性示例`).toBeGreaterThan(0);
     }
   });

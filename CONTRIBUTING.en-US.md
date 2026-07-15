@@ -148,6 +148,7 @@ npm run test
 If your change affects core flows or UI interactions, also run:
 
 ```bash
+npm run check:ui
 npm run test:e2e
 ```
 

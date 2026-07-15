@@ -3,7 +3,6 @@
   flex: 0 0 auto;
   left: 18px;
   position: fixed;
-  transition: opacity var(--ui-transition-fast);
   z-index: 1000;
 }
 
@@ -34,13 +33,7 @@
 
 @media (max-width: 480px) {
   .settingsButton {
-    bottom: 22px;
+    bottom: 56px;
     left: 12px;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .settingsButton {
-    transition: none;
   }
 }

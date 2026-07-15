@@ -84,8 +84,10 @@
   --ui-motion-distance-sm: 4px;
   --ui-motion-distance-md: 8px;
   --ui-motion-distance-lg: 12px;
+  --ui-motion-hover-scale: 1.04;
   --ui-motion-press-scale: 0.98;
   --ui-transition-fast: var(--ui-motion-duration-fast) var(--ui-motion-ease-standard);
+  --ui-transition-gentle: var(--ui-motion-duration-exit) ease;
   --ui-transition-normal: var(--ui-motion-duration-normal) var(--ui-motion-ease-standard);
 
   --ui-z-modal: 2000;

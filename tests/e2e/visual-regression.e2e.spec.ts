@@ -48,7 +48,7 @@ async function prepareVisualPage(
     { nextBackground: background, hideUntil: FIXED_TIME.getTime() + 7 * 24 * 60 * 60 * 1000 }
   );
   await page.reload();
-  await page.addStyleTag({
+  const motionResetStyle = await page.addStyleTag({
     content: `
       *, *::before, *::after {
         animation: none !important;
@@ -57,6 +57,9 @@ async function prepareVisualPage(
       }
     `,
   });
+  await motionResetStyle.evaluate((element) =>
+    element.setAttribute("data-visual-motion-reset", "true")
+  );
   await page.evaluate(() => document.fonts.ready);
   await expect(page.getByRole("main", { name: "时钟应用主界面" })).toBeVisible();
 }
@@ -116,6 +119,98 @@ async function expectCurrentTimeFits(page: Page) {
   expect(viewport).not.toBeNull();
   expect(bounds?.x ?? -1).toBeGreaterThanOrEqual(8);
   expect((bounds?.x ?? 0) + (bounds?.width ?? 0)).toBeLessThanOrEqual((viewport?.width ?? 0) - 8);
+}
+
+async function expectBottomLeftHelpFits(page: Page) {
+  const layout = await page.evaluate(() => {
+    const helpButton = document.querySelector<HTMLElement>('button[aria-label="重播新手指引"]');
+    if (!helpButton) return null;
+
+    const bounds = helpButton.getBoundingClientRect();
+    return {
+      bottom: bounds.bottom,
+      left: bounds.left,
+      viewportHeight: window.innerHeight,
+    };
+  });
+
+  expect(layout).not.toBeNull();
+  expect(layout?.left ?? Number.POSITIVE_INFINITY).toBeLessThanOrEqual(16);
+  expect(layout?.bottom ?? Number.POSITIVE_INFINITY).toBeLessThanOrEqual(
+    layout?.viewportHeight ?? 0
+  );
+}
+
+async function expectMinimalHudHover(locator: Locator) {
+  const readVisualState = () =>
+    locator.evaluate((element) => {
+      const style = getComputedStyle(element);
+      const matrix =
+        style.transform === "none"
+          ? new DOMMatrixReadOnly()
+          : new DOMMatrixReadOnly(style.transform);
+      return {
+        backgroundColor: style.backgroundColor,
+        borderTopWidth: style.borderTopWidth,
+        color: style.color,
+        scaleX: matrix.a,
+        scaleY: matrix.d,
+        transform: style.transform,
+        transitionDuration: style.transitionDuration,
+        transitionTimingFunction: style.transitionTimingFunction,
+        translateX: matrix.e,
+        translateY: matrix.f,
+      };
+    });
+  const normalState = await readVisualState();
+
+  expect(normalState.backgroundColor).toBe("rgba(0, 0, 0, 0)");
+  expect(normalState.borderTopWidth).toBe("0px");
+  expect(normalState.scaleX).toBe(1);
+  expect(normalState.scaleY).toBe(1);
+  expect(normalState.transform).toBe("none");
+  expect(normalState.transitionDuration).toBe("0.18s, 0.18s");
+  expect(normalState.transitionTimingFunction).toBe("ease, ease");
+
+  await locator.hover();
+  await expect.poll(async () => (await readVisualState()).scaleX).toBeCloseTo(1.04, 5);
+  const hoverState = await readVisualState();
+
+  expect(hoverState.backgroundColor).toBe(normalState.backgroundColor);
+  expect(hoverState.borderTopWidth).toBe(normalState.borderTopWidth);
+  expect(hoverState.color).toBe(normalState.color);
+  expect(hoverState.scaleX).toBeCloseTo(1.04, 5);
+  expect(hoverState.scaleY).toBeCloseTo(1.04, 5);
+  expect(hoverState.translateX).toBe(0);
+  expect(hoverState.translateY).toBe(0);
+}
+
+async function expectVersionHover(locator: Locator) {
+  const readVisualState = () =>
+    locator.evaluate((element) => {
+      const style = getComputedStyle(element);
+      return {
+        backgroundColor: style.backgroundColor,
+        borderTopWidth: style.borderTopWidth,
+        color: style.color,
+        transitionDuration: style.transitionDuration,
+        transitionTimingFunction: style.transitionTimingFunction,
+      };
+    });
+  const normalState = await readVisualState();
+
+  expect(normalState.backgroundColor).toBe("rgba(0, 0, 0, 0)");
+  expect(normalState.borderTopWidth).toBe("0px");
+  expect(normalState.transitionDuration).toBe("0.18s, 0.18s, 0.18s");
+  expect(normalState.transitionTimingFunction).toBe("ease, ease, ease");
+
+  await locator.hover();
+  await expect.poll(async () => (await readVisualState()).color).toBe("rgba(246, 247, 250, 0.84)");
+  const hoverState = await readVisualState();
+
+  expect(hoverState.backgroundColor).toBe(normalState.backgroundColor);
+  expect(hoverState.borderTopWidth).toBe(normalState.borderTopWidth);
+  expect(hoverState.color).not.toBe(normalState.color);
 }
 
 async function openAppearanceEditor(page: Page, viewport: { width: number; height: number }) {
@@ -381,6 +476,7 @@ for (const viewport of ICON_VISUAL_VIEWPORTS) {
     await prepareVisualPage(page, viewport, { type: "default" });
     await showHud(page);
     await expectCurrentTimeFits(page);
+    await expectBottomLeftHelpFits(page);
     expect(
       await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)
     ).toBe(true);
@@ -390,6 +486,14 @@ for (const viewport of ICON_VISUAL_VIEWPORTS) {
       caret: "hide",
       maxDiffPixelRatio: 0.01,
     });
+
+    await page
+      .locator('style[data-visual-motion-reset="true"]')
+      .evaluate((element) => element.remove());
+    await page.emulateMedia({ colorScheme: "dark", reducedMotion: "no-preference" });
+    await expectMinimalHudHover(page.getByRole("button", { name: "打开设置" }));
+    await expectMinimalHudHover(page.getByRole("button", { name: "重播新手指引" }));
+    await expectVersionHover(page.locator('button[title="点击查看公告"]'));
   });
 
   test(`自习页图标视觉快照 ${viewport.width}×${viewport.height}`, async ({ page }) => {
