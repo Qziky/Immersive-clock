@@ -1,4 +1,4 @@
-/* 模式选择组件样式（极简设计） */
+/* 领域例外：主画布模式切换器保留独立 HUD 视觉。 */
 
 .modeSelector.modeSelector {
   border-bottom: 0;
@@ -8,34 +8,34 @@
 }
 
 .modeSelector .modeButton {
-  display: flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.625rem 0.875rem;
   background: transparent;
-  border: none;
+  border: 0;
   border-radius: 0;
   color: rgba(255, 255, 255, 0.62);
-  font-family: var(--font-ui);
+  cursor: pointer;
+  display: flex;
+  font-family: var(--ui-font-sans);
   font-size: 1rem;
   font-weight: 500;
+  gap: 0.5rem;
   height: auto;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  position: relative;
   overflow: hidden;
+  padding: 0.625rem 0.875rem;
+  position: relative;
+  transition: all 0.3s ease;
 }
 
 .modeSelector .modeButton::after {
-  content: "";
-  position: absolute;
+  background: var(--ui-color-accent);
   bottom: 0;
-  left: 50%;
-  width: 0;
+  content: "";
   height: 2px;
-  background: var(--ui-color-accent, var(--accent-color));
-  transition: all 0.3s ease;
+  left: 50%;
+  position: absolute;
   transform: translateX(-50%);
+  transition: all 0.3s ease;
+  width: 0;
 }
 
 .modeSelector .modeButton:hover {
@@ -48,17 +48,17 @@
   outline-offset: 2px;
 }
 
-.modeSelector .modeButton[aria-selected="true"] {
-  color: var(--ui-color-accent, var(--accent-color));
+.modeSelector .modeButtonActive {
+  color: var(--ui-color-accent);
   font-weight: 600;
 }
 
-.modeSelector .modeButton[aria-selected="true"]::after {
+.modeSelector .modeButtonActive::after {
   width: 74%;
 }
 
-.modeSelector .modeButton[aria-selected="true"]:hover {
-  color: var(--ui-color-accent, var(--accent-color));
+.modeSelector .modeButtonActive:hover {
+  color: var(--ui-color-accent);
   transform: translateY(-1px);
 }
 
@@ -76,7 +76,6 @@
     font-size: 0.95rem;
     padding: 0.55rem 0.75rem;
   }
-
 }
 
 @media (max-width: 768px) {
@@ -88,7 +87,6 @@
     font-size: 0.86rem;
     padding: 0.5rem 0.625rem;
   }
-
 }
 
 @media (max-width: 480px) {
@@ -98,9 +96,8 @@
 
   .modeSelector .modeButton {
     flex-direction: column;
-    gap: 0.25rem;
     font-size: 0.7rem;
+    gap: 0.25rem;
     padding: 0.4rem 0.5rem;
   }
-
 }

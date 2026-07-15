@@ -1,7 +1,7 @@
 import type { CSSProperties, HTMLAttributes, ReactNode } from "react";
 
+import { classNames } from "../../utils/classNames";
 import { AppIcon, type AppIconName } from "../icons/AppIcon";
-import { classNames } from "../utils/classNames";
 
 import styles from "./primitives.module.css";
 
@@ -134,9 +134,7 @@ export function MetricCard({
             className={styles.metricCardIcon}
             aria-hidden="true"
             style={
-              iconRotation === undefined
-                ? undefined
-                : { transform: `rotate(${iconRotation}deg)` }
+              iconRotation === undefined ? undefined : { transform: `rotate(${iconRotation}deg)` }
             }
           >
             <AppIcon name={icon} />

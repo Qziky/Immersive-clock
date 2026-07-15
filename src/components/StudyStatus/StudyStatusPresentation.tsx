@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { HTMLAttributes, KeyboardEvent } from "react";
 
 import { AppIcon, type AppIconName } from "../../ui";
-import { classNames } from "../../ui/utils/classNames";
+import { classNames } from "../../utils/classNames";
 import type { PresentationAttributes } from "../PresentationContent";
 
 import type { StudyInfoSignal } from "./studyInfoSignals";
@@ -128,7 +128,10 @@ export function StudyStatusPresentation({
         </div>
         {showInfoRegion ? (
           <div
-            className={styles.progressRhythm}
+            className={classNames(
+              styles.progressRhythm,
+              infoInteractive && styles.progressRhythmInteractive
+            )}
             role={infoInteractive ? "button" : undefined}
             tabIndex={infoInteractive ? 0 : undefined}
             aria-label={infoControlLabel}

@@ -2,9 +2,9 @@ import type { CSSProperties, ReactNode } from "react";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
+import { classNames } from "../../utils/classNames";
 import { AppIcon, type AppIconName } from "../icons/AppIcon";
 import type { UiMotionMode } from "../types";
-import { classNames } from "../utils/classNames";
 import { useOverlayLayer } from "../utils/overlayStack";
 import { usePresence } from "../utils/usePresence";
 
@@ -48,6 +48,7 @@ export function Popover({
 }: PopoverProps) {
   const id = useId();
   const triggerRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
   const [isOpen, setIsOpen] = useState(false);
   const [panelStyle, setPanelStyle] = useState<CSSProperties>();
   const { isPresent, presenceState, shouldAnimate } = usePresence({ isOpen, motion });
@@ -60,12 +61,31 @@ export function Popover({
 
     const rect = triggerNode.getBoundingClientRect();
     const resolvedWidth = formatWidth(width, Math.max(240, rect.width));
-    const numericWidth =
-      typeof resolvedWidth === "number" ? resolvedWidth : Math.max(240, rect.width);
+    const viewportInset = 8;
+    const panelGap = 8;
+    const maximumWidth = Math.max(0, window.innerWidth - viewportInset * 2);
+    const measuredWidth = panelRef.current?.getBoundingClientRect().width ?? 0;
+    const numericWidth = Math.min(
+      measuredWidth ||
+        (typeof resolvedWidth === "number" ? resolvedWidth : Math.max(240, rect.width)),
+      maximumWidth
+    );
+    const panelHeight = panelRef.current?.offsetHeight ?? 0;
+    const availableBelow = window.innerHeight - rect.bottom - panelGap - viewportInset;
+    const availableAbove = rect.top - panelGap - viewportInset;
+    const openAbove = panelHeight > availableBelow && availableAbove > availableBelow;
+    const preferredTop = openAbove ? rect.top - panelGap - panelHeight : rect.bottom + panelGap;
+    const maximumTop = Math.max(viewportInset, window.innerHeight - panelHeight - viewportInset);
+    const left = Math.round(
+      Math.max(viewportInset, Math.min(rect.left, window.innerWidth - numericWidth - viewportInset))
+    );
+    const top = Math.round(Math.max(viewportInset, Math.min(preferredTop, maximumTop)));
 
     setPanelStyle({
-      left: Math.max(8, Math.min(rect.left, window.innerWidth - numericWidth - 8)),
-      top: rect.bottom + 8,
+      left,
+      maxHeight: `calc(100vh - ${viewportInset * 2}px)`,
+      maxWidth: `calc(100vw - ${viewportInset * 2}px)`,
+      top,
       width: resolvedWidth,
     });
   }, [width]);
@@ -88,6 +108,7 @@ export function Popover({
       if (event.key === "Escape" && isTop()) {
         event.preventDefault();
         setIsOpen(false);
+        queueMicrotask(() => triggerRef.current?.focus({ preventScroll: true }));
       }
     };
 
@@ -104,10 +125,19 @@ export function Popover({
     };
   }, [id, isOpen, isTop, updatePosition]);
 
+  useEffect(() => {
+    if (!isOpen || typeof ResizeObserver === "undefined") return undefined;
+    const observer = new ResizeObserver(updatePosition);
+    if (triggerRef.current) observer.observe(triggerRef.current);
+    if (panelRef.current) observer.observe(panelRef.current);
+    return () => observer.disconnect();
+  }, [isOpen, updatePosition]);
+
   const panel =
     isPresent && typeof document !== "undefined"
       ? createPortal(
           <div
+            ref={panelRef}
             className={classNames(styles.popoverPanel, className)}
             data-ui-motion={shouldAnimate ? "default" : "none"}
             data-ui-overlay-root

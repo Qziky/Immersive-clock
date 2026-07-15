@@ -4,7 +4,7 @@
   background: rgba(232, 233, 224, 0.045);
   border: 1px solid rgba(232, 233, 224, 0.055);
   border-radius: var(--ui-radius-sm, 4px);
-  color: var(--study-text-primary, var(--study-ink, var(--text-color)));
+  color: var(--study-text-primary, var(--study-ink, var(--ui-color-text)));
   display: flex;
   height: var(--study-rail-item-height, 2rem);
   isolation: isolate;
@@ -46,8 +46,8 @@
 }
 
 .statusText {
-  color: var(--study-text-primary, var(--study-ink, var(--text-color)));
-  font-family: var(--font-ui);
+  color: var(--study-text-primary, var(--study-ink, var(--ui-color-text)));
+  font-family: var(--ui-font-sans);
   font-size: var(--study-rail-primary-font-size, 0.94rem);
   font-weight: 600;
   letter-spacing: 0;
@@ -64,7 +64,7 @@
   box-sizing: border-box;
   color: var(--study-text-secondary, rgba(232, 233, 224, 0.72));
   display: flex;
-  font-family: var(--font-ui);
+  font-family: var(--ui-font-sans);
   font-size: max(var(--study-rail-meta-font-size, 0.72rem), 0.8rem);
   height: 100%;
   justify-content: center;
@@ -76,7 +76,7 @@
 }
 
 /* 中央信息区保持固定轨道高度，消息切换时不推动左右两侧内容。 */
-.progressRhythm[role="button"] {
+.progressRhythmInteractive {
   border-radius: var(--ui-radius-xs, 3px);
   cursor: pointer;
   max-width: 100%;
@@ -84,7 +84,7 @@
   padding: 0.18rem 0.3rem;
 }
 
-.progressRhythm[role="button"]:focus-visible {
+.progressRhythmInteractive:focus-visible {
   box-shadow: inset 0 0 0 1px var(--study-data-accent, #2fecc6);
 }
 
@@ -151,7 +151,7 @@
 .progressMeta {
   color: var(--study-text-tertiary, rgba(232, 233, 224, 0.54));
   flex: 0 0 auto;
-  font-family: var(--font-main);
+  font-family: var(--ui-font-number);
   font-size: var(--study-rail-meta-font-size, 0.72rem);
   font-variant-numeric: tabular-nums;
   font-weight: 500;

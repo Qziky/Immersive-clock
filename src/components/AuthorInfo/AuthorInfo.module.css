@@ -43,28 +43,30 @@
   height: 100%;
   text-decoration: none;
   transition: color 0.18s ease;
-  background: transparent;
-  border: none;
-  padding: 0;
-  border-radius: 0;
-  font: inherit;
-  cursor: pointer;
   line-height: 1;
 }
 
+.versionAction {
+  color: inherit;
+  font: inherit;
+  height: 100%;
+  min-height: 0;
+  padding: 0;
+}
+
 .action:hover {
-  color: var(--bottom-chrome-hover, rgba(246, 247, 250, 0.84));
+  color: var(--bottom-chrome-hover, var(--ui-color-text));
   text-decoration: none;
 }
 
 .action:focus-visible {
-  color: var(--bottom-chrome-hover, rgba(246, 247, 250, 0.84));
+  color: var(--bottom-chrome-hover, var(--ui-color-text));
   outline: none;
 }
 
 /* 整体信息块的悬停效果 */
 .authorInfo:hover {
-  color: var(--bottom-chrome-hover, rgba(246, 247, 250, 0.84));
+  color: var(--bottom-chrome-hover, var(--ui-color-text));
 }
 
 /* 响应式适配 */
@@ -83,15 +85,15 @@
 /* 高对比度模式支持 */
 @media (prefers-contrast: high) {
   .authorInfo {
-    color: rgba(255, 255, 255, 0.8);
+    color: var(--ui-color-text-muted);
   }
 
   .authorInfo:hover {
-    color: #ffffff;
+    color: var(--ui-color-text);
   }
 
   .action:hover {
-    color: #ffffff;
+    color: var(--ui-color-text);
   }
 }
 

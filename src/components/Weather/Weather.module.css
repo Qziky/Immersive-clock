@@ -1,7 +1,7 @@
 /* 天气：独立的轻量信息 */
 .weather {
   align-items: center;
-  color: var(--study-muted, var(--text-color));
+  color: var(--study-muted, var(--ui-color-text));
   column-gap: 0.26rem;
   display: inline-grid;
   grid-template-columns: auto auto auto auto;
@@ -15,8 +15,8 @@
 
 .temperature {
   align-self: center;
-  color: var(--study-ink, var(--text-color));
-  font-family: var(--font-main);
+  color: var(--study-ink, var(--ui-color-text));
+  font-family: var(--ui-font-number);
   font-size: var(--study-rail-primary-font-size, 1rem);
   font-weight: 600;
   grid-column: 1;
@@ -40,7 +40,7 @@
 .weatherText {
   align-self: end;
   color: var(--study-text-tertiary, rgba(232, 233, 224, 0.54));
-  font-family: var(--font-ui);
+  font-family: var(--ui-font-sans);
   font-size: var(--study-rail-meta-font-size, 0.58rem);
   font-weight: 500;
   grid-column: 4;

@@ -4,7 +4,7 @@
   align-items: center;
   background: transparent;
   border: 0;
-  border-radius: 6px;
+  border-radius: var(--ui-radius-md);
   color: inherit;
   cursor: pointer;
   display: flex;
@@ -17,8 +17,8 @@
   width: 100%;
   -webkit-tap-highlight-color: transparent;
   transition:
-    color var(--transition-fast),
-    opacity var(--transition-fast);
+    color var(--ui-transition-fast),
+    opacity var(--ui-transition-fast);
   user-select: none;
 }
 
@@ -26,11 +26,11 @@
 .motivationalQuote:hover .quoteAttribution,
 .motivationalQuote:focus-visible .quoteText,
 .motivationalQuote:focus-visible .quoteAttribution {
-  color: var(--study-ink, rgba(255, 255, 255, 0.92));
+  color: var(--study-ink, var(--ui-color-text));
 }
 
 .motivationalQuote:focus-visible {
-  box-shadow: 0 0 0 2px rgba(127, 216, 189, 0.24);
+  box-shadow: var(--ui-focus-ring);
   outline: none;
 }
 
@@ -70,8 +70,8 @@
 }
 
 .quoteText {
-  color: var(--study-text-tertiary, var(--study-muted, rgba(255, 255, 255, 0.72)));
-  font-family: var(--font-ui);
+  color: var(--study-text-tertiary, var(--study-muted, var(--ui-color-text-muted)));
+  font-family: var(--ui-font-sans);
   font-size: 0.92rem;
   font-weight: 400;
   letter-spacing: 0;
@@ -80,23 +80,23 @@
   overflow-wrap: anywhere;
   position: relative;
   text-align: center;
-  transition: color var(--transition-fast);
+  transition: color var(--ui-transition-fast);
   white-space: normal;
   word-break: break-word;
   word-wrap: break-word;
 }
 
 .quoteAttribution {
-  color: var(--study-text-tertiary, var(--study-muted, rgba(255, 255, 255, 0.64)));
+  color: var(--study-text-tertiary, var(--study-muted, var(--ui-color-text-subtle)));
   display: inline;
-  font-family: var(--font-ui);
+  font-family: var(--ui-font-sans);
   font-size: 0.82rem;
   font-weight: 400;
   line-height: 1.55;
   margin-left: 0.45rem;
   overflow-wrap: anywhere;
   position: relative;
-  transition: color var(--transition-fast);
+  transition: color var(--ui-transition-fast);
 }
 
 .screenReaderStatus {
@@ -110,8 +110,9 @@
 }
 
 .cursor {
-  animation: blink 1.2s infinite;
-  color: var(--study-accent, white);
+  animation: blink calc(var(--ui-motion-duration-ambient-normal) * 0.4)
+    var(--ui-motion-ease-ambient) infinite;
+  color: var(--study-accent, var(--ui-color-static-white));
   display: inline-block;
   font-weight: 400;
   margin-left: 2px;
@@ -124,13 +125,11 @@
 }
 
 .fadeIn {
-  animation: quoteFadeIn var(--ui-motion-duration-slow, 240ms)
-    var(--ui-motion-ease-standard, cubic-bezier(0.2, 0, 0, 1)) both;
+  animation: quoteFadeIn var(--ui-motion-duration-slow) var(--ui-motion-ease-standard) both;
 }
 
 .fadeOut {
-  animation: quoteFadeOut var(--ui-motion-duration-slow, 240ms)
-    var(--ui-motion-ease-standard, cubic-bezier(0.2, 0, 0, 1)) both;
+  animation: quoteFadeOut var(--ui-motion-duration-slow) var(--ui-motion-ease-standard) both;
 }
 
 @keyframes quoteFadeIn {

@@ -171,7 +171,7 @@ const AnnouncementModal: React.FC<AnnouncementModalProps> = ({
     if (!isOpen) return;
     const root = containerRef.current;
     if (root) {
-      const bodyEl = root.closest("[data-ui-modal-body]") as HTMLElement | null;
+      const bodyEl = root.closest(`.${styles.modalBody}`) as HTMLElement | null;
       if (bodyEl) bodyEl.scrollTo({ top: 0, behavior: "smooth" });
       const inner = root.querySelector(`.${styles.content}`) as HTMLElement | null;
       if (inner) inner.scrollTo({ top: 0 });
@@ -196,8 +196,9 @@ const AnnouncementModal: React.FC<AnnouncementModalProps> = ({
       title="系统公告"
       maxWidth="xl"
       headerDivider={false}
-      compactBodyTop
       className={styles.announcementModal}
+      bodyClassName={styles.modalBody}
+      bodyPadding="none"
       footer={
         <div className={styles.footer}>
           <div className={styles.footerPreference}>

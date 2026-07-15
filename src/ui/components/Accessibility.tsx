@@ -1,7 +1,7 @@
 import type { HTMLAttributes, ReactNode } from "react";
 import { createPortal } from "react-dom";
 
-import { classNames } from "../utils/classNames";
+import { classNames } from "../../utils/classNames";
 
 import styles from "./primitives.module.css";
 

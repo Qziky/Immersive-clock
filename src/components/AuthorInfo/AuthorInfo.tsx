@@ -1,5 +1,7 @@
 import React from "react";
 
+import { Button } from "../../ui";
+
 import styles from "./AuthorInfo.module.css";
 
 interface AuthorInfoProps {
@@ -27,15 +29,16 @@ export function AuthorInfo({ onVersionClick }: AuthorInfoProps) {
   return (
     <aside className={styles.authorInfo}>
       <div className={styles.version}>
-        <button
-          className={styles.action}
+        <Button
+          className={styles.versionAction}
           onClick={handleVersionClick}
           title="点击查看公告"
-          type="button"
           aria-label={`版本 v${appVersion}，点击查看更新公告`}
+          variant="text"
+          size="sm"
         >
           v{appVersion}
-        </button>
+        </Button>
         <span className={styles.by}>by</span>
         <a
           href="https://qqhkx.com"

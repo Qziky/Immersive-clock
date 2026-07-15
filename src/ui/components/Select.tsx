@@ -1,8 +1,8 @@
 import type { SelectHTMLAttributes } from "react";
 import { useId } from "react";
 
+import { classNames } from "../../utils/classNames";
 import { AppIcon } from "../icons/AppIcon";
-import { classNames } from "../utils/classNames";
 
 import styles from "./primitives.module.css";
 

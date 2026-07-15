@@ -75,7 +75,7 @@ export function ModeSelector({ onModeChange }: ModeSelectorProps) {
       items={modes.map(({ key, label, icon, description }) => ({
         value: key,
         id: key === "study" ? "mode-tab-study" : undefined,
-        className: styles.modeButton,
+        className: `${styles.modeButton} ${key === mode ? styles.modeButtonActive : ""}`,
         ariaControls: `${key}-panel`,
         ariaLabel: `${label} - ${description}`,
         title: description,

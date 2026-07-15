@@ -165,7 +165,7 @@
 
 .countdownCarousel {
   color: var(--study-text-primary);
-  font-family: var(--font-ui);
+  font-family: var(--ui-font-sans);
   font-size: var(--study-rail-primary-font-size);
   font-weight: 600;
   height: var(--study-rail-item-height);
@@ -206,7 +206,7 @@
 
 .days {
   color: var(--study-data-accent);
-  font-family: var(--font-main);
+  font-family: var(--ui-font-number);
   font-size: 1.12em;
   font-variant-numeric: tabular-nums;
   font-weight: 700;
@@ -227,9 +227,9 @@
 
 .currentTime {
   align-items: baseline;
-  color: var(--primary-color);
+  color: var(--ui-color-text);
   display: flex;
-  font-family: var(--font-main);
+  font-family: var(--ui-font-number);
   font-size: clamp(5rem, 15vw, 10rem);
   font-variant-numeric: tabular-nums;
   letter-spacing: 0;
@@ -237,8 +237,8 @@
   margin-bottom: 0.65rem;
   text-shadow: 0 16px 58px rgba(0, 0, 0, 0.3);
   transition:
-    color var(--transition-normal),
-    opacity var(--transition-normal);
+    color var(--ui-transition-normal),
+    opacity var(--ui-transition-normal);
 }
 
 .timePrimary {
@@ -254,15 +254,15 @@
 
 .currentDate {
   color: var(--study-text-secondary);
-  font-family: var(--font-ui);
+  font-family: var(--ui-font-sans);
   font-size: clamp(0.98rem, 1.2vw, 1.2rem);
   font-weight: 400;
   letter-spacing: 0;
   line-height: 1.35;
   opacity: 1;
   transition:
-    color var(--transition-normal),
-    opacity var(--transition-normal);
+    color var(--ui-transition-normal),
+    opacity var(--ui-transition-normal);
 }
 
 .quoteSection {

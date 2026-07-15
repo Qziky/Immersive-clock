@@ -3,8 +3,8 @@
 .clockPage {
   height: 100vh;
   width: 100vw;
-  background: var(--background-color);
-  color: var(--text-color);
+  background: var(--ui-color-bg);
+  color: var(--ui-color-text);
   display: flex;
   flex-direction: column;
   position: relative;
@@ -30,7 +30,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: var(--spacing-lg);
+  padding: var(--ui-space-2);
   position: relative;
   z-index: 1;
 }
@@ -43,7 +43,7 @@
 /* 响应式适配 */
 @media (max-width: 768px) {
   .timeDisplay {
-    padding: var(--spacing-md);
+    padding: var(--ui-space-2);
   }
 
   .studyTimeDisplay {
@@ -53,7 +53,7 @@
 
 @media (max-width: 480px) {
   .timeDisplay {
-    padding: var(--spacing-sm);
+    padding: var(--ui-space-1);
   }
 
   .studyTimeDisplay {
@@ -63,7 +63,7 @@
 
 @media (max-height: 600px) {
   .timeDisplay {
-    padding: var(--spacing-md) var(--spacing-lg);
+    padding: var(--ui-space-2);
   }
 
   .studyTimeDisplay {
@@ -81,7 +81,7 @@
 
 /* 模式切换的平滑过渡 */
 .timeDisplay {
-  transition: all var(--transition-normal);
+  transition: all var(--ui-transition-normal);
 }
 
 /* 普通页面与自习页共享同一套默认氛围背景。 */
@@ -139,7 +139,7 @@
   box-sizing: border-box;
   color: var(--bottom-chrome-color);
   display: flex;
-  font-family: var(--font-ui);
+  font-family: var(--ui-font-sans);
   font-size: var(--bottom-chrome-font-size);
   gap: 16px;
   height: 18px;
@@ -184,7 +184,7 @@
 .tourButton:focus-visible {
   color: var(--bottom-chrome-hover);
   outline: var(--ui-focus-ring);
-  outline-offset: var(--ui-focus-ring-offset);
+  outline-offset: var(--ui-space-1);
 }
 
 .tourButton:active {

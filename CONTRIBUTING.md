@@ -156,12 +156,13 @@ npm run test:e2e
 
 ### 组件与目录
 
-- 通用 UI 组件放在 `src/components/`，按功能语义命名
+- 通用 UI 组件放在 `src/ui/` 并通过公共入口导出；`src/components/` 只保留业务组合
 - 避免单字母变量名（除非约定俗成且作用域极小，例如短循环）
 
 ### 样式与设计系统
 
-- 使用 CSS Modules + CSS 变量（令牌位于 `src/styles/variables.css`）
+- 使用 CSS Modules + CSS 变量（唯一通用令牌源为 `src/ui/tokens.css`）
+- 新增或修改公共组件时，同步更新 `/design-system` Catalog、组件测试和视觉基线
 - 关注响应式与触控大屏体验，避免破坏现有布局与交互习惯
 
 ### 可访问性

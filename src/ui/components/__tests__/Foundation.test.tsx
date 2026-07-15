@@ -1,7 +1,9 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
+import { APP_ICON_NAMES, appIconRegistry } from "../../icons/appIconRegistry";
 import { Portal } from "../Accessibility";
+import { Card } from "../Card";
 import { FormSection } from "../FormComponents";
 import { Input } from "../Input";
 import { Toast } from "../Toast";
@@ -58,5 +60,16 @@ describe("UI foundation", () => {
     expect(screen.getByRole("button", { name: "选择图片：选择文件" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "字体文件：选择文件" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "选择文件" })).toBeNull();
+  });
+
+  it.each(["div", "article", "section"] as const)("renders Card as a semantic %s", (as) => {
+    const { container } = render(<Card as={as}>卡片内容</Card>);
+
+    expect(container.querySelector(as)).toHaveTextContent("卡片内容");
+  });
+
+  it("exposes a frozen internal list of every semantic icon name", () => {
+    expect(APP_ICON_NAMES).toEqual(Object.keys(appIconRegistry));
+    expect(Object.isFrozen(APP_ICON_NAMES)).toBe(true);
   });
 });

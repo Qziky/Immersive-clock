@@ -10,6 +10,7 @@
   --ui-color-text: #f0f1ec;
   --ui-color-text-muted: #a3a8a1;
   --ui-color-text-subtle: #7e857e;
+  --ui-color-static-white: #ffffff;
   --ui-color-accent: #2fecc6;
   --ui-color-accent-strong: #17c7ad;
   --ui-color-accent-soft: rgba(47, 236, 198, 0.14);
@@ -60,6 +61,7 @@
   --ui-radius-sm: 4px;
   --ui-radius-md: 6px;
   --ui-radius-lg: 8px;
+  --ui-radius-round: 999px;
 
   --ui-shadow-panel: var(--ui-glass-shadow);
   --ui-shadow-control: 0 0 0 1px rgba(47, 236, 198, 0.08);
@@ -71,9 +73,13 @@
   --ui-motion-duration-slow: 240ms;
   --ui-motion-duration-drawer: 280ms;
   --ui-motion-duration-exit: 180ms;
+  --ui-motion-duration-ambient-fast: 2s;
+  --ui-motion-duration-ambient-normal: 3s;
+  --ui-motion-duration-ambient-slow: 4s;
   --ui-motion-ease-standard: cubic-bezier(0.2, 0, 0, 1);
   --ui-motion-ease-emphasized: cubic-bezier(0.16, 1, 0.3, 1);
   --ui-motion-ease-exit: cubic-bezier(0.4, 0, 1, 1);
+  --ui-motion-ease-ambient: ease-in-out;
   --ui-motion-distance-xs: 2px;
   --ui-motion-distance-sm: 4px;
   --ui-motion-distance-md: 8px;

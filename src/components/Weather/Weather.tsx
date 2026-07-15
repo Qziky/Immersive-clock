@@ -989,7 +989,7 @@ const Weather: React.FC = () => {
   // 加载状态
   if (loading) {
     return (
-      <div className={styles.weather}>
+      <div className={styles.weather} aria-label="天气">
         <div className={styles.loading}>
           <div className={styles.loadingDot}></div>
         </div>

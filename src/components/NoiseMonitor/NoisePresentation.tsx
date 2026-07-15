@@ -1,6 +1,6 @@
 import type { ButtonHTMLAttributes, HTMLAttributes } from "react";
 
-import { classNames } from "../../ui/utils/classNames";
+import { classNames } from "../../utils/classNames";
 import type { PresentationAttributes } from "../PresentationContent";
 
 import styles from "./NoiseMonitor.module.css";
@@ -35,6 +35,7 @@ export function NoisePresentation({
   return (
     <div {...rootProps} className={classNames(styles.noiseMonitor, rootClassName)}>
       <div className={styles.statusContainer}>
+        {/* eslint-disable-next-line react/forbid-elements -- 呼吸灯是噪音领域状态表面，不是公共图标按钮。 */}
         <button
           {...indicatorProps}
           className={classNames(styles.breathingLight, stateClassName, indicatorClassName)}

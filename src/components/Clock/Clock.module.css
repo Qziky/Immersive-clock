@@ -10,23 +10,23 @@
 }
 
 .time {
-  font-family: var(--font-main);
+  font-family: var(--ui-font-number);
   font-size: clamp(5rem, 15vw, 10rem);
   font-weight: 700;
-  color: var(--primary-color);
+  color: var(--ui-color-text);
   line-height: 1;
-  margin-bottom: var(--spacing-md);
+  margin-bottom: var(--ui-space-2);
   text-shadow: none;
-  transition: all var(--transition-normal);
+  transition: all var(--ui-transition-normal);
 }
 
 .date {
-  font-family: var(--font-ui);
+  font-family: var(--ui-font-sans);
   font-size: clamp(1rem, 2.5vw, 1.6rem);
   font-weight: 400;
-  color: var(--secondary-color);
+  color: var(--ui-color-text-muted);
   opacity: 0.8;
-  transition: all var(--transition-normal);
+  transition: all var(--ui-transition-normal);
 }
 
 /* 响应式适配 */
@@ -43,7 +43,7 @@
 @media (max-height: 600px) {
   .time {
     font-size: clamp(3rem, 12vh, 5rem);
-    margin-bottom: var(--spacing-sm);
+    margin-bottom: var(--ui-space-1);
   }
 
   .date {

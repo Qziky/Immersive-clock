@@ -13,7 +13,9 @@ export interface TimePickerProps {
 }
 
 const hourOptions = Array.from({ length: 24 }, (_, index) => String(index).padStart(2, "0"));
-const minuteSecondOptions = Array.from({ length: 60 }, (_, index) => String(index).padStart(2, "0"));
+const minuteSecondOptions = Array.from({ length: 60 }, (_, index) =>
+  String(index).padStart(2, "0")
+);
 
 export function TimePicker({ value, onChange, label = "时间选择" }: TimePickerProps) {
   const updateValue = (key: keyof TimePickerValue, nextValue: string) => {

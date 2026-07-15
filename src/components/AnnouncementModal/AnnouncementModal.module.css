@@ -5,35 +5,7 @@
   max-height: calc(100dvh - 32px);
 }
 
-.announcementModal > header,
-.announcementModal > footer {
-  background: transparent;
-}
-
-.announcementModal > header {
-  border-bottom: 1px solid var(--ui-glass-border);
-  min-height: 58px;
-  padding: 14px 20px;
-}
-
-.announcementModal > header h2 {
-  color: var(--ui-color-text);
-  font-size: 20px;
-  font-weight: 700;
-  letter-spacing: 0;
-}
-
-.announcementModal > header button {
-  border-radius: var(--ui-radius-md);
-  color: var(--ui-color-text-muted);
-}
-
-.announcementModal > header button:hover {
-  background: var(--ui-glass-surface-soft);
-  color: var(--ui-color-text);
-}
-
-.announcementModal [data-ui-modal-body] {
+.modalBody {
   border: 0;
   display: flex;
   flex: 1;
@@ -72,30 +44,6 @@
   overscroll-behavior-inline: contain;
   scroll-padding-inline: 8px;
   scrollbar-width: thin;
-}
-
-.tabBar .tabs [role="tab"] {
-  border: 0;
-  border-bottom: 2px solid transparent;
-  border-radius: 0;
-  color: var(--ui-color-text-muted);
-  flex: 0 0 auto;
-  font-size: var(--ui-font-size-md);
-  font-weight: 650;
-  gap: 8px;
-  height: 48px;
-  min-width: max-content;
-  padding: 0 8px;
-}
-
-.tabBar .tabs [role="tab"]:hover {
-  background: transparent;
-  color: var(--ui-color-text);
-}
-
-.tabBar .tabs [role="tab"][aria-selected="true"] {
-  border-bottom-color: var(--ui-color-accent);
-  color: var(--ui-color-accent);
 }
 
 .tabIcon {
@@ -146,7 +94,7 @@
 }
 
 .feedbackIframe {
-  background: #ffffff;
+  background: var(--ui-color-static-white);
   border: 0;
   display: block;
   height: var(--feedback-iframe-extent);
@@ -399,32 +347,12 @@
     width: calc(100vw - 12px) !important;
   }
 
-  .announcementModal > header {
-    min-height: 52px;
-    padding: 10px 14px;
-  }
-
-  .announcementModal > header h2 {
-    font-size: 18px;
-  }
-
-  .announcementModal > footer {
-    padding: 10px 14px;
-  }
-
   .tabBar {
     padding: 0 12px;
   }
 
   .tabBar .tabs {
     gap: 4px;
-  }
-
-  .tabBar .tabs [role="tab"] {
-    font-size: 13px;
-    height: 46px;
-    min-width: 88px;
-    padding: 0 6px;
   }
 
   .contentIframe {
@@ -457,10 +385,6 @@
 @media (max-width: 380px) {
   .tabBar {
     padding: 0 8px;
-  }
-
-  .tabBar .tabs [role="tab"] {
-    min-width: 84px;
   }
 
   .markdownContent {

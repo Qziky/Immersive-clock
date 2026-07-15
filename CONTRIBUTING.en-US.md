@@ -128,9 +128,10 @@ PR description should include:
 
 - Prefer TypeScript; avoid `any` and implicit `any`
 - Place shared type definitions under `src/types/` when adding new types
-- Put reusable UI components under `src/components/`
+- Put reusable UI components under `src/ui/` and export them from its public entry; keep business compositions in `src/components/`
 - Use semantic names (avoid one-letter variables unless extremely local and conventional)
-- Styling uses CSS Modules and CSS variables (tokens live in `src/styles/variables.css`)
+- Styling uses CSS Modules and CSS variables (the canonical tokens live in `src/ui/tokens.css`)
+- Update the `/design-system` catalog, component tests, and visual baselines with every public UI change
 - Keep accessibility in mind (ARIA attributes, keyboard navigation, not color-only signals)
 
 ---

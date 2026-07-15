@@ -2,8 +2,8 @@ import type { ReactNode, RefObject } from "react";
 import { useId, useLayoutEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 
+import { classNames } from "../../utils/classNames";
 import type { UiMotionMode } from "../types";
-import { classNames } from "../utils/classNames";
 import { OverlayLayerBoundary, useOverlayLayer } from "../utils/overlayStack";
 import { usePresence } from "../utils/usePresence";
 
@@ -27,6 +27,8 @@ export interface ModalProps {
   hideHeader?: boolean;
   fullScreen?: boolean;
   compactBodyTop?: boolean;
+  bodyPadding?: "default" | "compact" | "none";
+  bodyClassName?: string;
   closeButtonDataTour?: string;
   motion?: UiMotionMode;
   className?: string;
@@ -75,6 +77,8 @@ export function Modal({
   hideHeader = false,
   fullScreen = false,
   compactBodyTop = false,
+  bodyPadding = "default",
+  bodyClassName,
   closeButtonDataTour,
   motion = "default",
   className,
@@ -229,7 +233,13 @@ export function Modal({
             </header>
           )}
           <div
-            className={classNames(styles.modalBody, compactBodyTop && styles.modalBodyCompactTop)}
+            className={classNames(
+              styles.modalBody,
+              bodyPadding === "compact" && styles.modalBodyPaddingCompact,
+              bodyPadding === "none" && styles.modalBodyPaddingNone,
+              compactBodyTop && bodyPadding === "default" && styles.modalBodyCompactTop,
+              bodyClassName
+            )}
             data-ui-modal-body
           >
             {children}

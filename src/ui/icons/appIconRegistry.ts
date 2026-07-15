@@ -218,3 +218,5 @@ export const appIconRegistry = {
 } as const satisfies Record<string, LucideIcon>;
 
 export type AppIconName = keyof typeof appIconRegistry;
+
+export const APP_ICON_NAMES = Object.freeze(Object.keys(appIconRegistry) as AppIconName[]);

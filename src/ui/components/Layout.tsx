@@ -1,6 +1,6 @@
 import type { CSSProperties, HTMLAttributes, ReactNode } from "react";
 
-import { classNames } from "../utils/classNames";
+import { classNames } from "../../utils/classNames";
 
 import styles from "./primitives.module.css";
 

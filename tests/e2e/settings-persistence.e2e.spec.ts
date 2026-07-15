@@ -76,6 +76,8 @@ test("设置持久化：修改目标年份并保存", async ({ page }) => {
 
 test("自习显示：进度信息与天气可独立控制并持久化", async ({ page }) => {
   await page.goto("/");
+  const studyMain = page.getByRole("main", { name: "时钟应用主界面" });
+  const weatherDisplay = studyMain.getByLabel("天气", { exact: true });
 
   let dialog = await openStudySettings(page);
   await dialog.getByRole("button", { name: "自习显示" }).click();
@@ -88,7 +90,7 @@ test("自习显示：进度信息与天气可独立控制并持久化", async ({
   await dialog.getByRole("button", { name: "保存" }).click();
 
   await expect(page.getByRole("progressbar")).toHaveCount(0);
-  await expect(page.getByLabel("天气", { exact: true })).toBeVisible();
+  await expect(weatherDisplay).toBeVisible();
 
   await page.reload();
   dialog = await openStudySettings(page);
@@ -100,7 +102,7 @@ test("自习显示：进度信息与天气可独立控制并持久化", async ({
   await dialog.getByRole("button", { name: "保存" }).click();
 
   await expect(page.getByRole("progressbar")).toBeVisible();
-  await expect(page.getByLabel("天气", { exact: true })).toBeHidden();
+  await expect(weatherDisplay).toBeHidden();
 });
 
 test("自习显示：进度条目取消不保存并可持久化课时进度", async ({ page }) => {

@@ -10,21 +10,21 @@
 }
 
 .time {
-  font-family: var(--font-main);
+  font-family: var(--ui-font-number);
   font-size: clamp(5rem, 15vw, 10rem);
   font-weight: 700;
-  color: var(--primary-color);
+  color: var(--ui-color-text);
   line-height: 1;
-  margin-bottom: var(--spacing-md);
+  margin-bottom: var(--ui-space-2);
   text-shadow: none;
-  transition: all var(--transition-normal);
+  transition: all var(--ui-transition-normal);
   user-select: none;
 }
 
 .time.clickable {
   cursor: pointer;
   opacity: 1;
-  transition: all var(--transition-fast);
+  transition: all var(--ui-transition-fast);
   /* 防止触摸时的选择高亮 */
   -webkit-tap-highlight-color: transparent;
   -webkit-touch-callout: none;
@@ -65,36 +65,36 @@
 }
 
 .placeholder {
-  opacity: var(--placeholder-opacity);
+  opacity: 0.6;
 }
 
 .time.warning {
-  color: var(--warning-color);
+  color: var(--ui-color-warning);
   animation: warning-pulse 1s ease-in-out infinite;
   text-shadow: none;
 }
 
 .time.finished {
-  color: var(--warning-color);
+  color: var(--ui-color-warning);
   animation: finished-flash 0.5s ease-in-out infinite alternate;
   text-shadow: none;
 }
 
 .finishedMessage {
-  font-family: var(--font-ui);
+  font-family: var(--ui-font-sans);
   font-size: clamp(1.5rem, 4vw, 2.5rem);
   font-weight: 600;
-  color: var(--warning-color);
-  margin-top: var(--spacing-md);
+  color: var(--ui-color-warning);
+  margin-top: var(--ui-space-2);
   animation: bounce-in 0.6s ease-out;
 }
 
 .status {
-  font-family: var(--font-ui);
+  font-family: var(--ui-font-sans);
   font-size: clamp(1rem, 2.5vw, 1.5rem);
   font-weight: 400;
-  color: var(--accent-color);
-  margin-top: var(--spacing-sm);
+  color: var(--ui-color-accent);
+  margin-top: var(--ui-space-1);
   opacity: 0.8;
   animation: fade-in-up 0.3s ease-out;
 }
@@ -172,12 +172,12 @@
 @media (max-height: 600px) {
   .time {
     font-size: clamp(3rem, 12vh, 5rem);
-    margin-bottom: var(--spacing-sm);
+    margin-bottom: var(--ui-space-1);
   }
 
   .finishedMessage {
     font-size: clamp(1rem, 4vh, 1.5rem);
-    margin-top: var(--spacing-sm);
+    margin-top: var(--ui-space-1);
   }
 
   .status {

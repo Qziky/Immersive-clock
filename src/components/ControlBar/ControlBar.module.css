@@ -1,4 +1,4 @@
-/* 控制栏组件样式（极简设计） */
+/* 领域例外：主画布控制栏保留无边框、透明的极简 HUD 视觉。 */
 
 .controlBar {
   display: flex;
@@ -19,65 +19,47 @@
   align-items: center;
 }
 
-.controlButton {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem 1rem;
+.controlButton.controlButton {
   background: transparent;
-  border: none;
+  border: 0;
+  border-radius: 0;
   color: rgba(255, 255, 255, 0.5);
-  font-family: var(--font-ui);
+  font-family: var(--ui-font-sans);
   font-size: 0.9rem;
   font-weight: 400;
-  cursor: pointer;
-  transition: color 0.2s ease;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  transition: color var(--ui-transition-normal);
 }
 
-.controlButton:hover {
+.controlButton.controlButton:hover:not(:disabled) {
+  background: transparent;
+  border-color: transparent;
   color: rgba(255, 255, 255, 0.8);
 }
 
-.controlButton:focus-visible {
+.controlButton.controlButton:focus-visible {
+  box-shadow: none;
   outline: 1px solid rgba(255, 255, 255, 0.3);
   outline-offset: 2px;
 }
 
-.controlButton:disabled {
-  opacity: 0.3;
-  cursor: not-allowed;
-}
-
-.controlButton:disabled:hover {
+.controlButton.controlButton:disabled {
   color: rgba(255, 255, 255, 0.5);
+  opacity: 0.3;
 }
 
-.controlButton.primary {
+.controlButtonPrimary.controlButtonPrimary {
   color: #ffffff;
   font-weight: 500;
 }
 
-.controlButton.primary:hover {
+.controlButtonPrimary.controlButtonPrimary:hover:not(:disabled) {
   color: #ffffff;
 }
 
-.controlButton.primary:disabled {
+.controlButtonPrimary.controlButtonPrimary:disabled {
   color: rgba(255, 255, 255, 0.3);
-}
-
-.icon {
-  flex-shrink: 0;
-}
-
-.label {
-  white-space: nowrap;
-}
-
-.placeholder {
-  color: rgba(255, 255, 255, 0.3);
-  font-family: var(--font-ui);
-  font-size: 0.9rem;
-  font-style: italic;
 }
 
 /* 响应式适配 */
@@ -92,20 +74,15 @@
     justify-content: center;
   }
 
-  .controlButton {
+  .controlButton.controlButton {
     font-size: 0.8rem;
   }
 }
 
 @media (max-width: 480px) {
-  .controlButton {
+  .controlButton.controlButton {
     flex-direction: column;
-    gap: 0.25rem;
     font-size: 0.7rem;
-  }
-
-  .icon {
-    width: 14px;
-    height: 14px;
+    gap: 0.25rem;
   }
 }

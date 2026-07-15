@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 
 import type { NoiseSliceSummary } from "../../types/noise";
-import { Button as FormButton, Modal } from "../../ui";
+import { Button as FormButton, MetricCard, Modal, RadioGroup } from "../../ui";
 import { getNoiseControlSettings } from "../../utils/noiseControlSettings";
 import { readNoiseSlices, subscribeNoiseSlicesUpdated } from "../../utils/noiseSliceService";
 
@@ -694,6 +694,7 @@ export const NoiseReportModal: React.FC<NoiseReportModalProps> = ({
         title={modalTitle}
         maxWidth="xxl"
         className={styles.reportModal}
+        bodyPadding="none"
         footer={modalFooter}
       >
         <div className={styles.empty} role="status">
@@ -711,46 +712,41 @@ export const NoiseReportModal: React.FC<NoiseReportModalProps> = ({
       title={modalTitle}
       maxWidth="xxl"
       className={styles.reportModal}
+      bodyPadding="none"
       footer={modalFooter}
     >
       <div className={`${styles.container} ${styles.reportContent}`}>
         <div className={styles.section}>
           <h4 className={styles.sectionTitle}>报告概览</h4>
           <div className={styles.overviewGrid}>
-            <div className={styles.card}>
-              <div className={styles.cardLabel}>时长</div>
-              <div className={styles.cardValue}>{report ? formatMinutes(report.totalMs) : "—"}</div>
-            </div>
-            <div className={styles.card}>
-              <div className={styles.cardLabel}>表现</div>
-              <div className={styles.cardValue}>
-                {scoreInfo ? <>{scoreInfo.score} 分</> : "—"}
-                {scoreInfo ? <span className={styles.cardSub}>（{scoreInfo.level}）</span> : null}
-              </div>
-              <div className={styles.scoreSummary}>{report.scoreText}</div>
-            </div>
-            <div className={styles.card}>
-              <div className={styles.cardLabel}>峰值</div>
-              <div className={styles.cardValue}>
-                {report ? <>{report.maxDb.toFixed(1)} dB</> : "—"}
-              </div>
-            </div>
-            <div className={styles.card}>
-              <div className={styles.cardLabel}>平均</div>
-              <div className={styles.cardValue}>
-                {report ? <>{report.avgDb.toFixed(1)} dB</> : "—"}
-              </div>
-            </div>
-            <div className={styles.card}>
-              <div className={styles.cardLabel}>超阈时长</div>
-              <div className={styles.cardValue}>
-                {report ? formatDuration(report.overDurationMs) : "—"}
-              </div>
-            </div>
-            <div className={styles.card}>
-              <div className={styles.cardLabel}>打断次数</div>
-              <div className={styles.cardValue}>{report.segmentCount}</div>
-            </div>
+            <MetricCard
+              className={styles.card}
+              label="时长"
+              value={report ? formatMinutes(report.totalMs) : "—"}
+            />
+            <MetricCard
+              className={styles.card}
+              label="表现"
+              meta={scoreInfo ? `${scoreInfo.level} · ${report.scoreText}` : report.scoreText}
+              tone="accent"
+              value={scoreInfo ? `${scoreInfo.score} 分` : "—"}
+            />
+            <MetricCard
+              className={styles.card}
+              label="峰值"
+              value={report ? `${report.maxDb.toFixed(1)} dB` : "—"}
+            />
+            <MetricCard
+              className={styles.card}
+              label="平均"
+              value={report ? `${report.avgDb.toFixed(1)} dB` : "—"}
+            />
+            <MetricCard
+              className={styles.card}
+              label="超阈时长"
+              value={report ? formatDuration(report.overDurationMs) : "—"}
+            />
+            <MetricCard className={styles.card} label="打断次数" value={report.segmentCount} />
           </div>
         </div>
 
@@ -965,24 +961,16 @@ export const NoiseReportModal: React.FC<NoiseReportModalProps> = ({
                   %
                 </div>
 
-                <div className={styles.chartSwitch} role="group" aria-label="主图绘制模式">
-                  <button
-                    type="button"
-                    className={`${styles.chartSwitchButton} ${!isMainChartCombined ? styles.chartSwitchActive : ""}`}
-                    onClick={() => setIsMainChartCombined(false)}
-                    aria-pressed={!isMainChartCombined}
-                  >
-                    单图
-                  </button>
-                  <button
-                    type="button"
-                    className={`${styles.chartSwitchButton} ${isMainChartCombined ? styles.chartSwitchActive : ""}`}
-                    onClick={() => setIsMainChartCombined(true)}
-                    aria-pressed={isMainChartCombined}
-                  >
-                    三图
-                  </button>
-                </div>
+                <RadioGroup
+                  className={styles.chartSwitch}
+                  ariaLabel="主图绘制模式"
+                  value={isMainChartCombined ? "combined" : "single"}
+                  options={[
+                    { value: "single", label: "单图" },
+                    { value: "combined", label: "三图" },
+                  ]}
+                  onChange={(value) => setIsMainChartCombined(value === "combined")}
+                />
               </div>
             </div>
           ) : (

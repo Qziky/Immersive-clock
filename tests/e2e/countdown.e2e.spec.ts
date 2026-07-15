@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+
 import { showHud } from "./e2eUtils";
 
 /** 端到端用例：验证倒计时可设置、开始、暂停与重置（函数级注释） */
@@ -15,7 +16,7 @@ test("倒计时：设置 10 分钟并开始/暂停/重置", async ({ page }) => 
   const dialog = page.getByRole("dialog", { name: "设置倒计时" });
   await expect(dialog).toBeVisible();
 
-  await dialog.getByRole("button", { name: "10分钟" }).click();
+  await dialog.getByRole("radio", { name: "10分钟" }).check();
   await dialog.getByRole("button", { name: "确认" }).click();
 
   await showHud(page);
@@ -53,21 +54,15 @@ test("倒计时：320×568 下末项可滚动到固定底栏上方", async ({ pa
     .click();
 
   const dialog = page.getByRole("dialog", { name: "设置倒计时" });
-  const lastPreset = dialog.getByRole("button", { name: "2小时" });
+  const lastPreset = dialog.getByRole("radio", { name: "2小时" });
   await lastPreset.scrollIntoViewIfNeeded();
 
-  const geometry = await dialog.evaluate((element) => {
-    const preset = Array.from(element.querySelectorAll("button")).find(
-      (button) => button.textContent?.trim() === "2小时"
-    );
-    const footer = element.querySelector("footer");
-    if (!preset || !footer) return null;
-    return {
-      presetBottom: preset.getBoundingClientRect().bottom,
-      footerTop: footer.getBoundingClientRect().top,
-    };
-  });
+  const [presetBox, footerBox] = await Promise.all([
+    lastPreset.locator("..").boundingBox(),
+    dialog.locator("footer").boundingBox(),
+  ]);
 
-  expect(geometry).not.toBeNull();
-  expect(geometry!.presetBottom).toBeLessThanOrEqual(geometry!.footerTop);
+  expect(presetBox).not.toBeNull();
+  expect(footerBox).not.toBeNull();
+  expect(presetBox!.y + presetBox!.height).toBeLessThanOrEqual(footerBox!.y);
 });

@@ -1,6 +1,6 @@
 import type { HTMLAttributes } from "react";
 
-import { classNames } from "../../ui/utils/classNames";
+import { classNames } from "../../utils/classNames";
 import { PresentationContent, type PresentationAttributes } from "../PresentationContent";
 
 import styles from "./Countdown.module.css";

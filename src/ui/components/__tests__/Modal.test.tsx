@@ -226,4 +226,27 @@ describe("Modal", () => {
     const dialog = screen.getByRole("dialog", { name: "抽屉" });
     expect(dialog.className).toContain("modalPanelLeft");
   });
+
+  it.each([
+    ["compact", "modalBodyPaddingCompact"],
+    ["none", "modalBodyPaddingNone"],
+  ] as const)("applies %s body padding and a public body class", (bodyPadding, expectedClass) => {
+    render(
+      <Modal
+        isOpen
+        title={`${bodyPadding} 内容区`}
+        bodyPadding={bodyPadding}
+        bodyClassName="consumer-body"
+        onClose={vi.fn()}
+      >
+        内容
+      </Modal>
+    );
+
+    const body = screen
+      .getByRole("dialog", { name: `${bodyPadding} 内容区` })
+      .querySelector("[data-ui-modal-body]");
+    expect(body?.className).toContain(expectedClass);
+    expect(body).toHaveClass("consumer-body");
+  });
 });

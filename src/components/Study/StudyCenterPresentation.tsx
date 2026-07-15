@@ -1,6 +1,6 @@
 import type { HTMLAttributes, ReactNode } from "react";
 
-import { classNames } from "../../ui/utils/classNames";
+import { classNames } from "../../utils/classNames";
 import type { PresentationAttributes } from "../PresentationContent";
 
 import styles from "./Study.module.css";

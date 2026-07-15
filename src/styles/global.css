@@ -1,6 +1,3 @@
-/* 导入 CSS 变量 */
-@import "./variables.css";
-
 /* 重置与基础样式 */
 *,
 *::before,
@@ -23,9 +20,9 @@ html {
 
 body {
   height: 100%;
-  background-color: var(--background-color);
-  color: var(--text-color);
-  font-family: var(--font-ui);
+  background-color: var(--ui-color-bg);
+  color: var(--ui-color-text);
+  font-family: var(--ui-font-sans);
   font-size: 16px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
@@ -46,39 +43,6 @@ body {
   flex-direction: column;
   /* 防止双击缩放 */
   touch-action: manipulation;
-}
-
-/* 按钮重置样式 */
-button {
-  background: none;
-  border: none;
-  padding: 0;
-  margin: 0;
-  font: inherit;
-  color: inherit;
-  cursor: pointer;
-  outline: none;
-}
-
-button:focus-visible {
-  outline: 2px solid var(--accent-color);
-  outline-offset: 2px;
-}
-
-/* 输入框重置样式 */
-input {
-  background: none;
-  border: none;
-  padding: 0;
-  margin: 0;
-  font: inherit;
-  color: inherit;
-  outline: none;
-}
-
-input:focus-visible {
-  outline: 2px solid var(--accent-color);
-  outline-offset: 2px;
 }
 
 /* 工具类 */
@@ -125,40 +89,4 @@ img[loading="lazy"] {
 /* 适配 IE 与 Edge */
 * {
   -ms-overflow-style: none;
-}
-
-/* 动画关键帧 */
-@keyframes pulse {
-  0%,
-  100% {
-    opacity: 1;
-  }
-
-  50% {
-    opacity: 0.7;
-  }
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes fadeOut {
-  from {
-    opacity: 1;
-    transform: translateY(0);
-  }
-
-  to {
-    opacity: 0;
-    transform: translateY(10px);
-  }
 }

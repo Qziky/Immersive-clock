@@ -31,10 +31,17 @@
 }
 
 .tickLabel {
-  fill: var(--text-color, #ffffff);
+  fill: var(--ui-color-text, #ffffff);
   opacity: 0.9;
   font-size: 0.75rem;
-  font-family: var(--font-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif);
+  font-family: var(
+    --ui-font-sans,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Roboto,
+    sans-serif
+  );
 }
 
 .gridLine {
@@ -66,7 +73,7 @@
   margin-top: 0.4rem;
   font-size: 0.8rem;
   color: rgba(255, 255, 255, 0.6);
-  font-family: var(--font-ui);
+  font-family: var(--ui-font-sans);
 }
 
 .statsGrid {
@@ -117,14 +124,14 @@
   align-items: center;
   margin-bottom: 0.4rem;
   color: rgba(255, 255, 255, 0.85);
-  font-family: var(--font-ui);
+  font-family: var(--ui-font-sans);
   flex-wrap: wrap;
   gap: 0.5rem;
 }
 
 .historyTime {
   color: rgba(255, 255, 255, 0.85);
-  font-family: var(--font-ui);
+  font-family: var(--ui-font-sans);
 }
 
 .historyBadge {
@@ -137,10 +144,8 @@
 }
 
 .sliceItem {
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 8px;
-  padding: 0.75rem;
+  display: grid;
+  gap: var(--ui-space-3);
 }
 
 .sliceHeaderRow {
@@ -149,7 +154,7 @@
   align-items: center;
   gap: 0.75rem;
   margin-bottom: 0.5rem;
-  font-family: var(--font-ui);
+  font-family: var(--ui-font-sans);
 }
 
 .sliceTitle {
@@ -164,46 +169,17 @@
   white-space: nowrap;
 }
 
-.sliceGrid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.6rem;
-}
-
-.sliceGridItem {
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 8px;
-  padding: 0.6rem 0.65rem;
-}
-
-.sliceLabel {
-  color: rgba(255, 255, 255, 0.7);
-  font-size: 0.85rem;
-  margin-bottom: 0.2rem;
-}
-
-.sliceValue {
-  color: #ffffff;
-  font-size: 0.9rem;
-  font-weight: 600;
-}
-
 .sliceFootnote {
   margin-top: 0.55rem;
   font-size: 0.78rem;
   color: rgba(255, 255, 255, 0.6);
   line-height: 1.35;
-  font-family: var(--font-ui);
+  font-family: var(--ui-font-sans);
 }
 
 @media (max-width: 768px) {
   .statsGrid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .sliceGrid {
-    grid-template-columns: repeat(1, minmax(0, 1fr));
   }
 
   .sliceTime {

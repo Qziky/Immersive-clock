@@ -1,7 +1,8 @@
 import type { ButtonHTMLAttributes } from "react";
+import { forwardRef } from "react";
 
+import { classNames } from "../../utils/classNames";
 import { AppIcon, type AppIconName, type AppIconSize } from "../icons/AppIcon";
-import { classNames } from "../utils/classNames";
 
 import styles from "./primitives.module.css";
 
@@ -12,7 +13,7 @@ export interface IconButtonProps extends Omit<
   "aria-label": string;
   icon: AppIconName;
   size?: "sm" | "md" | "lg";
-  variant?: "default" | "ghost" | "danger";
+  variant?: "default" | "ghost" | "danger" | "overlay";
   pressed?: boolean;
   loading?: boolean;
 }
@@ -33,24 +34,29 @@ const variantClassMap = {
   default: styles.iconButtonDefault,
   ghost: styles.iconButtonGhost,
   danger: styles.iconButtonDanger,
+  overlay: styles.iconButtonOverlay,
 } as const;
 
-export function IconButton({
-  "aria-label": ariaLabel,
-  "aria-busy": ariaBusy,
-  icon,
-  size = "md",
-  variant = "default",
-  pressed,
-  loading = false,
-  disabled,
-  className,
-  type = "button",
-  title,
-  ...props
-}: IconButtonProps) {
+export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(function IconButton(
+  {
+    "aria-label": ariaLabel,
+    "aria-busy": ariaBusy,
+    icon,
+    size = "md",
+    variant = "default",
+    pressed,
+    loading = false,
+    disabled,
+    className,
+    type = "button",
+    title,
+    ...props
+  },
+  ref
+) {
   return (
     <button
+      ref={ref}
       {...props}
       className={classNames(
         styles.iconButton,
@@ -73,4 +79,4 @@ export function IconButton({
       )}
     </button>
   );
-}
+});

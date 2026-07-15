@@ -71,7 +71,7 @@ export function ControlBar() {
     return (
       <>
         <FormButton
-          className={`${styles.controlButton} ${styles.primary}`}
+          className={`${styles.controlButton} ${styles.controlButtonPrimary}`}
           onClick={handleCountdownToggle}
           aria-label={canStart ? (isRunning ? "暂停倒计时" : "开始倒计时") : "设置倒计时"}
           title={canStart ? (isRunning ? "暂停倒计时" : "开始倒计时") : "设置倒计时"}
@@ -107,7 +107,7 @@ export function ControlBar() {
     return (
       <>
         <FormButton
-          className={`${styles.controlButton} ${styles.primary}`}
+          className={`${styles.controlButton} ${styles.controlButtonPrimary}`}
           onClick={handleStopwatchToggle}
           aria-label={isRunning ? "暂停秒表" : "开始秒表"}
           title={isRunning ? "暂停秒表" : "开始秒表"}

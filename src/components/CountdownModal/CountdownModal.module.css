@@ -2,9 +2,8 @@
   max-height: min(680px, calc(100dvh - 32px));
 }
 
-.countdownModal [data-ui-modal-body] {
+.modalBody {
   overscroll-behavior: contain;
-  padding: 0;
 }
 
 .content {
@@ -68,36 +67,6 @@
   color: var(--ui-color-text-muted);
   font-size: var(--ui-font-size-sm);
   font-weight: 600;
-}
-
-.adjustButton:hover:not(:disabled) {
-  background: var(--ui-glass-surface-soft);
-}
-
-.presetsGrid {
-  display: grid;
-  gap: 8px;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-
-.presetButton {
-  justify-content: center;
-  min-height: 40px;
-  min-width: 0;
-  padding-inline: 10px;
-  text-align: center;
-  width: 100%;
-}
-
-.presetButton[aria-pressed="true"] {
-  background: var(--ui-color-bg-elevated);
-  border-color: rgba(47, 236, 198, 0.4);
-  color: var(--ui-color-accent);
-}
-
-.presetButton[aria-pressed="true"]:hover:not(:disabled) {
-  background: var(--ui-color-bg-elevated);
-  border-color: var(--ui-color-accent-border);
 }
 
 .footerActions {

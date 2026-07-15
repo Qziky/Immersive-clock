@@ -7,6 +7,7 @@ import {
   IconButton,
   Inline as FormButtonGroup,
   Modal,
+  RadioGroup,
 } from "../../ui";
 import { timeToSeconds } from "../../utils/formatTime";
 
@@ -84,6 +85,10 @@ export function CountdownModal() {
 
   const totalSeconds = timeToSeconds(hours, minutes, seconds);
   const isValid = totalSeconds > 0;
+  const selectedPreset =
+    seconds === 0 && COUNTDOWN_PRESETS.some((preset) => preset.minutes === hours * 60 + minutes)
+      ? String(hours * 60 + minutes)
+      : "";
 
   return (
     <Modal
@@ -92,6 +97,8 @@ export function CountdownModal() {
       title="设置倒计时"
       maxWidth="md"
       className={styles.countdownModal}
+      bodyClassName={styles.modalBody}
+      bodyPadding="none"
       footer={
         <FormButtonGroup align="right" className={styles.footerActions}>
           <FormButton variant="secondary" onClick={handleClose}>
@@ -112,7 +119,6 @@ export function CountdownModal() {
                 <IconButton
                   variant="default"
                   size="lg"
-                  className={styles.adjustButton}
                   onClick={() => adjustTime("hours", 1)}
                   disabled={hours === 23}
                   icon="action.increment"
@@ -127,7 +133,6 @@ export function CountdownModal() {
                 <IconButton
                   variant="default"
                   size="lg"
-                  className={styles.adjustButton}
                   onClick={() => adjustTime("hours", -1)}
                   disabled={hours === 0}
                   icon="action.decrement"
@@ -142,7 +147,6 @@ export function CountdownModal() {
                 <IconButton
                   variant="default"
                   size="lg"
-                  className={styles.adjustButton}
                   onClick={() => adjustTime("minutes", 1)}
                   disabled={minutes === 59}
                   icon="action.increment"
@@ -157,7 +161,6 @@ export function CountdownModal() {
                 <IconButton
                   variant="default"
                   size="lg"
-                  className={styles.adjustButton}
                   onClick={() => adjustTime("minutes", -1)}
                   disabled={minutes === 0}
                   icon="action.decrement"
@@ -172,7 +175,6 @@ export function CountdownModal() {
                 <IconButton
                   variant="default"
                   size="lg"
-                  className={styles.adjustButton}
                   onClick={() => adjustTime("seconds", 1)}
                   disabled={seconds === 59}
                   icon="action.increment"
@@ -187,7 +189,6 @@ export function CountdownModal() {
                 <IconButton
                   variant="default"
                   size="lg"
-                  className={styles.adjustButton}
                   onClick={() => adjustTime("seconds", -1)}
                   disabled={seconds === 0}
                   icon="action.decrement"
@@ -199,24 +200,15 @@ export function CountdownModal() {
         </FormSection>
 
         <FormSection title="快速设置" variant="plain" className={styles.section}>
-          <div className={styles.presetsGrid}>
-            {COUNTDOWN_PRESETS.map(({ label, minutes: presetMinutes }) => {
-              const isSelected = seconds === 0 && hours * 60 + minutes === presetMinutes;
-
-              return (
-                <FormButton
-                  key={presetMinutes}
-                  variant="secondary"
-                  className={styles.presetButton}
-                  onClick={() => handlePreset(presetMinutes)}
-                  title={`设置为${label}`}
-                  aria-pressed={isSelected}
-                >
-                  {label}
-                </FormButton>
-              );
-            })}
-          </div>
+          <RadioGroup
+            ariaLabel="快速设置倒计时时长"
+            value={selectedPreset}
+            options={COUNTDOWN_PRESETS.map(({ label, minutes: presetMinutes }) => ({
+              value: String(presetMinutes),
+              label,
+            }))}
+            onChange={(value) => handlePreset(Number(value))}
+          />
         </FormSection>
       </div>
     </Modal>

@@ -1,19 +1,28 @@
 import type { ButtonHTMLAttributes } from "react";
 import { forwardRef } from "react";
 
+import { classNames } from "../../utils/classNames";
 import { AppIcon, type AppIconName, type AppIconSize } from "../icons/AppIcon";
-import { classNames } from "../utils/classNames";
 
 import styles from "./primitives.module.css";
 
-export type ButtonVariant = "primary" | "secondary" | "ghost" | "danger" | "success";
+export type ButtonVariant =
+  | "primary"
+  | "secondary"
+  | "ghost"
+  | "danger"
+  | "success"
+  | "text"
+  | "overlay";
 export type ButtonSize = "sm" | "md" | "lg";
+export type ButtonOverlayEmphasis = "subtle" | "strong";
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: ButtonVariant;
   size?: ButtonSize;
   icon?: AppIconName;
   loading?: boolean;
+  overlayEmphasis?: ButtonOverlayEmphasis;
 }
 
 const variantClassMap: Record<ButtonVariant, string> = {
@@ -21,7 +30,14 @@ const variantClassMap: Record<ButtonVariant, string> = {
   secondary: styles.buttonSecondary,
   ghost: styles.buttonGhost,
   danger: styles.buttonDanger,
-  success: styles.buttonPrimary,
+  success: styles.buttonSuccess,
+  text: styles.buttonText,
+  overlay: styles.buttonOverlay,
+};
+
+const overlayEmphasisClassMap: Record<ButtonOverlayEmphasis, string> = {
+  subtle: styles.buttonOverlaySubtle,
+  strong: styles.buttonOverlayStrong,
 };
 
 const sizeClassMap: Record<ButtonSize, string> = {
@@ -43,6 +59,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
     size = "md",
     icon,
     loading = false,
+    overlayEmphasis = "subtle",
     disabled,
     children,
     className,
@@ -54,7 +71,13 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
   return (
     <button
       ref={ref}
-      className={classNames(styles.button, variantClassMap[variant], sizeClassMap[size], className)}
+      className={classNames(
+        styles.button,
+        variantClassMap[variant],
+        variant === "overlay" && overlayEmphasisClassMap[overlayEmphasis],
+        sizeClassMap[size],
+        className
+      )}
       disabled={disabled || loading}
       type={type}
       aria-busy={loading || ariaBusy || undefined}

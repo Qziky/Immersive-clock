@@ -86,6 +86,7 @@ export function SettingsButton({ onClick, isVisible = true }: SettingsButtonProp
       title="设置"
       icon="action.configure"
       size="lg"
+      variant="overlay"
     />
   );
 }

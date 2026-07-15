@@ -72,6 +72,7 @@ describe("action controls", () => {
     ["default", "iconButtonDefault"],
     ["ghost", "iconButtonGhost"],
     ["danger", "iconButtonDanger"],
+    ["overlay", "iconButtonOverlay"],
   ] as const)("applies the %s icon button variant", (variant, expectedClass) => {
     render(<IconButton aria-label={`${variant} 按钮`} icon="action.search" variant={variant} />);
 
@@ -112,6 +113,36 @@ describe("action controls", () => {
     const button = screen.getByRole("button", { name: "保存设置" });
     expect(button).toBeDisabled();
     expect(button).toHaveAttribute("aria-busy", "true");
+  });
+
+  it.each([
+    ["success", "buttonSuccess"],
+    ["text", "buttonText"],
+    ["overlay", "buttonOverlay"],
+  ] as const)("applies the %s text button variant", (variant, expectedClass) => {
+    render(<Button variant={variant}>{variant} 操作</Button>);
+
+    expect(screen.getByRole("button", { name: `${variant} 操作` }).className).toContain(
+      expectedClass
+    );
+  });
+
+  it("supports subtle and strong overlay emphasis", () => {
+    render(
+      <>
+        <Button variant="overlay">轻叠层</Button>
+        <Button variant="overlay" overlayEmphasis="strong">
+          强叠层
+        </Button>
+      </>
+    );
+
+    expect(screen.getByRole("button", { name: "轻叠层" }).className).toContain(
+      "buttonOverlaySubtle"
+    );
+    expect(screen.getByRole("button", { name: "强叠层" }).className).toContain(
+      "buttonOverlayStrong"
+    );
   });
 
   it("renders button icons through the semantic slot", () => {

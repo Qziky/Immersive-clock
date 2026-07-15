@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 
+import { classNames } from "../../utils/classNames";
 import { AppIcon, type AppIconName } from "../icons/AppIcon";
-import { classNames } from "../utils/classNames";
 
 import styles from "./primitives.module.css";
 

@@ -1,0 +1,100 @@
+const domainColorFiles = [
+  "src/App.module.css",
+  "src/components/ControlBar/ControlBar.module.css",
+  "src/components/ModeSelector/ModeSelector.module.css",
+  "src/components/NoiseMonitor/NoiseMonitor.module.css",
+  "src/components/NoiseSettings/NoiseSettings.module.css",
+  "src/components/SettingsPanel/sections/AppearanceSettingsPanel.module.css",
+  "src/components/Study/Study.module.css",
+  "src/components/StudyStatus/StudyStatus.module.css",
+  "src/components/Weather/Weather.module.css",
+  "src/pages/ClockPage/ClockPage.module.css",
+  "src/styles/tour.css",
+];
+
+const hardCodedColorRules = {
+  "color-no-hex": true,
+  "function-disallowed-list": [
+    "color",
+    "hsl",
+    "hsla",
+    "hwb",
+    "lab",
+    "lch",
+    "oklab",
+    "oklch",
+    "rgb",
+    "rgba",
+  ],
+};
+
+module.exports = {
+  extends: ["stylelint-config-standard"],
+  ignoreFiles: [
+    "coverage/**",
+    "dist*/**",
+    "node_modules/**",
+    "playwright-report/**",
+    "public/**",
+    "release/**",
+    "test-results/**",
+  ],
+  rules: {
+    ...hardCodedColorRules,
+    "alpha-value-notation": null,
+    "color-named": "never",
+    "color-function-alias-notation": null,
+    "color-function-notation": null,
+    "color-hex-length": null,
+    "comment-empty-line-before": null,
+    "comment-whitespace-inside": null,
+    "custom-property-empty-line-before": null,
+    "custom-property-pattern": null,
+    "declaration-block-no-redundant-longhand-properties": null,
+    "declaration-empty-line-before": null,
+    "declaration-property-value-keyword-no-deprecated": null,
+    "import-notation": null,
+    "keyframe-selector-notation": null,
+    "keyframes-name-pattern": null,
+    "media-feature-name-value-no-unknown": null,
+    "media-feature-range-notation": null,
+    "no-descending-specificity": null,
+    "no-duplicate-selectors": null,
+    "property-no-deprecated": null,
+    "property-no-vendor-prefix": null,
+    "rule-empty-line-before": null,
+    "selector-class-pattern": null,
+    "selector-disallowed-list": [
+      "/\\[\\s*data-ui(?:-|\\s|=|\\])/i",
+      "/\\[\\s*aria-/i",
+      "/\\[\\s*role(?:\\s|[~|^$*]?=|\\])/i",
+    ],
+    "selector-not-notation": null,
+    "shorthand-property-no-redundant-values": null,
+    "value-keyword-case": null,
+  },
+  overrides: [
+    {
+      files: ["src/ui/**/*.css"],
+      rules: {
+        "color-no-hex": null,
+        "function-disallowed-list": null,
+        "selector-disallowed-list": null,
+      },
+    },
+    {
+      files: domainColorFiles,
+      rules: {
+        "color-named": null,
+        "color-no-hex": null,
+        "function-disallowed-list": null,
+      },
+    },
+    {
+      files: ["src/styles/tour.css"],
+      rules: {
+        "selector-disallowed-list": null,
+      },
+    },
+  ],
+};

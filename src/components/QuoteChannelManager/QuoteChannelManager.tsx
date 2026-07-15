@@ -1,4 +1,4 @@
-import { type ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { useAppDispatch, useAppState } from "../../contexts/AppContext";
 import { getDefaultQuoteChannels } from "../../services/quotes/quoteRegistry";
@@ -10,7 +10,7 @@ import {
 } from "../../types";
 import {
   AppIcon,
-  Button as FormButton,
+  Card,
   FormSection,
   IconButton as FormIconButton,
   InfoPanel,
@@ -61,7 +61,6 @@ export function QuoteChannelManager({ onRegisterSave }: QuoteChannelManagerProps
   const [importError, setImportError] = useState<string | null>(null);
   const [editorError, setEditorError] = useState<string | null>(null);
   const [editorDraftMap, setEditorDraftMap] = useState<Record<string, string>>({});
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const defaultQuotesMap = useMemo<Record<string, string[]>>(
     () =>
@@ -142,10 +141,8 @@ export function QuoteChannelManager({ onRegisterSave }: QuoteChannelManagerProps
     [channels]
   );
 
-  const handleImportTxtFileChange = useCallback(async (event: ChangeEvent<HTMLInputElement>) => {
+  const handleImportTxtFileChange = useCallback(async (file: File | null) => {
     setImportError(null);
-    const file = event.target.files?.[0];
-    event.target.value = "";
     if (!file) return;
 
     try {
@@ -256,23 +253,14 @@ export function QuoteChannelManager({ onRegisterSave }: QuoteChannelManagerProps
       </InfoPanel>
 
       <FormButtonGroup align="right">
-        <input
-          ref={fileInputRef}
+        <FormInput
           type="file"
           accept=".txt,text/plain"
-          className={styles.hiddenInput}
-          onChange={handleImportTxtFileChange}
+          aria-label="导入 TXT 语录文件"
+          buttonText="导入 TXT"
+          placeholder="未选择 TXT 文件"
+          onFileChange={handleImportTxtFileChange}
         />
-        <FormButton
-          variant="secondary"
-          onClick={() => {
-            setImportError(null);
-            fileInputRef.current?.click();
-          }}
-          icon="action.upload"
-        >
-          导入 TXT
-        </FormButton>
       </FormButtonGroup>
 
       {importError && (
@@ -289,14 +277,17 @@ export function QuoteChannelManager({ onRegisterSave }: QuoteChannelManagerProps
           const categoryDetailsId = `quote-channel-categories-${channel.id}`;
           const editorDetailsId = `quote-channel-editor-${channel.id}`;
           return (
-            <article
+            <Card
+              as="article"
               key={channel.id}
               className={channel.enabled ? styles.channelCardActive : styles.channelCard}
               data-ui-motion-item
             >
               <span className={styles.channelIcon} aria-hidden="true">
                 <AppIcon
-                  name={channel.kind === "remote" ? "feature.remoteContent" : "feature.localContent"}
+                  name={
+                    channel.kind === "remote" ? "feature.remoteContent" : "feature.localContent"
+                  }
                   size="lg"
                 />
               </span>
@@ -478,7 +469,7 @@ export function QuoteChannelManager({ onRegisterSave }: QuoteChannelManagerProps
                   </div>
                 </div>
               )}
-            </article>
+            </Card>
           );
         })}
       </div>

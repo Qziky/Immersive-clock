@@ -1,7 +1,7 @@
 import type { KeyboardEvent, ReactNode } from "react";
 
+import { classNames } from "../../utils/classNames";
 import { AppIcon, type AppIconName, type AppIconSize } from "../icons/AppIcon";
-import { classNames } from "../utils/classNames";
 
 import styles from "./primitives.module.css";
 
@@ -25,7 +25,7 @@ export interface TabsProps<TValue extends string = string> {
   items: Array<TabItem<TValue>>;
   onChange: (value: TValue) => void;
   label?: string;
-  variant?: "underlined" | "pill" | "browser" | "announcement";
+  variant?: "underlined" | "pill" | "browser" | "announcement" | "overlay";
   size?: "sm" | "md" | "lg";
   scrollable?: boolean;
   sticky?: boolean;
@@ -38,6 +38,7 @@ const variantClassMap: Record<NonNullable<TabsProps["variant"]>, string> = {
   pill: styles.tabsPill,
   browser: styles.tabsBrowser,
   announcement: styles.tabsAnnouncement,
+  overlay: styles.tabsOverlay,
 };
 
 const tabVariantClassMap: Record<NonNullable<TabsProps["variant"]>, string> = {
@@ -45,6 +46,7 @@ const tabVariantClassMap: Record<NonNullable<TabsProps["variant"]>, string> = {
   pill: styles.tabButtonPill,
   browser: styles.tabButtonBrowser,
   announcement: styles.tabButtonAnnouncement,
+  overlay: styles.tabButtonOverlay,
 };
 
 const sizeClassMap: Record<NonNullable<TabsProps["size"]>, string> = {

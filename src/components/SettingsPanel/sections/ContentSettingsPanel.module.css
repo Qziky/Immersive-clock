@@ -1,5 +1,5 @@
 .preview {
-  background: rgba(8, 13, 12, 0.34);
+  background: var(--ui-glass-surface-subtle);
   border: 1px solid var(--ui-glass-border);
   border-radius: var(--ui-radius-md);
   display: grid;

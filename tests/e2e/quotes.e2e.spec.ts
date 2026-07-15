@@ -630,7 +630,8 @@ test("语录显示：打字过程中启用减少动效会立即显示完整内�
 
   const quoteButton = page.getByRole("button", { name: "刷新语录" });
   const reveal = quoteButton.locator('[data-quote-reveal="true"]');
-  await expect(page.getByRole("status")).toContainText(fullQuote);
+  const quoteStatus = page.getByRole("status").filter({ hasText: fullQuote });
+  await expect(quoteStatus).toContainText(fullQuote);
   await expect(reveal).toHaveAttribute("data-quote-animation", "typewriter");
   await expect(reveal.locator("[data-quote-unrevealed-text]")).toHaveCount(1);
 

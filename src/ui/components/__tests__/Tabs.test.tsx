@@ -148,4 +148,21 @@ describe("Tabs", () => {
     fireEvent.blur(studyTab);
     expect(onPreviewChange).toHaveBeenLastCalledWith(null);
   });
+
+  it("applies the overlay variant to the tablist and tabs", () => {
+    render(
+      <Tabs
+        value="clock"
+        variant="overlay"
+        items={[
+          { value: "clock", label: "时钟" },
+          { value: "study", label: "自习" },
+        ]}
+        onChange={vi.fn()}
+      />
+    );
+
+    expect(screen.getByRole("tablist").className).toContain("tabsOverlay");
+    expect(screen.getByRole("tab", { name: "时钟" }).className).toContain("tabButtonOverlay");
+  });
 });

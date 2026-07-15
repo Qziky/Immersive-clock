@@ -2,9 +2,9 @@ import type { CSSProperties } from "react";
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
+import { classNames } from "../../utils/classNames";
 import { AppIcon, type AppIconName } from "../icons/AppIcon";
 import type { UiMotionMode } from "../types";
-import { classNames } from "../utils/classNames";
 import { useOverlayLayer } from "../utils/overlayStack";
 import { usePresence } from "../utils/usePresence";
 
@@ -23,7 +23,7 @@ export interface DropdownOption {
 
 export interface DropdownGroup {
   label: string;
-  options: DropdownOption[];
+  options: readonly DropdownOption[];
 }
 
 export interface DropdownProps {
@@ -34,8 +34,8 @@ export interface DropdownProps {
   placeholder?: string;
   value?: DropdownValue | DropdownValue[];
   defaultValue?: DropdownValue | DropdownValue[];
-  options?: DropdownOption[];
-  groups?: DropdownGroup[];
+  options?: readonly DropdownOption[];
+  groups?: readonly DropdownGroup[];
   mode?: DropdownMode;
   searchable?: boolean;
   disabled?: boolean;
@@ -66,6 +66,12 @@ function formatMenuWidth(width: number | string | undefined, fallback: number) {
   return width ?? fallback;
 }
 
+function getPositioningWidth(width: number | string, fallback: number) {
+  if (typeof width === "number") return width;
+  const pixelWidth = /^([0-9]+(?:\.[0-9]+)?)px$/.exec(width.trim());
+  return pixelWidth ? Number(pixelWidth[1]) : fallback;
+}
+
 export function Dropdown({
   label,
   hint,
@@ -82,6 +88,7 @@ export function Dropdown({
   maxMenuHeight = 260,
   menuWidth,
   width,
+  variant = "default",
   renderLabel,
   portalContainer,
   motion = "default",
@@ -149,9 +156,14 @@ export function Dropdown({
 
     const rect = trigger.getBoundingClientRect();
     const resolvedWidth = formatMenuWidth(menuWidth ?? width, rect.width);
-    const numericWidth = typeof resolvedWidth === "number" ? resolvedWidth : rect.width;
     const viewportInset = 8;
     const menuGap = 8;
+    const maximumWidth = Math.max(0, window.innerWidth - viewportInset * 2);
+    const measuredWidth = menuRef.current?.getBoundingClientRect().width ?? 0;
+    const numericWidth = Math.min(
+      measuredWidth || getPositioningWidth(resolvedWidth, rect.width),
+      maximumWidth
+    );
     const menuHeight = menuRef.current?.offsetHeight ?? 0;
     const availableBelow = window.innerHeight - rect.bottom - menuGap - viewportInset;
     const availableAbove = rect.top - menuGap - viewportInset;
@@ -166,6 +178,7 @@ export function Dropdown({
 
     setMenuStyle({
       left,
+      maxWidth: `calc(100vw - ${viewportInset * 2}px)`,
       top,
       width: resolvedWidth,
     });
@@ -195,6 +208,7 @@ export function Dropdown({
       if (event.key === "Escape" && isTop()) {
         event.preventDefault();
         setIsOpen(false);
+        queueMicrotask(() => triggerRef.current?.focus({ preventScroll: true }));
       }
     };
 
@@ -215,6 +229,14 @@ export function Dropdown({
     if (!isOpen) return;
     updatePosition();
   }, [filteredGroups, isOpen, updatePosition]);
+
+  useEffect(() => {
+    if (!isOpen || typeof ResizeObserver === "undefined") return undefined;
+    const observer = new ResizeObserver(updatePosition);
+    if (triggerRef.current) observer.observe(triggerRef.current);
+    if (menuRef.current) observer.observe(menuRef.current);
+    return () => observer.disconnect();
+  }, [isOpen, updatePosition]);
 
   const commitValue = (nextValue: DropdownValue | DropdownValue[] | undefined) => {
     if (value === undefined) {
@@ -347,6 +369,7 @@ export function Dropdown({
         ref={triggerRef}
         className={classNames(
           styles.dropdownTrigger,
+          variant === "ghost" ? styles.dropdownTriggerGhost : styles.dropdownTriggerDefault,
           error && styles.inputError,
           !selectedLabels.length && styles.dropdownPlaceholder
         )}

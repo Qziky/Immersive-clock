@@ -1,7 +1,7 @@
 /* 实时噪音状态：顶栏里的可点击环境指示 */
 .noiseMonitor {
   align-items: center;
-  color: var(--study-text-primary, var(--study-ink, var(--text-color)));
+  color: var(--study-text-primary, var(--study-ink, var(--ui-color-text)));
   display: flex;
   height: 100%;
   line-height: 1;
@@ -49,7 +49,7 @@
   border-radius: 6px;
   cursor: pointer;
   display: inline-flex;
-  font-family: var(--font-ui);
+  font-family: var(--ui-font-sans);
   font-size: var(--study-rail-primary-font-size, 1rem);
   font-weight: 600;
   grid-column: 1;
@@ -65,7 +65,7 @@
 }
 
 .statusText:focus-visible {
-  box-shadow: 0 0 0 2px rgba(127, 216, 189, 0.24);
+  box-shadow: var(--ui-focus-ring);
   outline: none;
 }
 
@@ -74,7 +74,7 @@
   align-self: end;
   color: var(--study-text-tertiary, rgba(232, 233, 224, 0.54));
   display: inline-flex;
-  font-family: var(--font-ui);
+  font-family: var(--ui-font-sans);
   font-size: var(--study-rail-meta-font-size, 0.58rem);
   font-variant-numeric: tabular-nums;
   font-weight: 500;
@@ -90,7 +90,7 @@
 }
 
 .statusText.quiet {
-  color: var(--study-ink, var(--text-color));
+  color: var(--study-ink, var(--ui-color-text));
 }
 
 .statusText.noisy {
@@ -124,7 +124,7 @@
   align-self: center;
   background: transparent;
   border: 0;
-  border-radius: 50%;
+  border-radius: var(--ui-radius-round);
   display: grid;
   flex: 0 0 auto;
   height: 44px;
@@ -134,14 +134,19 @@
   width: 44px;
 }
 
+.breathingLight:focus-visible {
+  box-shadow: var(--ui-focus-ring);
+  outline: none;
+}
+
 .breathingLight::before {
-  border-radius: 50%;
+  border-radius: var(--ui-radius-round);
   content: "";
   display: block;
   height: var(--study-status-dot-size, 0.625rem);
   transition:
-    box-shadow 0.24s ease,
-    transform 0.24s ease;
+    box-shadow var(--ui-motion-duration-slow) var(--ui-motion-ease-standard),
+    transform var(--ui-motion-duration-slow) var(--ui-motion-ease-standard);
   width: var(--study-status-dot-size, 0.625rem);
 }
 
@@ -154,7 +159,8 @@
 }
 
 .breathingLight.quiet::before {
-  animation: breatheQuiet 4s ease-in-out infinite;
+  animation: breatheQuiet var(--ui-motion-duration-ambient-slow) var(--ui-motion-ease-ambient)
+    infinite;
   background-color: var(--appearance-indicator-color, #7fd8bd);
 }
 
@@ -163,7 +169,8 @@
 }
 
 .breathingLight.noisy::before {
-  animation: breatheNoisy 2.3s ease-in-out infinite;
+  animation: breatheNoisy var(--ui-motion-duration-ambient-fast) var(--ui-motion-ease-ambient)
+    infinite;
   background-color: var(--appearance-indicator-color, #ff7a88);
 }
 
@@ -172,7 +179,8 @@
 }
 
 .breathingLight.error::before {
-  animation: breatheError 3s ease-in-out infinite;
+  animation: breatheError var(--ui-motion-duration-ambient-normal) var(--ui-motion-ease-ambient)
+    infinite;
   background-color: var(--appearance-indicator-color, #ff9b9b);
 }
 
@@ -181,7 +189,8 @@
 }
 
 .breathingLight.initializing::before {
-  animation: breatheInitializing 3.5s ease-in-out infinite;
+  animation: breatheInitializing var(--ui-motion-duration-ambient-slow)
+    var(--ui-motion-ease-ambient) infinite;
   background-color: var(--appearance-indicator-color, rgba(248, 247, 240, 0.54));
 }
 
@@ -190,7 +199,8 @@
 }
 
 .breathingLight.calibrating::before {
-  animation: breatheCalibrating 2s ease-in-out infinite;
+  animation: breatheCalibrating var(--ui-motion-duration-ambient-fast) var(--ui-motion-ease-ambient)
+    infinite;
   background-color: var(--appearance-indicator-color, #f2c46d);
 }
 

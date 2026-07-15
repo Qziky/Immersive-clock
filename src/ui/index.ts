@@ -11,7 +11,12 @@ export type { AlertProps, AlertVariant } from "./components/Alert";
 export { Alert } from "./components/Alert";
 export type { BadgeProps, BadgeVariant } from "./components/Badge";
 export { Badge } from "./components/Badge";
-export type { ButtonProps, ButtonSize, ButtonVariant } from "./components/Button";
+export type {
+  ButtonOverlayEmphasis,
+  ButtonProps,
+  ButtonSize,
+  ButtonVariant,
+} from "./components/Button";
 export { Button } from "./components/Button";
 export type { CardProps } from "./components/Card";
 export { Card } from "./components/Card";
@@ -69,7 +74,12 @@ export {
   SettingItem,
   StatusPill,
 } from "./components/SettingComponents";
-export type { SettingsNavItem, SettingsShellProps } from "./components/SettingsShell";
+export type {
+  SettingsNavGroup,
+  SettingsNavItem,
+  SettingsShellProps,
+  SettingsShellVariant,
+} from "./components/SettingsShell";
 export { SettingsShell } from "./components/SettingsShell";
 export type { SliderProps } from "./components/Slider";
 export { Slider } from "./components/Slider";

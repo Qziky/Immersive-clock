@@ -2,7 +2,7 @@ import type { ButtonHTMLAttributes, CSSProperties, HTMLAttributes } from "react"
 
 import { formatQuoteAttribution } from "../../services/quotes";
 import type { Quote, QuoteAnimationMode, QuoteTypingSpeed } from "../../types/quote";
-import { classNames } from "../../ui/utils/classNames";
+import { classNames } from "../../utils/classNames";
 import type { PresentationAttributes } from "../PresentationContent";
 
 import styles from "./MotivationalQuote.module.css";
@@ -43,6 +43,7 @@ export function MotivationalQuotePresentation({
 
   return (
     <>
+      {/* eslint-disable-next-line react/forbid-elements -- 整块语录是领域内容表面，不是公共按钮视觉。 */}
       <button
         {...buttonProps}
         className={classNames(styles.motivationalQuote, buttonClassName)}

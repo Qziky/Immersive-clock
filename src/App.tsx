@@ -76,7 +76,10 @@ export function App() {
   }, []); // 空依赖数组确保只在组件挂载时执行一次
 
   return (
-    <div className={`${styles.app} ${showEnterAnimation ? styles.enterAnimation : ""}`}>
+    <div
+      className={`${styles.app} ${showEnterAnimation ? styles.enterAnimation : ""}`}
+      data-ui-root
+    >
       <Routes>
         <Route path="/" element={<ClockPage />} />
         <Route path="/clock" element={<ClockPage />} />

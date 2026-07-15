@@ -1,7 +1,7 @@
 import type { InputHTMLAttributes, ReactNode } from "react";
 import { useId } from "react";
 
-import { classNames } from "../utils/classNames";
+import { classNames } from "../../utils/classNames";
 
 import { Button } from "./Button";
 import { Field } from "./Field";

@@ -5,6 +5,7 @@ import {
   subscribeNoiseStream,
 } from "../../services/noise/noiseStreamService";
 import type { NoiseSliceSummary } from "../../types/noise";
+import { Card, MetricCard, SettingGrid } from "../../ui";
 import { getNoiseControlSettings } from "../../utils/noiseControlSettings";
 import { readNoiseSlices, subscribeNoiseSlicesUpdated } from "../../utils/noiseSliceService";
 import { subscribeSettingsEvent, SETTINGS_EVENTS } from "../../utils/settingsEvents";
@@ -99,7 +100,7 @@ export const NoiseStatsSummary: React.FC = () => {
       </div>
 
       {displaySlice ? (
-        <div className={styles.sliceItem} data-slice="latest">
+        <Card className={styles.sliceItem} data-slice="latest">
           <div className={styles.sliceHeaderRow}>
             <div className={styles.sliceTitle}>
               最近切片 · {formatDuration(Math.max(0, displaySlice.end - displaySlice.start))} ·{" "}
@@ -110,45 +111,34 @@ export const NoiseStatsSummary: React.FC = () => {
             </div>
           </div>
 
-          <div className={styles.sliceGrid}>
-            <div className={styles.sliceGridItem}>
-              <div className={styles.sliceLabel}>显示分贝</div>
-              <div className={styles.sliceValue}>
-                平均 {clampFiniteNumber(displaySlice.display.avgDb, 0).toFixed(1)} dB / 95分位{" "}
-                {clampFiniteNumber(displaySlice.display.p95Db, 0).toFixed(1)} dB
-              </div>
-            </div>
-            <div className={styles.sliceGridItem}>
-              <div className={styles.sliceLabel}>评分原始(dBFS)</div>
-              <div className={styles.sliceValue}>
-                p50 {clampFiniteNumber(displaySlice.raw.p50Dbfs, 0).toFixed(1)} / p95{" "}
-                {clampFiniteNumber(displaySlice.raw.p95Dbfs, 0).toFixed(1)} / max{" "}
-                {clampFiniteNumber(displaySlice.raw.maxDbfs, 0).toFixed(1)}
-              </div>
-            </div>
-            <div className={styles.sliceGridItem}>
-              <div className={styles.sliceLabel}>超阈</div>
-              <div className={styles.sliceValue}>
-                {formatPercent01(displaySlice.raw.overRatioDbfs)} ·{" "}
-                {formatDuration(
-                  clampFiniteNumber(displaySlice.raw.overRatioDbfs, 0) *
-                    clampFiniteNumber(
-                      typeof displaySlice.raw.sampledDurationMs === "number" &&
-                        Number.isFinite(displaySlice.raw.sampledDurationMs)
-                        ? Math.max(0, displaySlice.raw.sampledDurationMs)
-                        : Math.max(0, displaySlice.end - displaySlice.start),
-                      Math.max(0, displaySlice.end - displaySlice.start)
-                    )
-                )}
-              </div>
-            </div>
-            <div className={styles.sliceGridItem}>
-              <div className={styles.sliceLabel}>事件段</div>
-              <div className={styles.sliceValue}>
-                {clampFiniteNumber(displaySlice.raw.segmentCount, 0).toFixed(0)}
-              </div>
-            </div>
-          </div>
+          <SettingGrid columns="auto">
+            <MetricCard
+              label="显示分贝"
+              value={`平均 ${clampFiniteNumber(displaySlice.display.avgDb, 0).toFixed(1)} dB / 95分位 ${clampFiniteNumber(displaySlice.display.p95Db, 0).toFixed(1)} dB`}
+            />
+            <MetricCard
+              label="评分原始 (dBFS)"
+              value={`p50 ${clampFiniteNumber(displaySlice.raw.p50Dbfs, 0).toFixed(1)} / p95 ${clampFiniteNumber(displaySlice.raw.p95Dbfs, 0).toFixed(1)} / max ${clampFiniteNumber(displaySlice.raw.maxDbfs, 0).toFixed(1)}`}
+            />
+            <MetricCard
+              label="超阈"
+              tone="warning"
+              value={`${formatPercent01(displaySlice.raw.overRatioDbfs)} · ${formatDuration(
+                clampFiniteNumber(displaySlice.raw.overRatioDbfs, 0) *
+                  clampFiniteNumber(
+                    typeof displaySlice.raw.sampledDurationMs === "number" &&
+                      Number.isFinite(displaySlice.raw.sampledDurationMs)
+                      ? Math.max(0, displaySlice.raw.sampledDurationMs)
+                      : Math.max(0, displaySlice.end - displaySlice.start),
+                    Math.max(0, displaySlice.end - displaySlice.start)
+                  )
+              )}`}
+            />
+            <MetricCard
+              label="事件段"
+              value={clampFiniteNumber(displaySlice.raw.segmentCount, 0).toFixed(0)}
+            />
+          </SettingGrid>
 
           {displaySlice.scoreDetail?.thresholdsUsed ? (
             <div className={styles.sliceFootnote}>
@@ -162,7 +152,7 @@ export const NoiseStatsSummary: React.FC = () => {
               {clampFiniteNumber(displaySlice.scoreDetail.segmentPenalty, 0).toFixed(1)}
             </div>
           ) : null}
-        </div>
+        </Card>
       ) : (
         <div className={styles.empty}>暂无切片数据</div>
       )}

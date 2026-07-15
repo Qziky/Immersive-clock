@@ -117,7 +117,7 @@ test.describe("设置动效", () => {
     const preview = dialog.getByLabel("秒表外观预览");
     const previewCanvas = preview.locator(":scope > div");
     const status = preview.getByText("已暂停", { exact: true });
-    const milestone = preview.getByText("🎉 已超过1小时！", { exact: true });
+    const milestone = preview.getByText("已超过1小时！", { exact: true });
     await expect(previewCanvas).toHaveAttribute("data-preview-frame-highlighted", "true");
     await expect(
       dialog
@@ -181,6 +181,15 @@ test.describe("移动端设置动效", () => {
     await expect(submenu).toHaveAttribute("aria-hidden", "true");
     await expect(submenu).toHaveAttribute("inert", "");
     await expect(submenu).toHaveCount(0);
+
+    const appearanceTrigger = groupRail.getByRole("button", { name: "视觉外观" });
+    await appearanceTrigger.click();
+    await dialog
+      .getByRole("navigation", { name: "视觉外观子分类" })
+      .getByRole("button", { name: "整体样式" })
+      .click();
+    await expect(dialog.getByRole("heading", { name: "整体样式", level: 2 })).toBeVisible();
+    await expect(appearanceTrigger).toBeFocused();
 
     expect(
       await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)
