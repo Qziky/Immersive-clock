@@ -19,10 +19,12 @@ description: Immersive Clock project workflow for React, Vite, PWA, Electron, UI
 ## UI 修改流程
 
 1. 阅读相关组件、CSS Module、设计令牌和现有测试，确认业务 Props、存储键与事件协议。
-2. 保持改动局部，复用 `src/ui/` 原语、Lucide 图标和现有状态管理，不顺带重构无关模块。
-3. 启动或复用 Vite 开发服务，通过 Browser 检查目标桌面与移动视口、关键交互、焦点状态、溢出和控制台错误。
-4. 视觉检查使用任务需要的最小视口集合；响应式弹层通常至少覆盖 `1440x900`、`390x844` 和 `320x568`。
-5. 临时截图放入 `output/` 下的任务目录，完成检查后清理；需要提交的视觉基线放在对应 Playwright snapshot 目录。
+2. UI 组件或样式任务必须读取并遵循
+   [组件规范 Skill](.agents/skills/immersive-clock-component-standards/SKILL.md)。
+3. 保持改动局部，复用 `src/ui/` 原语、语义 `AppIcon` 和现有状态管理，不顺带重构无关模块。
+4. 启动或复用 Vite 开发服务，通过 Browser 检查目标桌面与移动视口、关键交互、焦点状态、溢出和控制台错误。
+5. 视觉检查使用任务需要的最小视口集合；响应式弹层通常至少覆盖 `1440x900`、`390x844` 和 `320x568`。
+6. 临时截图放入 `output/` 下的任务目录，完成检查后清理；需要提交的视觉基线放在对应 Playwright snapshot 目录。
 
 ## 验证范围
 
