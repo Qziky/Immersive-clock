@@ -251,7 +251,8 @@ const Weather: React.FC = () => {
   }, []);
 
   const readMinutelyCache = useCallback((): MinutelyPrecipCacheLike | null => {
-    if (sharedMinutelySnapshot.cache) return sharedMinutelySnapshot.cache;
+    const sharedCache = getMinutelyWeatherSnapshot().cache;
+    if (sharedCache) return sharedCache;
     const coords = getValidCoords();
     if (coords) {
       const location = `${coords.lon.toFixed(2)},${coords.lat.toFixed(2)}`;
@@ -268,7 +269,7 @@ const Weather: React.FC = () => {
       }
     }
     return null;
-  }, [sharedMinutelySnapshot.cache]);
+  }, []);
 
   /**
    * 构建分钟级降水弹窗内容（函数级中文注释：区分“将要下雨”与“正在下雨”，并展示开始/结束时间）
@@ -906,7 +907,12 @@ const Weather: React.FC = () => {
 
       tickWeatherReminders();
     },
-    [refreshMinutelyPrecip, study, tickWeatherReminders]
+    [
+      refreshMinutelyPrecip,
+      study.minutelyPrecipEnabled,
+      study.weatherAlertEnabled,
+      tickWeatherReminders,
+    ]
   );
 
   /**
