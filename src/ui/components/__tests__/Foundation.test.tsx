@@ -68,6 +68,15 @@ describe("UI foundation", () => {
     expect(container.querySelector(as)).toHaveTextContent("卡片内容");
   });
 
+  it("supports a base Card surface without changing the raised default", () => {
+    const { rerender } = render(<Card>默认表面</Card>);
+
+    expect(screen.getByText("默认表面").className).not.toContain("cardSurfaceBase");
+
+    rerender(<Card surface="base">基础表面</Card>);
+    expect(screen.getByText("基础表面").className).toContain("cardSurfaceBase");
+  });
+
   it("exposes a frozen internal list of every semantic icon name", () => {
     expect(APP_ICON_NAMES).toEqual(Object.keys(appIconRegistry));
     expect(Object.isFrozen(APP_ICON_NAMES)).toBe(true);

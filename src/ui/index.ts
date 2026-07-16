@@ -18,7 +18,7 @@ export type {
   ButtonVariant,
 } from "./components/Button";
 export { Button } from "./components/Button";
-export type { CardProps } from "./components/Card";
+export type { CardProps, CardSurface } from "./components/Card";
 export { Card } from "./components/Card";
 export type { CheckboxProps } from "./components/Checkbox";
 export { Checkbox } from "./components/Checkbox";

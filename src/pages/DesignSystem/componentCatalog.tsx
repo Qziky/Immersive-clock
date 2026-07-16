@@ -379,12 +379,12 @@ function CardExample() {
   return (
     <Grid minColumnWidth={180}>
       <Card>
-        <strong>默认语义</strong>
-        <p className={styles.muted}>未指定 as 时渲染为 div。</p>
+        <strong>抬高表面</strong>
+        <p className={styles.muted}>默认使用 raised 表面，并渲染为 div。</p>
       </Card>
-      <Card as="article">
-        <strong>默认内边距</strong>
-        <p className={styles.muted}>article 语义容器。</p>
+      <Card as="article" surface="base">
+        <strong>基础表面</strong>
+        <p className={styles.muted}>使用 base 表面和 article 语义。</p>
       </Card>
       <Card as="section" padded={false}>
         <div className={styles.unpaddedCardContent}>无内边距 section，由消费者负责内容布局。</div>
@@ -1445,16 +1445,24 @@ export const COMPONENT_CATALOG: readonly ComponentCatalogEntry[] = [
   {
     id: "card",
     title: "Card",
-    description: "用于真正需要边界的独立内容，支持受限语义元素。",
+    description: "用于真正需要边界的独立内容，支持基础或抬高表面及受限语义元素。",
     section: "foundation",
     kind: "visual",
     publicExports: ["Card"],
-    requiredStates: ["padded", "unpadded", "div", "article", "section"],
+    requiredStates: [
+      "surface-raised",
+      "surface-base",
+      "padded",
+      "unpadded",
+      "div",
+      "article",
+      "section",
+    ],
     examples: [
       makeExample(
         "card-semantics",
         "内边距与语义",
-        ["padded", "unpadded", "div", "article", "section"],
+        ["surface-raised", "surface-base", "padded", "unpadded", "div", "article", "section"],
         CardExample
       ),
     ],

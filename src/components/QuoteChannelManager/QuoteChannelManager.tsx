@@ -279,6 +279,7 @@ export function QuoteChannelManager({ onRegisterSave }: QuoteChannelManagerProps
           return (
             <Card
               as="article"
+              surface="base"
               key={channel.id}
               className={channel.enabled ? styles.channelCardActive : styles.channelCard}
               data-ui-motion-item

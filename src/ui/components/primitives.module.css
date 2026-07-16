@@ -1761,13 +1761,11 @@
   min-width: 0;
   padding: 12px 14px;
   transition:
-    background-color var(--ui-transition-fast),
     border-color var(--ui-transition-fast),
     opacity var(--ui-transition-fast);
 }
 
 .settingItem:focus-within {
-  background: var(--ui-color-bg-muted);
   border-color: var(--ui-color-border-strong);
 }
 
@@ -1935,6 +1933,10 @@
   border: 1px solid var(--ui-color-border);
   border-radius: var(--ui-radius-lg);
   min-width: 0;
+}
+
+.cardSurfaceBase {
+  background: var(--ui-color-bg);
 }
 
 .cardPadded {
