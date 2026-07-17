@@ -305,6 +305,30 @@ describe("SettingsPanel", () => {
     expect(within(dialog).getByRole("heading", { name: "显示效果" })).toBeInTheDocument();
   });
 
+  it("将天气刷新与定位设置拆为独立导航页", async () => {
+    const user = userEvent.setup();
+    renderSettings();
+
+    const dialog = screen.getByRole("dialog", { name: "设置" });
+    const navigation = within(within(dialog).getByRole("complementary", { name: "设置导航" }));
+    await user.click(navigation.getByRole("button", { name: /环境提醒/ }));
+
+    const environmentPanes = navigation.getByRole("group", { name: "环境提醒" });
+    expect(
+      within(environmentPanes)
+        .getAllByRole("button")
+        .map((button) => button.textContent)
+    ).toEqual(["天气提醒", "天气刷新", "定位设置", "天气数据", "噪音控制", "校准修正", "报告统计"]);
+
+    await user.click(within(environmentPanes).getByRole("button", { name: "天气刷新" }));
+    expect(screen.getByTestId("weather-panel")).toHaveAttribute("data-section", "refresh");
+    expect(within(dialog).getByRole("heading", { name: "天气刷新" })).toBeInTheDocument();
+
+    await user.click(within(environmentPanes).getByRole("button", { name: "定位设置" }));
+    expect(screen.getByTestId("weather-panel")).toHaveAttribute("data-section", "location");
+    expect(within(dialog).getByRole("heading", { name: "定位设置" })).toBeInTheDocument();
+  });
+
   it("将自习辅助组件归类到顶部信息栏", () => {
     renderSettings();
 

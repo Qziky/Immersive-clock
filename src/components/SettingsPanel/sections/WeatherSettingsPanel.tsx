@@ -41,7 +41,7 @@ export interface WeatherSettingsPanelProps {
   section?: WeatherSettingsSection;
 }
 
-export type WeatherSettingsSection = "alerts" | "location" | "live";
+export type WeatherSettingsSection = "alerts" | "refresh" | "location" | "live";
 
 function formatTime(value: number | null): string {
   if (value == null || !Number.isFinite(value)) return "暂无";
@@ -345,7 +345,7 @@ const WeatherSettingsPanel: React.FC<WeatherSettingsPanelProps> = ({ onRegisterS
         title="天气调度"
         variant="plain"
         description="设置本设备的天气更新频率和请求保护。"
-        hidden={isSectionHidden("location")}
+        hidden={isSectionHidden("refresh")}
       >
         <FormSegmented<WeatherScheduleProfile>
           label="刷新档位"
@@ -550,7 +550,7 @@ const WeatherSettingsPanel: React.FC<WeatherSettingsPanelProps> = ({ onRegisterS
           </>
         ) : null}
 
-        <SettingGrid columns={3}>
+        <SettingGrid columns={3} className={styles.locationMetricsGrid}>
           <MetricCard
             icon="feature.location"
             label="当前坐标"

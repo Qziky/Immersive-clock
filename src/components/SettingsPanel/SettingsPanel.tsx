@@ -37,6 +37,7 @@ type SettingsPaneId =
   | "appearanceStudyQuote"
   | "appearanceStudyTopDock"
   | "weatherAlerts"
+  | "weatherRefresh"
   | "weatherLocation"
   | "weatherLive"
   | "noiseControl"
@@ -247,10 +248,19 @@ const paneItems: SettingsPane[] = [
     section: "alerts",
   },
   {
+    value: "weatherRefresh",
+    group: "environment",
+    label: "天气刷新",
+    description: "设置天气更新频率、运行状态和请求保护。",
+    icon: "feature.sync",
+    panel: "weather",
+    section: "refresh",
+  },
+  {
     value: "weatherLocation",
     group: "environment",
-    label: "定位刷新",
-    description: "设置天气调度、请求保护、定位方式和当前坐标。",
+    label: "定位设置",
+    description: "设置定位方式并查看当前坐标和诊断信息。",
     icon: "feature.location",
     panel: "weather",
     section: "location",

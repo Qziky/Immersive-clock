@@ -393,9 +393,21 @@ describe("WeatherSettingsPanel", () => {
     expect(mocks.useMinutelyWeatherSnapshot).toHaveBeenCalledWith(false);
   });
 
+  it("天气刷新与定位设置互不显示对方控件", () => {
+    const { rerender } = render(<WeatherSettingsPanel section="refresh" />);
+
+    expect(screen.getByRole("radiogroup", { name: "刷新档位" })).toBeInTheDocument();
+    expect(screen.queryByRole("radiogroup", { name: "定位方式" })).not.toBeInTheDocument();
+
+    rerender(<WeatherSettingsPanel section="location" />);
+
+    expect(screen.getByRole("radiogroup", { name: "定位方式" })).toBeInTheDocument();
+    expect(screen.queryByRole("radiogroup", { name: "刷新档位" })).not.toBeInTheDocument();
+  });
+
   it("天气调度展示四档、运行状态和可展开请求保护", async () => {
     const user = userEvent.setup();
-    render(<WeatherSettingsPanel section="location" />);
+    render(<WeatherSettingsPanel section="refresh" />);
 
     const profileGroup = screen.getByRole("radiogroup", { name: "刷新档位" });
     for (const profile of ["保守", "均衡", "高频", "自定义"]) {
@@ -421,18 +433,18 @@ describe("WeatherSettingsPanel", () => {
   });
 
   it("天气调度区分请求保护、冷却和失败后使用缓存", () => {
-    const { rerender } = render(<WeatherSettingsPanel section="location" />);
+    const { rerender } = render(<WeatherSettingsPanel section="refresh" />);
 
     mocks.weatherCoordinatorSnapshot.status = "rate-limited";
-    rerender(<WeatherSettingsPanel section="location" />);
+    rerender(<WeatherSettingsPanel section="refresh" />);
     expect(screen.getAllByText("等待请求保护")).not.toHaveLength(0);
 
     mocks.weatherCoordinatorSnapshot.status = "cooldown";
-    rerender(<WeatherSettingsPanel section="location" />);
+    rerender(<WeatherSettingsPanel section="refresh" />);
     expect(screen.getAllByText("冷却中")).not.toHaveLength(0);
 
     mocks.weatherCoordinatorSnapshot.status = "error-with-cache";
-    rerender(<WeatherSettingsPanel section="location" />);
+    rerender(<WeatherSettingsPanel section="refresh" />);
     expect(screen.getAllByText("失败，使用缓存")).not.toHaveLength(0);
   });
 
@@ -441,7 +453,7 @@ describe("WeatherSettingsPanel", () => {
     let save: (() => void) | undefined;
     render(
       <WeatherSettingsPanel
-        section="location"
+        section="refresh"
         onRegisterSave={(registeredSave) => {
           save = registeredSave;
         }}

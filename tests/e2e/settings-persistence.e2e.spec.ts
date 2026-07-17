@@ -585,7 +585,7 @@ test("天气设置：自定义调度与请求保护保存后持久化", async ({
   await page.goto("/");
 
   let dialog = await openStudySettings(page);
-  await openWeatherSettingsSection(page, dialog, "定位刷新");
+  await openWeatherSettingsSection(page, dialog, "天气刷新");
   const profileGroup = dialog.getByRole("radiogroup", { name: "刷新档位" });
   await expect(profileGroup.getByRole("radio", { name: "均衡" })).toBeChecked();
   await profileGroup.getByRole("radio", { name: "自定义" }).click();
@@ -629,7 +629,7 @@ test("天气设置：自定义调度与请求保护保存后持久化", async ({
 
   await page.reload();
   dialog = await openStudySettings(page);
-  await openWeatherSettingsSection(page, dialog, "定位刷新");
+  await openWeatherSettingsSection(page, dialog, "天气刷新");
   await expect(
     dialog.getByRole("radiogroup", { name: "刷新档位" }).getByRole("radio", { name: "自定义" })
   ).toBeChecked();
@@ -658,6 +658,20 @@ for (const viewport of [
     await page.goto("/");
 
     const dialog = await openStudySettings(page);
+    await openWeatherSettingsSection(page, dialog, "天气刷新");
+    await expect(dialog.getByRole("heading", { name: "天气调度" })).toBeVisible();
+    await expect(dialog.getByRole("radiogroup", { name: "定位方式" })).toHaveCount(0);
+    expect(await dialog.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(
+      true
+    );
+
+    await openWeatherSettingsSection(page, dialog, "定位设置");
+    await expect(dialog.getByRole("heading", { name: "地理位置" })).toBeVisible();
+    await expect(dialog.getByRole("radiogroup", { name: "刷新档位" })).toHaveCount(0);
+    expect(await dialog.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(
+      true
+    );
+
     await openWeatherSettingsSection(page, dialog, "天气提醒");
     await expect(dialog.getByRole("switch", { name: "分钟级降水提醒" })).toHaveCount(0);
     await waitForAnimations(dialog);
@@ -932,7 +946,8 @@ test("设置导航：一级分类切换后只显示当前二级分区", async ({
 
   await dialog.getByRole("button", { name: "环境提醒" }).click();
   await expect(dialog.getByRole("button", { name: "天气提醒" })).toBeVisible();
-  await expect(dialog.getByRole("button", { name: "定位刷新" })).toBeVisible();
+  await expect(dialog.getByRole("button", { name: "天气刷新" })).toBeVisible();
+  await expect(dialog.getByRole("button", { name: "定位设置" })).toBeVisible();
   await expect(dialog.getByRole("button", { name: "噪音控制" })).toBeVisible();
   await expect(dialog.getByRole("button", { name: "语录渠道" })).toBeHidden();
 

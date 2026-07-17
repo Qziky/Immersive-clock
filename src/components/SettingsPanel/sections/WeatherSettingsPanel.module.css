@@ -6,6 +6,10 @@
   min-width: 0;
 }
 
+.locationMetricsGrid {
+  min-width: 0;
+}
+
 .scheduleInputGrid,
 .safetySettings {
   display: grid;
@@ -35,6 +39,10 @@
   .scheduleInputGrid,
   .safetySettings {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .locationMetricsGrid {
+    --ui-setting-columns: minmax(0, 1fr) !important;
   }
 }
 
