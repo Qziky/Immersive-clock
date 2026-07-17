@@ -9,6 +9,7 @@ import { FeedbackProvider } from "../../../ui";
 import { SettingsPanel } from "../SettingsPanel";
 
 const saveCalls = vi.hoisted(() => [] as string[]);
+const weatherPanelInstances = vi.hoisted(() => ({ count: 0 }));
 
 vi.mock("../sections/BasicSettingsPanel", () => ({
   default: function BasicSettingsPanelMock({
@@ -51,21 +52,20 @@ vi.mock("../sections/WeatherSettingsPanel", () => ({
     section: string;
     onRegisterSave?: (save: () => void) => void;
   }) {
+    const [instanceId] = useState(() => ++weatherPanelInstances.count);
     useEffect(() => onRegisterSave?.(() => saveCalls.push("weather")), [onRegisterSave]);
-    return <div data-testid="weather-panel" data-section={section} />;
+    return <div data-testid="weather-panel" data-instance={instanceId} data-section={section} />;
   },
 }));
 
 vi.mock("../sections/StudySettingsPanel", () => ({
   default: function StudySettingsPanelMock({
-    section,
     onRegisterSave,
   }: {
-    section: string;
     onRegisterSave?: (save: () => void) => void;
   }) {
     useEffect(() => onRegisterSave?.(() => saveCalls.push("monitor")), [onRegisterSave]);
-    return <div data-testid="monitor-panel" data-section={section} />;
+    return <div data-testid="monitor-panel" />;
   },
 }));
 
@@ -305,8 +305,9 @@ describe("SettingsPanel", () => {
     expect(within(dialog).getByRole("heading", { name: "显示效果" })).toBeInTheDocument();
   });
 
-  it("将天气刷新与定位设置拆为独立导航页", async () => {
+  it("将环境提醒收敛为噪音、天气与定位三个页面", async () => {
     const user = userEvent.setup();
+    weatherPanelInstances.count = 0;
     renderSettings();
 
     const dialog = screen.getByRole("dialog", { name: "设置" });
@@ -318,15 +319,35 @@ describe("SettingsPanel", () => {
       within(environmentPanes)
         .getAllByRole("button")
         .map((button) => button.textContent)
-    ).toEqual(["天气提醒", "天气刷新", "定位设置", "天气数据", "噪音控制", "校准修正", "报告统计"]);
+    ).toEqual(["噪音监测", "天气服务", "定位服务"]);
 
-    await user.click(within(environmentPanes).getByRole("button", { name: "天气刷新" }));
-    expect(screen.getByTestId("weather-panel")).toHaveAttribute("data-section", "refresh");
-    expect(within(dialog).getByRole("heading", { name: "天气刷新" })).toBeInTheDocument();
+    const noiseButton = within(environmentPanes).getByRole("button", { name: "噪音监测" });
+    expect(noiseButton.querySelector('[data-app-icon="feature.noise"]')).not.toBeNull();
+    expect(screen.getByTestId("monitor-panel")).toBeInTheDocument();
+    expect(within(dialog).getByRole("heading", { name: "噪音监测" })).toBeInTheDocument();
+    expect(
+      within(dialog).getByText("调整阈值与校准，并查看报告、实时监控和统计。")
+    ).toBeInTheDocument();
 
-    await user.click(within(environmentPanes).getByRole("button", { name: "定位设置" }));
+    const weatherButton = within(environmentPanes).getByRole("button", { name: "天气服务" });
+    expect(weatherButton.querySelector('[data-app-icon="feature.weather"]')).not.toBeNull();
+    await user.click(weatherButton);
+    expect(screen.getByTestId("weather-panel")).toHaveAttribute("data-section", "weather");
+    expect(screen.getByTestId("weather-panel")).toHaveAttribute("data-instance", "1");
+    expect(within(dialog).getByRole("heading", { name: "天气服务" })).toBeInTheDocument();
+    expect(
+      within(dialog).getByText("管理天气提醒与刷新策略，并查看完整天气数据。")
+    ).toBeInTheDocument();
+
+    const locationButton = within(environmentPanes).getByRole("button", { name: "定位服务" });
+    expect(locationButton.querySelector('[data-app-icon="feature.location"]')).not.toBeNull();
+    await user.click(locationButton);
     expect(screen.getByTestId("weather-panel")).toHaveAttribute("data-section", "location");
-    expect(within(dialog).getByRole("heading", { name: "定位设置" })).toBeInTheDocument();
+    expect(screen.getByTestId("weather-panel")).toHaveAttribute("data-instance", "1");
+    expect(within(dialog).getByRole("heading", { name: "定位服务" })).toBeInTheDocument();
+    expect(
+      within(dialog).getByText("选择自动或手动定位，并查看坐标、地址和诊断。")
+    ).toBeInTheDocument();
   });
 
   it("将自习辅助组件归类到顶部信息栏", () => {
@@ -353,7 +374,7 @@ describe("SettingsPanel", () => {
     const navigation = within(within(dialog).getByRole("complementary", { name: "设置导航" }));
 
     fireEvent.click(navigation.getByRole("button", { name: /环境提醒/ }));
-    fireEvent.click(navigation.getByRole("button", { name: "噪音控制" }));
+    fireEvent.click(navigation.getByRole("button", { name: "天气服务" }));
     fireEvent.click(navigation.getByRole("button", { name: /内容语录/ }));
     fireEvent.click(navigation.getByRole("button", { name: /系统数据/ }));
     fireEvent.click(navigation.getByRole("button", { name: "项目信息" }));

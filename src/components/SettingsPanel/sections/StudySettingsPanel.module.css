@@ -1,0 +1,9 @@
+.noiseSettingsGrid {
+  min-width: 0;
+}
+
+@media (max-width: 520px) {
+  .noiseSettingsGrid {
+    --ui-setting-columns: minmax(0, 1fr) !important;
+  }
+}

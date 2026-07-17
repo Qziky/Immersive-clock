@@ -21,7 +21,7 @@ import {
 import BasicSettingsPanel, { type BasicSettingsSection } from "./sections/BasicSettingsPanel";
 import ContentSettingsPanel, { type ContentSettingsSection } from "./sections/ContentSettingsPanel";
 import DataSettingsPanel from "./sections/DataSettingsPanel";
-import StudySettingsPanel, { type StudySettingsSection } from "./sections/StudySettingsPanel";
+import StudySettingsPanel from "./sections/StudySettingsPanel";
 import WeatherSettingsPanel, { type WeatherSettingsSection } from "./sections/WeatherSettingsPanel";
 import styles from "./SettingsPanel.module.css";
 
@@ -36,13 +36,9 @@ type SettingsPaneId =
   | "appearanceTime"
   | "appearanceStudyQuote"
   | "appearanceStudyTopDock"
-  | "weatherAlerts"
-  | "weatherRefresh"
-  | "weatherLocation"
-  | "weatherLive"
-  | "noiseControl"
-  | "noiseCalibration"
-  | "noiseReports"
+  | "noise"
+  | "weather"
+  | "location"
   | "quoteRefresh"
   | "quoteEffects"
   | "quoteChannels"
@@ -86,7 +82,6 @@ type SettingsPane =
       description: string;
       icon: AppIconName;
       panel: "monitor";
-      section: StudySettingsSection;
     }
   | {
       value: SettingsPaneId;
@@ -145,9 +140,9 @@ const primaryGroups: Array<{
   {
     value: "environment",
     label: "环境提醒",
-    description: "天气、噪音与报告",
+    description: "噪音、天气与定位",
     icon: "feature.notification",
-    defaultPane: "weatherAlerts",
+    defaultPane: "noise",
   },
   {
     value: "content",
@@ -239,67 +234,30 @@ const paneItems: SettingsPane[] = [
     section: "studyTopDock",
   },
   {
-    value: "weatherAlerts",
+    value: "noise",
     group: "environment",
-    label: "天气提醒",
-    description: "控制预警、降水、空气质量和日出日落提醒。",
-    icon: "feature.weatherAlerts",
-    panel: "weather",
-    section: "alerts",
+    label: "噪音监测",
+    description: "调整阈值与校准，并查看报告、实时监控和统计。",
+    icon: "feature.noise",
+    panel: "monitor",
   },
   {
-    value: "weatherRefresh",
+    value: "weather",
     group: "environment",
-    label: "天气刷新",
-    description: "设置天气更新频率、运行状态和请求保护。",
-    icon: "feature.sync",
+    label: "天气服务",
+    description: "管理天气提醒与刷新策略，并查看完整天气数据。",
+    icon: "feature.weather",
     panel: "weather",
-    section: "refresh",
+    section: "weather",
   },
   {
-    value: "weatherLocation",
+    value: "location",
     group: "environment",
-    label: "定位设置",
-    description: "设置定位方式并查看当前坐标和诊断信息。",
+    label: "定位服务",
+    description: "选择自动或手动定位，并查看坐标、地址和诊断。",
     icon: "feature.location",
     panel: "weather",
     section: "location",
-  },
-  {
-    value: "weatherLive",
-    group: "environment",
-    label: "天气数据",
-    description: "查看全量天气、分钟降水、逐时逐日预报和接口详情。",
-    icon: "feature.weatherLive",
-    panel: "weather",
-    section: "live",
-  },
-  {
-    value: "noiseControl",
-    group: "environment",
-    label: "噪音控制",
-    description: "调整阈值、分贝显示和平滑策略。",
-    icon: "feature.noise",
-    panel: "monitor",
-    section: "control",
-  },
-  {
-    value: "noiseCalibration",
-    group: "environment",
-    label: "校准修正",
-    description: "校准环境基准噪音或手动修正噪音水平。",
-    icon: "feature.microphone",
-    panel: "monitor",
-    section: "calibration",
-  },
-  {
-    value: "noiseReports",
-    group: "environment",
-    label: "报告统计",
-    description: "管理噪音报告、实时监控和统计数据。",
-    icon: "feature.noiseReport",
-    panel: "monitor",
-    section: "reports",
   },
   {
     value: "quoteRefresh",
@@ -525,9 +483,7 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
   const basicSection: BasicSettingsSection =
     activePaneItem.panel === "basic" ? activePaneItem.section : "startup";
   const weatherSection: WeatherSettingsSection =
-    activePaneItem.panel === "weather" ? activePaneItem.section : "alerts";
-  const monitorSection: StudySettingsSection =
-    activePaneItem.panel === "monitor" ? activePaneItem.section : "control";
+    activePaneItem.panel === "weather" ? activePaneItem.section : "weather";
   const quotesSection: ContentSettingsSection =
     activePaneItem.panel === "quotes" ? activePaneItem.section : "refresh";
   const aboutSection: AboutSettingsSection =
@@ -613,7 +569,6 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
           <div className={styles.panelMount} hidden={activePaneItem.panel !== "monitor"}>
             <StudySettingsPanel
               key={`monitor-${draftSession}`}
-              section={monitorSection}
               onRegisterSave={registerMonitorSave}
             />
           </div>

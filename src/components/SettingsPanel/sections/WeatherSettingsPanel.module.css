@@ -1,3 +1,4 @@
+.alertSettingsGrid,
 .liveMetricsGrid {
   min-width: 0;
 }
@@ -57,6 +58,7 @@
 }
 
 @media (max-width: 520px) {
+  .alertSettingsGrid,
   .scheduleMetricsGrid {
     --ui-setting-columns: minmax(0, 1fr) !important;
   }

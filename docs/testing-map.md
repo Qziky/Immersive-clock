@@ -105,7 +105,7 @@
 - 自习模式入口、顶部进度与信息自定义文案保存即时生效/取消/重载、隐藏天气后的降雨与逐条天气预警、预警不打断、降雨打断后恢复轮播、降雨开始边界秒级切换、正常与减少动态效果下的轮播切换，以及 1440px/390px 长文案省略、三列无重叠、状态栏高度稳定和无横向溢出：[study-smoke.e2e.spec.ts](file:///d:/Desktop/Immersive-clock/tests/e2e/study-smoke.e2e.spec.ts)
 - 三语录服务拦截、主/备用及跨源切换、全失败/断网本地兜底、频道启停/权重、显示效果与回删开关持久化、1440/720/390 频道卡控件和展开区不溢出/不重叠、主界面动画及动态减少动效：`tests/e2e/quotes.e2e.spec.ts`
 - 数据中心完整备份下载、缓存白名单清理、无效文件零写入预检，以及 320/390/1440 视口下文件控件与横向溢出：`tests/e2e/data-management.e2e.spec.ts`
-- 设置分组导航、天气刷新与定位设置双页隔离、进度与提示信息统一列表、天气预警独立添加/取消/背景进度持久化、天气独立显示、分钟降水弹窗移除、天气调度档位与七标签实时详情、v4→v6 配置保持、1440×900/390×844/320×568 标签横向滚动、表格局部滚动、无页面溢出与控制台无错误、遮罩不可关闭、移动全屏纵向紧凑导航与当前项滚动，以及目标年份、错误中心和内联课程表的统一保存/取消：[settings-persistence.e2e.spec.ts](file:///d:/Desktop/Immersive-clock/tests/e2e/settings-persistence.e2e.spec.ts)
+- 设置分组导航、环境提醒收敛为“噪音监测 / 天气服务 / 定位服务”、三个领域的内容隔离与长页面滚动复位、进度与提示信息统一列表、天气预警独立添加/取消/背景进度持久化、天气独立显示、分钟降水弹窗移除、天气调度档位与七标签实时详情、v4→v6 配置保持、1440×900/390×844/320×568 标签横向滚动、表格局部滚动、无页面溢出与控制台无错误、遮罩不可关闭、移动全屏纵向紧凑导航与当前项滚动，以及目标年份、错误中心和内联课程表的统一保存/取消：[settings-persistence.e2e.spec.ts](file:///d:/Desktop/Immersive-clock/tests/e2e/settings-persistence.e2e.spec.ts)
 - 同一浏览器上下文双标签页并发启动时只发出一次 `/weather/all`，复用 24 小时 `locationKey`，不额外请求城市解析或独立分钟接口，并通过跨标签页事件重读共享缓存：`tests/e2e/weather-coordination.e2e.spec.ts`
 - 设置抽屉进出轨迹、页面标题到分组和设置项的入场顺序、条件内容进入、移动子菜单 presence、横向溢出和浏览器减少动效行为：[settings-motion.e2e.spec.ts](file:///d:/Desktop/Immersive-clock/tests/e2e/settings-motion.e2e.spec.ts)
 - 公告 320px Tabs/问卷边界/底栏说明，噪音历史折叠与字段错误、报告空态/有数据态、SVG 可访问描述，以及 Toast 右下角定位/底栏避让/Modal 层级：[modal-redesign.e2e.spec.ts](file:///d:/Desktop/Immersive-clock/tests/e2e/modal-redesign.e2e.spec.ts)

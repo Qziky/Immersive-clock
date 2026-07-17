@@ -36,33 +36,18 @@ import {
 import { NoiseStatsSummary } from "../../NoiseSettings/NoiseStatsSummary";
 import { RealTimeNoiseChart } from "../../NoiseSettings/RealTimeNoiseChart";
 
-/**
- * 学习功能分段组件的属性
- * - `onScheduleSave`：保存课程表后的回调
- */
+import styles from "./StudySettingsPanel.module.css";
+
 export interface StudySettingsPanelProps {
   onRegisterSave?: (fn: () => void) => void;
-  section?: StudySettingsSection;
 }
 
-export type StudySettingsSection = "control" | "calibration" | "reports";
-
 /**
- * 学习功能分段组件
- * - 噪音校准与报告设置
- * - 噪音图表与历史
- * - 课程表编辑
+ * 噪音设置面板
+ * - 噪音控制与校准
+ * - 噪音报告、实时监控与统计
  */
-/**
- * 学习功能分段组件
- * - 噪音校准与报告设置
- * - 噪音图表与历史
- * - 课程表编辑
- */
-export const StudySettingsPanel: React.FC<StudySettingsPanelProps> = ({
-  onRegisterSave,
-  section,
-}) => {
+export const StudySettingsPanel: React.FC<StudySettingsPanelProps> = ({ onRegisterSave }) => {
   const { study } = useAppState();
   const { confirm } = useFeedback();
   const [_effectiveBaselineRms, setEffectiveBaselineRms] = useState<number>(() => {
@@ -361,19 +346,14 @@ export const StudySettingsPanel: React.FC<StudySettingsPanelProps> = ({
     draftAlertSoundEnabled,
   ]);
 
-  // 课表重置功能已迁移到基础设置面板
-  const isSectionHidden = (candidate: StudySettingsSection) =>
-    section ? section !== candidate : undefined;
-
   return (
     <div id="study-panel">
       <FormSection
         title="噪音控制"
         variant="plain"
         description="调整噪音状态展示与提示音触发，不影响评分结果。"
-        hidden={isSectionHidden("control")}
       >
-        <SettingGrid columns={2}>
+        <SettingGrid columns={2} className={styles.noiseSettingsGrid}>
           <SettingItem
             icon="feature.studyThreshold"
             title="判定阈值"
@@ -438,7 +418,6 @@ export const StudySettingsPanel: React.FC<StudySettingsPanelProps> = ({
         title="校准与修正"
         variant="plain"
         description="请在安静环境下校准，或手动选择当前环境所处的噪音水平。"
-        hidden={isSectionHidden("calibration")}
       >
         <div data-tour="noise-calibration">
           <SettingItem
@@ -494,9 +473,8 @@ export const StudySettingsPanel: React.FC<StudySettingsPanelProps> = ({
         title="噪音报告"
         variant="plain"
         description="控制学习结束后的报告弹出与历史保留范围。"
-        hidden={isSectionHidden("reports")}
       >
-        <SettingGrid columns={2}>
+        <SettingGrid columns={2} className={styles.noiseSettingsGrid}>
           <SettingItem
             icon="feature.noiseReport"
             title="自动弹出报告"
@@ -540,10 +518,10 @@ export const StudySettingsPanel: React.FC<StudySettingsPanelProps> = ({
 
       {/* 背景设置已迁移到基础设置 */}
 
-      <FormSection title="实时监控" variant="plain" hidden={isSectionHidden("reports")}>
+      <FormSection title="实时监控" variant="plain">
         <RealTimeNoiseChart />
       </FormSection>
-      <FormSection title="统计数据" variant="plain" hidden={isSectionHidden("reports")}>
+      <FormSection title="统计数据" variant="plain">
         <NoiseStatsSummary />
       </FormSection>
     </div>

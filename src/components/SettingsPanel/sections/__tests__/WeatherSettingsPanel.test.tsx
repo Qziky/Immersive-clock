@@ -385,29 +385,41 @@ describe("WeatherSettingsPanel", () => {
     });
   });
 
-  it("天气提醒中不再显示分钟级降水弹窗开关", () => {
-    render(<WeatherSettingsPanel section="alerts" />);
+  it("天气服务聚合提醒、调度和数据，并排除定位控件", () => {
+    render(<WeatherSettingsPanel section="weather" />);
 
     expect(screen.getByRole("switch", { name: "天气预警弹窗" })).toBeInTheDocument();
+    expect(screen.getByRole("radiogroup", { name: "刷新档位" })).toBeInTheDocument();
+    expect(screen.getByRole("tablist", { name: "天气数据分类" })).toBeInTheDocument();
     expect(screen.queryByRole("switch", { name: "分钟级降水提醒" })).not.toBeInTheDocument();
-    expect(mocks.useMinutelyWeatherSnapshot).toHaveBeenCalledWith(false);
+    expect(screen.queryByRole("radiogroup", { name: "定位方式" })).not.toBeInTheDocument();
+    expect(mocks.useMinutelyWeatherSnapshot).toHaveBeenLastCalledWith(true);
   });
 
-  it("天气刷新与定位设置互不显示对方控件", () => {
-    const { rerender } = render(<WeatherSettingsPanel section="refresh" />);
+  it("天气与定位服务双向隔离，并在切换时保留天气数据标签状态", async () => {
+    const user = userEvent.setup();
+    const { rerender } = render(<WeatherSettingsPanel section="weather" />);
 
-    expect(screen.getByRole("radiogroup", { name: "刷新档位" })).toBeInTheDocument();
-    expect(screen.queryByRole("radiogroup", { name: "定位方式" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("tab", { name: "分钟" }));
+    expect(screen.getByRole("tab", { name: "分钟" })).toHaveAttribute("aria-selected", "true");
 
     rerender(<WeatherSettingsPanel section="location" />);
 
     expect(screen.getByRole("radiogroup", { name: "定位方式" })).toBeInTheDocument();
+    expect(screen.queryByRole("switch", { name: "天气预警弹窗" })).not.toBeInTheDocument();
     expect(screen.queryByRole("radiogroup", { name: "刷新档位" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("tablist", { name: "天气数据分类" })).not.toBeInTheDocument();
+    expect(mocks.useMinutelyWeatherSnapshot).toHaveBeenLastCalledWith(false);
+
+    rerender(<WeatherSettingsPanel section="weather" />);
+
+    expect(screen.getByRole("tab", { name: "分钟" })).toHaveAttribute("aria-selected", "true");
+    expect(mocks.useMinutelyWeatherSnapshot).toHaveBeenLastCalledWith(true);
   });
 
   it("天气调度展示四档、运行状态和可展开请求保护", async () => {
     const user = userEvent.setup();
-    render(<WeatherSettingsPanel section="refresh" />);
+    render(<WeatherSettingsPanel section="weather" />);
 
     const profileGroup = screen.getByRole("radiogroup", { name: "刷新档位" });
     for (const profile of ["保守", "均衡", "高频", "自定义"]) {
@@ -433,18 +445,18 @@ describe("WeatherSettingsPanel", () => {
   });
 
   it("天气调度区分请求保护、冷却和失败后使用缓存", () => {
-    const { rerender } = render(<WeatherSettingsPanel section="refresh" />);
+    const { rerender } = render(<WeatherSettingsPanel section="weather" />);
 
     mocks.weatherCoordinatorSnapshot.status = "rate-limited";
-    rerender(<WeatherSettingsPanel section="refresh" />);
+    rerender(<WeatherSettingsPanel section="weather" />);
     expect(screen.getAllByText("等待请求保护")).not.toHaveLength(0);
 
     mocks.weatherCoordinatorSnapshot.status = "cooldown";
-    rerender(<WeatherSettingsPanel section="refresh" />);
+    rerender(<WeatherSettingsPanel section="weather" />);
     expect(screen.getAllByText("冷却中")).not.toHaveLength(0);
 
     mocks.weatherCoordinatorSnapshot.status = "error-with-cache";
-    rerender(<WeatherSettingsPanel section="refresh" />);
+    rerender(<WeatherSettingsPanel section="weather" />);
     expect(screen.getAllByText("失败，使用缓存")).not.toHaveLength(0);
   });
 
@@ -453,7 +465,7 @@ describe("WeatherSettingsPanel", () => {
     let save: (() => void) | undefined;
     render(
       <WeatherSettingsPanel
-        section="refresh"
+        section="weather"
         onRegisterSave={(registeredSave) => {
           save = registeredSave;
         }}
@@ -507,7 +519,7 @@ describe("WeatherSettingsPanel", () => {
 
   it("天气数据刷新直接调用协调器，不依赖顶部天气组件", async () => {
     const user = userEvent.setup();
-    render(<WeatherSettingsPanel section="live" />);
+    render(<WeatherSettingsPanel section="weather" />);
 
     await user.click(screen.getByRole("button", { name: "刷新数据" }));
 
@@ -521,7 +533,7 @@ describe("WeatherSettingsPanel", () => {
   });
 
   it("天气数据提供七个关联正确的专题标签并固定展示空值和零值", () => {
-    render(<WeatherSettingsPanel section="live" />);
+    render(<WeatherSettingsPanel section="weather" />);
 
     const tablist = screen.getByRole("tablist", { name: "天气数据分类" });
     const tabs = within(tablist).getAllByRole("tab");
@@ -546,7 +558,7 @@ describe("WeatherSettingsPanel", () => {
   });
 
   it("分钟标签展示供应商字段、运行时统计、完整样本和所有状态字段", async () => {
-    render(<WeatherSettingsPanel section="live" />);
+    render(<WeatherSettingsPanel section="weather" />);
 
     const panel = await openTab("分钟");
     expect(within(panel).getByText("分钟接口")).toBeInTheDocument();
@@ -567,7 +579,7 @@ describe("WeatherSettingsPanel", () => {
       stale: true,
       status: "stale",
     });
-    render(<WeatherSettingsPanel section="live" />);
+    render(<WeatherSettingsPanel section="weather" />);
 
     const panel = await openTab("分钟");
     expect(within(panel).getByText("全量接口回退")).toBeInTheDocument();
@@ -577,7 +589,7 @@ describe("WeatherSettingsPanel", () => {
   });
 
   it("逐时和逐日标签展示接口返回的全部记录及昨日对照", async () => {
-    render(<WeatherSettingsPanel section="live" />);
+    render(<WeatherSettingsPanel section="weather" />);
 
     let panel = await openTab("逐时");
     expect(within(panel).getByText("逐时预报 · 3 条")).toBeInTheDocument();
@@ -595,7 +607,7 @@ describe("WeatherSettingsPanel", () => {
   });
 
   it("空气、预警和接口标签展示污染物、防御信息及两份原始响应", async () => {
-    render(<WeatherSettingsPanel section="live" />);
+    render(<WeatherSettingsPanel section="weather" />);
 
     let panel = await openTab("空气");
     expect(within(panel).getByText("测试监测站")).toBeInTheDocument();
@@ -622,7 +634,7 @@ describe("WeatherSettingsPanel", () => {
   it("刷新失败时保留原缓存详情并显示失败状态", async () => {
     const user = userEvent.setup();
     mocks.requestWeatherRefresh.mockRejectedValueOnce(new Error("测试刷新失败"));
-    render(<WeatherSettingsPanel section="live" />);
+    render(<WeatherSettingsPanel section="weather" />);
 
     await user.click(screen.getByRole("button", { name: "刷新数据" }));
 
@@ -647,7 +659,7 @@ describe("WeatherSettingsPanel", () => {
       },
     };
 
-    render(<WeatherSettingsPanel section="live" />);
+    render(<WeatherSettingsPanel section="weather" />);
 
     expect(screen.queryByText("旧地点天气")).not.toBeInTheDocument();
     expect(screen.queryByText("多云")).not.toBeInTheDocument();

@@ -38,10 +38,11 @@ import styles from "./WeatherSettingsPanel.module.css";
 
 export interface WeatherSettingsPanelProps {
   onRegisterSave?: (fn: () => void) => void;
-  section?: WeatherSettingsSection;
+  section: WeatherSettingsSection;
 }
 
-export type WeatherSettingsSection = "alerts" | "refresh" | "location" | "live";
+export type WeatherSettingsSection = "weather" | "location";
+type WeatherContentSection = "alerts" | "refresh" | "location" | "live";
 
 function formatTime(value: number | null): string {
   if (value == null || !Number.isFinite(value)) return "暂无";
@@ -77,7 +78,7 @@ const WeatherSettingsPanel: React.FC<WeatherSettingsPanelProps> = ({ onRegisterS
   const { study } = useAppState();
   const dispatch = useAppDispatch();
   const coordinator = useWeatherCoordinatorSnapshot();
-  const minutelyWeather = useMinutelyWeatherSnapshot(section == null || section === "live");
+  const minutelyWeather = useMinutelyWeatherSnapshot(section === "weather");
   const [cache, setCache] = useState(() => getWeatherCache());
   const [weatherRefreshStatus, setWeatherRefreshStatus] = useState<string>("");
   const [advancedSafetyOpen, setAdvancedSafetyOpen] = useState(false);
@@ -185,7 +186,7 @@ const WeatherSettingsPanel: React.FC<WeatherSettingsPanelProps> = ({ onRegisterS
     currentLocationKey != null && cache.details?.location === currentLocationKey;
 
   useEffect(() => {
-    if (section !== "live" || hasMatchingDetails || weatherRefreshStatus) return;
+    if (section !== "weather" || hasMatchingDetails || weatherRefreshStatus) return;
     handleRefreshWeather();
   }, [handleRefreshWeather, hasMatchingDetails, section, weatherRefreshStatus]);
 
@@ -268,8 +269,8 @@ const WeatherSettingsPanel: React.FC<WeatherSettingsPanelProps> = ({ onRegisterS
   const coordsText = cache.coords
     ? `${cache.coords.lat.toFixed(4)}, ${cache.coords.lon.toFixed(4)}`
     : "--";
-  const isSectionHidden = (candidate: WeatherSettingsSection) =>
-    section ? section !== candidate : undefined;
+  const isSectionHidden = (candidate: WeatherContentSection) =>
+    section === "location" ? candidate !== "location" : candidate === "location";
   const effectiveSchedule = resolveEffectiveWeatherSchedule({
     profile: scheduleProfile,
     custom: customSchedule,
@@ -301,7 +302,7 @@ const WeatherSettingsPanel: React.FC<WeatherSettingsPanelProps> = ({ onRegisterS
         description="控制天气相关提醒是否在触发时弹出。"
         hidden={isSectionHidden("alerts")}
       >
-        <SettingGrid columns={2}>
+        <SettingGrid columns={2} className={styles.alertSettingsGrid}>
           <SettingItem
             title="天气预警弹窗"
             description="恶劣天气预警时显示弹窗。"
