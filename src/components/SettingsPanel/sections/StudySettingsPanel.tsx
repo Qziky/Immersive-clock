@@ -13,6 +13,7 @@ import {
   SettingItem,
   StatusPill,
   Switch as FormSwitch,
+  Tabs,
   useFeedback,
 } from "../../../ui";
 import { getAppSettings, updateNoiseSettings } from "../../../utils/appSettings";
@@ -42,6 +43,15 @@ export interface StudySettingsPanelProps {
   onRegisterSave?: (fn: () => void) => void;
 }
 
+type NoiseSettingsTab = "control" | "calibration" | "reports" | "live";
+
+const NOISE_SETTINGS_TABS: Array<{ value: NoiseSettingsTab; label: string }> = [
+  { value: "control", label: "控制" },
+  { value: "calibration", label: "校准" },
+  { value: "reports", label: "报告" },
+  { value: "live", label: "监测" },
+];
+
 /**
  * 噪音设置面板
  * - 噪音控制与校准
@@ -50,6 +60,7 @@ export interface StudySettingsPanelProps {
 export const StudySettingsPanel: React.FC<StudySettingsPanelProps> = ({ onRegisterSave }) => {
   const { study } = useAppState();
   const { confirm } = useFeedback();
+  const [activeTab, setActiveTab] = useState<NoiseSettingsTab>("control");
   const [_effectiveBaselineRms, setEffectiveBaselineRms] = useState<number>(() => {
     return getAppSettings().noiseControl.baselineRms ?? 0;
   });
@@ -348,182 +359,209 @@ export const StudySettingsPanel: React.FC<StudySettingsPanelProps> = ({ onRegist
 
   return (
     <div id="study-panel">
-      <FormSection
-        title="噪音控制"
-        variant="plain"
-        description="调整噪音状态展示与提示音触发，不影响评分结果。"
-      >
-        <SettingGrid columns={2} className={styles.noiseSettingsGrid}>
-          <SettingItem
-            icon="feature.studyThreshold"
-            title="判定阈值"
-            description="环境声音超过此值时显示为“吵闹”。"
-          >
-            <FormSlider
-              value={draftMaxNoiseLevel}
-              min={40}
-              max={80}
-              step={1}
-              onChange={setDraftMaxNoiseLevel}
-              formatValue={(v: number) => `${v.toFixed(0)}dB`}
-              showRange
-              rangeLabels={["40dB", "80dB"]}
-            />
-          </SettingItem>
+      <Tabs<NoiseSettingsTab>
+        id="noise-settings-tabs"
+        className={styles.sectionTabs}
+        items={NOISE_SETTINGS_TABS.map((item) => ({
+          ...item,
+          ariaControls: `noise-settings-panel-${item.value}`,
+          id: `noise-settings-tabs-tab-${item.value}`,
+        }))}
+        label="噪音设置分类"
+        scrollable
+        value={activeTab}
+        variant="underlined"
+        onChange={setActiveTab}
+      />
 
-          <SettingItem
-            icon="feature.noiseSmoothing"
-            title="噪音数值平滑"
-            description="数值越大，分贝数字跳动越平缓。"
-          >
-            <FormSlider
-              value={draftAvgWindowSec}
-              min={0.5}
-              max={10}
-              step={0.5}
-              onChange={setDraftAvgWindowSec}
-              formatValue={(v: number) => `${v.toFixed(1)}秒`}
-              showRange
-              rangeLabels={["灵敏", "平缓"]}
-            />
-          </SettingItem>
-          <SettingItem
-            icon="feature.studyMetrics"
-            title="显示实时分贝"
-            description="在自习页展示当前环境实时分贝。"
-            control={
-              <FormSwitch
-                checked={draftShowRealtimeDb}
-                onCheckedChange={setDraftShowRealtimeDb}
-                aria-label="显示实时分贝"
-              />
-            }
-          />
-          <SettingItem
-            icon="feature.notification"
-            title="超过阈值播放提示音"
-            description="仅在超过判定阈值时触发提示音。"
-            control={
-              <FormSwitch
-                checked={draftAlertSoundEnabled}
-                onCheckedChange={setDraftAlertSoundEnabled}
-                aria-label="超过阈值播放提示音"
-              />
-            }
-          />
-        </SettingGrid>
-      </FormSection>
-
-      <FormSection
-        title="校准与修正"
-        variant="plain"
-        description="请在安静环境下校准，或手动选择当前环境所处的噪音水平。"
+      <div
+        aria-labelledby={`noise-settings-tabs-tab-${activeTab}`}
+        id={`noise-settings-panel-${activeTab}`}
+        role="tabpanel"
+        tabIndex={0}
       >
-        <div data-tour="noise-calibration">
-          <SettingItem
-            icon="feature.microphone"
-            title="基准噪音值"
-            description="校准需要麦克风权限，保存后才会应用到噪音控制。"
-            tone={baselineRms > 0 ? "success" : "warning"}
-            control={
-              <StatusPill tone={baselineRms > 0 ? "success" : "warning"}>
-                {baselineRms > 0 ? "已校准" : "未校准"}
-                {isCalibrating && ` ${calibrationProgress}%`}
-              </StatusPill>
-            }
-          >
-            <div id="tour-noise-baseline-slider">
+        <FormSection
+          title="噪音控制"
+          variant="plain"
+          description="调整噪音状态展示与提示音触发，不影响评分结果。"
+          hidden={activeTab !== "control"}
+        >
+          <SettingGrid columns={2} className={styles.noiseSettingsGrid}>
+            <SettingItem
+              icon="feature.studyThreshold"
+              title="判定阈值"
+              description="环境声音超过此值时显示为“吵闹”。"
+            >
               <FormSlider
-                label="基准噪音值"
-                value={draftManualBaselineDb}
-                min={30}
-                max={60}
+                value={draftMaxNoiseLevel}
+                min={40}
+                max={80}
                 step={1}
-                onChange={setDraftManualBaselineDb}
+                onChange={setDraftMaxNoiseLevel}
                 formatValue={(v: number) => `${v.toFixed(0)}dB`}
                 showRange
-                rangeLabels={["安静", "偏吵"]}
+                rangeLabels={["40dB", "80dB"]}
               />
-            </div>
-          </SettingItem>
+            </SettingItem>
 
-          <FormButtonGroup align="left">
-            <FormButton
-              id="tour-noise-calibrate-btn"
-              variant="secondary"
-              onClick={handleRecalibrate}
-              disabled={isCalibrating}
-              icon="action.calibrateMicrophone"
+            <SettingItem
+              icon="feature.noiseSmoothing"
+              title="噪音数值平滑"
+              description="数值越大，分贝数字跳动越平缓。"
             >
-              {noiseBaseline > 0 ? "重新校准" : "开始校准"}
-            </FormButton>
-            <FormButton
-              variant="danger"
-              onClick={handleClearNoiseBaseline}
-              disabled={noiseBaseline === 0 && baselineRms === 0}
-              icon="action.clearCalibration"
-            >
-              清除校准
-            </FormButton>
-          </FormButtonGroup>
-        </div>
-      </FormSection>
-
-      <FormSection
-        title="噪音报告"
-        variant="plain"
-        description="控制学习结束后的报告弹出与历史保留范围。"
-      >
-        <SettingGrid columns={2} className={styles.noiseSettingsGrid}>
-          <SettingItem
-            icon="feature.noiseReport"
-            title="自动弹出报告"
-            description="学习结束后自动显示噪音分析报告。"
-            control={
-              <FormSwitch
-                checked={autoPopupReport}
-                onCheckedChange={setAutoPopupReport}
-                aria-label="自动弹出报告"
+              <FormSlider
+                value={draftAvgWindowSec}
+                min={0.5}
+                max={10}
+                step={0.5}
+                onChange={setDraftAvgWindowSec}
+                formatValue={(v: number) => `${v.toFixed(1)}秒`}
+                showRange
+                rangeLabels={["灵敏", "平缓"]}
               />
-            }
-          />
-          <SettingItem
-            icon="feature.noiseHistory"
-            title="历史保存天数"
-            description="实际最大范围会按本地可用容量裁剪。"
-          >
-            <FormInput
-              type="number"
-              value={String(reportRetentionDays)}
-              onChange={(e) => {
-                const next = parseInt(e.target.value, 10);
-                const normalized = Number.isFinite(next) ? Math.max(1, next) : 1;
-                const capped =
-                  maxReportRetentionDays && maxReportRetentionDays > 0
-                    ? Math.min(maxReportRetentionDays, normalized)
-                    : normalized;
-                setReportRetentionDays(capped);
-              }}
-              min={1}
-              max={maxReportRetentionDays ?? undefined}
+            </SettingItem>
+            <SettingItem
+              icon="feature.studyMetrics"
+              title="显示实时分贝"
+              description="在自习页展示当前环境实时分贝。"
+              control={
+                <FormSwitch
+                  checked={draftShowRealtimeDb}
+                  onCheckedChange={setDraftShowRealtimeDb}
+                  aria-label="显示实时分贝"
+                />
+              }
             />
-          </SettingItem>
-        </SettingGrid>
-        <InfoPanel tone="neutral">
-          默认 {DEFAULT_NOISE_REPORT_RETENTION_DAYS}{" "}
-          天；实际最大可保存范围会受本地容量限制（按可用容量的 90% 自动裁剪旧数据）。
-          {maxReportRetentionDays ? ` 当前建议上限：${maxReportRetentionDays} 天。` : ""}
-        </InfoPanel>
-      </FormSection>
+            <SettingItem
+              icon="feature.notification"
+              title="超过阈值播放提示音"
+              description="仅在超过判定阈值时触发提示音。"
+              control={
+                <FormSwitch
+                  checked={draftAlertSoundEnabled}
+                  onCheckedChange={setDraftAlertSoundEnabled}
+                  aria-label="超过阈值播放提示音"
+                />
+              }
+            />
+          </SettingGrid>
+        </FormSection>
 
-      {/* 背景设置已迁移到基础设置 */}
+        <FormSection
+          title="校准与修正"
+          variant="plain"
+          description="请在安静环境下校准，或手动选择当前环境所处的噪音水平。"
+          hidden={activeTab !== "calibration"}
+        >
+          <div data-tour="noise-calibration">
+            <SettingItem
+              icon="feature.microphone"
+              title="基准噪音值"
+              description="校准需要麦克风权限，保存后才会应用到噪音控制。"
+              tone={baselineRms > 0 ? "success" : "warning"}
+              control={
+                <StatusPill tone={baselineRms > 0 ? "success" : "warning"}>
+                  {baselineRms > 0 ? "已校准" : "未校准"}
+                  {isCalibrating && ` ${calibrationProgress}%`}
+                </StatusPill>
+              }
+            >
+              <div id="tour-noise-baseline-slider">
+                <FormSlider
+                  label="基准噪音值"
+                  value={draftManualBaselineDb}
+                  min={30}
+                  max={60}
+                  step={1}
+                  onChange={setDraftManualBaselineDb}
+                  formatValue={(v: number) => `${v.toFixed(0)}dB`}
+                  showRange
+                  rangeLabels={["安静", "偏吵"]}
+                />
+              </div>
+            </SettingItem>
 
-      <FormSection title="实时监控" variant="plain">
-        <RealTimeNoiseChart />
-      </FormSection>
-      <FormSection title="统计数据" variant="plain">
-        <NoiseStatsSummary />
-      </FormSection>
+            <FormButtonGroup align="left">
+              <FormButton
+                id="tour-noise-calibrate-btn"
+                variant="secondary"
+                onClick={handleRecalibrate}
+                disabled={isCalibrating}
+                icon="action.calibrateMicrophone"
+              >
+                {noiseBaseline > 0 ? "重新校准" : "开始校准"}
+              </FormButton>
+              <FormButton
+                variant="danger"
+                onClick={handleClearNoiseBaseline}
+                disabled={noiseBaseline === 0 && baselineRms === 0}
+                icon="action.clearCalibration"
+              >
+                清除校准
+              </FormButton>
+            </FormButtonGroup>
+          </div>
+        </FormSection>
+
+        <FormSection
+          title="噪音报告"
+          variant="plain"
+          description="控制学习结束后的报告弹出与历史保留范围。"
+          hidden={activeTab !== "reports"}
+        >
+          <SettingGrid columns={2} className={styles.noiseSettingsGrid}>
+            <SettingItem
+              icon="feature.noiseReport"
+              title="自动弹出报告"
+              description="学习结束后自动显示噪音分析报告。"
+              control={
+                <FormSwitch
+                  checked={autoPopupReport}
+                  onCheckedChange={setAutoPopupReport}
+                  aria-label="自动弹出报告"
+                />
+              }
+            />
+            <SettingItem
+              icon="feature.noiseHistory"
+              title="历史保存天数"
+              description="实际最大范围会按本地可用容量裁剪。"
+            >
+              <FormInput
+                type="number"
+                value={String(reportRetentionDays)}
+                onChange={(e) => {
+                  const next = parseInt(e.target.value, 10);
+                  const normalized = Number.isFinite(next) ? Math.max(1, next) : 1;
+                  const capped =
+                    maxReportRetentionDays && maxReportRetentionDays > 0
+                      ? Math.min(maxReportRetentionDays, normalized)
+                      : normalized;
+                  setReportRetentionDays(capped);
+                }}
+                min={1}
+                max={maxReportRetentionDays ?? undefined}
+              />
+            </SettingItem>
+          </SettingGrid>
+          <InfoPanel tone="neutral">
+            默认 {DEFAULT_NOISE_REPORT_RETENTION_DAYS}{" "}
+            天；实际最大可保存范围会受本地容量限制（按可用容量的 90% 自动裁剪旧数据）。
+            {maxReportRetentionDays ? ` 当前建议上限：${maxReportRetentionDays} 天。` : ""}
+          </InfoPanel>
+        </FormSection>
+
+        {/* 背景设置已迁移到基础设置 */}
+
+        <div className={styles.monitoringSections} hidden={activeTab !== "live"}>
+          <FormSection title="实时监控" variant="plain">
+            <RealTimeNoiseChart />
+          </FormSection>
+          <FormSection title="统计数据" variant="plain">
+            <NoiseStatsSummary />
+          </FormSection>
+        </div>
+      </div>
     </div>
   );
 };

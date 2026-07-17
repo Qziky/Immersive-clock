@@ -1276,9 +1276,11 @@ function MetricsInfoExample() {
 function SettingsShellDemo({
   variant,
   disabled = false,
+  hideContentHeader = false,
 }: {
   variant?: "drawer";
   disabled?: boolean;
+  hideContentHeader?: boolean;
 }) {
   const [activeItem, setActiveItem] = useState("appearance");
 
@@ -1287,8 +1289,10 @@ function SettingsShellDemo({
       variant={variant}
       title={disabled ? "设置中心（整体禁用）" : "设置中心"}
       disabled={disabled}
-      contentTitle="显示与外观"
-      contentDescription="分组导航、紧凑 rail 和移动端抽屉由公共组合统一处理。"
+      contentTitle={hideContentHeader ? false : "显示与外观"}
+      contentDescription={
+        hideContentHeader ? false : "分组导航、紧凑 rail 和移动端抽屉由公共组合统一处理。"
+      }
       activeItem={activeItem}
       onItemChange={setActiveItem}
       groups={[
@@ -1342,6 +1346,10 @@ function SettingsShellExample() {
 
 function SettingsShellDrawerExample() {
   return <SettingsShellDemo variant="drawer" />;
+}
+
+function SettingsShellHeaderlessExample() {
+  return <SettingsShellDemo hideContentHeader />;
 }
 
 function SettingsShellDisabledExample() {
@@ -2163,6 +2171,7 @@ export const COMPONENT_CATALOG: readonly ComponentCatalogEntry[] = [
       "shell-disabled",
       "content",
       "footer",
+      "headerless",
       "responsive",
       "default",
       "drawer",
@@ -2189,6 +2198,12 @@ export const COMPONENT_CATALOG: readonly ComponentCatalogEntry[] = [
         "Modal 内嵌抽屉",
         ["drawer", "compact", "responsive"],
         SettingsShellDrawerExample
+      ),
+      makeExample(
+        "settings-shell-headerless",
+        "无内容页头",
+        ["content", "footer", "headerless"],
+        SettingsShellHeaderlessExample
       ),
       makeExample(
         "settings-shell-disabled",

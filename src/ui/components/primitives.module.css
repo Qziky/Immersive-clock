@@ -2454,6 +2454,10 @@
 
 .settingsMain {
   display: grid;
+  grid-template-areas:
+    "header"
+    "body"
+    "footer";
   grid-template-rows: auto minmax(0, 1fr) auto;
   min-height: 0;
   min-width: 0;
@@ -2464,6 +2468,7 @@
   border-bottom: 1px solid var(--ui-color-border);
   display: grid;
   gap: var(--ui-space-1);
+  grid-area: header;
   min-height: 92px;
   padding: 14px 24px;
 }
@@ -2558,6 +2563,7 @@
   align-content: start;
   display: grid;
   gap: var(--ui-space-3);
+  grid-area: body;
   min-height: 0;
   overscroll-behavior: contain;
   overflow: auto;
@@ -2572,6 +2578,7 @@
   border-top: 1px solid var(--ui-color-border);
   display: flex;
   gap: var(--ui-space-3);
+  grid-area: footer;
   justify-content: flex-end;
   padding: 12px 24px max(12px, env(safe-area-inset-bottom));
 }

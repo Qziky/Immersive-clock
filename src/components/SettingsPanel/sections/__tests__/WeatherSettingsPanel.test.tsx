@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -352,11 +352,26 @@ function createWeatherCache(): WeatherCache {
   };
 }
 
-async function openTab(name: string) {
+function selectServiceTab(tablistName: string, tabName: string) {
+  const tablist = screen.getByRole("tablist", { name: tablistName });
+  const tab = within(tablist).getByRole("tab", { name: tabName });
+  fireEvent.click(tab);
+  const panelId = tab.getAttribute("aria-controls");
+  const panel = panelId ? document.getElementById(panelId) : null;
+  if (!panel) throw new Error(`${tabName} 标签缺少关联面板`);
+  expect(tab).toHaveAttribute("aria-selected", "true");
+  expect(panel).toHaveAttribute("aria-labelledby", tab.id);
+  return panel;
+}
+
+async function openWeatherDataTab(name: string) {
   const user = userEvent.setup();
-  const tab = screen.getByRole("tab", { name });
+  const tablist = screen.getByRole("tablist", { name: "天气数据分类" });
+  const tab = within(tablist).getByRole("tab", { name });
   await user.click(tab);
-  const panel = screen.getByRole("tabpanel");
+  const panelId = tab.getAttribute("aria-controls");
+  const panel = panelId ? document.getElementById(panelId) : null;
+  if (!panel) throw new Error(`${name} 标签缺少关联面板`);
   expect(tab).toHaveAttribute("aria-controls", panel.id);
   expect(panel).toHaveAttribute("aria-labelledby", tab.id);
   return panel;
@@ -385,27 +400,58 @@ describe("WeatherSettingsPanel", () => {
     });
   });
 
-  it("天气服务聚合提醒、调度和数据，并排除定位控件", () => {
+  it("天气服务通过内部标签隔离提醒、调度和数据", () => {
     render(<WeatherSettingsPanel section="weather" />);
 
+    const serviceTabs = screen.getByRole("tablist", { name: "天气服务分类" });
+    expect(
+      within(serviceTabs)
+        .getAllByRole("tab")
+        .map((tab) => tab.textContent)
+    ).toEqual(["提醒", "调度", "数据"]);
     expect(screen.getByRole("switch", { name: "天气预警弹窗" })).toBeInTheDocument();
+    expect(screen.queryByRole("radiogroup", { name: "刷新档位" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("tablist", { name: "天气数据分类" })).not.toBeInTheDocument();
+
+    selectServiceTab("天气服务分类", "调度");
     expect(screen.getByRole("radiogroup", { name: "刷新档位" })).toBeInTheDocument();
+    expect(screen.queryByRole("switch", { name: "天气预警弹窗" })).not.toBeInTheDocument();
+
+    selectServiceTab("天气服务分类", "数据");
     expect(screen.getByRole("tablist", { name: "天气数据分类" })).toBeInTheDocument();
+    expect(screen.queryByRole("radiogroup", { name: "刷新档位" })).not.toBeInTheDocument();
     expect(screen.queryByRole("switch", { name: "分钟级降水提醒" })).not.toBeInTheDocument();
     expect(screen.queryByRole("radiogroup", { name: "定位方式" })).not.toBeInTheDocument();
     expect(mocks.useMinutelyWeatherSnapshot).toHaveBeenLastCalledWith(true);
   });
 
-  it("天气与定位服务双向隔离，并在切换时保留天气数据标签状态", async () => {
+  it("天气与定位服务保留各自内部标签状态", async () => {
     const user = userEvent.setup();
     const { rerender } = render(<WeatherSettingsPanel section="weather" />);
 
-    await user.click(screen.getByRole("tab", { name: "分钟" }));
+    selectServiceTab("天气服务分类", "数据");
+    await user.click(
+      within(screen.getByRole("tablist", { name: "天气数据分类" })).getByRole("tab", {
+        name: "分钟",
+      })
+    );
     expect(screen.getByRole("tab", { name: "分钟" })).toHaveAttribute("aria-selected", "true");
 
     rerender(<WeatherSettingsPanel section="location" />);
 
+    const locationTabs = screen.getByRole("tablist", { name: "定位服务分类" });
+    expect(
+      within(locationTabs)
+        .getAllByRole("tab")
+        .map((tab) => tab.textContent)
+    ).toEqual(["设置", "状态"]);
     expect(screen.getByRole("radiogroup", { name: "定位方式" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "定位状态" })).not.toBeInTheDocument();
+
+    selectServiceTab("定位服务分类", "状态");
+    expect(screen.getByRole("heading", { name: "定位状态" })).toBeInTheDocument();
+    expect(screen.getByText("当前坐标")).toBeVisible();
+    expect(screen.queryByRole("radiogroup", { name: "定位方式" })).not.toBeInTheDocument();
     expect(screen.queryByRole("switch", { name: "天气预警弹窗" })).not.toBeInTheDocument();
     expect(screen.queryByRole("radiogroup", { name: "刷新档位" })).not.toBeInTheDocument();
     expect(screen.queryByRole("tablist", { name: "天气数据分类" })).not.toBeInTheDocument();
@@ -413,13 +459,15 @@ describe("WeatherSettingsPanel", () => {
 
     rerender(<WeatherSettingsPanel section="weather" />);
 
+    expect(screen.getByRole("tab", { name: "数据" })).toHaveAttribute("aria-selected", "true");
     expect(screen.getByRole("tab", { name: "分钟" })).toHaveAttribute("aria-selected", "true");
     expect(mocks.useMinutelyWeatherSnapshot).toHaveBeenLastCalledWith(true);
   });
 
-  it("天气调度展示四档、运行状态和可展开请求保护", async () => {
+  it("天气刷新展示四档、运行状态和可展开请求保护", async () => {
     const user = userEvent.setup();
     render(<WeatherSettingsPanel section="weather" />);
+    selectServiceTab("天气服务分类", "调度");
 
     const profileGroup = screen.getByRole("radiogroup", { name: "刷新档位" });
     for (const profile of ["保守", "均衡", "高频", "自定义"]) {
@@ -444,8 +492,9 @@ describe("WeatherSettingsPanel", () => {
     expect(screen.getByLabelText("每小时请求上限")).toHaveValue(120);
   });
 
-  it("天气调度区分请求保护、冷却和失败后使用缓存", () => {
+  it("天气刷新区分请求保护、冷却和失败后使用缓存", () => {
     const { rerender } = render(<WeatherSettingsPanel section="weather" />);
+    selectServiceTab("天气服务分类", "调度");
 
     mocks.weatherCoordinatorSnapshot.status = "rate-limited";
     rerender(<WeatherSettingsPanel section="weather" />);
@@ -471,6 +520,7 @@ describe("WeatherSettingsPanel", () => {
         }}
       />
     );
+    selectServiceTab("天气服务分类", "调度");
 
     await user.click(screen.getByRole("radio", { name: "自定义" }));
     const values = [
@@ -520,6 +570,7 @@ describe("WeatherSettingsPanel", () => {
   it("天气数据刷新直接调用协调器，不依赖顶部天气组件", async () => {
     const user = userEvent.setup();
     render(<WeatherSettingsPanel section="weather" />);
+    selectServiceTab("天气服务分类", "数据");
 
     await user.click(screen.getByRole("button", { name: "刷新数据" }));
 
@@ -534,6 +585,7 @@ describe("WeatherSettingsPanel", () => {
 
   it("天气数据提供七个关联正确的专题标签并固定展示空值和零值", () => {
     render(<WeatherSettingsPanel section="weather" />);
+    selectServiceTab("天气服务分类", "数据");
 
     const tablist = screen.getByRole("tablist", { name: "天气数据分类" });
     const tabs = within(tablist).getAllByRole("tab");
@@ -547,7 +599,8 @@ describe("WeatherSettingsPanel", () => {
       "接口",
     ]);
 
-    const panel = screen.getByRole("tabpanel");
+    const panel = document.getElementById(tabs[0].getAttribute("aria-controls") || "");
+    if (!panel) throw new Error("概览标签缺少关联面板");
     expect(tabs[0]).toHaveAttribute("aria-controls", panel.id);
     expect(panel).toHaveAttribute("aria-labelledby", tabs[0].id);
     expect(screen.getByText("相对湿度").parentElement).toHaveTextContent("0%");
@@ -559,8 +612,9 @@ describe("WeatherSettingsPanel", () => {
 
   it("分钟标签展示供应商字段、运行时统计、完整样本和所有状态字段", async () => {
     render(<WeatherSettingsPanel section="weather" />);
+    selectServiceTab("天气服务分类", "数据");
 
-    const panel = await openTab("分钟");
+    const panel = await openWeatherDataTab("分钟");
     expect(within(panel).getByText("分钟接口")).toBeInTheDocument();
     expect(within(panel).getByText("十五分钟后有小雨")).toBeInTheDocument();
     expect(within(panel).getByText("20 / 80")).toBeInTheDocument();
@@ -580,8 +634,9 @@ describe("WeatherSettingsPanel", () => {
       status: "stale",
     });
     render(<WeatherSettingsPanel section="weather" />);
+    selectServiceTab("天气服务分类", "数据");
 
-    const panel = await openTab("分钟");
+    const panel = await openWeatherDataTab("分钟");
     expect(within(panel).getByText("全量接口回退")).toBeInTheDocument();
     expect(within(panel).getByText("全量接口摘要")).toBeInTheDocument();
     expect(within(panel).getByText("30 / 70")).toBeInTheDocument();
@@ -590,15 +645,16 @@ describe("WeatherSettingsPanel", () => {
 
   it("逐时和逐日标签展示接口返回的全部记录及昨日对照", async () => {
     render(<WeatherSettingsPanel section="weather" />);
+    selectServiceTab("天气服务分类", "数据");
 
-    let panel = await openTab("逐时");
+    let panel = await openWeatherDataTab("逐时");
     expect(within(panel).getByText("逐时预报 · 3 条")).toBeInTheDocument();
     expect(within(panel).getByText("小雨")).toBeInTheDocument();
     expect(
       within(panel).getByRole("region", { name: "全部逐时天气预报" }).querySelectorAll("tbody tr")
     ).toHaveLength(3);
 
-    panel = await openTab("逐日");
+    panel = await openWeatherDataTab("逐日");
     expect(within(panel).getByText("逐日预报 · 2 天")).toBeInTheDocument();
     expect(within(panel).getByText("2026-07-16")).toBeInTheDocument();
     expect(
@@ -608,8 +664,9 @@ describe("WeatherSettingsPanel", () => {
 
   it("空气、预警和接口标签展示污染物、防御信息及两份原始响应", async () => {
     render(<WeatherSettingsPanel section="weather" />);
+    selectServiceTab("天气服务分类", "数据");
 
-    let panel = await openTab("空气");
+    let panel = await openWeatherDataTab("空气");
     expect(within(panel).getByText("测试监测站")).toBeInTheDocument();
     expect(within(panel).getByText("细颗粒物")).toBeInTheDocument();
     expect(within(panel).getByText("0 μg/m3")).toBeInTheDocument();
@@ -618,13 +675,13 @@ describe("WeatherSettingsPanel", () => {
       expect(within(pollutants).getByText(label)).toBeInTheDocument();
     }
 
-    panel = await openTab("预警");
+    panel = await openWeatherDataTab("预警");
     expect(within(panel).getByText("暴雨蓝色预警")).toBeInTheDocument();
     expect(within(panel).getByText("减少外出 (shield)")).toBeInTheDocument();
     expect(within(panel).getByText("alert-icon.png / alert-notice.png")).toBeInTheDocument();
     expect(within(panel).getByText(/测试台风/)).toBeInTheDocument();
 
-    panel = await openTab("接口");
+    panel = await openWeatherDataTab("接口");
     expect(within(panel).getByText("weather-all-raw")).toBeInTheDocument();
     expect(within(panel).getByText(/minute-raw-sentinel/)).toBeInTheDocument();
     expect(within(panel).getByText("CWA6")).toBeInTheDocument();
@@ -635,6 +692,7 @@ describe("WeatherSettingsPanel", () => {
     const user = userEvent.setup();
     mocks.requestWeatherRefresh.mockRejectedValueOnce(new Error("测试刷新失败"));
     render(<WeatherSettingsPanel section="weather" />);
+    selectServiceTab("天气服务分类", "数据");
 
     await user.click(screen.getByRole("button", { name: "刷新数据" }));
 
@@ -660,11 +718,12 @@ describe("WeatherSettingsPanel", () => {
     };
 
     render(<WeatherSettingsPanel section="weather" />);
+    selectServiceTab("天气服务分类", "数据");
 
     expect(screen.queryByText("旧地点天气")).not.toBeInTheDocument();
     expect(screen.queryByText("多云")).not.toBeInTheDocument();
     expect(screen.getByText("暂无天气")).toBeInTheDocument();
-    const panel = await openTab("接口");
+    const panel = await openWeatherDataTab("接口");
     expect(within(panel).queryByText(/weather-all-raw/)).not.toBeInTheDocument();
     await waitFor(() => expect(mocks.requestWeatherRefresh).toHaveBeenCalledTimes(1));
   });

@@ -65,6 +65,32 @@ async function waitForAnimations(locator: Locator) {
   });
 }
 
+async function expectSettingsFooterDocked(dialog: Locator) {
+  const geometry = await dialog.locator("#settings-panel-container").evaluate((shell) => {
+    const footer = shell.querySelector("footer");
+    const body = footer?.previousElementSibling;
+    const main = footer?.parentElement;
+    if (!(footer instanceof HTMLElement) || !(body instanceof HTMLElement) || !main) return null;
+
+    const footerRect = footer.getBoundingClientRect();
+    const bodyRect = body.getBoundingClientRect();
+    const mainRect = main.getBoundingClientRect();
+    return {
+      bodyBottom: bodyRect.bottom,
+      footerBottomGap: mainRect.bottom - footerRect.bottom,
+      footerHeight: footerRect.height,
+      footerTop: footerRect.top,
+    };
+  });
+
+  expect(geometry).not.toBeNull();
+  expect(geometry?.footerHeight ?? Number.POSITIVE_INFINITY).toBeLessThanOrEqual(96);
+  expect(Math.abs(geometry?.footerBottomGap ?? Number.POSITIVE_INFINITY)).toBeLessThanOrEqual(1);
+  expect(geometry?.bodyBottom ?? Number.POSITIVE_INFINITY).toBeLessThanOrEqual(
+    (geometry?.footerTop ?? Number.NEGATIVE_INFINITY) + 1
+  );
+}
+
 async function mockExternalQuoteRequests(page: Page) {
   const hitokotoBody = JSON.stringify({
     uuid: "settings-e2e-quote",
@@ -604,10 +630,14 @@ test("天气设置：移除分钟降水弹窗并在天气数据保留完整数�
     },
   });
 
+  await dialog
+    .getByRole("tablist", { name: "天气服务分类" })
+    .getByRole("tab", { name: "数据" })
+    .click();
   const weatherTabs = dialog.getByRole("tablist", { name: "天气数据分类" });
   await expect(weatherTabs.getByRole("tab")).toHaveCount(7);
   await weatherTabs.getByRole("tab", { name: "分钟" }).click();
-  await expect(dialog.getByRole("tabpanel")).toHaveAttribute(
+  await expect(dialog.locator("#weather-live-panel-minutely")).toHaveAttribute(
     "aria-labelledby",
     "weather-live-tabs-tab-minutely"
   );
@@ -625,6 +655,10 @@ test("天气设置：自定义调度与请求保护保存后持久化", async ({
 
   let dialog = await openStudySettings(page);
   await openEnvironmentSettingsPage(page, dialog, "天气服务");
+  await dialog
+    .getByRole("tablist", { name: "天气服务分类" })
+    .getByRole("tab", { name: "调度" })
+    .click();
   const profileGroup = dialog.getByRole("radiogroup", { name: "刷新档位" });
   await expect(profileGroup.getByRole("radio", { name: "均衡" })).toBeChecked();
   await profileGroup.getByRole("radio", { name: "自定义" }).click();
@@ -669,6 +703,10 @@ test("天气设置：自定义调度与请求保护保存后持久化", async ({
   await page.reload();
   dialog = await openStudySettings(page);
   await openEnvironmentSettingsPage(page, dialog, "天气服务");
+  await dialog
+    .getByRole("tablist", { name: "天气服务分类" })
+    .getByRole("tab", { name: "调度" })
+    .click();
   await expect(
     dialog.getByRole("radiogroup", { name: "刷新档位" }).getByRole("radio", { name: "自定义" })
   ).toBeChecked();
@@ -728,9 +766,13 @@ for (const viewport of [
       await environmentNavigation.getByRole("button", { name: "噪音监测" }).click();
     }
 
-    await expect(dialog.getByRole("heading", { name: "噪音监测", level: 2 })).toBeVisible();
-    for (const heading of ["噪音控制", "校准与修正", "噪音报告", "实时监控", "统计数据"]) {
-      await expect(dialog.getByRole("heading", { name: heading })).toBeVisible();
+    await expect(dialog.getByRole("heading", { name: "噪音监测", level: 2 })).toHaveCount(0);
+    const noiseTabs = dialog.getByRole("tablist", { name: "噪音设置分类" });
+    await expect(noiseTabs.getByRole("tab")).toHaveText(["控制", "校准", "报告", "监测"]);
+    await expect(dialog.getByRole("heading", { name: "噪音控制" })).toBeVisible();
+    await expectSettingsFooterDocked(dialog);
+    for (const heading of ["校准与修正", "噪音报告", "实时监控", "统计数据"]) {
+      await expect(dialog.getByRole("heading", { name: heading })).toHaveCount(0);
     }
     await expect(dialog.getByRole("radiogroup", { name: "刷新档位" })).toHaveCount(0);
     await expect(dialog.getByRole("radiogroup", { name: "定位方式" })).toHaveCount(0);
@@ -746,10 +788,28 @@ for (const viewport of [
       ).toBe(1);
     }
 
+    for (const [tabName, heading] of [
+      ["校准", "校准与修正"],
+      ["报告", "噪音报告"],
+    ] as const) {
+      await noiseTabs.getByRole("tab", { name: tabName }).click();
+      await expect(dialog.getByRole("heading", { name: heading })).toBeVisible();
+      await expect(dialog.getByRole("heading", { name: "噪音控制" })).toHaveCount(0);
+    }
+
+    await noiseTabs.getByRole("tab", { name: "监测" }).click();
+    await expect(dialog.getByRole("heading", { name: "实时监控" })).toBeVisible();
+    await expect(dialog.getByRole("heading", { name: "统计数据" })).toBeVisible();
+    await expect(dialog.getByRole("heading", { name: "噪音控制" })).toHaveCount(0);
+
     await openEnvironmentSettingsPage(page, dialog, "天气服务");
-    await expect(dialog.getByRole("heading", { name: "天气服务", level: 2 })).toBeVisible();
+    await expect(dialog.getByRole("heading", { name: "天气服务", level: 2 })).toHaveCount(0);
+    const weatherServiceTabs = dialog.getByRole("tablist", { name: "天气服务分类" });
+    await expect(weatherServiceTabs.getByRole("tab")).toHaveText(["提醒", "调度", "数据"]);
     await expect(dialog.getByRole("switch", { name: "天气预警弹窗" })).toBeVisible();
-    await expect(dialog.getByRole("heading", { name: "天气调度" })).toBeVisible();
+    await expectSettingsFooterDocked(dialog);
+    await expect(dialog.getByRole("heading", { name: "天气刷新" })).toHaveCount(0);
+    await expect(dialog.getByRole("tablist", { name: "天气数据分类" })).toHaveCount(0);
     await expect(dialog.getByRole("radiogroup", { name: "定位方式" })).toHaveCount(0);
     await expect(dialog.getByRole("heading", { name: "噪音控制" })).toHaveCount(0);
     if (viewport.width <= 390) {
@@ -763,6 +823,15 @@ for (const viewport of [
         })
       ).toBe(1);
     }
+
+    await weatherServiceTabs.getByRole("tab", { name: "调度" }).click();
+    await expect(dialog.getByRole("heading", { name: "天气刷新" })).toBeVisible();
+    await expect(dialog.getByRole("switch", { name: "天气预警弹窗" })).toHaveCount(0);
+    await expect(dialog.getByRole("tablist", { name: "天气数据分类" })).toHaveCount(0);
+
+    await weatherServiceTabs.getByRole("tab", { name: "数据" }).click();
+    await expect(dialog.getByRole("heading", { name: "天气数据" })).toBeVisible();
+    await expect(dialog.getByRole("heading", { name: "天气刷新" })).toHaveCount(0);
     expect(await dialog.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(
       true
     );
@@ -770,26 +839,39 @@ for (const viewport of [
     let tablist = dialog.getByRole("tablist", { name: "天气数据分类" });
     await tablist.scrollIntoViewIfNeeded();
     await tablist.getByRole("tab", { name: "分钟" }).click();
+    await dialog.getByRole("region", { name: "全部分钟降水样本" }).scrollIntoViewIfNeeded();
     await expect
       .poll(() =>
-        dialog.locator("#weather-panel").evaluate((element) => {
-          return element.parentElement?.parentElement?.scrollTop ?? 0;
-        })
+        dialog
+          .locator("#weather-panel")
+          .locator("xpath=../..")
+          .evaluate((element) => element.scrollTop)
       )
       .toBeGreaterThan(0);
 
     await openEnvironmentSettingsPage(page, dialog, "定位服务");
-    await expect(dialog.getByRole("heading", { name: "定位服务", level: 2 })).toBeVisible();
-    await expect(dialog.getByRole("heading", { name: "地理位置" })).toBeVisible();
+    await expect(dialog.getByRole("heading", { name: "定位服务", level: 2 })).toHaveCount(0);
+    const locationServiceTabs = dialog.getByRole("tablist", { name: "定位服务分类" });
+    await expect(locationServiceTabs.getByRole("tab")).toHaveText(["设置", "状态"]);
+    await expect(dialog.getByRole("heading", { name: "定位设置" })).toBeVisible();
+    await expect(dialog.getByRole("heading", { name: "定位状态" })).toHaveCount(0);
+    await expect(dialog.getByRole("radiogroup", { name: "定位方式" })).toBeVisible();
+    await expectSettingsFooterDocked(dialog);
     await expect(dialog.getByRole("switch", { name: "天气预警弹窗" })).toHaveCount(0);
     await expect(dialog.getByRole("radiogroup", { name: "刷新档位" })).toHaveCount(0);
     await expect(dialog.getByRole("tablist", { name: "天气数据分类" })).toHaveCount(0);
     await expect(dialog.getByRole("heading", { name: "噪音控制" })).toHaveCount(0);
+
+    await locationServiceTabs.getByRole("tab", { name: "状态" }).click();
+    await expect(dialog.getByRole("heading", { name: "定位状态" })).toBeVisible();
+    await expect(dialog.getByText("当前坐标", { exact: true })).toBeVisible();
+    await expect(dialog.getByRole("radiogroup", { name: "定位方式" })).toHaveCount(0);
     await expect
       .poll(() =>
-        dialog.locator("#weather-panel").evaluate((element) => {
-          return element.parentElement?.parentElement?.scrollTop ?? -1;
-        })
+        dialog
+          .locator("#weather-panel")
+          .locator("xpath=../..")
+          .evaluate((element) => element.scrollTop)
       )
       .toBe(0);
     expect(await dialog.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(
@@ -798,6 +880,10 @@ for (const viewport of [
 
     await openEnvironmentSettingsPage(page, dialog, "天气服务");
     await expect(dialog.getByRole("switch", { name: "分钟级降水提醒" })).toHaveCount(0);
+    await expect(dialog.getByRole("tab", { name: "数据" })).toHaveAttribute(
+      "aria-selected",
+      "true"
+    );
     await expect(dialog.getByRole("tab", { name: "分钟" })).toHaveAttribute(
       "aria-selected",
       "true"
@@ -836,7 +922,9 @@ for (const viewport of [
     for (const check of tabChecks) {
       const tab = tablist.getByRole("tab", { name: check.name });
       await tab.click();
-      const panel = dialog.getByRole("tabpanel");
+      const panelId = await tab.getAttribute("aria-controls");
+      expect(panelId).not.toBeNull();
+      const panel = dialog.locator(`#${panelId}`);
       await expect(panel).toHaveAttribute("aria-labelledby", await tab.getAttribute("id"));
       await expect(panel.getByText(check.text, { exact: false }).first()).toBeVisible();
       expect(

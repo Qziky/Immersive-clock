@@ -1,5 +1,19 @@
+.sectionTabs {
+  margin-block-end: var(--ui-space-5);
+}
+
 .noiseSettingsGrid {
   min-width: 0;
+}
+
+.monitoringSections {
+  display: grid;
+  gap: var(--ui-space-6);
+  min-width: 0;
+}
+
+.monitoringSections[hidden] {
+  display: none;
 }
 
 @media (max-width: 520px) {

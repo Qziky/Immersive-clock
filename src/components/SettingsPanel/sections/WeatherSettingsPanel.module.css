@@ -1,3 +1,7 @@
+.sectionTabs {
+  margin-block-end: var(--ui-space-5);
+}
+
 .alertSettingsGrid,
 .liveMetricsGrid {
   min-width: 0;

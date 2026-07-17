@@ -19,6 +19,7 @@ import {
   SettingGrid,
   SettingItem,
   Switch as FormSwitch,
+  Tabs,
 } from "../../../ui";
 import { getAppSettings, updateGeneralSettings } from "../../../utils/appSettings";
 import { broadcastSettingsEvent, SETTINGS_EVENTS } from "../../../utils/settingsEvents";
@@ -42,7 +43,20 @@ export interface WeatherSettingsPanelProps {
 }
 
 export type WeatherSettingsSection = "weather" | "location";
-type WeatherContentSection = "alerts" | "refresh" | "location" | "live";
+type WeatherServiceTab = "alerts" | "refresh" | "live";
+type LocationServiceTab = "locationSettings" | "locationStatus";
+type WeatherContentSection = WeatherServiceTab | LocationServiceTab;
+
+const WEATHER_SERVICE_TABS: Array<{ value: WeatherContentSection; label: string }> = [
+  { value: "alerts", label: "提醒" },
+  { value: "refresh", label: "调度" },
+  { value: "live", label: "数据" },
+];
+
+const LOCATION_SERVICE_TABS: Array<{ value: WeatherContentSection; label: string }> = [
+  { value: "locationSettings", label: "设置" },
+  { value: "locationStatus", label: "状态" },
+];
 
 function formatTime(value: number | null): string {
   if (value == null || !Number.isFinite(value)) return "暂无";
@@ -79,6 +93,9 @@ const WeatherSettingsPanel: React.FC<WeatherSettingsPanelProps> = ({ onRegisterS
   const dispatch = useAppDispatch();
   const coordinator = useWeatherCoordinatorSnapshot();
   const minutelyWeather = useMinutelyWeatherSnapshot(section === "weather");
+  const [activeWeatherTab, setActiveWeatherTab] = useState<WeatherServiceTab>("alerts");
+  const [activeLocationTab, setActiveLocationTab] =
+    useState<LocationServiceTab>("locationSettings");
   const [cache, setCache] = useState(() => getWeatherCache());
   const [weatherRefreshStatus, setWeatherRefreshStatus] = useState<string>("");
   const [advancedSafetyOpen, setAdvancedSafetyOpen] = useState(false);
@@ -269,8 +286,18 @@ const WeatherSettingsPanel: React.FC<WeatherSettingsPanelProps> = ({ onRegisterS
   const coordsText = cache.coords
     ? `${cache.coords.lat.toFixed(4)}, ${cache.coords.lon.toFixed(4)}`
     : "--";
-  const isSectionHidden = (candidate: WeatherContentSection) =>
-    section === "location" ? candidate !== "location" : candidate === "location";
+  const activeContentSection: WeatherContentSection =
+    section === "weather" ? activeWeatherTab : activeLocationTab;
+  const contentTabs = section === "weather" ? WEATHER_SERVICE_TABS : LOCATION_SERVICE_TABS;
+  const contentTabsLabel = section === "weather" ? "天气服务分类" : "定位服务分类";
+  const isSectionHidden = (candidate: WeatherContentSection) => candidate !== activeContentSection;
+  const handleContentTabChange = (next: WeatherContentSection) => {
+    if (section === "weather") {
+      setActiveWeatherTab(next as WeatherServiceTab);
+      return;
+    }
+    setActiveLocationTab(next as LocationServiceTab);
+  };
   const effectiveSchedule = resolveEffectiveWeatherSchedule({
     profile: scheduleProfile,
     custom: customSchedule,
@@ -296,287 +323,321 @@ const WeatherSettingsPanel: React.FC<WeatherSettingsPanelProps> = ({ onRegisterS
 
   return (
     <div id="weather-panel">
-      <FormSection
-        title="提醒开关"
-        variant="plain"
-        description="控制天气相关提醒是否在触发时弹出。"
-        hidden={isSectionHidden("alerts")}
+      <Tabs<WeatherContentSection>
+        id="weather-settings-tabs"
+        className={styles.sectionTabs}
+        items={contentTabs.map((item) => ({
+          ...item,
+          ariaControls: `weather-settings-panel-${item.value}`,
+          id: `weather-settings-tabs-tab-${item.value}`,
+        }))}
+        label={contentTabsLabel}
+        scrollable
+        value={activeContentSection}
+        variant="underlined"
+        onChange={handleContentTabChange}
+      />
+
+      <div
+        aria-labelledby={`weather-settings-tabs-tab-${activeContentSection}`}
+        id={`weather-settings-panel-${activeContentSection}`}
+        role="tabpanel"
+        tabIndex={0}
       >
-        <SettingGrid columns={2} className={styles.alertSettingsGrid}>
-          <SettingItem
-            title="天气预警弹窗"
-            description="恶劣天气预警时显示弹窗。"
-            icon="feature.weatherAlerts"
-            control={
-              <FormSwitch
-                checked={weatherAlertEnabled}
-                onCheckedChange={setWeatherAlertEnabled}
-                aria-label="天气预警弹窗"
-              />
-            }
-          />
-          <SettingItem
-            title="空气污染提醒"
-            description="空气质量较差时显示提醒。"
-            icon="weather.airQuality"
-            control={
-              <FormSwitch
-                checked={airQualityAlertEnabled}
-                onCheckedChange={setAirQualityAlertEnabled}
-                aria-label="空气污染提醒"
-              />
-            }
-          />
-          <SettingItem
-            title="日出日落提醒"
-            description="接近日出或日落时显示提醒。"
-            icon="weather.sunrise"
-            control={
-              <FormSwitch
-                checked={sunriseSunsetAlertEnabled}
-                onCheckedChange={setSunriseSunsetAlertEnabled}
-                aria-label="日出日落提醒"
-              />
-            }
-          />
-        </SettingGrid>
-      </FormSection>
-
-      <FormSection
-        title="天气调度"
-        variant="plain"
-        description="设置本设备的天气更新频率和请求保护。"
-        hidden={isSectionHidden("refresh")}
-      >
-        <FormSegmented<WeatherScheduleProfile>
-          label="刷新档位"
-          value={scheduleProfile}
-          options={[
-            { label: "保守", value: "conservative" },
-            { label: "均衡", value: "balanced" },
-            { label: "高频", value: "frequent" },
-            { label: "自定义", value: "custom" },
-          ]}
-          onChange={setScheduleProfile}
-        />
-
-        <SettingGrid columns={3} className={styles.scheduleMetricsGrid}>
-          <MetricCard
-            label="上次更新"
-            value={formatTime(coordinator.lastSuccessAt)}
-            meta={getCoordinatorStatusLabel(coordinator.status)}
-          />
-          <MetricCard
-            label="下次执行"
-            value={formatTime(coordinator.nextRefreshAt)}
-            meta={coordinator.error || "按当前档位调度"}
-            tone={coordinator.error ? "warning" : "neutral"}
-          />
-          <MetricCard
-            label="本小时请求"
-            value={`${coordinator.requestsThisHour} / ${safetySettings.maxRequestsPerHour}`}
-            meta={`请求间隔至少 ${safetySettings.minRequestGapSec} 秒`}
-          />
-        </SettingGrid>
-
-        <InfoPanel tone="info">
-          前台全量 {effectiveSchedule.allForegroundMin} 分钟，后台全量{" "}
-          {effectiveSchedule.allBackgroundMin} 分钟；无雨分钟 {effectiveSchedule.minutelyDryMin}{" "}
-          分钟，临雨或降雨 {effectiveSchedule.minutelyRainMin} 分钟。
-        </InfoPanel>
-
-        {scheduleProfile === "custom" ? (
-          <div className={styles.scheduleInputGrid}>
-            <FormInput
-              label="前台全量"
-              type="number"
-              min={WEATHER_SCHEDULE_LIMITS.intervalMin.min}
-              max={WEATHER_SCHEDULE_LIMITS.intervalMin.max}
-              suffix="分钟"
-              value={customSchedule.allForegroundMin}
-              onChange={(event) => updateCustomSchedule("allForegroundMin", event.target.value)}
-            />
-            <FormInput
-              label="后台全量"
-              type="number"
-              min={WEATHER_SCHEDULE_LIMITS.intervalMin.min}
-              max={WEATHER_SCHEDULE_LIMITS.intervalMin.max}
-              suffix="分钟"
-              value={customSchedule.allBackgroundMin}
-              onChange={(event) => updateCustomSchedule("allBackgroundMin", event.target.value)}
-            />
-            <FormInput
-              label="分钟无雨"
-              type="number"
-              min={WEATHER_SCHEDULE_LIMITS.intervalMin.min}
-              max={WEATHER_SCHEDULE_LIMITS.intervalMin.max}
-              suffix="分钟"
-              value={customSchedule.minutelyDryMin}
-              onChange={(event) => updateCustomSchedule("minutelyDryMin", event.target.value)}
-            />
-            <FormInput
-              label="分钟临雨/降雨"
-              type="number"
-              min={WEATHER_SCHEDULE_LIMITS.intervalMin.min}
-              max={WEATHER_SCHEDULE_LIMITS.intervalMin.max}
-              suffix="分钟"
-              value={customSchedule.minutelyRainMin}
-              onChange={(event) => updateCustomSchedule("minutelyRainMin", event.target.value)}
-            />
-            <FormInput
-              label="分钟后台"
-              type="number"
-              min={WEATHER_SCHEDULE_LIMITS.intervalMin.min}
-              max={WEATHER_SCHEDULE_LIMITS.intervalMin.max}
-              suffix="分钟"
-              value={customSchedule.minutelyBackgroundMin}
-              onChange={(event) =>
-                updateCustomSchedule("minutelyBackgroundMin", event.target.value)
+        <FormSection
+          title="提醒开关"
+          variant="plain"
+          description="控制天气相关提醒是否在触发时弹出。"
+          hidden={isSectionHidden("alerts")}
+        >
+          <SettingGrid columns={2} className={styles.alertSettingsGrid}>
+            <SettingItem
+              title="天气预警弹窗"
+              description="恶劣天气预警时显示弹窗。"
+              icon="feature.weatherAlerts"
+              control={
+                <FormSwitch
+                  checked={weatherAlertEnabled}
+                  onCheckedChange={setWeatherAlertEnabled}
+                  aria-label="天气预警弹窗"
+                />
               }
             />
-          </div>
-        ) : null}
+            <SettingItem
+              title="空气污染提醒"
+              description="空气质量较差时显示提醒。"
+              icon="weather.airQuality"
+              control={
+                <FormSwitch
+                  checked={airQualityAlertEnabled}
+                  onCheckedChange={setAirQualityAlertEnabled}
+                  aria-label="空气污染提醒"
+                />
+              }
+            />
+            <SettingItem
+              title="日出日落提醒"
+              description="接近日出或日落时显示提醒。"
+              icon="weather.sunrise"
+              control={
+                <FormSwitch
+                  checked={sunriseSunsetAlertEnabled}
+                  onCheckedChange={setSunriseSunsetAlertEnabled}
+                  aria-label="日出日落提醒"
+                />
+              }
+            />
+          </SettingGrid>
+        </FormSection>
 
-        <FormButton
-          variant="ghost"
-          size="sm"
-          icon={advancedSafetyOpen ? "action.collapse" : "action.expand"}
-          aria-expanded={advancedSafetyOpen}
-          aria-controls="weather-request-safety"
-          onClick={() => setAdvancedSafetyOpen((current) => !current)}
+        <FormSection
+          title="天气刷新"
+          variant="plain"
+          description="设置本设备的天气更新频率和请求保护。"
+          hidden={isSectionHidden("refresh")}
         >
-          请求保护
-        </FormButton>
-        <div
-          ref={safetySettingsRef}
-          id="weather-request-safety"
-          className={styles.safetySettings}
-          hidden={!advancedSafetyOpen}
-        >
-          <FormInput
-            label="最小请求间隔"
-            type="number"
-            min={WEATHER_SCHEDULE_LIMITS.minRequestGapSec.min}
-            max={WEATHER_SCHEDULE_LIMITS.minRequestGapSec.max}
-            suffix="秒"
-            value={safetySettings.minRequestGapSec}
-            onChange={(event) => updateSafety("minRequestGapSec", event.target.value)}
-          />
-          <FormInput
-            label="每小时请求上限"
-            type="number"
-            min={WEATHER_SCHEDULE_LIMITS.maxRequestsPerHour.min}
-            max={WEATHER_SCHEDULE_LIMITS.maxRequestsPerHour.max}
-            suffix="次"
-            value={safetySettings.maxRequestsPerHour}
-            onChange={(event) => updateSafety("maxRequestsPerHour", event.target.value)}
-          />
-          <FormButton
-            variant="secondary"
-            size="sm"
-            onClick={() => {
-              setSafetySettings({ ...createDefaultWeatherScheduleSettings().safety });
-            }}
-          >
-            恢复默认值
-          </FormButton>
-        </div>
-      </FormSection>
-
-      <FormSection title="地理位置" variant="plain" hidden={isSectionHidden("location")}>
-        <FormRow gap="sm" align="center">
-          <FormSegmented
-            label="定位方式"
-            value={locationMode}
+          <FormSegmented<WeatherScheduleProfile>
+            label="刷新档位"
+            value={scheduleProfile}
             options={[
-              { label: "自动定位", value: "auto" },
-              { label: "手动设置", value: "manual" },
+              { label: "保守", value: "conservative" },
+              { label: "均衡", value: "balanced" },
+              { label: "高频", value: "frequent" },
+              { label: "自定义", value: "custom" },
             ]}
-            onChange={(v) => setLocationMode(v as "auto" | "manual")}
+            onChange={setScheduleProfile}
           />
-        </FormRow>
 
-        {locationMode === "auto" ? (
-          <FormButtonGroup align="left">
+          <SettingGrid columns={3} className={styles.scheduleMetricsGrid}>
+            <MetricCard
+              label="上次更新"
+              value={formatTime(coordinator.lastSuccessAt)}
+              meta={getCoordinatorStatusLabel(coordinator.status)}
+            />
+            <MetricCard
+              label="下次执行"
+              value={formatTime(coordinator.nextRefreshAt)}
+              meta={coordinator.error || "按当前档位调度"}
+              tone={coordinator.error ? "warning" : "neutral"}
+            />
+            <MetricCard
+              label="本小时请求"
+              value={`${coordinator.requestsThisHour} / ${safetySettings.maxRequestsPerHour}`}
+              meta={`请求间隔至少 ${safetySettings.minRequestGapSec} 秒`}
+            />
+          </SettingGrid>
+
+          <InfoPanel tone="info">
+            前台全量 {effectiveSchedule.allForegroundMin} 分钟，后台全量{" "}
+            {effectiveSchedule.allBackgroundMin} 分钟；无雨分钟 {effectiveSchedule.minutelyDryMin}{" "}
+            分钟，临雨或降雨 {effectiveSchedule.minutelyRainMin} 分钟。
+          </InfoPanel>
+
+          {scheduleProfile === "custom" ? (
+            <div className={styles.scheduleInputGrid}>
+              <FormInput
+                label="前台全量"
+                type="number"
+                min={WEATHER_SCHEDULE_LIMITS.intervalMin.min}
+                max={WEATHER_SCHEDULE_LIMITS.intervalMin.max}
+                suffix="分钟"
+                value={customSchedule.allForegroundMin}
+                onChange={(event) => updateCustomSchedule("allForegroundMin", event.target.value)}
+              />
+              <FormInput
+                label="后台全量"
+                type="number"
+                min={WEATHER_SCHEDULE_LIMITS.intervalMin.min}
+                max={WEATHER_SCHEDULE_LIMITS.intervalMin.max}
+                suffix="分钟"
+                value={customSchedule.allBackgroundMin}
+                onChange={(event) => updateCustomSchedule("allBackgroundMin", event.target.value)}
+              />
+              <FormInput
+                label="分钟无雨"
+                type="number"
+                min={WEATHER_SCHEDULE_LIMITS.intervalMin.min}
+                max={WEATHER_SCHEDULE_LIMITS.intervalMin.max}
+                suffix="分钟"
+                value={customSchedule.minutelyDryMin}
+                onChange={(event) => updateCustomSchedule("minutelyDryMin", event.target.value)}
+              />
+              <FormInput
+                label="分钟临雨/降雨"
+                type="number"
+                min={WEATHER_SCHEDULE_LIMITS.intervalMin.min}
+                max={WEATHER_SCHEDULE_LIMITS.intervalMin.max}
+                suffix="分钟"
+                value={customSchedule.minutelyRainMin}
+                onChange={(event) => updateCustomSchedule("minutelyRainMin", event.target.value)}
+              />
+              <FormInput
+                label="分钟后台"
+                type="number"
+                min={WEATHER_SCHEDULE_LIMITS.intervalMin.min}
+                max={WEATHER_SCHEDULE_LIMITS.intervalMin.max}
+                suffix="分钟"
+                value={customSchedule.minutelyBackgroundMin}
+                onChange={(event) =>
+                  updateCustomSchedule("minutelyBackgroundMin", event.target.value)
+                }
+              />
+            </div>
+          ) : null}
+
+          <FormButton
+            variant="ghost"
+            size="sm"
+            icon={advancedSafetyOpen ? "action.collapse" : "action.expand"}
+            aria-expanded={advancedSafetyOpen}
+            aria-controls="weather-request-safety"
+            onClick={() => setAdvancedSafetyOpen((current) => !current)}
+          >
+            请求保护
+          </FormButton>
+          <div
+            ref={safetySettingsRef}
+            id="weather-request-safety"
+            className={styles.safetySettings}
+            hidden={!advancedSafetyOpen}
+          >
+            <FormInput
+              label="最小请求间隔"
+              type="number"
+              min={WEATHER_SCHEDULE_LIMITS.minRequestGapSec.min}
+              max={WEATHER_SCHEDULE_LIMITS.minRequestGapSec.max}
+              suffix="秒"
+              value={safetySettings.minRequestGapSec}
+              onChange={(event) => updateSafety("minRequestGapSec", event.target.value)}
+            />
+            <FormInput
+              label="每小时请求上限"
+              type="number"
+              min={WEATHER_SCHEDULE_LIMITS.maxRequestsPerHour.min}
+              max={WEATHER_SCHEDULE_LIMITS.maxRequestsPerHour.max}
+              suffix="次"
+              value={safetySettings.maxRequestsPerHour}
+              onChange={(event) => updateSafety("maxRequestsPerHour", event.target.value)}
+            />
             <FormButton
               variant="secondary"
-              onClick={handleRefreshLocationAuto}
-              icon="action.refresh"
-              loading={isRefreshing}
+              size="sm"
+              onClick={() => {
+                setSafetySettings({ ...createDefaultWeatherScheduleSettings().safety });
+              }}
             >
-              刷新定位
+              恢复默认值
             </FormButton>
-          </FormButtonGroup>
-        ) : null}
+          </div>
+        </FormSection>
 
-        {locationMode === "manual" ? (
-          <>
-            <FormRow gap="sm" align="center">
-              <FormSegmented
-                label="手动类型"
-                value={manualType}
-                options={[
-                  { label: "城市名称", value: "city" },
-                  { label: "经纬度", value: "coords" },
-                ]}
-                onChange={(v) => setManualType(v as "city" | "coords")}
-              />
-            </FormRow>
-            {manualType === "city" ? (
-              <FormInput
-                label="城市名称"
-                value={manualCityName}
-                onChange={(e) => setManualCityName(e.target.value)}
-                placeholder="例如：北京"
-              />
-            ) : (
+        <FormSection
+          title="定位设置"
+          variant="plain"
+          description="选择自动或手动定位，并调整手动位置。"
+          hidden={isSectionHidden("locationSettings")}
+        >
+          <FormRow gap="sm" align="center">
+            <FormSegmented
+              label="定位方式"
+              value={locationMode}
+              options={[
+                { label: "自动定位", value: "auto" },
+                { label: "手动设置", value: "manual" },
+              ]}
+              onChange={(v) => setLocationMode(v as "auto" | "manual")}
+            />
+          </FormRow>
+
+          {locationMode === "auto" ? (
+            <FormButtonGroup align="left">
+              <FormButton
+                variant="secondary"
+                onClick={handleRefreshLocationAuto}
+                icon="action.refresh"
+                loading={isRefreshing}
+              >
+                刷新定位
+              </FormButton>
+            </FormButtonGroup>
+          ) : null}
+
+          {locationMode === "manual" ? (
+            <>
               <FormRow gap="sm" align="center">
-                <FormInput
-                  label="纬度"
-                  value={manualLat}
-                  onChange={(e) => setManualLat(e.target.value)}
-                  placeholder="例如：39.90"
-                  variant="number"
-                />
-                <FormInput
-                  label="经度"
-                  value={manualLon}
-                  onChange={(e) => setManualLon(e.target.value)}
-                  placeholder="例如：116.40"
-                  variant="number"
+                <FormSegmented
+                  label="手动类型"
+                  value={manualType}
+                  options={[
+                    { label: "城市名称", value: "city" },
+                    { label: "经纬度", value: "coords" },
+                  ]}
+                  onChange={(v) => setManualType(v as "city" | "coords")}
                 />
               </FormRow>
-            )}
-            <InfoPanel tone="info">保存后生效；手动定位优先级高于自动定位。</InfoPanel>
-          </>
-        ) : null}
+              {manualType === "city" ? (
+                <FormInput
+                  label="城市名称"
+                  value={manualCityName}
+                  onChange={(e) => setManualCityName(e.target.value)}
+                  placeholder="例如：北京"
+                />
+              ) : (
+                <FormRow gap="sm" align="center">
+                  <FormInput
+                    label="纬度"
+                    value={manualLat}
+                    onChange={(e) => setManualLat(e.target.value)}
+                    placeholder="例如：39.90"
+                    variant="number"
+                  />
+                  <FormInput
+                    label="经度"
+                    value={manualLon}
+                    onChange={(e) => setManualLon(e.target.value)}
+                    placeholder="例如：116.40"
+                    variant="number"
+                  />
+                </FormRow>
+              )}
+              <InfoPanel tone="info">保存后生效；手动定位优先级高于自动定位。</InfoPanel>
+            </>
+          ) : null}
+        </FormSection>
 
-        <SettingGrid columns={3} className={styles.locationMetricsGrid}>
-          <MetricCard
-            icon="feature.location"
-            label="当前坐标"
-            value={coordsText}
-            meta={`来源：${sourceLabel}`}
-          />
-          <MetricCard label="地址" value={cache.location?.address || "--"} meta="定位解析结果" />
-          <MetricCard
-            label="定位诊断"
-            value={geoDiag ? geoDiag.permissionState : "--"}
-            meta={geoDiag?.errorMessage || "暂无异常"}
-            tone={geoDiag?.errorMessage ? "warning" : "neutral"}
-          />
-        </SettingGrid>
-        {geoHint ? <InfoPanel tone="warning">{geoHint}</InfoPanel> : null}
-      </FormSection>
+        <FormSection
+          title="定位状态"
+          variant="plain"
+          description="查看当前坐标、地址和定位诊断。"
+          hidden={isSectionHidden("locationStatus")}
+        >
+          <SettingGrid columns={3} className={styles.locationMetricsGrid}>
+            <MetricCard
+              icon="feature.location"
+              label="当前坐标"
+              value={coordsText}
+              meta={`来源：${sourceLabel}`}
+            />
+            <MetricCard label="地址" value={cache.location?.address || "--"} meta="定位解析结果" />
+            <MetricCard
+              label="定位诊断"
+              value={geoDiag ? geoDiag.permissionState : "--"}
+              meta={geoDiag?.errorMessage || "暂无异常"}
+              tone={geoDiag?.errorMessage ? "warning" : "neutral"}
+            />
+          </SettingGrid>
+          {geoHint ? <InfoPanel tone="warning">{geoHint}</InfoPanel> : null}
+        </FormSection>
 
-      <WeatherLivePanel
-        cache={cache}
-        hidden={isSectionHidden("live")}
-        isRefreshing={isRefreshing}
-        minutelyWeather={minutelyWeather}
-        refreshStatus={displayedRefreshStatus}
-        onRefresh={handleRefreshWeather}
-      />
+        <WeatherLivePanel
+          cache={cache}
+          hidden={isSectionHidden("live")}
+          isRefreshing={isRefreshing}
+          minutelyWeather={minutelyWeather}
+          refreshStatus={displayedRefreshStatus}
+          onRefresh={handleRefreshWeather}
+        />
+      </div>
     </div>
   );
 };

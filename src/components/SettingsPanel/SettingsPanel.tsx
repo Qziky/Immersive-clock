@@ -480,6 +480,7 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
     [settingsBusy]
   );
   const activePaneItem = getPane(activePane);
+  const showContentHeader = activePaneItem.group !== "environment";
   const basicSection: BasicSettingsSection =
     activePaneItem.panel === "basic" ? activePaneItem.section : "startup";
   const weatherSection: WeatherSettingsSection =
@@ -507,8 +508,8 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
         id="settings-panel-container"
         activeItem={activePane}
         compactMenuId="settings-compact-submenu"
-        contentDescription={activePaneItem.description}
-        contentTitle={activePaneItem.label}
+        contentDescription={showContentHeader ? activePaneItem.description : false}
+        contentTitle={showContentHeader ? activePaneItem.label : false}
         disabled={settingsBusy}
         groups={settingsGroups}
         icon="feature.settings"

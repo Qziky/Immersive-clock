@@ -96,6 +96,28 @@ describe("SettingsShell", () => {
     );
   });
 
+  it("supports a content body and footer without rendering the optional page header", () => {
+    const { container } = render(
+      <SettingsShell
+        title="无页头设置"
+        groups={groups}
+        activeItem="startup"
+        contentTitle={false}
+        contentDescription={false}
+        footer={<button type="button">保存</button>}
+        onItemChange={vi.fn()}
+      >
+        短内容
+      </SettingsShell>
+    );
+
+    const main = container.querySelector('[class*="settingsMain"]');
+    expect(main?.children).toHaveLength(2);
+    expect(main?.children[0]).toHaveTextContent("短内容");
+    expect(main?.children[1]?.tagName).toBe("FOOTER");
+    expect(screen.queryByRole("heading", { name: "启动页面", level: 2 })).toBeNull();
+  });
+
   it("switches groups through their last enabled item and remembers later selections", async () => {
     const user = userEvent.setup();
     render(<ControlledShell />);

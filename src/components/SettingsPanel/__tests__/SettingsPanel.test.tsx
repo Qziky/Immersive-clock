@@ -324,30 +324,24 @@ describe("SettingsPanel", () => {
     const noiseButton = within(environmentPanes).getByRole("button", { name: "噪音监测" });
     expect(noiseButton.querySelector('[data-app-icon="feature.noise"]')).not.toBeNull();
     expect(screen.getByTestId("monitor-panel")).toBeInTheDocument();
-    expect(within(dialog).getByRole("heading", { name: "噪音监测" })).toBeInTheDocument();
-    expect(
-      within(dialog).getByText("调整阈值与校准，并查看报告、实时监控和统计。")
-    ).toBeInTheDocument();
+    expect(within(dialog).queryByRole("heading", { name: "噪音监测" })).toBeNull();
+    expect(within(dialog).queryByText("调整阈值与校准，并查看报告、实时监控和统计。")).toBeNull();
 
     const weatherButton = within(environmentPanes).getByRole("button", { name: "天气服务" });
     expect(weatherButton.querySelector('[data-app-icon="feature.weather"]')).not.toBeNull();
     await user.click(weatherButton);
     expect(screen.getByTestId("weather-panel")).toHaveAttribute("data-section", "weather");
     expect(screen.getByTestId("weather-panel")).toHaveAttribute("data-instance", "1");
-    expect(within(dialog).getByRole("heading", { name: "天气服务" })).toBeInTheDocument();
-    expect(
-      within(dialog).getByText("管理天气提醒与刷新策略，并查看完整天气数据。")
-    ).toBeInTheDocument();
+    expect(within(dialog).queryByRole("heading", { name: "天气服务" })).toBeNull();
+    expect(within(dialog).queryByText("管理天气提醒与刷新策略，并查看完整天气数据。")).toBeNull();
 
     const locationButton = within(environmentPanes).getByRole("button", { name: "定位服务" });
     expect(locationButton.querySelector('[data-app-icon="feature.location"]')).not.toBeNull();
     await user.click(locationButton);
     expect(screen.getByTestId("weather-panel")).toHaveAttribute("data-section", "location");
     expect(screen.getByTestId("weather-panel")).toHaveAttribute("data-instance", "1");
-    expect(within(dialog).getByRole("heading", { name: "定位服务" })).toBeInTheDocument();
-    expect(
-      within(dialog).getByText("选择自动或手动定位，并查看坐标、地址和诊断。")
-    ).toBeInTheDocument();
+    expect(within(dialog).queryByRole("heading", { name: "定位服务" })).toBeNull();
+    expect(within(dialog).queryByText("选择自动或手动定位，并查看坐标、地址和诊断。")).toBeNull();
   });
 
   it("将自习辅助组件归类到顶部信息栏", () => {
