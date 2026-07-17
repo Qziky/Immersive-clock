@@ -37,12 +37,13 @@ PWA 使用自动更新和运行时缓存。排查时可以：
 ## 天气请求失败
 
 本地开发时 `/api/xiaomi-weather` 由 Vite dev server 代理到小米天气接口。部署时由
-`vercel.json` 或 `edgeone.json` 的 rewrite 承接。
+`vercel.json` 或 `edgeone.json` 的 rewrite 承接，Electron 正式包则由 `app://` 协议处理器
+转发。天气上游不是客户端环境变量。
 
 排查顺序：
 
 1. 确认浏览器定位权限和网络状态。
-2. 检查 dev server 或部署平台 rewrite 是否生效。
+2. 检查 dev server、部署平台 rewrite 或 Electron protocol 转发是否生效。
 3. 查看 `src/services/weatherService.ts` 和 `src/services/xiaomiWeatherClient.ts` 的错误路径。
 4. 检查 `src/utils/weatherStorage.ts` 中缓存是否导致展示旧数据。
 

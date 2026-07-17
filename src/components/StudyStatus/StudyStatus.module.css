@@ -143,9 +143,13 @@
 }
 
 .remainingTime {
-  flex: 0 0 auto;
+  flex: 0 1 auto;
   font-variant-numeric: tabular-nums;
   font-weight: 500;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .progressMeta {

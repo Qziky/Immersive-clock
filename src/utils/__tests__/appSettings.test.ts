@@ -15,6 +15,7 @@ import {
   normalizeStudyInfoCarousel,
   resetAppSettingsPreservingUserContent,
   saveQuoteSettings,
+  updateGeneralSettings,
   updateTimeSyncSettings,
   updateStudySettings,
 } from "../appSettings";
@@ -67,7 +68,7 @@ describe("appSettings", () => {
 
   it("getAppSettings 在无存储时返回默认配置", () => {
     const s = getAppSettings();
-    expect(s.version).toBe(4);
+    expect(s.version).toBe(CURRENT_SETTINGS_VERSION);
     expect(s.general.timeSync.provider).toBe("httpDate");
     expect(s.study.display).not.toHaveProperty("showStatusBar");
     expect(s.study.display).not.toHaveProperty("timeProgressMode");
@@ -94,6 +95,7 @@ describe("appSettings", () => {
       "progress",
       "nextSchedule",
       "rain",
+      "weatherAlert",
     ]);
     expect(s.study.infoCarousel.items).toEqual([
       expect.objectContaining({ source: "progress", progressKind: "day", enabled: true }),
@@ -108,6 +110,11 @@ describe("appSettings", () => {
         source: "rain",
         backgroundProgressKind: "day",
         leadMinutes: 30,
+        enabled: false,
+      }),
+      expect.objectContaining({
+        source: "weatherAlert",
+        backgroundProgressKind: "day",
         enabled: false,
       }),
     ]);
@@ -145,15 +152,16 @@ describe("appSettings", () => {
 
     expect(normalized.intervalSec).toBe(30);
     expect(normalized).not.toHaveProperty("autoRotate");
-    expect(normalized.items).toHaveLength(customItems.length + 4);
+    expect(normalized.items).toHaveLength(customItems.length + 5);
     expect(normalized.items.filter((item) => item.enabled)).toHaveLength(MAX_STUDY_INFO_ITEMS);
-    expect(normalized.items.filter((item) => item.source !== "custom")).toHaveLength(4);
+    expect(normalized.items.filter((item) => item.source !== "custom")).toHaveLength(5);
     expect(
       normalized.items.find((item) => item.source === "progress" && item.progressKind === "day")
         ?.enabled
     ).toBe(false);
     expect(normalized.items.find((item) => item.source === "nextSchedule")?.enabled).toBe(false);
     expect(normalized.items.find((item) => item.source === "rain")?.enabled).toBe(false);
+    expect(normalized.items.find((item) => item.source === "weatherAlert")?.enabled).toBe(false);
     expect(normalized.items.find((item) => item.id === "custom-19")?.enabled).toBe(true);
     expect(normalized.items.find((item) => item.id === "custom-20")).toMatchObject({
       enabled: false,
@@ -219,6 +227,7 @@ describe("appSettings", () => {
       "progress",
       "nextSchedule",
       "rain",
+      "weatherAlert",
     ]);
     expect(normalized.items.every((item) => !item.enabled)).toBe(true);
   });
@@ -241,10 +250,11 @@ describe("appSettings", () => {
     expect(s.study.display.showDate).toBe(true);
   });
 
-  it("getAppSettings 能对 general.weather 做合并并补齐默认字段", () => {
+  it("v5 天气刷新间隔迁移为自定义调度并补齐默认字段", () => {
     localStorage.setItem(
       APP_SETTINGS_KEY,
       JSON.stringify({
+        version: 5,
         general: {
           weather: { autoRefreshIntervalMin: 60 },
         },
@@ -252,23 +262,163 @@ describe("appSettings", () => {
     );
 
     const s = getAppSettings();
-    expect(s.general.weather.autoRefreshIntervalMin).toBe(60);
+    expect(s.version).toBe(CURRENT_SETTINGS_VERSION);
+    expect(s.general.weather.schedule).toMatchObject({
+      profile: "custom",
+      custom: {
+        allForegroundMin: 60,
+        allBackgroundMin: 60,
+        minutelyDryMin: 60,
+        minutelyRainMin: 5,
+        minutelyBackgroundMin: 60,
+      },
+      safety: {
+        maxRequestsPerHour: 120,
+        minRequestGapSec: 2,
+      },
+    });
     expect(s.general.weather.locationMode).toBe("auto");
     expect(s.general.weather.manualLocation.type).toBe("city");
   });
 
-  it("getAppSettings 能兼容拆分版 alerts 字段，并合并到 minutelyPrecip", () => {
+  it("v6 旧默认小时上限迁移为 120，并保留其他自定义上限", () => {
+    const migratedDefault = normalizeAppSettings({
+      version: 6,
+      general: {
+        weather: {
+          schedule: {
+            profile: "balanced",
+            safety: { maxRequestsPerHour: 60, minRequestGapSec: 4 },
+          },
+        },
+      },
+    });
+    const preservedCustom = normalizeAppSettings({
+      version: 6,
+      general: {
+        weather: {
+          schedule: {
+            profile: "balanced",
+            safety: { maxRequestsPerHour: 90, minRequestGapSec: 4 },
+          },
+        },
+      },
+    });
+
+    expect(migratedDefault.general.weather.schedule.safety).toEqual({
+      maxRequestsPerHour: 120,
+      minRequestGapSec: 4,
+    });
+    expect(preservedCustom.general.weather.schedule.safety.maxRequestsPerHour).toBe(90);
+  });
+
+  it("v4 迁移只清理分钟降水弹窗字段，不改变降雨轮播配置", () => {
     localStorage.setItem(
       APP_SETTINGS_KEY,
       JSON.stringify({
+        version: 4,
         study: {
-          alerts: { minutelyForecast: true, precipDuration: false },
+          alerts: { minutelyPrecip: true, weatherAlert: true },
+          infoCarousel: {
+            intervalSec: 12,
+            items: [
+              {
+                id: "rain-default",
+                source: "rain",
+                backgroundProgressKind: "schedule",
+                leadMinutes: 60,
+                enabled: false,
+                order: 0,
+              },
+              {
+                id: "custom-review",
+                source: "custom",
+                backgroundProgressKind: "day",
+                enabled: true,
+                order: 1,
+                text: "保持原样",
+              },
+            ],
+          },
         },
       })
     );
 
-    const s = getAppSettings();
-    expect(s.study.alerts.minutelyPrecip).toBe(true);
+    const migrated = migrateStoredAppSettings();
+    const saved = JSON.parse(localStorage.getItem(APP_SETTINGS_KEY) ?? "{}");
+
+    expect(migrated.version).toBe(CURRENT_SETTINGS_VERSION);
+    expect(migrated.study.alerts).not.toHaveProperty("minutelyPrecip");
+    expect(saved.study.alerts).not.toHaveProperty("minutelyPrecip");
+    expect(migrated.study.infoCarousel.intervalSec).toBe(12);
+    expect(
+      migrated.study.infoCarousel.items.find((item) => item.id === "rain-default")
+    ).toMatchObject({
+      backgroundProgressKind: "schedule",
+      leadMinutes: 60,
+      enabled: false,
+      order: 0,
+    });
+    expect(
+      migrated.study.infoCarousel.items.find((item) => item.id === "custom-review")
+    ).toMatchObject({
+      enabled: true,
+      order: 1,
+      text: "保持原样",
+    });
+    expect(
+      migrated.study.infoCarousel.items.find((item) => item.source === "weatherAlert")
+    ).toMatchObject({
+      enabled: false,
+      backgroundProgressKind: "day",
+    });
+  });
+
+  it("v5 设置只补入默认关闭的天气预警且不改变现有顺序", () => {
+    localStorage.setItem(
+      APP_SETTINGS_KEY,
+      JSON.stringify({
+        version: 5,
+        study: {
+          infoCarousel: {
+            intervalSec: 9,
+            items: [
+              {
+                id: "custom-first",
+                source: "custom",
+                backgroundProgressKind: "schedule",
+                enabled: true,
+                order: 0,
+                text: "第一条",
+              },
+              {
+                id: "rain-second",
+                source: "rain",
+                backgroundProgressKind: "day",
+                leadMinutes: 60,
+                enabled: false,
+                order: 1,
+              },
+            ],
+          },
+        },
+      })
+    );
+
+    const settings = getAppSettings().study.infoCarousel;
+    expect(
+      settings.items
+        .filter((item) => item.id === "custom-first" || item.id === "rain-second")
+        .map((item) => ({ id: item.id, enabled: item.enabled, order: item.order }))
+    ).toEqual([
+      { id: "custom-first", enabled: true, order: 0 },
+      { id: "rain-second", enabled: false, order: 1 },
+    ]);
+    expect(settings.items.find((item) => item.source === "weatherAlert")).toMatchObject({
+      id: "weather-alert-default",
+      enabled: false,
+      backgroundProgressKind: "day",
+    });
   });
 
   it("updateTimeSyncSettings 会深合并 timeSync，避免覆盖丢字段", () => {
@@ -289,6 +439,38 @@ describe("appSettings", () => {
     expect(s.general.timeSync.timeApiUrl).toBe("https://api.example/time");
   });
 
+  it("updateGeneralSettings 深合并天气 custom 与 safety 调度字段", () => {
+    updateGeneralSettings({
+      weather: {
+        schedule: {
+          profile: "custom",
+          custom: {
+            allForegroundMin: 9,
+          },
+          safety: {
+            minRequestGapSec: 4,
+          },
+        },
+      },
+    });
+
+    const schedule = getAppSettings().general.weather.schedule;
+    expect(schedule).toMatchObject({
+      profile: "custom",
+      custom: {
+        allBackgroundMin: 15,
+        allForegroundMin: 9,
+        minutelyBackgroundMin: 15,
+        minutelyDryMin: 5,
+        minutelyRainMin: 2,
+      },
+      safety: {
+        maxRequestsPerHour: 120,
+        minRequestGapSec: 4,
+      },
+    });
+  });
+
   it("updateStudySettings 会深合并 display/style/alerts/background", () => {
     localStorage.setItem(
       APP_SETTINGS_KEY,
@@ -305,7 +487,7 @@ describe("appSettings", () => {
     updateStudySettings({
       display: { showCountdown: false },
       infoCarousel: { intervalSec: 12 },
-      alerts: { minutelyPrecip: true },
+      alerts: { errorPopup: false },
       background: { colorAlpha: 0.8 },
     });
 
@@ -314,10 +496,10 @@ describe("appSettings", () => {
     expect(s.study.display.showCountdown).toBe(false);
     expect(s.study.display.showTime).toBe(true);
     expect(s.study.infoCarousel.intervalSec).toBe(12);
-    expect(s.study.infoCarousel.items).toHaveLength(4);
+    expect(s.study.infoCarousel.items).toHaveLength(5);
     expect(s.study.style.digitOpacity).toBe(0.5);
     expect(s.study.alerts.weatherAlert).toBe(true);
-    expect(s.study.alerts.minutelyPrecip).toBe(true);
+    expect(s.study.alerts.errorPopup).toBe(false);
     expect(s.study.background.type).toBe("color");
     expect(s.study.background.color).toBe("#000000");
     expect(s.study.background.colorAlpha).toBe(0.8);
@@ -593,7 +775,7 @@ describe("appSettings", () => {
 
     expect(setItemSpy).toHaveBeenCalledTimes(1);
     const saved = JSON.parse(localStorage.getItem(APP_SETTINGS_KEY) ?? "{}");
-    expect(saved.version).toBe(4);
+    expect(saved.version).toBe(CURRENT_SETTINGS_VERSION);
     expect(saved.general.quote.autoRefreshEnabled).toBe(true);
     expect(saved.general.quote.autoRefreshIntervalSec).toBe(1800);
     expect(saved.general.quote.animationMode).toBe("crossfade");
@@ -672,7 +854,7 @@ describe("appSettings", () => {
       (item) => item.source === "progress" && item.enabled
     );
 
-    expect(migrated.version).toBe(4);
+    expect(migrated.version).toBe(CURRENT_SETTINGS_VERSION);
     expect(enabledProgress).toMatchObject({ source: "progress", progressKind: "day" });
     expect(migrated.study.display).not.toHaveProperty("showStatusBar");
     expect(migrated.study.display).not.toHaveProperty("timeProgressMode");
@@ -828,6 +1010,11 @@ describe("appSettings", () => {
         source: "custom",
         backgroundProgressKind: "schedule",
         text: "保持专注",
+      }),
+      expect.objectContaining({
+        source: "weatherAlert",
+        backgroundProgressKind: "day",
+        enabled: false,
       }),
     ]);
     expect(normalizeAppSettings(JSON.parse(JSON.stringify(normalized)))).toEqual(normalized);

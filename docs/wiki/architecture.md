@@ -64,7 +64,8 @@ IndexedDB `noise-history` Store，按 `end` 索引查询；旧 `noise-slices` lo
 
 `vite.config.ts` 集成 `vite-plugin-pwa`，Web 构建默认启用 PWA。PWA 使用自动更新注册模式，
 并针对字体、图片、音频和 `/docs/*.md` 配置运行时缓存策略。Web 端还通过 Vite dev server
-代理 `/api/xiaomi-weather` 到小米天气接口，生产部署中由 Vercel 或 EdgeOne rewrite 承接。
+代理固定的 `/api/xiaomi-weather` 同源路径到小米天气接口，生产部署中由 Vercel 或 EdgeOne
+rewrite 承接。上游域名属于部署边界，不作为 `VITE_` 客户端环境变量暴露。
 
 `public/manifest.json` 是 PWA manifest 的基础配置，构建时会注入应用版本号。
 
@@ -77,6 +78,7 @@ Electron 模式通过 `vite --mode electron` 启动。`vite.config.ts` 在该模
 - `electron/preload.ts` 是预加载脚本入口，构建为 CommonJS 输出。
 - `electron/ipc/` 定义 IPC 通道和时间同步相关注册逻辑。
 - `electron/ntpService/` 提供 NTP 客户端能力。
+- `app://local/api/xiaomi-weather` 由主进程协议处理器转发到固定的小米天气上游。
 
 Electron 构建输出分为 Web 渲染产物和 `dist-electron/` 主进程产物，最终由
 `electron-builder` 打包。

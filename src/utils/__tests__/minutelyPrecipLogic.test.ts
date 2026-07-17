@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   computeMinutelyRainStats,
+  isUsableMinutelyResponse,
   resolveMinutelyRainPhase,
   shouldTriggerCriticalRefresh,
 } from "../minutelyPrecipLogic";
@@ -21,6 +22,35 @@ function createMinutelyCache(baseMs: number, precipSeries: number[]) {
 }
 
 describe("minutelyPrecipLogic", () => {
+  it("仅接受状态正常且全部降水样本有效的分钟响应，零值仍有效", () => {
+    expect(
+      isUsableMinutelyResponse({
+        code: "200",
+        minutely: [{ precip: "0" }, { precip: "0.2" }],
+        provider: {
+          flags: { precipitationStatus: 0, responseStatus: 0 },
+          raw: { status: 0 },
+        },
+      })
+    ).toBe(true);
+    expect(
+      isUsableMinutelyResponse({
+        code: "200",
+        minutely: [{ precip: "" }],
+      })
+    ).toBe(false);
+    expect(
+      isUsableMinutelyResponse({
+        code: "200",
+        minutely: [{ precip: "0.2" }],
+        provider: {
+          flags: { precipitationStatus: 1, responseStatus: 0 },
+          raw: { status: 0 },
+        },
+      })
+    ).toBe(false);
+  });
+
   it("按真实 1 分钟 fxTime 计算雨段时长，而不是固定按 5 分钟计算", () => {
     const base = Date.parse("2026-03-07T10:00:00+08:00");
     const cache = {

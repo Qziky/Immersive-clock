@@ -72,11 +72,13 @@ export function StudyStatusPresentation({
   const infoIcon: AppIconName =
     infoSignal?.source === "rain"
       ? "feature.weatherPrecipitation"
-      : infoSignal?.source === "nextSchedule"
-        ? "feature.event"
-        : infoSignal?.source === "custom"
-          ? "feature.message"
-          : "feature.progress";
+      : infoSignal?.source === "weatherAlert"
+        ? "feature.weatherAlerts"
+        : infoSignal?.source === "nextSchedule"
+          ? "feature.event"
+          : infoSignal?.source === "custom"
+            ? "feature.message"
+            : "feature.progress";
   const infoInteractive = Boolean(infoCanAdvance && onInfoNext);
   const showInfoRegion = showInfo || infoSignalManaged;
   const infoControlLabel = showInfo
@@ -87,7 +89,7 @@ export function StudyStatusPresentation({
 
   // 同一事件保留稳定键，倒计时更新不会重复播报或重播切换动画。
   const liveKey = infoSignal
-    ? `${infoSignal.itemId}:${infoSignal.dedupeKey}:${infoSignal.priority}`
+    ? `${infoSignal.frameId}:${infoSignal.dedupeKey}:${infoSignal.priority}`
     : "legacy";
   const previousLiveKeyRef = useRef<string>("");
   const infoHoveredRef = useRef(false);

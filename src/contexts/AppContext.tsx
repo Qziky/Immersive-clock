@@ -57,7 +57,6 @@ function loadStudyState(): StudyState {
     carouselIntervalSec: study.carouselIntervalSec,
     infoCarousel: study.infoCarousel,
     weatherAlertEnabled: study.alerts.weatherAlert,
-    minutelyPrecipEnabled: study.alerts.minutelyPrecip,
     errorPopupEnabled: study.alerts.errorPopup,
     errorCenterMode: study.alerts.errorCenterMode,
     airQualityAlertEnabled: study.alerts.airQuality,
@@ -349,25 +348,6 @@ function appReducer(state: AppState, action: AppAction): AppState {
       return {
         ...state,
         study: alertUpdatedStudy,
-      };
-
-    case "SET_MINUTELY_PRECIP_ENABLED":
-      const precipUpdatedStudy = {
-        ...state.study,
-        minutelyPrecipEnabled: !!action.payload,
-      };
-      updateAppSettings((current) => ({
-        study: {
-          ...current.study,
-          alerts: {
-            ...current.study.alerts,
-            minutelyPrecip: !!action.payload,
-          },
-        },
-      }));
-      return {
-        ...state,
-        study: precipUpdatedStudy,
       };
 
     case "SET_ERROR_POPUP_ENABLED":

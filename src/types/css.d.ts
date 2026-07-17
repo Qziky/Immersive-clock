@@ -22,10 +22,12 @@ interface ImportMetaEnv {
   readonly VITE_ENABLE_CLARITY?: string;
   /** Clarity 项目 ID */
   readonly VITE_CLARITY_PROJECT_ID?: string;
-  /** 小米天气 API Host（可选，默认使用 weatherapi.market.xiaomi.com） */
-  readonly VITE_XIAOMI_WEATHER_API_HOST?: string;
-  /** 小米天气同源代理前缀（可选，默认使用 /api/xiaomi-weather） */
-  readonly VITE_XIAOMI_WEATHER_PROXY_PREFIX?: string;
+  /** 天气调度默认档位 */
+  readonly VITE_WEATHER_DEFAULT_PROFILE?: string;
+  /** 本设备小米天气请求最小间隔（秒） */
+  readonly VITE_WEATHER_MIN_REQUEST_GAP_SEC?: string;
+  /** 本设备每小时小米天气请求上限 */
+  readonly VITE_WEATHER_MAX_REQUESTS_PER_HOUR?: string;
 }
 
 /** 扩展 ImportMeta 接口 */

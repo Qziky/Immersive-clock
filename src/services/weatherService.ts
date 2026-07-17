@@ -8,13 +8,19 @@ import type {
   GeolocationPermissionState,
   GeolocationResult,
   MinutelyPrecipResponse,
-  WeatherHourly72hResponse,
+  WeatherCurrentDetail,
+  WeatherDetailsResponse,
   WeatherAlertResponse,
   WeatherDaily3dResponse,
   WeatherNow,
+  WeatherScalarDetail,
+  XiaomiEmbeddedMinutely,
+  XiaomiMinutelyPrecipitation,
   XiaomiMinutelyResponse,
+  XiaomiValueUnit,
   XiaomiWeatherAllResponse,
 } from "../types/weather";
+import { getValidXiaomiLocation, updateXiaomiLocationCache } from "../utils/weatherStorage";
 
 import {
   buildLocationFlow,
@@ -35,22 +41,11 @@ export type {
   GeolocationResult,
   MinutelyPrecipResponse,
   LocationFlowOptions,
-  WeatherHourly72hResponse,
+  WeatherDetailsResponse,
   WeatherAlertResponse,
   WeatherDaily3dResponse,
   WeatherNow,
 };
-
-export {
-  buildLocationFlow,
-  fetchCityLookup,
-  getCoordsViaAmapIP,
-  getCoordsViaGeolocation,
-  getCoordsViaIP,
-  getGeolocationResult,
-  reverseGeocodeAmap,
-  reverseGeocodeOSM,
-} from "./locationService";
 
 export interface WeatherFlowOptions extends LocationFlowOptions {
   fetchDaily3d?: boolean;
@@ -58,11 +53,19 @@ export interface WeatherFlowOptions extends LocationFlowOptions {
   fetchAirQuality?: boolean;
 }
 
-interface XiaomiResolvedLocation {
+export interface XiaomiResolvedLocation {
   lat: number;
   lon: number;
   locationKey: string;
   name?: string;
+}
+
+function isWeatherRequestDeferredError(error: unknown): boolean {
+  return (
+    error instanceof Error &&
+    error.name === "WeatherRequestDeferredError" &&
+    typeof (error as Error & { retryAt?: unknown }).retryAt === "number"
+  );
 }
 
 const WEATHER_TEXT_MAP: Record<string, string> = {
@@ -153,14 +156,366 @@ function weatherIcon(code: unknown): string | undefined {
   return key.padStart(3, "0");
 }
 
+function normalizeUnitValue(
+  input: XiaomiValueUnit | string | number | undefined,
+  fallbackUnit?: string
+): WeatherScalarDetail | undefined {
+  const rawValue =
+    typeof input === "object" && input != null
+      ? input.value
+      : (input as string | number | undefined);
+  const value = valueToString(rawValue);
+  const unit =
+    typeof input === "object" && input != null
+      ? valueToString(input.unit) || fallbackUnit
+      : fallbackUnit;
+  if (value == null && unit == null) return undefined;
+  return { value, unit };
+}
+
+function normalizeDirection(value: unknown): number | null {
+  const raw =
+    typeof value === "object" && value != null && "value" in value
+      ? (value as { value?: unknown }).value
+      : value;
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed)) return null;
+  return ((parsed % 360) + 360) % 360;
+}
+
+function windDirectionText(value: unknown): string | undefined {
+  const direction = normalizeDirection(value);
+  if (direction == null) return undefined;
+  const labels = ["北", "东北", "东", "东南", "南", "西南", "西", "西北"];
+  return `${labels[Math.round(direction / 45) % labels.length]}风`;
+}
+
+function aqiCategory(value: unknown): string | undefined {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return undefined;
+  if (parsed <= 50) return "优";
+  if (parsed <= 100) return "良";
+  if (parsed <= 150) return "轻度污染";
+  if (parsed <= 200) return "中度污染";
+  if (parsed <= 300) return "重度污染";
+  return "严重污染";
+}
+
+function normalizeDate(value: unknown, fallbackOffset?: number): string | undefined {
+  if (typeof value === "string") {
+    const match = /^(\d{4}-\d{2}-\d{2})/.exec(value);
+    if (match) return match[1];
+  }
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return formatDateFromValue(new Date(value));
+  }
+  return fallbackOffset == null ? undefined : formatDateFromOffset(fallbackOffset);
+}
+
+function formatDateFromValue(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function normalizeCurrentDetail(
+  current: XiaomiWeatherAllResponse["current"] | undefined
+): WeatherCurrentDetail | undefined {
+  if (!current) return undefined;
+  const direction = normalizeUnitValue(current.wind?.direction, "°");
+  return {
+    feelsLike: normalizeUnitValue(current.feelsLike, "℃"),
+    humidity: normalizeUnitValue(current.humidity, "%"),
+    observationTime: normalizeTimestamp(current.pubTime),
+    pressure: normalizeUnitValue(current.pressure, "hPa"),
+    temperature: normalizeUnitValue(current.temperature, "℃"),
+    uvIndex: valueToString(current.uvIndex),
+    visibility: normalizeUnitValue(current.visibility, "km"),
+    weatherCode: valueToString(current.weather),
+    weatherText: weatherText(current.weather),
+    windDirection: direction,
+    windDirectionText: windDirectionText(direction),
+    windSpeed: normalizeUnitValue(current.wind?.speed, "km/h"),
+  };
+}
+
+function normalizeAlertImages(images: unknown): string[] {
+  if (Array.isArray(images)) {
+    return images.filter((image): image is string => typeof image === "string" && image.length > 0);
+  }
+  if (typeof images !== "object" || images == null) return [];
+  return Object.values(images).filter(
+    (image): image is string => typeof image === "string" && image.length > 0
+  );
+}
+
+function uniqueBrands(data: XiaomiWeatherAllResponse) {
+  const brands = [
+    ...(data.brandInfo?.brands || []),
+    ...(data.aqi?.brandInfo?.brands || []),
+    ...(data.forecastDaily?.aqi?.brandInfo?.brands || []),
+    ...(data.forecastHourly?.aqi?.brandInfo?.brands || []),
+  ];
+  const seen = new Set<string>();
+  return brands.filter((brand) => {
+    const key = brand.brandId || brand.names?.zh_CN || brand.url || JSON.stringify(brand);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+export function adaptWeatherDetails(data: XiaomiWeatherAllResponse): WeatherDetailsResponse {
+  const daily = data.forecastDaily;
+  const dailyCount = Math.max(
+    daily?.temperature?.value?.length || 0,
+    daily?.weather?.value?.length || 0,
+    daily?.sunRiseSet?.value?.length || 0,
+    daily?.precipitationProbability?.value?.length || 0,
+    daily?.aqi?.value?.length || 0,
+    daily?.wind?.direction?.value?.length || 0,
+    daily?.wind?.speed?.value?.length || 0
+  );
+  const normalizedDaily = Array.from({ length: dailyCount }, (_, index) => {
+    const temperature = daily?.temperature?.value?.[index];
+    const weather = daily?.weather?.value?.[index];
+    const sun = daily?.sunRiseSet?.value?.[index];
+    const windDirection = daily?.wind?.direction?.value?.[index];
+    const windSpeed = daily?.wind?.speed?.value?.[index];
+    const directionDay = normalizeUnitValue(
+      windDirection?.from,
+      daily?.wind?.direction?.unit || "°"
+    );
+    const directionNight = normalizeUnitValue(
+      windDirection?.to,
+      daily?.wind?.direction?.unit || "°"
+    );
+    return {
+      aqi: valueToString(daily?.aqi?.value?.[index]),
+      date: normalizeDate(sun?.from, index),
+      precipitationProbability: valueToString(daily?.precipitationProbability?.value?.[index]),
+      sunrise: normalizeTimestamp(sun?.from),
+      sunset: normalizeTimestamp(sun?.to),
+      temperatureMax: normalizeUnitValue(temperature?.from, daily?.temperature?.unit || "℃"),
+      temperatureMin: normalizeUnitValue(temperature?.to, daily?.temperature?.unit || "℃"),
+      weatherCodeDay: valueToString(weather?.from),
+      weatherCodeNight: valueToString(weather?.to),
+      weatherTextDay: weatherText(weather?.from),
+      weatherTextNight: weatherText(weather?.to),
+      windDirectionDay: directionDay,
+      windDirectionDayText: windDirectionText(directionDay),
+      windDirectionNight: directionNight,
+      windDirectionNightText: windDirectionText(directionNight),
+      windSpeedDay: normalizeUnitValue(windSpeed?.from, daily?.wind?.speed?.unit || "km/h"),
+      windSpeedNight: normalizeUnitValue(windSpeed?.to, daily?.wind?.speed?.unit || "km/h"),
+    };
+  });
+
+  const hourly = data.forecastHourly;
+  const hourlyCount = Math.max(
+    hourly?.temperature?.value?.length || 0,
+    hourly?.weather?.value?.length || 0,
+    hourly?.aqi?.value?.length || 0,
+    hourly?.wind?.value?.length || 0
+  );
+  const hourlyBaseTime = normalizeTimestamp(
+    hourly?.temperature?.pubTime || hourly?.weather?.pubTime || data.updateTime
+  );
+  const hourlyBaseMs = hourlyBaseTime ? Date.parse(hourlyBaseTime) : NaN;
+  const normalizedHourly = Array.from({ length: hourlyCount }, (_, index) => {
+    const wind = hourly?.wind?.value?.[index];
+    const direction = normalizeUnitValue(wind?.direction, "°");
+    const explicitTime = normalizeTimestamp(wind?.datetime);
+    const forecastTime =
+      explicitTime ||
+      (Number.isFinite(hourlyBaseMs)
+        ? new Date(hourlyBaseMs + index * 60 * 60 * 1000).toISOString()
+        : undefined);
+    return {
+      aqi: valueToString(hourly?.aqi?.value?.[index]),
+      forecastTime,
+      temperature: normalizeUnitValue(
+        hourly?.temperature?.value?.[index],
+        hourly?.temperature?.unit || "℃"
+      ),
+      weatherCode: valueToString(hourly?.weather?.value?.[index]),
+      weatherText: weatherText(hourly?.weather?.value?.[index]),
+      windDirection: direction,
+      windDirectionText: windDirectionText(direction),
+      windSpeed: normalizeUnitValue(wind?.speed, "km/h"),
+    };
+  });
+
+  const airQuality = data.aqi
+    ? {
+        aqi: valueToString(data.aqi.aqi),
+        category: aqiCategory(data.aqi.aqi),
+        pollutants: [
+          {
+            code: "pm25" as const,
+            description: data.aqi.pm25Desc,
+            unit: "μg/m3",
+            value: valueToString(data.aqi.pm25),
+          },
+          {
+            code: "pm10" as const,
+            description: data.aqi.pm10Desc,
+            unit: "μg/m3",
+            value: valueToString(data.aqi.pm10),
+          },
+          {
+            code: "so2" as const,
+            description: data.aqi.so2Desc,
+            unit: "μg/m3",
+            value: valueToString(data.aqi.so2),
+          },
+          {
+            code: "no2" as const,
+            description: data.aqi.no2Desc,
+            unit: "μg/m3",
+            value: valueToString(data.aqi.no2),
+          },
+          {
+            code: "o3" as const,
+            description: data.aqi.o3Desc,
+            unit: "μg/m3",
+            value: valueToString(data.aqi.o3),
+          },
+          {
+            code: "co" as const,
+            description: data.aqi.coDesc,
+            unit: "mg/m3",
+            value: valueToString(data.aqi.co),
+          },
+        ],
+        primary: valueToString(data.aqi.primary),
+        publishedAt: normalizeTimestamp(data.aqi.pubTime),
+        source: data.aqi.src,
+        suggestion: data.aqi.suggest,
+      }
+    : undefined;
+
+  const yesterday = data.yesterday;
+  const yesterdayDirectionStart = normalizeUnitValue(yesterday?.windDircStart, "°");
+  const yesterdayDirectionEnd = normalizeUnitValue(yesterday?.windDircEnd, "°");
+  const previousHours = (data.preHour || [])
+    .map(normalizeCurrentDetail)
+    .filter((item): item is WeatherCurrentDetail => item != null);
+
+  return {
+    airQuality,
+    alerts: (data.alerts || []).map((alert) => ({
+      defenses: (alert.defense || []).map((defense) => ({
+        icon: defense.defenseIcon,
+        text: defense.defenseText,
+      })),
+      detail: alert.detail,
+      id: alert.alertId,
+      images: normalizeAlertImages(alert.images),
+      level: alert.level,
+      locationKey: alert.locationKey,
+      publishedAt: normalizeTimestamp(alert.pubTime),
+      title: alert.title,
+      type: alert.type,
+    })),
+    brands: uniqueBrands(data),
+    code: data.status == null || data.status === 0 ? "200" : String(data.status),
+    current: normalizeCurrentDetail(data.current),
+    daily: normalizedDaily,
+    embeddedMinutely: data.minutely,
+    error: data.error,
+    hourly: normalizedHourly,
+    indices: (data.indices?.indices || []).map((index) => ({
+      type: index.type,
+      value: valueToString(index.value),
+    })),
+    previousHours,
+    raw: data,
+    technical: {
+      channels: data.chs || [],
+      sourceMaps: data.sourceMaps,
+      statuses: {
+        response: data.status,
+        daily: daily?.status,
+        dailyAqi: daily?.aqi?.status,
+        dailyPrecipitation: daily?.precipitationProbability?.status,
+        dailySun: daily?.sunRiseSet?.status,
+        dailyTemperature: daily?.temperature?.status,
+        dailyWeather: daily?.weather?.status,
+        dailyWindDirection: daily?.wind?.direction?.status,
+        dailyWindSpeed: daily?.wind?.speed?.status,
+        hourly: hourly?.status,
+        hourlyAqi: hourly?.aqi?.status,
+        hourlyTemperature: hourly?.temperature?.status,
+        hourlyWeather: hourly?.weather?.status,
+        hourlyWind: hourly?.wind?.status,
+        indices: data.indices?.status,
+        minutely: data.minutely?.status,
+        airQuality: data.aqi?.status,
+        yesterday: data.yesterday?.status,
+      },
+      units: {
+        currentFeelsLike: data.current?.feelsLike?.unit,
+        currentHumidity: data.current?.humidity?.unit,
+        currentPressure: data.current?.pressure?.unit,
+        currentTemperature: data.current?.temperature?.unit,
+        currentVisibility: data.current?.visibility?.unit,
+        currentWindDirection: data.current?.wind?.direction?.unit,
+        currentWindSpeed: data.current?.wind?.speed?.unit,
+        dailyTemperature: daily?.temperature?.unit,
+        dailyWindDirection: daily?.wind?.direction?.unit,
+        dailyWindSpeed: daily?.wind?.speed?.unit,
+        hourlyTemperature: hourly?.temperature?.unit,
+      },
+      urls: {
+        caiyun: data.url?.caiyun,
+        weathercn: data.url?.weathercn,
+      },
+    },
+    typhoons: data.typhoon || [],
+    updateTime: normalizeTimestamp(data.updateTime),
+    yesterday: yesterday
+      ? {
+          aqi: valueToString(yesterday.aqi),
+          date: normalizeDate(yesterday.date),
+          sunrise: normalizeTimestamp(yesterday.sunRise),
+          sunset: normalizeTimestamp(yesterday.sunSet),
+          temperatureMax: normalizeUnitValue(yesterday.tempMax, "℃"),
+          temperatureMin: normalizeUnitValue(yesterday.tempMin, "℃"),
+          weatherCodeEnd: valueToString(yesterday.weatherEnd),
+          weatherCodeStart: valueToString(yesterday.weatherStart),
+          weatherTextEnd: weatherText(yesterday.weatherEnd),
+          weatherTextStart: weatherText(yesterday.weatherStart),
+          windDirectionEnd: yesterdayDirectionEnd,
+          windDirectionEndText: windDirectionText(yesterdayDirectionEnd),
+          windDirectionStart: yesterdayDirectionStart,
+          windDirectionStartText: windDirectionText(yesterdayDirectionStart),
+          windSpeedEnd: normalizeUnitValue(yesterday.windSpeedEnd, "km/h"),
+          windSpeedStart: normalizeUnitValue(yesterday.windSpeedStart, "km/h"),
+        }
+      : undefined,
+  };
+}
+
 async function resolveXiaomiLocation(
   coords: Coords,
   city?: string | null
 ): Promise<XiaomiResolvedLocation | null> {
+  const cached = getValidXiaomiLocation(coords.lat, coords.lon);
+  if (cached) return cached;
+
   const byCoords = await fetchXiaomiCityByCoords(coords.lat, coords.lon);
   const key = byCoords?.locationKey || byCoords?.key;
   if (key) {
-    return { lat: coords.lat, lon: coords.lon, locationKey: key, name: byCoords?.name };
+    const resolved = {
+      lat: coords.lat,
+      lon: coords.lon,
+      locationKey: key,
+      name: byCoords?.name,
+    };
+    updateXiaomiLocationCache(resolved);
+    return resolved;
   }
 
   if (city) {
@@ -168,7 +523,14 @@ async function resolveXiaomiLocation(
     const first = lookup.location?.[0];
     const fallbackKey = first?.locationKey || first?.id;
     if (fallbackKey) {
-      return { lat: coords.lat, lon: coords.lon, locationKey: fallbackKey, name: first?.name };
+      const resolved = {
+        lat: coords.lat,
+        lon: coords.lon,
+        locationKey: fallbackKey,
+        name: first?.name,
+      };
+      updateXiaomiLocationCache(resolved);
+      return resolved;
     }
   }
 
@@ -187,17 +549,10 @@ async function fetchXiaomiWeatherAllByResolved(
   return (await xiaomiWeatherGetJson(`/weather/all?${query}`)) as XiaomiWeatherAllResponse;
 }
 
-async function fetchXiaomiWeatherAll(location: string): Promise<XiaomiWeatherAllResponse> {
-  const coords = parseLocationParam(location);
-  if (!coords) return { error: "Invalid location" };
-  const resolved = await resolveXiaomiLocation(coords);
-  if (!resolved) return { error: "Missing Xiaomi locationKey" };
-  return fetchXiaomiWeatherAllByResolved(resolved);
-}
-
 function adaptWeatherNow(data: XiaomiWeatherAllResponse): WeatherNow {
   if (data.error) return { error: data.error };
   const current = data.current;
+  const direction = valueToString(current?.wind?.direction?.value);
   return {
     code: data.status == null || data.status === 0 ? "200" : String(data.status),
     now: {
@@ -205,10 +560,12 @@ function adaptWeatherNow(data: XiaomiWeatherAllResponse): WeatherNow {
       text: weatherText(current?.weather),
       temp: valueToString(current?.temperature?.value),
       feelsLike: valueToString(current?.feelsLike?.value),
-      windDir: valueToString(current?.wind?.direction?.value),
+      wind360: direction,
+      windDir: windDirectionText(direction),
       windSpeed: valueToString(current?.wind?.speed?.value),
       humidity: valueToString(current?.humidity?.value),
       pressure: valueToString(current?.pressure?.value),
+      uvIndex: valueToString(current?.uvIndex),
       vis: valueToString(current?.visibility?.value),
       icon: weatherIcon(current?.weather),
     },
@@ -218,25 +575,22 @@ function adaptWeatherNow(data: XiaomiWeatherAllResponse): WeatherNow {
 
 function adaptDaily3d(data: XiaomiWeatherAllResponse): WeatherDaily3dResponse {
   if (data.error) return { error: data.error };
-  const forecast = data.forecastDaily;
+  const details = adaptWeatherDetails(data);
   return {
     code: data.status == null || data.status === 0 ? "200" : String(data.status),
     updateTime: normalizeTimestamp(data.updateTime),
-    daily: (forecast?.temperature?.value || []).slice(0, 3).map((temperature, index) => {
-      const weather = forecast?.weather?.value?.[index];
-      const sun = forecast?.sunRiseSet?.value?.[index];
-      return {
-        fxDate: formatDateFromOffset(index),
-        sunrise: valueToString(sun?.from),
-        sunset: valueToString(sun?.to),
-        tempMax: valueToString(temperature.from),
-        tempMin: valueToString(temperature.to),
-        iconDay: weatherIcon(weather?.from),
-        textDay: weatherText(weather?.from),
-        iconNight: weatherIcon(weather?.to),
-        textNight: weatherText(weather?.to),
-      };
-    }),
+    daily: details.daily.slice(0, 3).map((day) => ({
+      fxDate: day.date,
+      sunrise: day.sunrise,
+      sunset: day.sunset,
+      tempMax: day.temperatureMax?.value,
+      tempMin: day.temperatureMin?.value,
+      iconDay: weatherIcon(day.weatherCodeDay),
+      textDay: day.weatherTextDay,
+      iconNight: weatherIcon(day.weatherCodeNight),
+      textNight: day.weatherTextNight,
+      precip: day.precipitationProbability,
+    })),
     refer: { sources: ["Xiaomi Weather"] },
   };
 }
@@ -286,6 +640,7 @@ function adaptAirQuality(data: XiaomiWeatherAllResponse): AirQualityCurrentRespo
         code: "cn-mee-1h-aqi",
         name: "AQI",
         aqi: Number.isFinite(indexValue) ? indexValue : undefined,
+        category: aqiCategory(indexValue),
         primaryPollutant: aqi?.primary ? { code: aqi.primary } : undefined,
       },
     ],
@@ -293,7 +648,7 @@ function adaptAirQuality(data: XiaomiWeatherAllResponse): AirQualityCurrentRespo
   };
 }
 
-function adaptWeatherAlerts(data: XiaomiWeatherAllResponse): WeatherAlertResponse {
+export function adaptWeatherAlerts(data: XiaomiWeatherAllResponse): WeatherAlertResponse {
   if (data.error) return { error: data.error };
   const alerts = data.alerts || [];
   return {
@@ -305,6 +660,11 @@ function adaptWeatherAlerts(data: XiaomiWeatherAllResponse): WeatherAlertRespons
       severity: alert.level,
       headline: alert.title,
       description: alert.detail,
+      defenses: (alert.defense || []).map((defense) => ({
+        icon: defense.defenseIcon,
+        text: defense.defenseText,
+      })),
+      images: normalizeAlertImages(alert.images),
     })),
   };
 }
@@ -356,7 +716,23 @@ export function adaptMinutely(
   data: XiaomiMinutelyResponse | XiaomiWeatherAllResponse
 ): MinutelyPrecipResponse {
   if (data.error) return { error: data.error };
-  const precipitation = data.precipitation ?? ("minutely" in data ? data.minutely : undefined);
+  let precipitation: XiaomiMinutelyPrecipitation | undefined;
+  let raw: XiaomiMinutelyResponse;
+  let embeddedProbability: XiaomiEmbeddedMinutely["probability"];
+  if ("minutely" in data) {
+    const weatherAll = data as XiaomiWeatherAllResponse;
+    precipitation = weatherAll.minutely?.precipitation;
+    embeddedProbability = weatherAll.minutely?.probability;
+    raw = {
+      new: weatherAll.minutely?.new,
+      precipitation,
+      status: weatherAll.minutely?.status,
+    };
+  } else {
+    const standalone = data as XiaomiMinutelyResponse;
+    precipitation = standalone.precipitation;
+    raw = standalone;
+  }
   const updateTime = normalizeTimestamp(precipitation?.pubTime);
   const rawValues = precipitation?.value || [];
   const explicitTimes = rawValues.map((value, index) => {
@@ -392,84 +768,48 @@ export function adaptMinutely(
         type: "rain",
       };
     }),
+    provider: {
+      description: precipitation?.description,
+      flags: {
+        firstRainOrSnow: precipitation?.firstRainOrSnow,
+        isFirstRainOrSnow: precipitation?.isFirstRainOrSnow,
+        isModify: precipitation?.isModify,
+        isModifyInHour: precipitation?.isModifyInHour,
+        isRadarHideToast: precipitation?.isRadarHideToast,
+        isRainOrSnow: precipitation?.isRainOrSnow,
+        isShow: precipitation?.isShow,
+        isSnowTemp: precipitation?.isSnowTemp,
+        kmNum: precipitation?.kmNum,
+        modifyInHour: precipitation?.modifyInHour,
+        responseStatus: raw.status,
+        precipitationStatus: precipitation?.status,
+        version: raw.new,
+      },
+      headDescription: precipitation?.headDescription,
+      headIconType: precipitation?.headIconType,
+      interval: precipitation?.interval,
+      maxProbability: embeddedProbability?.maxProbability,
+      probability: precipitation?.probability,
+      probabilityDescription: embeddedProbability?.probabilityDesc,
+      probabilityDescriptionV2: embeddedProbability?.probabilityDescV2,
+      rainRemainingMinutes: precipitation?.rainRemainingMinutes,
+      raw,
+      shortDescription: precipitation?.shortDescription,
+      subtitle: precipitation?.subtitle,
+      weatherCode: valueToString(precipitation?.weather),
+    },
   };
 }
 
-function adaptHourly72h(data: XiaomiWeatherAllResponse): WeatherHourly72hResponse {
-  if (data.error) return { error: data.error };
-  const temperatures = data.forecastHourly?.temperature?.value || [];
-  const weather = data.forecastHourly?.weather?.value || [];
-  const pubTime = normalizeTimestamp(data.forecastHourly?.temperature?.pubTime || data.updateTime);
-  const baseMs = pubTime ? Date.parse(pubTime) : Date.now();
-  return {
-    code: data.status == null || data.status === 0 ? "200" : String(data.status),
-    updateTime: pubTime,
-    hourly: temperatures.slice(0, 72).map((temperature, index) => ({
-      fxTime: new Date(
-        (Number.isFinite(baseMs) ? baseMs : Date.now()) + index * 60 * 60 * 1000
-      ).toISOString(),
-      temp: valueToString(temperature.value),
-      icon: weatherIcon(weather[index]),
-      text: weatherText(weather[index]),
-    })),
-    refer: { sources: ["Xiaomi Weather"] },
-  };
-}
-
-export async function fetchWeatherNow(location: string): Promise<WeatherNow> {
-  try {
-    return adaptWeatherNow(await fetchXiaomiWeatherAll(location));
-  } catch (e: unknown) {
-    return { error: String(e) } as WeatherNow;
-  }
-}
-
-export async function fetchWeatherDaily3d(location: string): Promise<WeatherDaily3dResponse> {
-  try {
-    return adaptDaily3d(await fetchXiaomiWeatherAll(location));
-  } catch (e: unknown) {
-    return { error: String(e) } as WeatherDaily3dResponse;
-  }
-}
-
-export async function fetchAstronomySun(
+/** @internal Network access is scheduled exclusively by weatherCoordinator. */
+export async function fetchMinutelyPrecip(
   location: string,
-  date: string
-): Promise<AstronomySunResponse> {
-  try {
-    return adaptAstronomySun(await fetchXiaomiWeatherAll(location), date);
-  } catch (e: unknown) {
-    return { error: String(e) } as AstronomySunResponse;
-  }
-}
-
-export async function fetchAirQualityCurrent(
-  lat: number,
-  lon: number
-): Promise<AirQualityCurrentResponse> {
-  try {
-    return adaptAirQuality(await fetchXiaomiWeatherAll(`${lon},${lat}`));
-  } catch (e: unknown) {
-    return { error: String(e) } as AirQualityCurrentResponse;
-  }
-}
-
-export async function fetchWeatherAlertsByCoords(
-  lat: number,
-  lon: number
-): Promise<WeatherAlertResponse> {
-  try {
-    return adaptWeatherAlerts(await fetchXiaomiWeatherAll(`${lon},${lat}`));
-  } catch (e: unknown) {
-    return { error: String(e) } as WeatherAlertResponse;
-  }
-}
-
-export async function fetchMinutelyPrecip(location: string): Promise<MinutelyPrecipResponse> {
+  providerLocation?: XiaomiResolvedLocation | null
+): Promise<MinutelyPrecipResponse> {
   try {
     const coords = parseLocationParam(location);
     if (!coords) return { error: "Invalid location" };
-    const resolved = await resolveXiaomiLocation(coords);
+    const resolved = providerLocation ?? (await resolveXiaomiLocation(coords));
     if (!resolved) return { error: "Missing Xiaomi locationKey" };
     const query = withXiaomiWeatherParams({
       latitude: resolved.lat,
@@ -481,28 +821,28 @@ export async function fetchMinutelyPrecip(location: string): Promise<MinutelyPre
     )) as XiaomiMinutelyResponse;
     return adaptMinutely(data);
   } catch (e: unknown) {
+    if (isWeatherRequestDeferredError(e)) throw e;
     return { error: String(e) } as MinutelyPrecipResponse;
   }
 }
 
-export async function fetchWeatherHourly72h(location: string): Promise<WeatherHourly72hResponse> {
-  try {
-    return adaptHourly72h(await fetchXiaomiWeatherAll(location));
-  } catch (e: unknown) {
-    return { error: String(e) } as WeatherHourly72hResponse;
-  }
-}
-
-export async function buildWeatherFlow(options?: WeatherFlowOptions): Promise<{
+export interface WeatherFlowResult {
   coords: Coords | null;
   coordsSource?: string | null;
   city?: string | null;
   addressInfo?: AddressInfo | null;
   weather?: WeatherNow | null;
+  alerts?: WeatherAlertResponse | null;
+  details?: WeatherDetailsResponse | null;
   daily3d?: WeatherDaily3dResponse | null;
   airQuality?: AirQualityCurrentResponse | null;
   astronomySun?: AstronomySunResponse | null;
-}> {
+  embeddedMinutely?: MinutelyPrecipResponse | null;
+  providerLocation?: XiaomiResolvedLocation | null;
+}
+
+/** @internal Network access is scheduled exclusively by weatherCoordinator. */
+export async function buildWeatherFlow(options?: WeatherFlowOptions): Promise<WeatherFlowResult> {
   const loc = await buildLocationFlow(options);
   if (!loc.coords) {
     return { coords: null, coordsSource: null };
@@ -514,9 +854,12 @@ export async function buildWeatherFlow(options?: WeatherFlowOptions): Promise<{
     : ({ error: "Missing Xiaomi locationKey" } as XiaomiWeatherAllResponse);
 
   const weather = adaptWeatherNow(weatherAll);
+  const alerts = adaptWeatherAlerts(weatherAll);
+  const details = adaptWeatherDetails(weatherAll);
   const daily3d = options?.fetchDaily3d !== false ? adaptDaily3d(weatherAll) : null;
   const astronomySun = options?.fetchAstronomySun !== false ? adaptAstronomySun(weatherAll) : null;
   const airQuality = options?.fetchAirQuality !== false ? adaptAirQuality(weatherAll) : null;
+  const embeddedMinutely = adaptMinutely(weatherAll);
 
   return {
     coords: loc.coords,
@@ -524,8 +867,12 @@ export async function buildWeatherFlow(options?: WeatherFlowOptions): Promise<{
     city: loc.city,
     addressInfo: loc.addressInfo,
     weather,
+    alerts,
+    details,
     daily3d,
     astronomySun,
     airQuality,
+    embeddedMinutely,
+    providerLocation: resolved,
   };
 }

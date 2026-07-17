@@ -90,8 +90,7 @@
   width: 100%;
 }
 
-.chart,
-.chartContainer svg {
+.eventChart {
   background: var(--ui-glass-surface-soft);
   border: 1px solid var(--ui-glass-border);
   border-radius: var(--ui-radius-md);
@@ -105,22 +104,6 @@
   fill: var(--ui-color-text-subtle);
   font-family: var(--ui-font-sans);
   font-size: 10px;
-}
-
-.line {
-  fill: none;
-  stroke-linecap: round;
-  stroke-width: 2;
-}
-
-.area {
-  opacity: 1;
-}
-
-.threshold {
-  stroke: var(--ui-color-danger);
-  stroke-dasharray: 5 4;
-  stroke-width: 1.25;
 }
 
 .gridLine {
@@ -351,8 +334,7 @@
   }
 
   .card:nth-child(2),
-  .chart,
-  .chartContainer svg {
+  .eventChart {
     background: var(--ui-color-bg-elevated);
   }
 }

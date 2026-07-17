@@ -59,6 +59,13 @@ vi.mock("../../../utils/studyFontStorage", () => ({
   removeImportedFont: fontMocks.removeImportedFont,
 }));
 
+function expectPlainFormSection(name: string): HTMLElement {
+  const section = screen.getByRole("heading", { name, level: 3 }).closest("section");
+  expect(section).not.toBeNull();
+  expect(section?.className).toContain("formSectionPlain");
+  return section as HTMLElement;
+}
+
 describe("AppearanceSettingsPanel", () => {
   it("按组件区域自动取景并限制最大放大比例", () => {
     expect(
@@ -151,6 +158,16 @@ describe("AppearanceSettingsPanel", () => {
     expect(screen.queryByText("数字字体")).not.toBeInTheDocument();
     expect(screen.queryByText("文本字体")).not.toBeInTheDocument();
     expect(screen.queryByText("基本")).not.toBeInTheDocument();
+    for (const sectionName of [
+      "实时预览",
+      "字体设置",
+      "整体背景",
+      "字体资源",
+      "资源清单",
+      "恢复外观",
+    ]) {
+      expectPlainFormSection(sectionName);
+    }
 
     await waitFor(() => expect(assetMocks.loadAppearanceAssetCatalog).toHaveBeenCalled());
   });
@@ -179,6 +196,9 @@ describe("AppearanceSettingsPanel", () => {
 
     expect(screen.getByRole("radiogroup", { name: "时间显示类型" })).toBeInTheDocument();
     expect(screen.getByRole("radio", { name: "时钟" })).toBeChecked();
+    expectPlainFormSection("显示内容");
+    expectPlainFormSection("时钟");
+    expectPlainFormSection("时钟页面背景");
     fireEvent.click(screen.getByRole("tab", { name: "日期，已单独调整" }));
 
     const preview = screen.getByLabelText("时钟外观预览");
@@ -221,15 +241,15 @@ describe("AppearanceSettingsPanel", () => {
       </FeedbackProvider>
     );
 
-    const stateHeading = screen.getByRole("heading", { name: "状态样式" });
-    const stateSection = stateHeading.closest("section");
-    expect(stateSection).not.toBeNull();
-    expect(within(stateSection as HTMLElement).getByText("作用于：时间")).toBeInTheDocument();
-    expect(
-      within(stateSection as HTMLElement).getByRole("tab", { name: "警告状态" })
-    ).toHaveAttribute("aria-selected", "true");
+    expectPlainFormSection("倒计时");
+    const stateSection = expectPlainFormSection("状态样式");
+    expect(within(stateSection).getByText("作用于：时间")).toBeInTheDocument();
+    expect(within(stateSection).getByRole("tab", { name: "警告状态" })).toHaveAttribute(
+      "aria-selected",
+      "true"
+    );
 
-    fireEvent.change(within(stateSection as HTMLElement).getByLabelText("颜色代码"), {
+    fireEvent.change(within(stateSection).getByLabelText("颜色代码"), {
       target: { value: "#123456" },
     });
     expect(updateAppearanceDraft).toHaveBeenCalledWith(
@@ -257,6 +277,8 @@ describe("AppearanceSettingsPanel", () => {
       expect(within(contentSelector).getByRole("radio", { name: optionName })).toBeInTheDocument();
     }
     expect(within(contentSelector).getByRole("radio", { name: "栏体" })).toBeChecked();
+    expectPlainFormSection("信息栏内容");
+    expectPlainFormSection("顶部信息栏");
     expect(screen.getByLabelText("顶部信息栏外观预览")).toBeInTheDocument();
 
     fireEvent.click(within(contentSelector).getByRole("radio", { name: "天气" }));

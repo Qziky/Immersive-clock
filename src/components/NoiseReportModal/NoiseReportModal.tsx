@@ -1,7 +1,15 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 
 import type { NoiseSliceSummary } from "../../types/noise";
-import { Button as FormButton, MetricCard, Modal, RadioGroup } from "../../ui";
+import {
+  Button as FormButton,
+  LineChart,
+  MetricCard,
+  Modal,
+  RadioGroup,
+  type ChartBarSeries,
+  type ChartLineSeries,
+} from "../../ui";
 import { getNoiseControlSettings } from "../../utils/noiseControlSettings";
 import { readNoiseSlices, subscribeNoiseSlicesUpdated } from "../../utils/noiseSliceService";
 
@@ -62,76 +70,6 @@ function getScoreLevelText(score: number) {
   if (score >= 75) return "良好";
   if (score >= 60) return "一般";
   return "较差";
-}
-
-/**
- * 计算路径长度
- * @param segments 路径段数组
- */
-function calculatePathLength(segments: { x: number; y: number }[][]) {
-  let len = 0;
-  for (const seg of segments) {
-    for (let i = 1; i < seg.length; i++) {
-      const dx = seg[i].x - seg[i - 1].x;
-      const dy = seg[i].y - seg[i - 1].y;
-      len += Math.sqrt(dx * dx + dy * dy);
-    }
-  }
-  return len;
-}
-
-/**
- * 获取平滑路径
- * 使用 Catmull-Rom 转 贝塞尔曲线算法，提供更自然的平滑效果
- * @param pts 点数组
- * @param alpha 参数 (0.5 为向心，0.0 为均匀)
- */
-function getSmoothPath(pts: { x: number; y: number }[], alpha: number = 0.5) {
-  if (pts.length < 2) return "";
-  if (pts.length === 2) return `M ${pts[0].x} ${pts[0].y} L ${pts[1].x} ${pts[1].y}`;
-
-  let d = `M ${pts[0].x} ${pts[0].y}`;
-
-  for (let i = 0; i < pts.length - 1; i++) {
-    const p0 = i > 0 ? pts[i - 1] : pts[i];
-    const p1 = pts[i];
-    const p2 = pts[i + 1];
-    const p3 = i < pts.length - 2 ? pts[i + 2] : pts[i + 1];
-
-    // 计算控制点
-    const getCp = (
-      pA: { x: number; y: number },
-      pB: { x: number; y: number },
-      pC: { x: number; y: number },
-      pD: { x: number; y: number }
-    ) => {
-      const d1 = Math.pow(Math.pow(pB.x - pA.x, 2) + Math.pow(pB.y - pA.y, 2), alpha * 0.5);
-      const d2 = Math.pow(Math.pow(pC.x - pB.x, 2) + Math.pow(pC.y - pB.y, 2), alpha * 0.5);
-      const d3 = Math.pow(Math.pow(pD.x - pC.x, 2) + Math.pow(pD.y - pC.y, 2), alpha * 0.5);
-
-      let cp1x = pB.x + ((d2 * (pB.x - pA.x)) / (d1 + d2) + (pC.x - pB.x) / 2) / 3;
-      let cp1y = pB.y + ((d2 * (pB.y - pA.y)) / (d1 + d2) + (pC.y - pB.y) / 2) / 3;
-      let cp2x = pC.x - ((d2 * (pD.x - pC.x)) / (d3 + d2) + (pC.x - pB.x) / 2) / 3;
-      let cp2y = pC.y - ((d2 * (pD.y - pC.y)) / (d3 + d2) + (pC.y - pB.y) / 2) / 3;
-
-      // 极端情况回退：如果距离为0
-      if (isNaN(cp1x)) {
-        cp1x = pB.x + (pC.x - pB.x) / 3;
-        cp1y = pB.y + (pC.y - pB.y) / 3;
-      }
-      if (isNaN(cp2x)) {
-        cp2x = pC.x - (pC.x - pB.x) / 3;
-        cp2y = pC.y - (pC.y - pB.y) / 3;
-      }
-
-      return { cp1x, cp1y, cp2x, cp2y };
-    };
-
-    const { cp1x, cp1y, cp2x, cp2y } = getCp(p0, p1, p2, p3);
-    d += ` C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${p2.x} ${p2.y}`;
-  }
-
-  return d;
 }
 
 /**
@@ -340,23 +278,13 @@ export const NoiseReportModal: React.FC<NoiseReportModalProps> = ({
         width,
         height,
         padding,
-        path: "",
-        pathLength: 0,
-        areaPath: "",
-        scorePath: "",
-        scorePathLength: 0,
         maskRects: [] as { x: number; w: number }[],
         pts: [] as { x: number; y: number; scoreY: number; events: number }[],
         eventRateBuckets: [] as { x: number; rate: number; count: number }[],
         maxBucketEventRate: 1,
         xTicks: [] as { x: number; label: string }[],
         yTicks: [] as { y: number; label: string }[],
-        scoreTicks: [] as { y: number; label: string }[],
-        eventTicks: [] as { y: number; label: string }[],
-        maxEvents: 1,
         thresholdY: 0,
-        mapX: (_t: number) => 0,
-        mapY: (_v: number) => 0,
       };
     }
 
@@ -370,8 +298,6 @@ export const NoiseReportModal: React.FC<NoiseReportModalProps> = ({
       height - padding - ((v - minDb) / (maxDb - minDb)) * (height - padding * 2);
     const mapScoreY = (v: number) =>
       height - padding - (Math.max(0, Math.min(100, v)) / 100) * (height - padding * 2) * 0.5;
-    const maxEvents = Math.max(1, ...report.series.map((s) => s.events));
-    const mapEventY = (v: number) => height - padding - (v / maxEvents) * (height - padding * 2);
 
     const sortedSeries = report.series.slice().sort((a, b) => a.t - b.t);
     const pts = sortedSeries.map((p, i) => {
@@ -417,21 +343,6 @@ export const NoiseReportModal: React.FC<NoiseReportModalProps> = ({
       segments.push(currentSeg);
     }
 
-    const path = getSmoothPath(pts);
-
-    const areaPath = segments
-      .map((seg) => {
-        if (seg.length < 1) return "";
-        const line = getSmoothPath(seg);
-        const last = seg[seg.length - 1];
-        const first = seg[0];
-        return `${line} L ${last.x} ${height - padding} L ${first.x} ${height - padding} Z`;
-      })
-      .join(" ");
-
-    const scorePath = getSmoothPath(pts.map((p) => ({ x: p.x, y: p.scoreY })));
-    const scorePathLength = calculatePathLength([pts.map((p) => ({ x: p.x, y: p.scoreY }))]) * 1.15;
-
     // 生成遮罩矩形，用于隐藏无数据区域
     // 为了防止线宽被裁剪，矩形宽度稍微向两端扩展
     const maskRects = segments
@@ -459,22 +370,7 @@ export const NoiseReportModal: React.FC<NoiseReportModalProps> = ({
       label: String(v),
     }));
 
-    const scoreTickVals = [0, 50, 100];
-    const scoreTicks = scoreTickVals.map((v) => ({
-      y: mapScoreY(v),
-      label: String(v),
-    }));
-
-    const eventTickVals = [0, maxEvents / 3, (maxEvents * 2) / 3, maxEvents];
-    const eventTicks = eventTickVals.map((v) => ({
-      y: mapEventY(v),
-      label: Number(v.toFixed(1)).toString(),
-    }));
     const thresholdY = mapY(report.thresholdDb);
-
-    // 计算完整路径长度（包含跨越空隙的部分），以确保动画连续
-    // 由于使用了贝塞尔平滑曲线，实际路径长度会比直线略长，因此增加 15% 的冗余量
-    const pathLength = calculatePathLength([pts.map((p) => ({ x: p.x, y: p.y }))]) * 1.15;
 
     const bucketWidth = 4;
     const numBuckets = Math.max(1, Math.floor((width - padding * 2) / bucketWidth));
@@ -507,25 +403,64 @@ export const NoiseReportModal: React.FC<NoiseReportModalProps> = ({
       width,
       height,
       padding,
-      path,
-      pathLength,
-      areaPath,
-      scorePath,
-      scorePathLength,
       maskRects,
       pts,
       eventRateBuckets,
       maxBucketEventRate,
       xTicks,
       yTicks,
-      scoreTicks,
-      eventTicks,
-      maxEvents,
       thresholdY,
-      mapX: (t: number) => mapX(t),
-      mapY: (v: number) => mapY(v),
     };
   }, [period, report, chartWidth]);
+
+  const mainChartLayers = useMemo(() => {
+    const createSegmentedData = (
+      getY: (point: (typeof chart.pts)[number]) => number
+    ): ChartLineSeries["data"] =>
+      chart.maskRects.flatMap((mask, maskIndex) => {
+        const segment = chart.pts
+          .filter((point) => point.x >= mask.x && point.x <= mask.x + mask.w)
+          .map((point) => ({ x: point.x, y: getY(point) }));
+        return maskIndex < chart.maskRects.length - 1 ? [...segment, null] : segment;
+      });
+
+    const series: ChartLineSeries[] = [
+      {
+        id: "noise",
+        label: "平均噪音",
+        data: createSegmentedData((point) => chart.height - point.y),
+        tone: "accent",
+        area: true,
+        colorAbove: { value: chart.height - chart.thresholdY, tone: "danger" },
+      },
+    ];
+    const bars: ChartBarSeries[] = [];
+
+    if (isMainChartCombined) {
+      series.push({
+        id: "score",
+        label: "纪律评分",
+        data: createSegmentedData((point) => chart.height - point.scoreY),
+        tone: "info",
+        opacity: 0.78,
+        strokeWidth: 1.75,
+      });
+      bars.push({
+        id: "events",
+        label: "打断密度",
+        data: chart.eventRateBuckets
+          .filter((bucket) => bucket.count > 0 && bucket.rate > 0)
+          .map((bucket) => ({ x: bucket.x, y: bucket.rate })),
+        tone: "danger",
+        yDomain: [0, chart.maxBucketEventRate],
+        opacity: 0.38,
+        width: 3,
+        maxHeightRatio: 0.7,
+      });
+    }
+
+    return { series, bars };
+  }, [chart, isMainChartCombined]);
 
   const smallChart = useMemo(() => {
     const containerPadding = 24;
@@ -543,8 +478,6 @@ export const NoiseReportModal: React.FC<NoiseReportModalProps> = ({
         width,
         height,
         padding,
-        scorePath: "",
-        scorePathLength: 0,
         maskRects: [] as { x: number; w: number }[],
         pts: [] as { x: number; scoreY: number; events: number }[],
         eventBuckets: [] as { x: number; events: number; count: number }[],
@@ -606,9 +539,6 @@ export const NoiseReportModal: React.FC<NoiseReportModalProps> = ({
       })
       .filter(Boolean) as { x: number; w: number }[];
 
-    const scorePath = getSmoothPath(pts.map((p) => ({ x: p.x, y: p.scoreY })));
-    const scorePathLength = calculatePathLength([pts.map((p) => ({ x: p.x, y: p.scoreY }))]) * 1.15;
-
     const bucketWidth = 5;
     const numBuckets = Math.max(1, Math.floor((width - padding * 2) / bucketWidth));
     const eventBuckets = Array.from({ length: numBuckets }, (_, i) => ({
@@ -653,8 +583,6 @@ export const NoiseReportModal: React.FC<NoiseReportModalProps> = ({
       width,
       height,
       padding,
-      scorePath,
-      scorePathLength,
       maskRects,
       pts: pts.map((p) => ({ x: p.x, scoreY: p.scoreY, events: p.events })),
       eventBuckets,
@@ -664,6 +592,17 @@ export const NoiseReportModal: React.FC<NoiseReportModalProps> = ({
       eventTicks,
     };
   }, [period, report, chartWidth, isGridSingleColumn]);
+
+  const scoreChartData = useMemo<ChartLineSeries["data"]>(
+    () =>
+      smallChart.maskRects.flatMap((mask, maskIndex) => {
+        const segment = smallChart.pts
+          .filter((point) => point.x >= mask.x && point.x <= mask.x + mask.w)
+          .map((point) => ({ x: point.x, y: smallChart.height - point.scoreY }));
+        return maskIndex < smallChart.maskRects.length - 1 ? [...segment, null] : segment;
+      }),
+    [smallChart]
+  );
 
   const scoreInfo = useMemo(() => {
     if (!report) return null;
@@ -755,197 +694,27 @@ export const NoiseReportModal: React.FC<NoiseReportModalProps> = ({
           {report && report.series.length >= 2 ? (
             <div>
               <div ref={chartContainerRef} className={styles.chartWrap}>
-                <svg
-                  width={chart.width}
-                  height={chart.height}
-                  className={styles.chart}
-                  viewBox={`0 0 ${chart.width} ${chart.height}`}
-                  role="img"
-                  aria-labelledby="noise-trend-title noise-trend-description"
-                >
-                  <title id="noise-trend-title">噪音走势</title>
-                  <desc id="noise-trend-description">
-                    展示所选时段内的平均噪音、报警阈值以及可选的评分和打断密度。
-                  </desc>
-                  <defs>
-                    <linearGradient
-                      id="noiseAreaGradient"
-                      x1="0"
-                      y1="0"
-                      x2="0"
-                      y2={chart.height}
-                      gradientUnits="userSpaceOnUse"
-                    >
-                      <stop offset="0%" stopColor="var(--ui-color-accent)" stopOpacity={0.28} />
-                      <stop offset="100%" stopColor="var(--ui-color-accent)" stopOpacity={0} />
-                    </linearGradient>
-                    <linearGradient
-                      id="noiseAreaGradientWarning"
-                      x1="0"
-                      y1="0"
-                      x2="0"
-                      y2={chart.height}
-                      gradientUnits="userSpaceOnUse"
-                    >
-                      <stop offset="0%" stopColor={report.COLORS.severe} stopOpacity={0.4} />
-                      <stop offset="100%" stopColor={report.COLORS.severe} stopOpacity={0} />
-                    </linearGradient>
-                    <mask id="lineNormalMask">
-                      {chart.maskRects.map((r, i) => (
-                        <rect
-                          key={i}
-                          x={r.x}
-                          y={chart.thresholdY}
-                          width={r.w}
-                          height={Math.max(0, chart.height - chart.thresholdY)}
-                          fill="white"
-                        />
-                      ))}
-                    </mask>
-                    <mask id="lineWarningMask">
-                      {chart.maskRects.map((r, i) => (
-                        <rect
-                          key={i}
-                          x={r.x}
-                          y={0}
-                          width={r.w}
-                          height={Math.max(0, chart.thresholdY)}
-                          fill="white"
-                        />
-                      ))}
-                    </mask>
-                    <mask id="scoreCoverageMaskMain">
-                      {chart.maskRects.map((r, i) => (
-                        <rect
-                          key={i}
-                          x={r.x}
-                          y={0}
-                          width={r.w}
-                          height={chart.height}
-                          fill="white"
-                        />
-                      ))}
-                    </mask>
-                  </defs>
-
-                  {chart.yTicks.map((t) => (
-                    <g key={`y-${t.label}`}>
-                      <line
-                        x1={chart.padding}
-                        x2={chart.width - chart.padding}
-                        y1={t.y}
-                        y2={t.y}
-                        className={styles.gridLine}
-                      />
-                      <text
-                        x={chart.padding - 8}
-                        y={t.y + 4}
-                        textAnchor="end"
-                        className={styles.axisLabel}
-                      >
-                        {t.label}
-                      </text>
-                    </g>
-                  ))}
-
-                  <line
-                    x1={chart.padding}
-                    y1={chart.thresholdY}
-                    x2={chart.width - chart.padding}
-                    y2={chart.thresholdY}
-                    className={styles.threshold}
-                  />
-
-                  {isMainChartCombined && (
-                    <path
-                      d={chart.scorePath}
-                      fill="none"
-                      stroke={report.COLORS.score}
-                      strokeWidth="1.5"
-                      opacity={0.72}
-                      mask="url(#scoreCoverageMaskMain)"
-                    />
-                  )}
-
-                  <mask id="normalMask">
-                    <rect
-                      x="0"
-                      y={chart.thresholdY}
-                      width={chart.width}
-                      height={chart.height}
-                      fill="white"
-                    />
-                  </mask>
-                  <mask id="warningMask">
-                    <rect x="0" y="0" width={chart.width} height={chart.thresholdY} fill="white" />
-                  </mask>
-
-                  <g>
-                    <path
-                      d={chart.areaPath}
-                      fill="url(#noiseAreaGradient)"
-                      className={styles.area}
-                      mask="url(#normalMask)"
-                    />
-                    <path
-                      d={chart.areaPath}
-                      fill="url(#noiseAreaGradientWarning)"
-                      className={styles.area}
-                      mask="url(#warningMask)"
-                    />
-                  </g>
-
-                  {isMainChartCombined
-                    ? chart.eventRateBuckets.map((bucket, index) => {
-                        if (bucket.count === 0 || bucket.rate <= 0) return null;
-                        const barHeight =
-                          (bucket.rate / Math.max(1, chart.maxBucketEventRate)) *
-                          (chart.height - chart.padding * 2) *
-                          0.7;
-                        const y = chart.height - chart.padding - barHeight;
-
-                        return (
-                          <rect
-                            key={index}
-                            x={bucket.x - 1.5}
-                            y={y}
-                            width={3}
-                            height={barHeight}
-                            fill={report.COLORS.event}
-                            opacity={0.42}
-                            shapeRendering="crispEdges"
-                          />
-                        );
-                      })
-                    : null}
-
-                  <path
-                    d={chart.path}
-                    className={styles.line}
-                    stroke="var(--ui-color-accent)"
-                    mask="url(#lineNormalMask)"
-                  />
-                  <path
-                    d={chart.path}
-                    className={styles.line}
-                    stroke={report.COLORS.severe}
-                    mask="url(#lineWarningMask)"
-                  />
-
-                  {chart.xTicks.map((t, idx) => (
-                    <text
-                      key={`x-${idx}`}
-                      x={t.x}
-                      y={chart.height - 10}
-                      textAnchor={
-                        idx === 0 ? "start" : idx === chart.xTicks.length - 1 ? "end" : "middle"
-                      }
-                      className={styles.axisLabel}
-                    >
-                      {t.label}
-                    </text>
-                  ))}
-                </svg>
+                <LineChart
+                  ariaLabel="噪音走势"
+                  description="展示所选时段内的平均噪音、报警阈值以及可选的评分和打断密度。"
+                  series={mainChartLayers.series}
+                  bars={mainChartLayers.bars}
+                  xDomain={[chart.padding, chart.width - chart.padding]}
+                  yDomain={[chart.padding, chart.height - chart.padding]}
+                  xTicks={chart.xTicks.map((tick) => ({ value: tick.x, label: tick.label }))}
+                  yTicks={chart.yTicks.map((tick) => ({
+                    value: chart.height - tick.y,
+                    label: tick.label,
+                  }))}
+                  thresholds={[
+                    {
+                      value: chart.height - chart.thresholdY,
+                      label: `${report.thresholdDb.toFixed(0)} dB`,
+                      tone: "danger",
+                    },
+                  ]}
+                  showLegend
+                />
               </div>
 
               <div className={styles.rangeText}>
@@ -984,73 +753,36 @@ export const NoiseReportModal: React.FC<NoiseReportModalProps> = ({
             <div className={styles.chartGrid}>
               <div className={styles.chartContainer}>
                 <div className={styles.chartTitle}>评分走势 (0-100)</div>
-                <svg
-                  width={smallChart.width}
-                  height={smallChart.height}
-                  viewBox={`0 0 ${smallChart.width} ${smallChart.height}`}
-                  role="img"
-                  aria-labelledby="score-trend-title score-trend-description"
-                >
-                  <title id="score-trend-title">评分走势</title>
-                  <desc id="score-trend-description">展示所选时段内零到一百分的评分变化。</desc>
-                  <defs>
-                    <mask id="scoreCoverageMaskSmall">
-                      {smallChart.maskRects.map((r, i) => (
-                        <rect
-                          key={i}
-                          x={r.x}
-                          y={0}
-                          width={r.w}
-                          height={smallChart.height}
-                          fill="white"
-                        />
-                      ))}
-                    </mask>
-                  </defs>
-
-                  {smallChart.yTicks.map((t) => (
-                    <line
-                      key={`sy-${t.label}`}
-                      x1={smallChart.padding}
-                      x2={smallChart.width - smallChart.padding}
-                      y1={t.y}
-                      y2={t.y}
-                      className={styles.gridLine}
-                    />
-                  ))}
-
-                  <path
-                    d={smallChart.scorePath}
-                    fill="none"
-                    stroke={report.COLORS.score}
-                    strokeWidth="2"
-                    opacity={0.9}
-                    mask="url(#scoreCoverageMaskSmall)"
-                  />
-
-                  {smallChart.xTicks.map((t, idx) => (
-                    <text
-                      key={`sx-${idx}`}
-                      x={t.x}
-                      y={smallChart.height - 10}
-                      textAnchor={
-                        idx === 0
-                          ? "start"
-                          : idx === smallChart.xTicks.length - 1
-                            ? "end"
-                            : "middle"
-                      }
-                      className={styles.axisLabel}
-                    >
-                      {t.label}
-                    </text>
-                  ))}
-                </svg>
+                <LineChart
+                  ariaLabel="评分走势"
+                  description="展示所选时段内零到一百分的评分变化。"
+                  series={[
+                    {
+                      id: "score-detail",
+                      label: "纪律评分",
+                      data: scoreChartData,
+                      tone: "info",
+                      area: true,
+                    },
+                  ]}
+                  xDomain={[smallChart.padding, smallChart.width - smallChart.padding]}
+                  yDomain={[smallChart.padding, smallChart.height - smallChart.padding]}
+                  xTicks={smallChart.xTicks.map((tick) => ({
+                    value: tick.x,
+                    label: tick.label,
+                  }))}
+                  yTicks={smallChart.yTicks.map((tick) => ({
+                    value: smallChart.height - tick.y,
+                    label: tick.label,
+                  }))}
+                  size="compact"
+                />
               </div>
 
               <div className={styles.chartContainer}>
                 <div className={styles.chartTitle}>打断次数密度 (次/分)</div>
                 <svg
+                  className={styles.eventChart}
                   width={smallChart.width}
                   height={smallChart.height}
                   viewBox={`0 0 ${smallChart.width} ${smallChart.height}`}

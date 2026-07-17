@@ -45,7 +45,6 @@ describe("appReducer", () => {
         countdownItems: [],
         carouselIntervalSec: 6,
         weatherAlertEnabled: true,
-        minutelyPrecipEnabled: true,
       },
       quoteChannels: {
         channels: [],

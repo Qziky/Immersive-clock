@@ -151,7 +151,7 @@ export interface CountdownItem {
 }
 
 /** 中央信息来源。 */
-export type StudyInfoSource = "progress" | "nextSchedule" | "rain" | "custom";
+export type StudyInfoSource = "progress" | "nextSchedule" | "rain" | "weatherAlert" | "custom";
 
 interface StudyInfoItemBase {
   id: string;
@@ -160,7 +160,7 @@ interface StudyInfoItemBase {
 }
 
 export type StudyNextScheduleLeadMinutes = "always" | 120 | 60 | 30 | 15;
-export type StudyRainLeadMinutes = 60 | 30 | 15 | 10;
+export type StudyRainLeadMinutes = 120 | 60 | 30 | 15 | 10;
 
 /** 中央信息轮播条目配置。提示型条目独立绑定一个背景进度快照。 */
 export type StudyInfoItemConfig =
@@ -177,6 +177,10 @@ export type StudyInfoItemConfig =
       source: "rain";
       backgroundProgressKind: StudyProgressKind;
       leadMinutes: StudyRainLeadMinutes;
+    })
+  | (StudyInfoItemBase & {
+      source: "weatherAlert";
+      backgroundProgressKind: StudyProgressKind;
     })
   | (StudyInfoItemBase & {
       source: "custom";
@@ -212,8 +216,6 @@ export interface StudyState {
   infoCarousel?: StudyInfoCarouselSettings;
   /** 天气预警弹窗开关 */
   weatherAlertEnabled?: boolean;
-  /** 分钟级降水提醒弹窗开关 */
-  minutelyPrecipEnabled?: boolean;
   /** 错误信息弹窗开关 */
   errorPopupEnabled?: boolean;
   /** 错误与调试记录模式 */
@@ -294,7 +296,6 @@ export type AppAction =
   | { type: "SET_CAROUSEL_INTERVAL"; payload: number }
   | { type: "SET_INFO_CAROUSEL"; payload: StudyInfoCarouselSettings }
   | { type: "SET_WEATHER_ALERT_ENABLED"; payload: boolean }
-  | { type: "SET_MINUTELY_PRECIP_ENABLED"; payload: boolean }
   | { type: "SET_ERROR_POPUP_ENABLED"; payload: boolean }
   | { type: "SET_ERROR_CENTER_MODE"; payload: "off" | "memory" | "persist" }
   | { type: "SET_AIR_QUALITY_ALERT_ENABLED"; payload: boolean }

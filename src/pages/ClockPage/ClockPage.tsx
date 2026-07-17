@@ -13,6 +13,7 @@ import { Stopwatch } from "../../components/Stopwatch/Stopwatch";
 import { Study } from "../../components/Study/Study";
 import { useAppState, useAppDispatch } from "../../contexts/AppContext";
 import { useAppearance } from "../../contexts/AppearanceContext";
+import { startWeatherCoordinator } from "../../services/weatherCoordinator";
 import type { AppMode } from "../../types";
 import type { MessagePopupOpenDetail, MessagePopupType } from "../../types/messagePopup";
 import { IconButton, useFeedback, type ToastVariant } from "../../ui";
@@ -22,10 +23,6 @@ import { startTimeSyncManager } from "../../utils/timeSync";
 import { startTour, isTourActive } from "../../utils/tour";
 
 import styles from "./ClockPage.module.css";
-
-const MINUTELY_PRECIP_POPUP_ID = "weather:minutelyPrecip";
-const MINUTELY_PRECIP_POPUP_OPEN_KEY = "weather.minutely.popupOpen";
-const MINUTELY_PRECIP_POPUP_DISMISSED_KEY = "weather.minutely.popupDismissed";
 
 function getPopupToastVariant(type: MessagePopupType): ToastVariant {
   switch (type) {
@@ -60,7 +57,6 @@ export function ClockPage() {
   const hideTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const hudContainerRef = useRef<HTMLDivElement | null>(null);
   const popupTypeMapRef = useRef(new Map<string, MessagePopupType>());
-  const prevModeRef = useRef(mode);
   const [showSettings, setShowSettings] = useState(false);
   const [showAnnouncement, setShowAnnouncement] = useState(false);
   const displayMode = previewScene ?? mode;
@@ -88,32 +84,12 @@ export function ClockPage() {
     [dispatch, navigate]
   );
 
-  /** 设置最小化降雨弹窗状态（函数级注释：统一维护会话态下的“已打开/已手动关闭”标记） */
-  const updateMinutelyPopupSessionFlag = useCallback((id: string, dismiss: boolean) => {
-    if (id !== MINUTELY_PRECIP_POPUP_ID) return;
-    try {
-      sessionStorage.setItem(MINUTELY_PRECIP_POPUP_OPEN_KEY, "0");
-      if (dismiss) {
-        sessionStorage.setItem(MINUTELY_PRECIP_POPUP_DISMISSED_KEY, "1");
-      }
-    } catch {
-      /* 忽略错误 */
-    }
-  }, []);
-
-  // 跟踪模式变化
-  useEffect(() => {
-    if (prevModeRef.current !== "study" && mode === "study") {
-      const ev = new CustomEvent("weatherMinutelyPrecipRefresh", {
-        detail: { forceApi: false, openIfRain: true },
-      });
-      window.dispatchEvent(ev);
-    }
-    prevModeRef.current = mode;
-  }, [mode]);
-
   useEffect(() => {
     return startTimeSyncManager();
+  }, []);
+
+  useEffect(() => {
+    return startWeatherCoordinator();
   }, []);
 
   /**
@@ -306,43 +282,22 @@ export function ClockPage() {
         description: message,
         accentColor,
         duration: getPopupDuration(type),
-        onDismiss: (reason) => {
+        onDismiss: () => {
           popupTypeMapRef.current.delete(id);
-          updateMinutelyPopupSessionFlag(id, reason === "close");
         },
       });
       popupTypeMapRef.current.set(id, type);
-      if (id === MINUTELY_PRECIP_POPUP_ID) {
-        try {
-          sessionStorage.setItem(MINUTELY_PRECIP_POPUP_OPEN_KEY, "1");
-        } catch {
-          /* 忽略错误 */
-        }
-      }
     };
     const onClose = (e: Event) => {
       const detail = (e as CustomEvent).detail || {};
       const id = typeof detail.id === "string" ? detail.id : "";
-      const shouldDismiss = detail.dismiss === true;
 
       if (id) {
         dismiss(id);
         popupTypeMapRef.current.delete(id);
-        updateMinutelyPopupSessionFlag(id, shouldDismiss);
       } else {
         Array.from(popupTypeMapRef.current.keys()).forEach((popupId) => dismiss(popupId));
         popupTypeMapRef.current.clear();
-      }
-
-      if (!id || id === MINUTELY_PRECIP_POPUP_ID) {
-        try {
-          sessionStorage.setItem(MINUTELY_PRECIP_POPUP_OPEN_KEY, "0");
-          if (shouldDismiss) {
-            sessionStorage.setItem(MINUTELY_PRECIP_POPUP_DISMISSED_KEY, "1");
-          }
-        } catch {
-          /* 忽略错误 */
-        }
       }
     };
     window.addEventListener("messagePopup:open", onOpen as EventListener);
@@ -351,7 +306,7 @@ export function ClockPage() {
       window.removeEventListener("messagePopup:open", onOpen as EventListener);
       window.removeEventListener("messagePopup:close", onClose as EventListener);
     };
-  }, [dismiss, mode, notify, study.errorPopupEnabled, updateMinutelyPopupSessionFlag]);
+  }, [dismiss, mode, notify, study.errorPopupEnabled]);
 
   // 非自习模式下仅保留天气相关弹窗，避免其它业务弹窗打扰
   useEffect(() => {

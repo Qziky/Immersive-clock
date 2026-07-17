@@ -1,230 +1,128 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const runtimeMocks = vi.hoisted(() => ({
-  coords: {
-    lat: 31.2,
-    lon: 121.5,
-    source: "test",
-    updatedAt: Date.parse("2026-03-07T10:00:00+08:00"),
-  } as { lat: number; lon: number; source: string; updatedAt: number } | null,
-  validData: null as null | {
-    code?: string;
-    updateTime?: string;
-    minutely?: Array<{ fxTime?: string; precip?: string }>;
-  },
-  cache: {} as Record<string, unknown>,
+const mocks = vi.hoisted(() => ({
   fetchMinutelyPrecip: vi.fn(),
-  updateMinutelyCache: vi.fn(),
-}));
-
-vi.mock("../../utils/appSettings", () => ({
-  getAppSettings: () => ({ general: { weather: { autoRefreshIntervalMin: 30 } } }),
-}));
-
-vi.mock("../../utils/timeSync", () => ({
-  getAdjustedNowMs: () => Date.now(),
-}));
-
-vi.mock("../../utils/weatherStorage", () => ({
-  getValidCoords: () => runtimeMocks.coords,
-  getValidMinutely: () => runtimeMocks.validData,
-  getWeatherCache: () => runtimeMocks.cache,
-  updateMinutelyCache: runtimeMocks.updateMinutelyCache,
-  updateMinutelyCriticalFetch: vi.fn(),
-}));
-
-vi.mock("../locationService", () => ({
-  buildLocationFlow: vi.fn(async () => ({ coords: runtimeMocks.coords })),
+  validMinutely: null as null | {
+    code: string;
+    minutely: Array<{ fxTime: string; precip: string; type: string }>;
+    summary: string;
+    updateTime: string;
+  },
+  weatherCache: {} as Record<string, unknown>,
 }));
 
 vi.mock("../weatherService", () => ({
-  fetchMinutelyPrecip: runtimeMocks.fetchMinutelyPrecip,
+  fetchMinutelyPrecip: mocks.fetchMinutelyPrecip,
 }));
+
+vi.mock("../../utils/timeSync", () => ({
+  getAdjustedNowMs: () => Date.parse("2026-07-17T10:00:00+08:00"),
+}));
+
+vi.mock("../../utils/weatherStorage", () => ({
+  createWeatherLocationKey: (lat: number, lon: number) => `${lon.toFixed(4)},${lat.toFixed(4)}`,
+  getValidCoords: () => ({
+    lat: 31.2,
+    lon: 121.5,
+    source: "test",
+    updatedAt: Date.now(),
+  }),
+  getValidMinutely: () => mocks.validMinutely,
+  getWeatherCache: () => mocks.weatherCache,
+}));
+
+function validMinutely() {
+  return {
+    code: "200",
+    minutely: [
+      { fxTime: "2026-07-17T10:01:00+08:00", precip: "0", type: "rain" },
+      { fxTime: "2026-07-17T10:02:00+08:00", precip: "0.2", type: "rain" },
+    ],
+    summary: "稍后有雨",
+    updateTime: "2026-07-17T10:00:00+08:00",
+  };
+}
 
 describe("minutelyWeatherRuntime", () => {
   beforeEach(() => {
-    vi.resetModules();
     vi.useFakeTimers();
-    vi.setSystemTime(new Date("2026-03-07T10:00:00+08:00"));
-    runtimeMocks.coords = {
-      lat: 31.2,
-      lon: 121.5,
-      source: "test",
-      updatedAt: Date.now(),
+    vi.resetModules();
+    mocks.fetchMinutelyPrecip.mockReset();
+    mocks.validMinutely = validMinutely();
+    mocks.weatherCache = {
+      minutely: {
+        data: mocks.validMinutely,
+        lastApiFetchAt: Date.parse("2026-07-17T09:59:00+08:00"),
+        location: "121.5000,31.2000",
+        updatedAt: Date.parse("2026-07-17T09:59:00+08:00"),
+      },
     };
-    runtimeMocks.validData = null;
-    runtimeMocks.cache = {};
-    runtimeMocks.fetchMinutelyPrecip.mockReset();
-    runtimeMocks.updateMinutelyCache.mockReset();
-    runtimeMocks.updateMinutelyCache.mockImplementation((_location, data, fetchedAt) => {
-      runtimeMocks.validData = data;
-      runtimeMocks.cache = {
-        minutely: {
-          data,
-          location: "121.50,31.20",
-          updatedAt: fetchedAt,
-          lastApiFetchAt: fetchedAt,
-        },
-      };
-    });
   });
 
-  afterEach(() => {
+  afterEach(async () => {
+    const runtime = await import("../minutelyWeatherRuntime");
+    runtime.__resetMinutelyWeatherRuntimeForTests();
     vi.useRealTimers();
   });
 
-  it("有效缓存已过期时即使 lastFetchAt 小于 API 间隔也会重新请求", async () => {
-    runtimeMocks.cache = {
-      minutely: {
-        data: { code: "200" },
-        location: "121.50,31.20",
-        updatedAt: Date.now() - 6 * 60 * 1000,
-        lastApiFetchAt: Date.now() - 6 * 60 * 1000,
-      },
-    };
-    runtimeMocks.fetchMinutelyPrecip.mockResolvedValue({
-      code: "200",
-      updateTime: new Date(Date.now()).toISOString(),
-      minutely: [
-        { fxTime: new Date(Date.now()).toISOString(), precip: "0" },
-        { fxTime: new Date(Date.now() + 60 * 1000).toISOString(), precip: "0.2" },
-        { fxTime: new Date(Date.now() + 2 * 60 * 1000).toISOString(), precip: "0" },
-      ],
-    });
-
-    const runtime = await import("../minutelyWeatherRuntime");
-    await runtime.refreshMinutelyWeather();
-
-    expect(runtimeMocks.fetchMinutelyPrecip).toHaveBeenCalledOnce();
-    expect(runtime.getMinutelyWeatherSnapshot()).toMatchObject({
-      status: "ready",
-      freshness: "fresh",
-      stale: false,
-      phase: "PRE_RAIN",
-    });
-  });
-
-  it("没有 Weather 组件时，任一订阅者仍会启动共享刷新", async () => {
-    runtimeMocks.fetchMinutelyPrecip.mockResolvedValue({
-      code: "200",
-      updateTime: new Date(Date.now()).toISOString(),
-      minutely: [
-        { fxTime: new Date(Date.now()).toISOString(), precip: "0" },
-        { fxTime: new Date(Date.now() + 60 * 1000).toISOString(), precip: "0.2" },
-        { fxTime: new Date(Date.now() + 2 * 60 * 1000).toISOString(), precip: "0" },
-      ],
-    });
-
+  it("订阅只启动本地重算，不访问分钟接口", async () => {
     const runtime = await import("../minutelyWeatherRuntime");
     const listener = vi.fn();
     const unsubscribe = runtime.subscribeMinutelyWeather(listener);
 
-    await vi.waitFor(() => {
-      expect(runtimeMocks.fetchMinutelyPrecip).toHaveBeenCalledOnce();
-      expect(runtime.getMinutelyWeatherSnapshot().freshness).toBe("fresh");
-    });
+    await vi.advanceTimersByTimeAsync(5 * 60 * 1000);
+
     expect(listener).toHaveBeenCalled();
+    expect(mocks.fetchMinutelyPrecip).not.toHaveBeenCalled();
+    expect(runtime.getMinutelyWeatherSnapshot()).toMatchObject({
+      freshness: "fresh",
+      phase: "PRE_RAIN",
+      status: "ready",
+    });
     unsubscribe();
   });
 
-  it("可信时间轴缺失时 freshness 为 unknown 且不暴露 stats/phase", async () => {
-    const data = {
-      code: "200",
-      minutely: [{ precip: "0.2" }, { precip: "0" }],
-    };
-    runtimeMocks.validData = data;
-    runtimeMocks.cache = {
-      minutely: {
-        data,
-        location: "121.50,31.20",
-        updatedAt: Date.now(),
-        lastApiFetchAt: Date.now(),
-      },
-    };
-
+  it("可信缓存会计算降雨阶段和统计", async () => {
     const runtime = await import("../minutelyWeatherRuntime");
-    const stop = runtime.startMinutelyWeatherRuntime({ localTickMs: 60 * 1000 });
-    const snapshot = runtime.getMinutelyWeatherSnapshot();
-    stop();
+    runtime.recomputeMinutelyWeatherSnapshot();
 
-    expect(snapshot).toMatchObject({
-      status: "ready",
-      freshness: "unknown",
+    expect(runtime.getMinutelyWeatherSnapshot()).toMatchObject({
+      freshness: "fresh",
+      phase: "PRE_RAIN",
       stale: false,
-      stats: null,
-      phase: null,
-      sourceUpdatedAt: null,
-    });
-    expect(runtimeMocks.fetchMinutelyPrecip).not.toHaveBeenCalled();
-  });
-
-  it("过期缓存只发布 stale 快照，不暴露旧降雨统计", async () => {
-    runtimeMocks.cache = {
-      minutely: {
-        data: {
-          code: "200",
-          updateTime: new Date(Date.now() - 6 * 60 * 1000).toISOString(),
-        },
-        location: "121.50,31.20",
-        updatedAt: Date.now() - 6 * 60 * 1000,
-        lastApiFetchAt: Date.now() - 6 * 60 * 1000,
+      stats: {
+        hasRain: true,
+        hasReliableTimestamps: true,
       },
-    };
-    runtimeMocks.fetchMinutelyPrecip.mockResolvedValue({ error: "offline" });
-
-    const runtime = await import("../minutelyWeatherRuntime");
-    await runtime.refreshMinutelyWeather();
-
-    expect(runtime.getMinutelyWeatherSnapshot()).toMatchObject({
-      status: "error",
-      freshness: "error",
-      stale: true,
-      stats: null,
-      phase: null,
     });
   });
 
-  it("有效缓存存在时强制刷新失败，也会持续隐藏确定的降雨倒计时", async () => {
-    const data = {
-      code: "200",
-      updateTime: new Date(Date.now()).toISOString(),
-      minutely: [
-        { fxTime: new Date(Date.now()).toISOString(), precip: "0" },
-        { fxTime: new Date(Date.now() + 60 * 1000).toISOString(), precip: "0.2" },
-        { fxTime: new Date(Date.now() + 2 * 60 * 1000).toISOString(), precip: "0" },
-      ],
-    };
-    runtimeMocks.validData = data;
-    runtimeMocks.cache = {
-      minutely: {
-        data,
-        location: "121.50,31.20",
-        updatedAt: Date.now(),
-        lastApiFetchAt: Date.now(),
-      },
-    };
-    runtimeMocks.fetchMinutelyPrecip.mockResolvedValue({ error: "offline" });
-
+  it("过期缓存只发布 stale，不暴露旧统计", async () => {
+    mocks.validMinutely = null;
     const runtime = await import("../minutelyWeatherRuntime");
-    await runtime.refreshMinutelyWeather({ force: true });
+    runtime.recomputeMinutelyWeatherSnapshot();
 
     expect(runtime.getMinutelyWeatherSnapshot()).toMatchObject({
-      status: "error",
-      freshness: "error",
+      freshness: "stale",
+      phase: null,
       stale: true,
       stats: null,
-      phase: null,
+      status: "stale",
+    });
+  });
+
+  it("协调器标记失败后保留缓存但隐藏确定倒计时", async () => {
+    const runtime = await import("../minutelyWeatherRuntime");
+    runtime.setMinutelyWeatherRuntimeError("offline");
+
+    expect(runtime.getMinutelyWeatherSnapshot()).toMatchObject({
       error: "offline",
-    });
-
-    const stop = runtime.startMinutelyWeatherRuntime({ localTickMs: 5 * 1000 });
-    await vi.advanceTimersByTimeAsync(5 * 1000);
-    expect(runtime.getMinutelyWeatherSnapshot()).toMatchObject({
-      status: "error",
       freshness: "error",
-      stats: null,
       phase: null,
+      stale: true,
+      stats: null,
+      status: "error",
     });
-    stop();
+    expect(mocks.fetchMinutelyPrecip).not.toHaveBeenCalled();
   });
 });

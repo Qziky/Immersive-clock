@@ -74,119 +74,334 @@ export interface XiaomiRangeValue {
   unit?: string;
 }
 
-export interface XiaomiWeatherAllResponse {
-  status?: number;
-  updateTime?: number | string;
-  current?: {
-    feelsLike?: XiaomiValueUnit;
-    humidity?: XiaomiValueUnit;
-    pressure?: XiaomiValueUnit;
-    temperature?: XiaomiValueUnit;
-    visibility?: XiaomiValueUnit;
-    weather?: string | number;
-    pubTime?: number | string;
-    wind?: {
-      direction?: XiaomiValueUnit;
-      speed?: XiaomiValueUnit;
-    };
-    uvIndex?: string | number;
+export interface XiaomiBrand {
+  brandId?: string;
+  logo?: string;
+  names?: {
+    en_US?: string;
+    zh_CN?: string;
+    zh_TW?: string;
   };
+  url?: string;
+}
+
+export interface XiaomiBrandInfo {
+  brands?: XiaomiBrand[];
+}
+
+export interface XiaomiSeries<TValue> {
+  brandInfo?: XiaomiBrandInfo;
+  pubTime?: number | string;
+  status?: number;
+  unit?: string;
+  value?: TValue[];
+}
+
+export interface XiaomiAirQuality {
+  aqi?: string | number;
+  brandInfo?: XiaomiBrandInfo;
+  co?: string | number;
+  coDesc?: string;
+  no2?: string | number;
+  no2Desc?: string;
+  o3?: string | number;
+  o3Desc?: string;
+  pm10?: string | number;
+  pm10Desc?: string;
+  pm25?: string | number;
+  pm25Desc?: string;
+  primary?: string;
+  pubTime?: number | string;
+  so2?: string | number;
+  so2Desc?: string;
+  src?: string;
+  status?: number;
+  suggest?: string;
+}
+
+export interface XiaomiCurrentWeather {
+  aqi?: XiaomiAirQuality;
+  feelsLike?: XiaomiValueUnit;
+  humidity?: XiaomiValueUnit;
+  pressure?: XiaomiValueUnit;
+  pubTime?: number | string;
+  temperature?: XiaomiValueUnit;
+  uvIndex?: string | number;
+  visibility?: XiaomiValueUnit;
+  weather?: string | number;
+  wind?: {
+    direction?: XiaomiValueUnit;
+    speed?: XiaomiValueUnit;
+  };
+}
+
+export interface XiaomiMinutelyPrecipitation {
+  description?: string;
+  firstRainOrSnow?: boolean;
+  fxTime?: Array<number | string>;
+  headDescription?: string;
+  headIconType?: string;
+  interval?: number;
+  isFirstRainOrSnow?: boolean;
+  isModify?: boolean;
+  isModifyInHour?: boolean;
+  isRadarHideToast?: boolean;
+  isRainOrSnow?: number;
+  isShow?: boolean;
+  isSnowTemp?: boolean;
+  kmNum?: number;
+  modifyInHour?: boolean;
+  probability?: Array<string | number>;
+  pubTime?: number | string;
+  rainRemainingMinutes?: number;
+  shortDescription?: string;
+  status?: number;
+  subtitle?: string;
+  value?: Array<
+    | string
+    | number
+    | { value?: string | number; precip?: string | number; fxTime?: number | string }
+  >;
+  weather?: string | number;
+}
+
+export interface XiaomiEmbeddedMinutely {
+  new?: string;
+  precipitation?: XiaomiMinutelyPrecipitation;
+  probability?: {
+    maxProbability?: string;
+    probabilityDesc?: string;
+    probabilityDescV2?: string;
+  };
+  status?: number;
+}
+
+export interface XiaomiWeatherAlert {
+  alertId?: string;
+  defense?: Array<{
+    defenseIcon?: string;
+    defenseText?: string;
+  }>;
+  detail?: string;
+  images?:
+    | string[]
+    | {
+        icon?: string;
+        notice?: string;
+      };
+  level?: string;
+  locationKey?: string;
+  pubTime?: number | string;
+  title?: string;
+  type?: string;
+}
+
+export interface XiaomiWeatherAllResponse {
+  alerts?: XiaomiWeatherAlert[];
+  aqi?: XiaomiAirQuality;
+  brandInfo?: XiaomiBrandInfo;
+  chs?: Array<{ type?: string }>;
+  current?: XiaomiCurrentWeather;
   forecastDaily?: {
-    precipitationProbability?: {
-      value?: Array<string | number>;
-      status?: number;
-      pubTime?: number | string;
-    };
-    temperature?: { value?: XiaomiRangeValue[]; status?: number; pubTime?: number | string };
-    weather?: { value?: XiaomiRangeValue[]; status?: number; pubTime?: number | string };
-    sunRiseSet?: { value?: XiaomiRangeValue[]; status?: number; pubTime?: number | string };
-    aqi?: { value?: XiaomiRangeValue[]; status?: number; pubTime?: number | string };
+    aqi?: XiaomiSeries<string | number>;
+    moonPhase?: unknown;
+    precipitationProbability?: XiaomiSeries<string | number>;
+    pubTime?: number | string;
+    status?: number;
+    sunRiseSet?: XiaomiSeries<XiaomiRangeValue>;
+    temperature?: XiaomiSeries<XiaomiRangeValue>;
+    weather?: XiaomiSeries<XiaomiRangeValue>;
     wind?: {
-      value?: Array<{ direction?: XiaomiRangeValue; speed?: XiaomiRangeValue }>;
+      direction?: XiaomiSeries<XiaomiRangeValue>;
+      speed?: XiaomiSeries<XiaomiRangeValue>;
       status?: number;
-      pubTime?: number | string;
     };
   };
   forecastHourly?: {
-    temperature?: { value?: XiaomiValueUnit[]; status?: number; pubTime?: number | string };
-    weather?: { value?: Array<string | number>; status?: number; pubTime?: number | string };
-    aqi?: { value?: Array<string | number>; status?: number; pubTime?: number | string };
+    aqi?: XiaomiSeries<string | number>;
+    desc?: string;
+    status?: number;
+    temperature?: XiaomiSeries<string | number | XiaomiValueUnit>;
+    weather?: XiaomiSeries<string | number>;
     wind?: {
-      value?: Array<{ direction?: XiaomiValueUnit; speed?: XiaomiValueUnit }>;
+      value?: Array<{
+        datetime?: number | string;
+        direction?: string | number | XiaomiValueUnit;
+        speed?: string | number | XiaomiValueUnit;
+      }>;
       status?: number;
       pubTime?: number | string;
     };
   };
-  minutely?: {
-    description?: string;
+  indices?: {
+    indices?: Array<{ type?: string; value?: string | number }>;
     pubTime?: number | string;
-    value?: Array<
-      | string
-      | number
-      | { value?: string | number; precip?: string | number; fxTime?: number | string }
-    >;
-    fxTime?: Array<number | string>;
-    interval?: number;
-    rainRemainingMinutes?: number;
     status?: number;
   };
-  precipitation?: {
-    description?: string;
-    pubTime?: number | string;
-    value?: Array<
-      | string
-      | number
-      | { value?: string | number; precip?: string | number; fxTime?: number | string }
-    >;
-    fxTime?: Array<number | string>;
-    interval?: number;
-    rainRemainingMinutes?: number;
-    status?: number;
+  minutely?: XiaomiEmbeddedMinutely;
+  preHour?: Array<XiaomiCurrentWeather>;
+  sourceMaps?: Record<string, unknown>;
+  status?: number;
+  typhoon?: unknown[];
+  updateTime?: number | string;
+  url?: {
+    caiyun?: string;
+    weathercn?: string;
   };
-  aqi?: {
+  yesterday?: {
     aqi?: string | number;
-    pm25?: string | number;
-    pm10?: string | number;
-    so2?: string | number;
-    no2?: string | number;
-    o3?: string | number;
-    co?: string | number;
-    primary?: string;
-    src?: string;
-    pubTime?: number | string;
+    date?: number | string;
+    sunRise?: number | string;
+    sunSet?: number | string;
+    tempMax?: string | number;
+    tempMin?: string | number;
+    weatherEnd?: string | number;
+    weatherStart?: string | number;
+    windDircEnd?: string | number;
+    windDircStart?: string | number;
+    windSpeedEnd?: string | number;
+    windSpeedStart?: string | number;
     status?: number;
-    brandInfo?: unknown;
   };
-  alerts?: Array<{
-    locationKey?: string;
-    alertId?: string;
-    pubTime?: number | string;
-    title?: string;
-    type?: string;
-    level?: string;
-    detail?: string;
-    images?: string[];
-  }>;
-  brandInfo?: unknown;
   error?: string;
 }
 
 export interface XiaomiMinutelyResponse {
+  new?: string;
   status?: number;
-  precipitation?: {
-    description?: string;
-    pubTime?: number | string;
-    value?: Array<
-      | string
-      | number
-      | { value?: string | number; precip?: string | number; fxTime?: number | string }
-    >;
-    /** 部分供应商直接返回每个槽位的时间戳；没有时使用 pubTime + 推导间隔。 */
-    fxTime?: Array<number | string>;
-    interval?: number;
-    rainRemainingMinutes?: number;
-  };
+  precipitation?: XiaomiMinutelyPrecipitation;
   error?: string;
+}
+
+export interface WeatherScalarDetail {
+  unit?: string;
+  value?: string;
+}
+
+export interface WeatherCurrentDetail {
+  feelsLike?: WeatherScalarDetail;
+  humidity?: WeatherScalarDetail;
+  observationTime?: string;
+  pressure?: WeatherScalarDetail;
+  temperature?: WeatherScalarDetail;
+  uvIndex?: string;
+  visibility?: WeatherScalarDetail;
+  weatherCode?: string;
+  weatherText?: string;
+  windDirection?: WeatherScalarDetail;
+  windDirectionText?: string;
+  windSpeed?: WeatherScalarDetail;
+}
+
+export interface WeatherIndexDetail {
+  type?: string;
+  value?: string;
+}
+
+export interface WeatherHourlyDetail {
+  aqi?: string;
+  forecastTime?: string;
+  temperature?: WeatherScalarDetail;
+  weatherCode?: string;
+  weatherText?: string;
+  windDirection?: WeatherScalarDetail;
+  windDirectionText?: string;
+  windSpeed?: WeatherScalarDetail;
+}
+
+export interface WeatherDailyDetail {
+  aqi?: string;
+  date?: string;
+  precipitationProbability?: string;
+  sunrise?: string;
+  sunset?: string;
+  temperatureMax?: WeatherScalarDetail;
+  temperatureMin?: WeatherScalarDetail;
+  weatherCodeDay?: string;
+  weatherCodeNight?: string;
+  weatherTextDay?: string;
+  weatherTextNight?: string;
+  windDirectionDay?: WeatherScalarDetail;
+  windDirectionDayText?: string;
+  windDirectionNight?: WeatherScalarDetail;
+  windDirectionNightText?: string;
+  windSpeedDay?: WeatherScalarDetail;
+  windSpeedNight?: WeatherScalarDetail;
+}
+
+export interface WeatherAirPollutantDetail {
+  code: "pm25" | "pm10" | "so2" | "no2" | "o3" | "co";
+  description?: string;
+  unit: string;
+  value?: string;
+}
+
+export interface WeatherAirQualityDetail {
+  aqi?: string;
+  category?: string;
+  pollutants: WeatherAirPollutantDetail[];
+  primary?: string;
+  publishedAt?: string;
+  source?: string;
+  suggestion?: string;
+}
+
+export interface WeatherYesterdayDetail {
+  aqi?: string;
+  date?: string;
+  sunrise?: string;
+  sunset?: string;
+  temperatureMax?: WeatherScalarDetail;
+  temperatureMin?: WeatherScalarDetail;
+  weatherCodeEnd?: string;
+  weatherCodeStart?: string;
+  weatherTextEnd?: string;
+  weatherTextStart?: string;
+  windDirectionEnd?: WeatherScalarDetail;
+  windDirectionEndText?: string;
+  windDirectionStart?: WeatherScalarDetail;
+  windDirectionStartText?: string;
+  windSpeedEnd?: WeatherScalarDetail;
+  windSpeedStart?: WeatherScalarDetail;
+}
+
+export interface WeatherAlertDetail {
+  defenses: Array<{ icon?: string; text?: string }>;
+  detail?: string;
+  id?: string;
+  images?: string[];
+  level?: string;
+  locationKey?: string;
+  publishedAt?: string;
+  title?: string;
+  type?: string;
+}
+
+export interface WeatherTechnicalDetails {
+  channels: Array<{ type?: string }>;
+  sourceMaps?: Record<string, unknown>;
+  statuses: Record<string, number | string | undefined>;
+  units: Record<string, string | undefined>;
+  urls: Record<string, string | undefined>;
+}
+
+export interface WeatherDetailsResponse {
+  airQuality?: WeatherAirQualityDetail;
+  alerts: WeatherAlertDetail[];
+  brands: XiaomiBrand[];
+  code?: string;
+  current?: WeatherCurrentDetail;
+  daily: WeatherDailyDetail[];
+  embeddedMinutely?: XiaomiEmbeddedMinutely;
+  error?: string;
+  hourly: WeatherHourlyDetail[];
+  indices: WeatherIndexDetail[];
+  previousHours: WeatherCurrentDetail[];
+  raw: XiaomiWeatherAllResponse;
+  technical: WeatherTechnicalDetails;
+  typhoons: unknown[];
+  updateTime?: string;
+  yesterday?: WeatherYesterdayDetail;
 }
 
 export interface WeatherNow {
@@ -203,6 +418,7 @@ export interface WeatherNow {
     humidity?: string;
     pressure?: string;
     precip?: string;
+    uvIndex?: string;
     vis?: string;
     cloud?: string;
     dew?: string;
@@ -291,6 +507,8 @@ export interface WeatherAlertResponse {
     expireTime?: string;
     headline?: string;
     description?: string;
+    defenses?: Array<{ icon?: string; text?: string }>;
+    images?: string[];
   }>;
   error?: string;
 }
@@ -300,6 +518,22 @@ export interface MinutelyPrecipResponse {
   updateTime?: string;
   summary?: string;
   minutely?: Array<{ fxTime?: string; precip?: string; type?: string }>;
+  provider?: {
+    description?: string;
+    flags: Record<string, boolean | number | string | undefined>;
+    headDescription?: string;
+    headIconType?: string;
+    interval?: number;
+    maxProbability?: string;
+    probability?: Array<string | number>;
+    probabilityDescription?: string;
+    probabilityDescriptionV2?: string;
+    rainRemainingMinutes?: number;
+    raw: XiaomiMinutelyResponse;
+    shortDescription?: string;
+    subtitle?: string;
+    weatherCode?: string;
+  };
   error?: string;
 }
 

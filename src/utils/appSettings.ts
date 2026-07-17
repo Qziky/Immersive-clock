@@ -45,6 +45,11 @@ import {
 } from "./appearanceModel";
 import { logger } from "./logger";
 import { StudyBackgroundType } from "./studyBackgroundStorage";
+import {
+  createDefaultWeatherScheduleSettings,
+  normalizeWeatherScheduleSettings,
+  type WeatherScheduleSettings,
+} from "./weatherSchedule";
 
 export interface AppSettings {
   version: number;
@@ -61,7 +66,6 @@ export interface AppSettings {
       version: string; // 存储版本号，用于与当前应用版本进行比对
     };
     weather: {
-      autoRefreshIntervalMin: number;
       locationMode: "auto" | "manual";
       manualLocation: {
         type: "city" | "coords";
@@ -70,6 +74,7 @@ export interface AppSettings {
         lon?: number;
         resolved?: { city?: string; lat: number; lon: number };
       };
+      schedule: WeatherScheduleSettings;
     };
     timeSync: {
       enabled: boolean;
@@ -113,7 +118,6 @@ export interface AppSettings {
     };
     alerts: {
       weatherAlert: boolean;
-      minutelyPrecip: boolean;
       errorPopup: boolean;
       errorCenterMode: "off" | "memory" | "persist";
       airQuality: boolean;
@@ -149,7 +153,7 @@ export interface AppSettings {
 
 export const APP_SETTINGS_KEY = "AppSettings";
 export const APP_SETTINGS_QUARANTINE_KEY = "immersive-clock:quarantine:app-settings";
-export const CURRENT_SETTINGS_VERSION = 4;
+export const CURRENT_SETTINGS_VERSION = 7;
 
 /** 中央信息轮播的硬上限，配置与运行时都应遵守该值。 */
 export const MAX_STUDY_INFO_ITEMS = 20;
@@ -163,6 +167,7 @@ export const STUDY_INFO_BUILTIN_IDS = {
   progressSchedule: "progress-schedule-default",
   nextSchedule: "next-schedule-default",
   rain: "rain-default",
+  weatherAlert: "weather-alert-default",
 } as const;
 
 let studyInfoLimitAdjustedSinceLoad = false;
@@ -213,7 +218,13 @@ function parseStoredNumber(value: unknown): number {
 }
 
 function isStudyInfoSource(value: unknown): value is StudyInfoSource {
-  return value === "progress" || value === "nextSchedule" || value === "rain" || value === "custom";
+  return (
+    value === "progress" ||
+    value === "nextSchedule" ||
+    value === "rain" ||
+    value === "weatherAlert" ||
+    value === "custom"
+  );
 }
 
 function isStudyProgressKind(value: unknown): value is StudyProgressKind {
@@ -227,7 +238,7 @@ function normalizeNextScheduleLeadMinutes(value: unknown): StudyNextScheduleLead
 }
 
 function normalizeRainLeadMinutes(value: unknown): StudyRainLeadMinutes {
-  return value === 60 || value === 30 || value === 15 || value === 10 ? value : 30;
+  return value === 120 || value === 60 || value === 30 || value === 15 || value === 10 ? value : 30;
 }
 
 function createDefaultStudyInfoItems(): StudyInfoItemConfig[] {
@@ -261,6 +272,13 @@ function createDefaultStudyInfoItems(): StudyInfoItemConfig[] {
       leadMinutes: 30,
       enabled: false,
       order: 3,
+    },
+    {
+      id: STUDY_INFO_BUILTIN_IDS.weatherAlert,
+      source: "weatherAlert",
+      backgroundProgressKind: "day",
+      enabled: false,
+      order: 4,
     },
   ];
 }
@@ -338,6 +356,12 @@ function normalizeStudyInfoItem(
         backgroundProgressKind: progressKind,
         leadMinutes: normalizeRainLeadMinutes(value.leadMinutes),
       };
+    case "weatherAlert":
+      return {
+        ...base,
+        source: "weatherAlert",
+        backgroundProgressKind: progressKind,
+      };
     case "custom": {
       if (typeof value.text !== "string") return null;
       const text = value.text.trim().slice(0, MAX_STUDY_INFO_TEXT_LENGTH);
@@ -393,7 +417,7 @@ function normalizeStudyInfoCarouselWithMetadata(
     defaults.items.forEach((item, index) => parsedItems.push({ item, index }));
   }
 
-  // 配置文件可能来自早期版本或手工编辑：保证四个内置配置始终可供再次添加。
+  // 配置文件可能来自早期版本或手工编辑：保证五个内置配置始终可供再次添加。
   // 已存在的来源（即使被禁用）会原样保留，避免迁移时意外重新启用。
   const existingBuiltinKeys = new Set(
     parsedItems
@@ -483,6 +507,12 @@ function normalizeStoredStudyInfoCarouselWithMetadata(
             source: "rain",
             enabled: false,
             order: 2,
+          },
+          {
+            id: STUDY_INFO_BUILTIN_IDS.weatherAlert,
+            source: "weatherAlert",
+            enabled: false,
+            order: 3,
           },
         ],
       };
@@ -740,12 +770,12 @@ const DEFAULT_SETTINGS: AppSettings = {
       version: "",
     },
     weather: {
-      autoRefreshIntervalMin: 30,
       locationMode: "auto",
       manualLocation: {
         type: "city",
         cityName: "",
       },
+      schedule: createDefaultWeatherScheduleSettings(),
     },
     timeSync: {
       enabled: false,
@@ -786,7 +816,6 @@ const DEFAULT_SETTINGS: AppSettings = {
     },
     alerts: {
       weatherAlert: false,
-      minutelyPrecip: false,
       errorPopup: true,
       errorCenterMode: "off",
       airQuality: false,
@@ -879,6 +908,24 @@ export function clearQuarantinedAppSettings(): void {
   localStorage.removeItem(APP_SETTINGS_QUARANTINE_KEY);
 }
 
+function migrateWeatherScheduleForVersion(
+  parsedWeather: Record<string, unknown>,
+  storedVersion: number
+): unknown {
+  const schedule = isRecord(parsedWeather.schedule) ? parsedWeather.schedule : null;
+  const safety = schedule && isRecord(schedule.safety) ? schedule.safety : null;
+  if (storedVersion >= 7 || !schedule || safety?.maxRequestsPerHour !== 60) {
+    return parsedWeather.schedule;
+  }
+  return {
+    ...schedule,
+    safety: {
+      ...safety,
+      maxRequestsPerHour: DEFAULT_SETTINGS.general.weather.schedule.safety.maxRequestsPerHour,
+    },
+  };
+}
+
 export function normalizeAppSettings(value: unknown): AppSettings {
   if (!isRecord(value) || Array.isArray(value)) {
     throw new TypeError("设置数据必须是对象");
@@ -904,27 +951,15 @@ export function normalizeAppSettings(value: unknown): AppSettings {
   const parsedStyle = isRecord(parsedStudy.style) ? parsedStudy.style : {};
   const parsedStudyBackground = isRecord(parsedStudy.background) ? parsedStudy.background : {};
 
-  const legacyMinutelyForecast =
-    typeof parsedAlerts.minutelyForecast === "boolean" ? parsedAlerts.minutelyForecast : undefined;
-  const legacyPrecipDuration =
-    typeof parsedAlerts.precipDuration === "boolean" ? parsedAlerts.precipDuration : undefined;
   const legacyErrorCenterEnabled =
     typeof parsedAlerts.errorCenterEnabled === "boolean"
       ? parsedAlerts.errorCenterEnabled
-      : undefined;
-  const legacyMergedMinutely =
-    legacyMinutelyForecast != null || legacyPrecipDuration != null
-      ? !!(legacyMinutelyForecast || legacyPrecipDuration)
       : undefined;
   const mergedStudyAlerts: AppSettings["study"]["alerts"] = {
     weatherAlert:
       typeof parsedAlerts.weatherAlert === "boolean"
         ? parsedAlerts.weatherAlert
         : DEFAULT_SETTINGS.study.alerts.weatherAlert,
-    minutelyPrecip:
-      typeof parsedAlerts.minutelyPrecip === "boolean"
-        ? parsedAlerts.minutelyPrecip
-        : (legacyMergedMinutely ?? DEFAULT_SETTINGS.study.alerts.minutelyPrecip),
     errorPopup:
       typeof parsedAlerts.errorPopup === "boolean"
         ? parsedAlerts.errorPopup
@@ -962,7 +997,19 @@ export function normalizeAppSettings(value: unknown): AppSettings {
       startup: { ...DEFAULT_SETTINGS.general.startup, ...parsedStartup },
       quote: normalizeQuoteSettings(parsedGeneral.quote, storedVersion),
       announcement: { ...DEFAULT_SETTINGS.general.announcement, ...parsedAnnouncement },
-      weather: { ...DEFAULT_SETTINGS.general.weather, ...parsedWeather },
+      weather: {
+        locationMode: parsedWeather.locationMode === "manual" ? "manual" : "auto",
+        manualLocation: {
+          ...DEFAULT_SETTINGS.general.weather.manualLocation,
+          ...(isRecord(parsedWeather.manualLocation) ? parsedWeather.manualLocation : {}),
+        },
+        schedule: normalizeWeatherScheduleSettings(
+          migrateWeatherScheduleForVersion(parsedWeather, storedVersion),
+          {
+            legacyIntervalMin: storedVersion < 6 ? parsedWeather.autoRefreshIntervalMin : undefined,
+          }
+        ),
+      },
       timeSync: { ...DEFAULT_SETTINGS.general.timeSync, ...parsedTimeSync },
       background: { ...DEFAULT_SETTINGS.general.background, ...parsedGeneralBackground },
     } as AppSettings["general"],
@@ -1045,6 +1092,24 @@ export function updateAppSettings(
           ? {
               ...current.general.weather,
               ...generalUpdates.weather,
+              schedule: generalUpdates.weather.schedule
+                ? normalizeWeatherScheduleSettings({
+                    ...current.general.weather.schedule,
+                    ...generalUpdates.weather.schedule,
+                    custom: generalUpdates.weather.schedule.custom
+                      ? {
+                          ...current.general.weather.schedule.custom,
+                          ...generalUpdates.weather.schedule.custom,
+                        }
+                      : current.general.weather.schedule.custom,
+                    safety: generalUpdates.weather.schedule.safety
+                      ? {
+                          ...current.general.weather.schedule.safety,
+                          ...generalUpdates.weather.schedule.safety,
+                        }
+                      : current.general.weather.schedule.safety,
+                  })
+                : current.general.weather.schedule,
               manualLocation: generalUpdates.weather.manualLocation
                 ? {
                     ...current.general.weather.manualLocation,

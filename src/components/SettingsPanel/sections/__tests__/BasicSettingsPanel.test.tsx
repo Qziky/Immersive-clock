@@ -75,6 +75,13 @@ function defaultInfoItems(): StudyInfoItemConfig[] {
       enabled: false,
       order: 3,
     },
+    {
+      id: "weather-alert-default",
+      source: "weatherAlert",
+      backgroundProgressKind: "day",
+      enabled: false,
+      order: 4,
+    },
   ];
 }
 
@@ -142,8 +149,11 @@ describe("BasicSettingsPanel 中央信息设置", () => {
 
     await selectAddInformation(user, /^下一课时/);
     await user.click(screen.getByRole("button", { name: "配置下一课时" }));
-    await user.selectOptions(screen.getByLabelText("背景进度"), "schedule");
-    await user.selectOptions(screen.getByLabelText("显示时机"), "60");
+    await user.click(screen.getByRole("button", { name: "背景进度" }));
+    await user.click(screen.getByRole("option", { name: "课时/课间进度" }));
+    await user.click(screen.getByRole("button", { name: "显示时机" }));
+    await user.click(screen.getByRole("option", { name: "提前 60 分钟" }));
+    expect(screen.queryByRole("combobox", { name: "显示时机" })).not.toBeInTheDocument();
     expect(screen.getByLabelText("拖动下一课时排序")).toHaveAttribute("draggable", "true");
     await user.click(screen.getByRole("button", { name: "上移下一课时" }));
     expect(screen.getByRole("status")).toHaveTextContent("已将下一课时移至第 2 项");
@@ -175,7 +185,8 @@ describe("BasicSettingsPanel 中央信息设置", () => {
 
     await selectAddInformation(user, /^新建自定义文案/);
     await user.type(screen.getByLabelText("文案内容"), "完成今日复盘");
-    await user.selectOptions(screen.getByLabelText("背景进度"), "schedule");
+    await user.click(screen.getByRole("button", { name: "背景进度" }));
+    await user.click(screen.getByRole("option", { name: "课时/课间进度" }));
     await user.click(screen.getByRole("button", { name: "移出完成今日复盘" }));
 
     expect(screen.queryByText("完成今日复盘")).not.toBeInTheDocument();
@@ -188,7 +199,7 @@ describe("BasicSettingsPanel 中央信息设置", () => {
     await user.click(restoreOption);
     expect(screen.getByText("完成今日复盘")).toBeInTheDocument();
     expect(screen.getByLabelText("文案内容")).toHaveValue("完成今日复盘");
-    expect(screen.getByLabelText("背景进度")).toHaveValue("schedule");
+    expect(screen.getByRole("button", { name: "背景进度" })).toHaveTextContent("课时/课间进度");
 
     const saved = getSavedCarousel();
     expect(saved.items.find((item) => item.source === "custom")).toMatchObject({
@@ -201,6 +212,28 @@ describe("BasicSettingsPanel 中央信息设置", () => {
     expect(screen.queryByText("完成今日复盘")).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "添加信息" }));
     expect(screen.queryByRole("option", { name: /^恢复：完成今日复盘/ })).not.toBeInTheDocument();
+  });
+
+  it("天气预警可独立添加并只配置背景进度", async () => {
+    const user = userEvent.setup();
+    renderPanel();
+
+    await selectAddInformation(user, /^天气预警/);
+    expect(screen.getByText("天气预警")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "配置天气预警" }));
+    expect(screen.getByRole("button", { name: "背景进度" })).toHaveTextContent("24 小时进度");
+    expect(screen.queryByRole("button", { name: "显示时机" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "背景进度" }));
+    const scheduleProgressOptions = screen.getAllByRole("option", {
+      name: "课时/课间进度",
+    });
+    await user.click(scheduleProgressOptions[scheduleProgressOptions.length - 1]);
+
+    const saved = getSavedCarousel();
+    expect(saved.items.find((item) => item.source === "weatherAlert")).toMatchObject({
+      backgroundProgressKind: "schedule",
+      enabled: true,
+    });
   });
 
   it("达到 20 条后禁止继续添加，移出一项后释放名额", async () => {

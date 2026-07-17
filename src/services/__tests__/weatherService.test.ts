@@ -1,7 +1,13 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 
+vi.mock("../weatherRequestGuard", () => ({
+  executeWeatherRequest: <T>(runner: () => Promise<T>) => runner(),
+}));
+
 function xiaomiCity() {
-  return [{ name: "上海市", locationKey: "weathercn:101020100", latitude: "31.2", longitude: "121.5" }];
+  return [
+    { name: "上海市", locationKey: "weathercn:101020100", latitude: "31.2", longitude: "121.5" },
+  ];
 }
 
 function xiaomiWeatherAll() {
@@ -15,26 +21,37 @@ function xiaomiWeatherAll() {
       pubTime: 1781856000000,
     },
     forecastDaily: {
-      temperature: { value: [{ from: "30", to: "22" }, { from: "29", to: "21" }, { from: "28", to: "20" }] },
-      weather: { value: [{ from: "0", to: "1" }, { from: "1", to: "2" }, { from: "7", to: "8" }] },
-      sunRiseSet: { value: [{ from: "05:30", to: "18:55" }, { from: "05:31", to: "18:56" }, { from: "05:32", to: "18:57" }] },
+      temperature: {
+        value: [
+          { from: "30", to: "22" },
+          { from: "29", to: "21" },
+          { from: "28", to: "20" },
+        ],
+      },
+      weather: {
+        value: [
+          { from: "0", to: "1" },
+          { from: "1", to: "2" },
+          { from: "7", to: "8" },
+        ],
+      },
+      sunRiseSet: {
+        value: [
+          { from: "05:30", to: "18:55" },
+          { from: "05:31", to: "18:56" },
+          { from: "05:32", to: "18:57" },
+        ],
+      },
     },
     forecastHourly: {
       temperature: { value: [{ value: "25" }, { value: "24" }], pubTime: 1781856000000 },
       weather: { value: ["0", "1"] },
     },
     aqi: { aqi: "42", pm25: "12", primary: "pm25", src: "Xiaomi" },
-    alerts: [{ alertId: "a1", title: "暴雨蓝色预警", type: "暴雨", level: "蓝色", detail: "注意防范" }],
+    alerts: [
+      { alertId: "a1", title: "暴雨蓝色预警", type: "暴雨", level: "蓝色", detail: "注意防范" },
+    ],
   };
-}
-
-function formatDateFromOffset(offset: number): string {
-  const date = new Date();
-  date.setDate(date.getDate() + offset);
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
 }
 
 describe("weatherService", () => {
@@ -44,7 +61,6 @@ describe("weatherService", () => {
     vi.restoreAllMocks();
     vi.unstubAllEnvs();
     vi.resetModules();
-    vi.stubEnv("VITE_XIAOMI_WEATHER_API_HOST", "api.example.com");
     vi.stubEnv("VITE_AMAP_API_KEY", "test-amap-key");
   });
 
@@ -52,88 +68,147 @@ describe("weatherService", () => {
     globalThis.fetch = originalFetch;
   });
 
-  it("fetchWeatherNow 正常返回小米天气适配数据", async () => {
-    const fetchMock = vi.fn((input: RequestInfo | URL) => {
-      const url = String(input);
-      if (url.includes("/wtr-v3/location/city/geo?")) {
-        return Promise.resolve({ ok: true, status: 200, statusText: "OK", text: async () => JSON.stringify(xiaomiCity()) });
-      }
-      if (url.includes("/wtr-v3/weather/all?")) {
-        return Promise.resolve({ ok: true, status: 200, statusText: "OK", text: async () => JSON.stringify(xiaomiWeatherAll()) });
-      }
-      return Promise.reject(new Error(`unexpected url: ${url}`));
+  it("adaptWeatherDetails 保留完整响应并对齐真实逐时逐日结构", async () => {
+    const raw = {
+      status: 0,
+      updateTime: 1781856000000,
+      current: {
+        feelsLike: { unit: "℃", value: "31" },
+        humidity: { unit: "%", value: "0" },
+        pressure: { unit: "hPa", value: "1008" },
+        pubTime: "2026-07-17T10:00:00+08:00",
+        temperature: { unit: "℃", value: "28" },
+        uvIndex: "0",
+        visibility: { unit: "km", value: "" },
+        weather: "1",
+        wind: {
+          direction: { unit: "°", value: "188" },
+          speed: { unit: "km/h", value: "2" },
+        },
+      },
+      forecastHourly: {
+        status: 0,
+        temperature: {
+          pubTime: "2026-07-17T10:00:00+08:00",
+          unit: "℃",
+          value: [28, 29],
+        },
+        weather: { value: [1, 2, 7] },
+        aqi: { value: [40, 41, 42] },
+        wind: {
+          value: [{ datetime: "2026-07-17T10:00:00+08:00", direction: "188", speed: "2" }],
+        },
+      },
+      forecastDaily: {
+        status: 0,
+        precipitationProbability: { value: ["0", "20", "80"] },
+        temperature: {
+          unit: "℃",
+          value: [
+            { from: "35", to: "27" },
+            { from: "34", to: "26" },
+          ],
+        },
+        weather: {
+          value: [
+            { from: "1", to: "2" },
+            { from: "7", to: "8" },
+          ],
+        },
+        sunRiseSet: {
+          value: [
+            {
+              from: "2026-07-17T05:01:00+08:00",
+              to: "2026-07-17T18:59:00+08:00",
+            },
+          ],
+        },
+        aqi: { value: [45, 46, 47] },
+        wind: {
+          direction: {
+            unit: "°",
+            value: [{ from: "90", to: "180" }],
+          },
+          speed: {
+            unit: "km/h",
+            value: [{ from: "5", to: "8" }],
+          },
+        },
+      },
+      indices: {
+        status: 0,
+        indices: [
+          { type: "uvIndex", value: "0" },
+          { type: "carWash", value: "0" },
+        ],
+      },
+      aqi: {
+        aqi: "50",
+        co: "0.5",
+        no2: "19",
+        o3: "140",
+        pm10: "47",
+        pm25: "29",
+        primary: "pm25",
+        pubTime: "2026-07-17T09:00:00+08:00",
+        so2: "6",
+        src: "测试监测站",
+        status: 0,
+        suggest: "适宜户外活动",
+        pm25Desc: "细颗粒物说明",
+      },
+      alerts: [
+        {
+          alertId: "a1",
+          defense: [{ defenseIcon: "shield", defenseText: "减少外出" }],
+          detail: "注意防范",
+          images: { icon: "icon.png", notice: "notice.png" },
+          level: "蓝色",
+          locationKey: "weathercn:101020100",
+          pubTime: "2026-07-17T09:30:00+08:00",
+          title: "暴雨蓝色预警",
+          type: "暴雨",
+        },
+      ],
+      chs: [{ type: "CWA6" }],
+      sourceMaps: { current: { temperature: "weatherbj" } },
+      typhoon: [{ name: "测试台风" }],
+      url: { caiyun: "https://example.com/caiyun", weathercn: "" },
+    };
+
+    const { adaptWeatherDetails } = await import("../weatherService");
+    const details = adaptWeatherDetails(raw);
+
+    expect(details.raw).toBe(raw);
+    expect(details.current).toMatchObject({
+      humidity: { value: "0" },
+      uvIndex: "0",
+      weatherText: "多云",
+      windDirectionText: "南风",
     });
-    globalThis.fetch = fetchMock as unknown as typeof fetch;
-
-    const { fetchWeatherNow } = await import("../weatherService");
-    const res = await fetchWeatherNow("121.5,31.2");
-
-    expect(fetchMock).toHaveBeenCalledTimes(2);
-    expect(res.now?.text).toBe("晴");
-    expect(res.now?.temp).toBe("25");
-  });
-
-  it("fetchWeatherHourly72h 正常返回小时预报适配数据", async () => {
-    const fetchMock = vi.fn((input: RequestInfo | URL) => {
-      const url = String(input);
-      if (url.includes("/wtr-v3/location/city/geo?")) {
-        return Promise.resolve({ ok: true, status: 200, statusText: "OK", text: async () => JSON.stringify(xiaomiCity()) });
-      }
-      if (url.includes("/wtr-v3/weather/all?")) {
-        return Promise.resolve({ ok: true, status: 200, statusText: "OK", text: async () => JSON.stringify(xiaomiWeatherAll()) });
-      }
-      return Promise.reject(new Error(`unexpected url: ${url}`));
+    expect(details.hourly).toHaveLength(3);
+    expect(details.hourly[0]).toMatchObject({
+      aqi: "40",
+      temperature: { value: "28" },
+      windDirection: { value: "188" },
     });
-    globalThis.fetch = fetchMock as unknown as typeof fetch;
-
-    const { fetchWeatherHourly72h } = await import("../weatherService");
-    const res = await fetchWeatherHourly72h("121.5,31.2");
-
-    expect(res.code).toBe("200");
-    expect(res.hourly?.[0]?.temp).toBe("25");
-    expect(res.hourly?.[0]?.text).toBe("晴");
-  });
-
-  it("fetchAstronomySun 根据 date 返回对应日期的日出日落", async () => {
-    const fetchMock = vi.fn((input: RequestInfo | URL) => {
-      const url = String(input);
-      if (url.includes("/wtr-v3/location/city/geo?")) {
-        return Promise.resolve({ ok: true, status: 200, statusText: "OK", text: async () => JSON.stringify(xiaomiCity()) });
-      }
-      if (url.includes("/wtr-v3/weather/all?")) {
-        return Promise.resolve({ ok: true, status: 200, statusText: "OK", text: async () => JSON.stringify(xiaomiWeatherAll()) });
-      }
-      return Promise.reject(new Error(`unexpected url: ${url}`));
+    expect(details.hourly[2].temperature?.value).toBeUndefined();
+    expect(details.daily).toHaveLength(3);
+    expect(details.daily[0]).toMatchObject({
+      date: "2026-07-17",
+      precipitationProbability: "0",
+      windDirectionDay: { value: "90" },
     });
-    globalThis.fetch = fetchMock as unknown as typeof fetch;
-
-    const { fetchAstronomySun } = await import("../weatherService");
-    const res = await fetchAstronomySun("121.5,31.2", formatDateFromOffset(1));
-
-    expect(res.code).toBe("200");
-    expect(res.sunrise).toBe("05:31");
-    expect(res.sunset).toBe("18:56");
-  });
-
-  it("fetchWeatherNow 捕获 HTTP 错误并返回 error 字段", async () => {
-    const fetchMock = vi.fn((input: RequestInfo | URL) => {
-      const url = String(input);
-      if (url.includes("/wtr-v3/location/city/geo?")) {
-        return Promise.resolve({ ok: true, status: 200, statusText: "OK", text: async () => JSON.stringify(xiaomiCity()) });
-      }
-      return Promise.resolve({
-        ok: false,
-        status: 500,
-        statusText: "Internal Server Error",
-        text: async () => JSON.stringify({ message: "server error" }),
-      });
+    expect(details.airQuality?.pollutants.find((item) => item.code === "pm25")).toMatchObject({
+      description: "细颗粒物说明",
+      value: "29",
     });
-    globalThis.fetch = fetchMock as unknown as typeof fetch;
-
-    const { fetchWeatherNow } = await import("../weatherService");
-    const res = await fetchWeatherNow("121.5,31.2");
-
-    expect(res.error).toContain("HTTP 500");
+    expect(details.alerts[0]).toMatchObject({
+      defenses: [{ icon: "shield", text: "减少外出" }],
+      images: ["icon.png", "notice.png"],
+    });
+    expect(details.technical.sourceMaps).toEqual(raw.sourceMaps);
+    expect(details.typhoons).toEqual([{ name: "测试台风" }]);
   });
 
   it("getCoordsViaIP 能从不同数据源解析坐标", async () => {
@@ -145,7 +220,12 @@ describe("weatherService", () => {
       const url = String(input);
       const data = responses[url];
       if (!data) return Promise.reject(new Error(`unexpected url: ${url}`));
-      return Promise.resolve({ ok: true, status: 200, statusText: "OK", text: async () => JSON.stringify(data) });
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        statusText: "OK",
+        text: async () => JSON.stringify(data),
+      });
     });
     globalThis.fetch = fetchMock as unknown as typeof fetch;
 
@@ -174,12 +254,15 @@ describe("weatherService", () => {
 
     localStorage.setItem(
       "weather-cache",
-      JSON.stringify({ coords: { lat: 31.2, lon: 121.5, source: "geolocation", updatedAt: Date.now() } })
+      JSON.stringify({
+        coords: { lat: 31.2, lon: 121.5, source: "geolocation", updatedAt: Date.now() },
+      })
     );
 
     const fetchMock = vi.fn((input: RequestInfo | URL) => {
       const url = String(input);
-      if (url.includes("/geo/v2/")) return Promise.reject(new Error(`GeoAPI should not be called: ${url}`));
+      if (url.includes("/geo/v2/"))
+        return Promise.reject(new Error(`GeoAPI should not be called: ${url}`));
       if (url.startsWith("https://restapi.amap.com/v3/geocode/regeo?")) {
         return Promise.resolve({
           ok: true,
@@ -188,15 +271,28 @@ describe("weatherService", () => {
           text: async () =>
             JSON.stringify({
               status: "1",
-              regeocode: { formatted_address: "中国 上海市 浦东新区", addressComponent: { city: "上海市" } },
+              regeocode: {
+                formatted_address: "中国 上海市 浦东新区",
+                addressComponent: { city: "上海市" },
+              },
             }),
         });
       }
       if (url.includes("/wtr-v3/location/city/geo?")) {
-        return Promise.resolve({ ok: true, status: 200, statusText: "OK", text: async () => JSON.stringify(xiaomiCity()) });
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          statusText: "OK",
+          text: async () => JSON.stringify(xiaomiCity()),
+        });
       }
       if (url.includes("/wtr-v3/weather/all?")) {
-        return Promise.resolve({ ok: true, status: 200, statusText: "OK", text: async () => JSON.stringify(xiaomiWeatherAll()) });
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          statusText: "OK",
+          text: async () => JSON.stringify(xiaomiWeatherAll()),
+        });
       }
       return Promise.reject(new Error(`unexpected url: ${url}`));
     });

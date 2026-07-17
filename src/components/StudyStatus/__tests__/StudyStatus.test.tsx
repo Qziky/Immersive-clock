@@ -3,6 +3,7 @@ import React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { MinutelyWeatherSnapshot } from "../../../services/minutelyWeatherRuntime";
+import type { WeatherAlertSnapshot } from "../../../services/weatherAlertRuntime";
 import type { StudyInfoItemConfig } from "../../../types";
 import { broadcastSettingsEvent, SETTINGS_EVENTS } from "../../../utils/settingsEvents";
 import { getDayGreeting } from "../dayGreeting";
@@ -29,7 +30,17 @@ const mocks = vi.hoisted(() => ({
     updatedAt: 0,
     error: null,
   } as MinutelyWeatherSnapshot,
+  weatherAlertSnapshot: {
+    alerts: [],
+    coords: null,
+    error: null,
+    fetchedAt: null,
+    metadata: null,
+    revision: 0,
+    status: "idle",
+  } as WeatherAlertSnapshot,
   useMinutelyWeatherSnapshot: vi.fn(),
+  useWeatherAlertSnapshot: vi.fn(),
 }));
 
 vi.mock("../../../contexts/AppearanceContext", () => ({
@@ -40,6 +51,13 @@ vi.mock("../../../hooks/useMinutelyWeatherSnapshot", () => ({
   useMinutelyWeatherSnapshot: (enabled: boolean) => {
     mocks.useMinutelyWeatherSnapshot(enabled);
     return mocks.minutelySnapshot;
+  },
+}));
+
+vi.mock("../../../hooks/useWeatherAlertSnapshot", () => ({
+  useWeatherAlertSnapshot: (enabled: boolean) => {
+    mocks.useWeatherAlertSnapshot(enabled);
+    return mocks.weatherAlertSnapshot;
   },
 }));
 
@@ -88,6 +106,15 @@ beforeEach(() => {
     sourceUpdatedAt: null,
     updatedAt: 0,
     error: null,
+  };
+  mocks.weatherAlertSnapshot = {
+    alerts: [],
+    coords: null,
+    error: null,
+    fetchedAt: null,
+    metadata: null,
+    revision: 0,
+    status: "idle",
   };
 });
 
@@ -306,6 +333,79 @@ describe("StudyStatus 界面", () => {
     expect(mocks.useMinutelyWeatherSnapshot).toHaveBeenCalledWith(true);
     expect(screen.getByText("预计 10 分钟后下雨")).toBeInTheDocument();
     expect(screen.getByText("预计持续 18 分钟")).toBeInTheDocument();
+    expect(screen.queryByLabelText("天气")).not.toBeInTheDocument();
+  });
+
+  it("隐藏天气组件后仍独立订阅并逐条显示天气预警", () => {
+    vi.useFakeTimers();
+    const current = atTime(22, 0);
+    mocks.readStudySchedule.mockReturnValue(schedule);
+    mocks.getAdjustedDate.mockImplementation(() => current);
+    mocks.weatherAlertSnapshot = {
+      alerts: [
+        {
+          alert: {
+            id: "orange",
+            description: "未来3小时降雨量将达50毫米以上。",
+            headline: "青羊区暴雨橙色预警",
+            issuedTime: "2026-07-13T21:55:00+08:00",
+          },
+          expiresAt: current.getTime() + 60 * 60 * 1000,
+          publishedAt: current.getTime() - 5 * 60 * 1000,
+          severityRank: 4,
+          signature: "id:orange",
+        },
+        {
+          alert: {
+            id: "yellow",
+            description: "请注意防范雷电活动。",
+            headline: "青羊区雷电黄色预警",
+            issuedTime: "2026-07-13T21:50:00+08:00",
+          },
+          expiresAt: current.getTime() + 60 * 60 * 1000,
+          publishedAt: current.getTime() - 10 * 60 * 1000,
+          severityRank: 3,
+          signature: "id:yellow",
+        },
+      ],
+      coords: { lat: 30.67, lon: 104.06 },
+      error: null,
+      fetchedAt: current.getTime(),
+      metadata: null,
+      revision: 1,
+      status: "ready",
+    };
+    writeInfoCarousel(
+      [
+        {
+          id: "progress-day",
+          source: "progress",
+          progressKind: "day",
+          enabled: true,
+          order: 0,
+        },
+        {
+          id: "weather-alert",
+          source: "weatherAlert",
+          backgroundProgressKind: "day",
+          enabled: true,
+          order: 1,
+        },
+      ],
+      3
+    );
+
+    render(<StudyStatus />);
+    expect(mocks.useWeatherAlertSnapshot).toHaveBeenCalledWith(true);
+    expect(screen.getByText("夜深啦 (。-ω-)zzz")).toBeInTheDocument();
+
+    act(() => vi.advanceTimersByTime(3000));
+    expect(screen.getByText("青羊区暴雨橙色预警")).toBeInTheDocument();
+    expect(screen.getByText("至7月14日00:55降雨≥50毫米")).toBeInTheDocument();
+
+    act(() => vi.advanceTimersByTime(3000));
+    expect(screen.getByText("青羊区雷电黄色预警")).toBeInTheDocument();
+    expect(screen.getByText("雷电活动，注意防范")).toBeInTheDocument();
     expect(screen.queryByLabelText("天气")).not.toBeInTheDocument();
   });
 

@@ -2,82 +2,37 @@ import React, { useState, useEffect, useCallback, useRef } from "react";
 
 import { useAppState } from "../../contexts/AppContext";
 import { useComponentAppearance } from "../../contexts/AppearanceContext";
-import { useMinutelyWeatherSnapshot } from "../../hooks/useMinutelyWeatherSnapshot";
-import { buildLocationFlow } from "../../services/locationService";
-import {
-  getMinutelyWeatherSnapshot,
-  refreshMinutelyWeather,
-} from "../../services/minutelyWeatherRuntime";
-import { buildWeatherFlow, fetchWeatherAlertsByCoords } from "../../services/weatherService";
-import type { WeatherFlowOptions } from "../../services/weatherService";
-import { getAppSettings } from "../../utils/appSettings";
+import { useWeatherAlertSnapshot } from "../../hooks/useWeatherAlertSnapshot";
+import { useWeatherCoordinatorSnapshot } from "../../hooks/useWeatherCoordinatorSnapshot";
+import type { WeatherAlertResponse } from "../../types/weather";
 import { logger } from "../../utils/logger";
+import { getAdjustedDate } from "../../utils/timeSync";
 import {
-  computeMinutelyRainStats,
-  resolveMinutelyRainPhase,
-  shouldTriggerCriticalRefresh,
-} from "../../utils/minutelyPrecipLogic";
-import type {
-  MinutelyPrecipCacheLike,
-  MinutelyRainPhase,
-  MinutelyRainStats,
-} from "../../utils/minutelyPrecipLogic";
-import { SETTINGS_EVENTS, subscribeSettingsEvent } from "../../utils/settingsEvents";
-import { getAdjustedDate, getAdjustedNowMs } from "../../utils/timeSync";
+  buildAlertSignature,
+  normalizeStationKey,
+  readStationRecord,
+  selectLatestAlertsPerStation,
+  writeStationRecord,
+} from "../../utils/weatherAlert";
 import {
+  createWeatherLocationKey,
   getWeatherCache,
-  updateWeatherNowSnapshot,
-  getValidMinutely,
-  getValidCoords,
   updateAlertTag,
-  updateDaily3dCache,
-  updateAirQualityCache,
-  updateAstronomySunCache,
 } from "../../utils/weatherStorage";
 
 import styles from "./Weather.module.css";
 import { resolveWeatherIconCode } from "./weatherDisplay";
 import { WeatherPresentation } from "./WeatherPresentation";
 
-const MINUTELY_PRECIP_POPUP_ID = "weather:minutelyPrecip";
-const MINUTELY_PRECIP_POPUP_SHOWN_KEY = "weather.minutely.popupShown";
-const MINUTELY_PRECIP_POPUP_OPEN_KEY = "weather.minutely.popupOpen";
-const MINUTELY_PRECIP_POPUP_DISMISSED_KEY = "weather.minutely.popupDismissed";
-const MINUTELY_PRECIP_PRE_NOTIFIED_START_KEY = "weather.minutely.preNotifiedStartAt";
-const MINUTELY_PRECIP_RAIN_NOTIFIED_START_KEY = "weather.minutely.rainNotifiedStartAt";
 const AIR_QUALITY_REMINDER_KEY_PREFIX = "weather.airQuality.reminded.";
 const SUNRISE_REMINDER_KEY_PREFIX = "weather.sunrise.reminded.";
 const SUNSET_REMINDER_KEY_PREFIX = "weather.sunset.reminded.";
-
-const MINUTELY_PRECIP_MANUAL_REFRESH_EVENT = "weatherMinutelyPrecipRefresh";
-const MINUTELY_PRECIP_DIFF_THRESHOLD_PROB = 10;
-const WEATHER_LOCATION_REFRESH_EVENT = "weatherLocationRefresh";
-const WEATHER_LOCATION_REFRESH_DONE_EVENT = "weatherLocationRefreshDone";
-
-function clampInt(value: number, min: number, max: number): number {
-  if (!Number.isFinite(value)) return min;
-  return Math.min(max, Math.max(min, Math.round(value)));
-}
 
 function formatDateYYYYMMDD(d: Date): string {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, "0");
   const day = String(d.getDate()).padStart(2, "0");
   return `${y}${m}${day}`;
-}
-
-function pad2(n: number): string {
-  return String(n).padStart(2, "0");
-}
-
-/**
- * 格式化时间戳为 HH:mm
- */
-function formatTimestampHm(ms: number): string {
-  const d = new Date(ms);
-  const hh = pad2(d.getHours());
-  const mm = pad2(d.getMinutes());
-  return `${hh}:${mm}`;
 }
 
 function mapWeatherAlertColorToThemeColor(code?: string | null): string | undefined {
@@ -138,39 +93,6 @@ function safeWriteSessionFlag(key: string, value: boolean): void {
   }
 }
 
-/**
- * 安全读取 SessionStorage 文本值
- */
-function safeReadSessionValue(key: string): string | null {
-  try {
-    return sessionStorage.getItem(key);
-  } catch {
-    return null;
-  }
-}
-
-/**
- * 安全写入 SessionStorage 文本值
- */
-function safeWriteSessionValue(key: string, value: string): void {
-  try {
-    sessionStorage.setItem(key, value);
-  } catch {
-    /* 忽略错误 */
-  }
-}
-
-/**
- * 安全删除 SessionStorage 文本值
- */
-function safeRemoveSessionValue(key: string): void {
-  try {
-    sessionStorage.removeItem(key);
-  } catch {
-    /* 忽略错误 */
-  }
-}
-
 // 天气数据接口
 export interface WeatherData {
   temperature: string;
@@ -189,329 +111,11 @@ const Weather: React.FC = () => {
   const iconAppearance = useComponentAppearance("studyWeather", "icon");
   const [weatherData, setWeatherData] = useState<WeatherData | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
   const { study } = useAppState();
-  // 与自习中央信息区共享同一份分钟降水快照；Weather 隐藏时由订阅者继续驱动 runtime。
-  const sharedMinutelySnapshot = useMinutelyWeatherSnapshot(true);
-  const showErrorPopupRef = useRef<boolean>(false);
-  const lastErrorPopupAtRef = useRef<number>(0);
-  const lastErrorPopupSignatureRef = useRef<string>("");
-  const minutelyPopupHasRainRef = useRef<boolean | null>(null);
-  const minutelyPhaseRef = useRef<MinutelyRainPhase | null>(null);
-  const [autoRefreshIntervalMin, setAutoRefreshIntervalMin] = useState<number>(() => {
-    return clampInt(getAppSettings().general.weather.autoRefreshIntervalMin, 15, 180);
-  });
-
-  const maybeOpenErrorPopup = useCallback(
-    (title: string, message: string) => {
-      if (!study.errorPopupEnabled) return;
-      if (!showErrorPopupRef.current) return;
-
-      showErrorPopupRef.current = false;
-
-      const now = Date.now();
-      const signature = `${title}::${message}`;
-      if (
-        signature === lastErrorPopupSignatureRef.current &&
-        now - lastErrorPopupAtRef.current < 5000
-      ) {
-        return;
-      }
-      lastErrorPopupAtRef.current = now;
-      lastErrorPopupSignatureRef.current = signature;
-
-      window.dispatchEvent(
-        new CustomEvent("messagePopup:open", {
-          detail: {
-            type: "error",
-            title,
-            message,
-          },
-        })
-      );
-    },
-    [study.errorPopupEnabled]
-  );
-
-  useEffect(() => {
-    const updateInterval = () => {
-      setAutoRefreshIntervalMin(
-        clampInt(getAppSettings().general.weather.autoRefreshIntervalMin, 15, 180)
-      );
-    };
-    const offSaved = subscribeSettingsEvent(SETTINGS_EVENTS.SettingsSaved, updateInterval);
-    const offWeather = subscribeSettingsEvent(
-      SETTINGS_EVENTS.WeatherSettingsUpdated,
-      updateInterval
-    );
-    return () => {
-      offSaved();
-      offWeather();
-    };
-  }, []);
-
-  const readMinutelyCache = useCallback((): MinutelyPrecipCacheLike | null => {
-    const sharedCache = getMinutelyWeatherSnapshot().cache;
-    if (sharedCache) return sharedCache;
-    const coords = getValidCoords();
-    if (coords) {
-      const location = `${coords.lon.toFixed(2)},${coords.lat.toFixed(2)}`;
-      const data = getValidMinutely(location);
-      if (data) {
-        const cache = getWeatherCache();
-        const meta = cache.minutely?.location === location ? cache.minutely : undefined;
-        return {
-          updateTime: data.updateTime,
-          summary: data.summary,
-          minutely: data.minutely,
-          fetchedAt: meta?.lastApiFetchAt ?? meta?.updatedAt ?? Date.now(),
-        };
-      }
-    }
-    return null;
-  }, []);
-
-  /**
-   * 构建分钟级降水弹窗内容（函数级中文注释：区分“将要下雨”与“正在下雨”，并展示开始/结束时间）
-   */
-  const buildMinutelyPrecipPopupMessage = useCallback(
-    (
-      cache: MinutelyPrecipCacheLike,
-      stats: MinutelyRainStats,
-      opts?: { showUpdatedHint?: boolean }
-    ): React.ReactNode => {
-      const nowMs = getAdjustedNowMs();
-      const pulledAtMs = cache.fetchedAt ?? nowMs;
-      const pulledAtText = formatTimestampHm(pulledAtMs);
-      const rainEndText = stats.rainEndAt ? formatTimestampHm(stats.rainEndAt) : "--:--";
-      const rainStartText = stats.nextRainStartAt
-        ? formatTimestampHm(stats.nextRainStartAt)
-        : "--:--";
-
-      if (stats.isRainingNow) {
-        const line1 = stats.rainEndAt
-          ? `正在${stats.intensityLabel}，预计${rainEndText}前后结束。`
-          : `正在${stats.intensityLabel}，未来两小时仍可能有雨。`;
-        return (
-          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-            <div>{line1}</div>
-            <div>
-              降水概率：{stats.probability}% 预计累计：{stats.expectedAmountMm.toFixed(1)}mm
-            </div>
-            {stats.remainingMinutes != null ? (
-              <div>剩余时长：约{stats.remainingMinutes}分钟</div>
-            ) : null}
-            <div style={{ opacity: 0.8, fontSize: "0.72rem" }}>数据拉取时间：{pulledAtText}</div>
-          </div>
-        );
-      }
-
-      const summary = stats.hasRain
-        ? stats.durationMinutes != null
-          ? `预计${rainStartText}开始${stats.intensityLabel}，持续约${stats.durationMinutes}分钟。`
-          : `预计${rainStartText}开始${stats.intensityLabel}，未来两小时仍可能有雨。`
-        : "未来两小时暂无降水。";
-      return (
-        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-          <div>{summary}</div>
-          <div>降水概率：{stats.probability}%</div>
-          {stats.hasRain ? <div>距离降雨：约{stats.leadMinutes ?? 0}分钟</div> : null}
-          <div style={{ opacity: 0.8, fontSize: "0.72rem" }}>数据拉取时间：{pulledAtText}</div>
-          {opts?.showUpdatedHint ? (
-            <div style={{ opacity: 0.8, fontSize: "0.72rem" }}>分钟级数据已更新</div>
-          ) : null}
-        </div>
-      );
-    },
-    []
-  );
-
-  /**
-   * 发送分钟级降水弹窗（函数级中文注释：统一处理打开与内容刷新）
-   */
-  const emitMinutelyPopup = useCallback(
-    (
-      cache: MinutelyPrecipCacheLike,
-      stats: MinutelyRainStats,
-      opts?: { showUpdatedHint?: boolean }
-    ) => {
-      const message = buildMinutelyPrecipPopupMessage(cache, stats, {
-        showUpdatedHint: opts?.showUpdatedHint,
-      });
-      window.dispatchEvent(
-        new CustomEvent("messagePopup:open", {
-          detail: {
-            id: MINUTELY_PRECIP_POPUP_ID,
-            type: "weatherForecast",
-            title: "分钟级降水提醒",
-            message,
-            themeColor: "#ffffff",
-          },
-        })
-      );
-    },
-    [buildMinutelyPrecipPopupMessage]
-  );
-
-  /**
-   * 评估并处理分钟级状态（函数级中文注释：负责状态机推进、弹窗触发、去重与自动关闭）
-   */
-  const evaluateMinutelyState = useCallback(
-    (
-      cache: MinutelyPrecipCacheLike,
-      opts?: {
-        allowOpen?: boolean;
-        showUpdatedHint?: boolean;
-        forceRainingPopup?: boolean;
-      }
-    ) => {
-      if (!study?.minutelyPrecipEnabled) return;
-      const nowMs = getAdjustedNowMs();
-      const stats = computeMinutelyRainStats(cache, nowMs);
-      if (stats.hasReliableTimestamps === false) return;
-      const phase = resolveMinutelyRainPhase(stats, minutelyPhaseRef.current);
-      minutelyPhaseRef.current = phase;
-
-      if (!stats.hasRain) {
-        const wasOpen = safeReadSessionFlag(MINUTELY_PRECIP_POPUP_OPEN_KEY);
-        minutelyPopupHasRainRef.current = false;
-        safeWriteSessionFlag(MINUTELY_PRECIP_POPUP_OPEN_KEY, false);
-        safeWriteSessionFlag(MINUTELY_PRECIP_POPUP_SHOWN_KEY, false);
-        safeRemoveSessionValue(MINUTELY_PRECIP_PRE_NOTIFIED_START_KEY);
-        safeRemoveSessionValue(MINUTELY_PRECIP_RAIN_NOTIFIED_START_KEY);
-        if (wasOpen) {
-          window.dispatchEvent(
-            new CustomEvent("messagePopup:close", {
-              detail: { id: MINUTELY_PRECIP_POPUP_ID, dismiss: false },
-            })
-          );
-        }
-        return;
-      }
-
-      const popupDismissed = safeReadSessionFlag(MINUTELY_PRECIP_POPUP_DISMISSED_KEY);
-      const popupOpen = safeReadSessionFlag(MINUTELY_PRECIP_POPUP_OPEN_KEY);
-      const rainStartAt = stats.rainStartAt ?? 0;
-      const preNotifiedStartAt = Number(
-        safeReadSessionValue(MINUTELY_PRECIP_PRE_NOTIFIED_START_KEY) || "0"
-      );
-      const rainNotifiedStartAt = Number(
-        safeReadSessionValue(MINUTELY_PRECIP_RAIN_NOTIFIED_START_KEY) || "0"
-      );
-
-      const shouldOpenPreRain =
-        !!opts?.allowOpen &&
-        !popupDismissed &&
-        phase === "PRE_RAIN" &&
-        rainStartAt > 0 &&
-        preNotifiedStartAt !== rainStartAt;
-      const shouldOpenRaining =
-        (!!opts?.allowOpen &&
-          !popupDismissed &&
-          phase === "RAINING" &&
-          rainStartAt > 0 &&
-          rainNotifiedStartAt !== rainStartAt) ||
-        (!!opts?.forceRainingPopup && phase === "RAINING");
-
-      if (shouldOpenPreRain || shouldOpenRaining) {
-        emitMinutelyPopup(cache, stats, { showUpdatedHint: opts?.showUpdatedHint });
-        safeWriteSessionFlag(MINUTELY_PRECIP_POPUP_OPEN_KEY, true);
-        safeWriteSessionFlag(MINUTELY_PRECIP_POPUP_SHOWN_KEY, true);
-        minutelyPopupHasRainRef.current = true;
-        if (shouldOpenPreRain) {
-          safeWriteSessionValue(MINUTELY_PRECIP_PRE_NOTIFIED_START_KEY, String(rainStartAt));
-        }
-        if (phase === "RAINING" && rainStartAt > 0) {
-          safeWriteSessionValue(MINUTELY_PRECIP_RAIN_NOTIFIED_START_KEY, String(rainStartAt));
-        }
-        return;
-      }
-
-      if (popupOpen && !popupDismissed) {
-        emitMinutelyPopup(cache, stats, { showUpdatedHint: opts?.showUpdatedHint });
-        minutelyPopupHasRainRef.current = true;
-      }
-    },
-    [emitMinutelyPopup, study?.minutelyPrecipEnabled]
-  );
-
-  /**
-   * 刷新分钟级降水数据（函数级中文注释：采用“缓存优先 + 关键时刻加密请求”的策略）
-   */
-  const refreshMinutelyPrecip = useCallback(
-    async (
-      locationParam: string,
-      opts?: {
-        forceApi?: boolean;
-        allowOpen?: boolean;
-        showUpdatedHint?: boolean;
-      }
-    ) => {
-      if (!study?.minutelyPrecipEnabled) return;
-      void locationParam;
-
-      const nowWallMs = Date.now();
-      const nowMs = getAdjustedNowMs();
-      const minutelyApiIntervalMs = clampInt(autoRefreshIntervalMin, 15, 180) * 60 * 1000;
-
-      const existing = readMinutelyCache();
-      if (existing) {
-        evaluateMinutelyState(existing, { allowOpen: opts?.allowOpen, showUpdatedHint: false });
-      }
-
-      const weatherCache = getWeatherCache();
-      const lastFetchAt = weatherCache.minutely?.lastApiFetchAt || 0;
-      const lastCriticalFetchAt = weatherCache.minutely?.lastCriticalFetchAt || 0;
-      let forceApi = !!opts?.forceApi;
-      let triggeredByCriticalWindow = false;
-      if (!forceApi && existing && lastFetchAt > 0) {
-        const existingStats = computeMinutelyRainStats(existing, nowMs);
-        if (existingStats.hasReliableTimestamps !== false) {
-          const phase = resolveMinutelyRainPhase(existingStats, minutelyPhaseRef.current);
-          triggeredByCriticalWindow = shouldTriggerCriticalRefresh({
-            phase,
-            leadMinutes: existingStats.leadMinutes,
-            remainingMinutes: existingStats.remainingMinutes,
-            nowMs: nowWallMs,
-            lastApiFetchAt: lastFetchAt,
-            lastCriticalFetchAt,
-            baseIntervalMs: minutelyApiIntervalMs,
-          });
-          forceApi = triggeredByCriticalWindow;
-        }
-      }
-
-      await refreshMinutelyWeather({
-        force: forceApi,
-        markCritical: triggeredByCriticalWindow,
-      });
-      const sharedSnapshot = getMinutelyWeatherSnapshot();
-      const incomingCache = sharedSnapshot.cache;
-      if (!incomingCache || sharedSnapshot.freshness !== "fresh") return;
-
-      const incomingStats = computeMinutelyRainStats(incomingCache, nowMs);
-      const changedMeaningfully =
-        !!existing &&
-        Math.abs(
-          computeMinutelyRainStats(existing, nowMs).probability - incomingStats.probability
-        ) >= MINUTELY_PRECIP_DIFF_THRESHOLD_PROB;
-      if (existing) {
-        const existingStats = computeMinutelyRainStats(existing, nowMs);
-        const becameRaining = !existingStats.isRainingNow && incomingStats.isRainingNow;
-        evaluateMinutelyState(incomingCache, {
-          allowOpen: opts?.allowOpen,
-          showUpdatedHint: !!opts?.showUpdatedHint || changedMeaningfully,
-          forceRainingPopup: becameRaining,
-        });
-      } else {
-        evaluateMinutelyState(incomingCache, {
-          allowOpen: opts?.allowOpen,
-          showUpdatedHint: opts?.showUpdatedHint,
-        });
-      }
-    },
-    [autoRefreshIntervalMin, evaluateMinutelyState, readMinutelyCache, study?.minutelyPrecipEnabled]
-  );
+  const coordinator = useWeatherCoordinatorSnapshot();
+  const weatherAlerts = useWeatherAlertSnapshot(Boolean(study.weatherAlertEnabled));
+  const lastHandledAlertRevisionRef = useRef(weatherAlerts.revision);
+  const weatherAlertEnabledRef = useRef(Boolean(study.weatherAlertEnabled));
 
   const tickWeatherReminders = useCallback(() => {
     const now = getAdjustedDate();
@@ -624,373 +228,126 @@ const Weather: React.FC = () => {
     }
   }, [study.airQualityAlertEnabled, study.sunriseSunsetAlertEnabled]);
 
-  // runtime 负责统一的 30 秒本地重算；Weather 只消费快照并推进弹窗状态机。
-  useEffect(() => {
-    if (
-      study.minutelyPrecipEnabled &&
-      sharedMinutelySnapshot.freshness === "fresh" &&
-      sharedMinutelySnapshot.cache
-    ) {
-      evaluateMinutelyState(sharedMinutelySnapshot.cache, { allowOpen: true });
-    } else if (study.minutelyPrecipEnabled && safeReadSessionFlag(MINUTELY_PRECIP_POPUP_OPEN_KEY)) {
-      safeWriteSessionFlag(MINUTELY_PRECIP_POPUP_OPEN_KEY, false);
-      window.dispatchEvent(
-        new CustomEvent("messagePopup:close", {
-          detail: { id: MINUTELY_PRECIP_POPUP_ID, dismiss: false },
-        })
-      );
-    }
-    tickWeatherReminders();
-  }, [
-    evaluateMinutelyState,
-    sharedMinutelySnapshot.cache,
-    sharedMinutelySnapshot.freshness,
-    sharedMinutelySnapshot.updatedAt,
-    study.minutelyPrecipEnabled,
-    tickWeatherReminders,
-  ]);
-
-  /**
-   * 初始化天气数据（通过小米天气 + 高德反编码）
-   */
-  const initializeWeather = useCallback(
-    async (options?: WeatherFlowOptions) => {
+  /** 使用共享快照处理天气预警弹窗。 */
+  const handleWeatherAlerts = useCallback(
+    (alertResp: WeatherAlertResponse, coords?: { lat: number; lon: number } | null) => {
       try {
-        setLoading(true);
-        setError(null);
-
-        // 尝试回显缓存
-        const cache = getWeatherCache();
-        if (cache.now?.data) {
-          const now = cache.now.data.now;
-          const locationName = cache.location?.city || "未知";
-          if (now) {
-            setWeatherData({
-              temperature: now.temp ?? "",
-              text: now.text ?? "",
-              location: locationName,
-              icon: resolveWeatherIconCode(now.text ?? ""),
+        if (
+          study.weatherAlertEnabled &&
+          !alertResp.error &&
+          alertResp.alerts &&
+          alertResp.alerts.length > 0 &&
+          !alertResp.metadata?.zeroResult
+        ) {
+          const latestByStation = selectLatestAlertsPerStation(alertResp.alerts);
+          for (const item of latestByStation) {
+            const stationKey = normalizeStationKey(item.alert.senderName, coords);
+            const signature = buildAlertSignature(item.alert);
+            const record = readStationRecord(stationKey);
+            if (record && record.sig === signature) {
+              continue;
+            }
+            writeStationRecord(stationKey, signature);
+            const themeColor = mapWeatherAlertColorToThemeColor(item.alert.color?.code);
+            const ev = new CustomEvent("messagePopup:open", {
+              detail: {
+                type: "weatherAlert",
+                title:
+                  item.alert.headline ||
+                  (item.alert.eventType?.name ? `${item.alert.eventType.name}预警` : "天气预警"),
+                message: item.alert.description || "请注意当前天气预警信息。",
+                themeColor,
+              },
             });
-            setLoading(false); // 如果有缓存先显示，后面继续请求更新
+            window.dispatchEvent(ev);
           }
-        }
+          if (latestByStation.length === 0 && alertResp.metadata?.tag) {
+            const cache = getWeatherCache();
+            const lastTag = cache.alertMetadata?.lastTag;
 
-        // 根据用户设置决定是否请求对应API
-        const weatherOptions: WeatherFlowOptions = {
-          ...options,
-          fetchDaily3d: true, // 三日预报始终请求（用于UI展示）
-          fetchAstronomySun: study.sunriseSunsetAlertEnabled, // 仅在开启日出日落提醒时请求
-          fetchAirQuality: study.airQualityAlertEnabled, // 仅在开启空气质量提醒时请求
-        };
-
-        const result = await buildWeatherFlow(weatherOptions);
-
-        if (!result.coords) {
-          throw new Error("定位失败，无法获取天气");
-        }
-        if (!result.weather) {
-          throw new Error("天气获取失败: 无天气响应");
-        }
-        if (result.weather.error) {
-          throw new Error(`天气获取失败: ${result.weather.error}`);
-        }
-        if (result.weather.code !== "200") {
-          throw new Error(`天气获取失败: ${result.weather.code || "无状态码"}`);
-        }
-        if (!result.weather.now) {
-          throw new Error("天气获取失败: 天气响应缺少实时数据");
-        }
-
-        const now = result.weather.now;
-        const temperature = now?.temp ?? "";
-        const text = now?.text ?? "";
-        const locationName = result.city || "未知";
-        const icon = resolveWeatherIconCode(text);
-
-        const address = result.addressInfo?.address || "";
-        const ts = Date.now();
-
-        setWeatherData({ temperature, text, location: locationName, icon });
-
-        // 持久化实时天气快照
-        updateWeatherNowSnapshot(result.weather);
-        const locationParam = `${result.coords.lon},${result.coords.lat}`;
-        if (result.daily3d && !result.daily3d.error) {
-          updateDaily3dCache(locationParam, result.daily3d);
-        }
-        // 仅在请求了日出日落数据时才缓存（根据功能开关）
-        if (result.astronomySun && !result.astronomySun.error) {
-          updateAstronomySunCache(
-            locationParam,
-            formatDateYYYYMMDD(getAdjustedDate()),
-            result.astronomySun
-          );
-        }
-        // 仅在请求了空气质量数据时才缓存（根据功能开关）
-        if (result.airQuality && !result.airQuality.error) {
-          updateAirQualityCache(result.coords.lat, result.coords.lon, result.airQuality);
-        }
-
-        // 广播刷新完成事件
-        const geoDiag = getWeatherCache().geolocation?.diagnostics || null;
-        const event = new CustomEvent("weatherRefreshDone", {
-          detail: {
-            status: "成功",
-            address,
-            ts,
-            coords: result.coords || null,
-            coordsSource: result.coordsSource || null,
-            geolocationDiagnostics: geoDiag,
-            now,
-            refer: result.weather?.refer || null,
-            daily3d: result.daily3d || null,
-            astronomySun: result.astronomySun || null,
-            airQuality: result.airQuality || null,
-          },
-        });
-        window.dispatchEvent(event);
-        showErrorPopupRef.current = false;
-      } catch (error) {
-        logger.error("天气初始化失败:", error);
-        const errorMessage = error instanceof Error ? error.message : "未知错误";
-        setError(errorMessage);
-        maybeOpenErrorPopup("天气获取失败", errorMessage);
-
-        const cache = getWeatherCache();
-        const event = new CustomEvent("weatherRefreshDone", {
-          detail: {
-            status: "失败",
-            errorMessage,
-            address: cache.location?.address || "",
-            ts: Date.now(),
-            coords: cache.coords ? { lat: cache.coords.lat, lon: cache.coords.lon } : null,
-            coordsSource: cache.coords?.source || null,
-            geolocationDiagnostics: cache.geolocation?.diagnostics || null,
-          },
-        });
-        window.dispatchEvent(event);
-      } finally {
-        setLoading(false);
-      }
-    },
-    [maybeOpenErrorPopup, study.airQualityAlertEnabled, study.sunriseSunsetAlertEnabled]
-  );
-
-  /**
-   * 仅刷新定位信息（函数级中文注释）：
-   * - 只更新坐标与地址缓存，不触发天气接口请求；
-   * - 用于设置页“自动模式-刷新定位”按钮。
-   */
-  const refreshLocationOnly = useCallback(
-    async (options?: WeatherFlowOptions) => {
-      try {
-        const result = await buildLocationFlow(options);
-        const cache = getWeatherCache();
-        const geoDiag = cache.geolocation?.diagnostics || null;
-        const event = new CustomEvent(WEATHER_LOCATION_REFRESH_DONE_EVENT, {
-          detail: {
-            status: result.coords ? "成功" : "失败",
-            errorMessage: result.coords ? "" : "定位失败",
-            address: cache.location?.address || "",
-            ts: Date.now(),
-            coords: result.coords || null,
-            coordsSource: result.coordsSource || null,
-            geolocationDiagnostics: geoDiag,
-          },
-        });
-        window.dispatchEvent(event);
-        showErrorPopupRef.current = false;
-      } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "未知错误";
-        maybeOpenErrorPopup("定位失败", errorMessage);
-        const cache = getWeatherCache();
-        const event = new CustomEvent(WEATHER_LOCATION_REFRESH_DONE_EVENT, {
-          detail: {
-            status: "失败",
-            errorMessage,
-            address: cache.location?.address || "",
-            ts: Date.now(),
-            coords: cache.coords ? { lat: cache.coords.lat, lon: cache.coords.lon } : null,
-            coordsSource: cache.coords?.source || null,
-            geolocationDiagnostics: cache.geolocation?.diagnostics || null,
-          },
-        });
-        window.dispatchEvent(event);
-      }
-    },
-    [maybeOpenErrorPopup]
-  );
-
-  /**
-   * 处理天气预警与降雨提醒
-   */
-  const handleAlertsAndPrecip = useCallback(
-    async (coords?: { lat: number; lon: number } | null) => {
-      if (!coords) return;
-      const locationParam = `${coords.lon},${coords.lat}`;
-      try {
-        if (study.weatherAlertEnabled) {
-          const alertResp = await fetchWeatherAlertsByCoords(coords.lat, coords.lon);
-          if (
-            !alertResp.error &&
-            alertResp.alerts &&
-            alertResp.alerts.length > 0 &&
-            !alertResp.metadata?.zeroResult
-          ) {
-            const {
-              selectLatestAlertsPerStation,
-              buildAlertSignature,
-              normalizeStationKey,
-              readStationRecord,
-              writeStationRecord,
-            } = await import("../../utils/weatherAlert");
-            const latestByStation = selectLatestAlertsPerStation(alertResp.alerts);
-            for (const item of latestByStation) {
-              const stationKey = normalizeStationKey(item.alert.senderName, coords);
-              const signature = buildAlertSignature(item.alert);
-              const record = readStationRecord(stationKey);
-              if (record && record.sig === signature) {
-                continue;
-              }
-              writeStationRecord(stationKey, signature);
-              const themeColor = mapWeatherAlertColorToThemeColor(item.alert.color?.code);
+            if (alertResp.metadata.tag !== lastTag) {
+              updateAlertTag(alertResp.metadata.tag);
+              const first = alertResp.alerts[0];
+              const themeColor = mapWeatherAlertColorToThemeColor(first.color?.code);
               const ev = new CustomEvent("messagePopup:open", {
                 detail: {
                   type: "weatherAlert",
                   title:
-                    item.alert.headline ||
-                    (item.alert.eventType?.name ? `${item.alert.eventType.name}预警` : "天气预警"),
-                  message: item.alert.description || "请注意当前天气预警信息。",
+                    first.headline ||
+                    (first.eventType?.name ? `${first.eventType.name}预警` : "天气预警"),
+                  message: first.description || "请注意当前天气预警信息。",
                   themeColor,
                 },
               });
               window.dispatchEvent(ev);
-            }
-            if (latestByStation.length === 0 && alertResp.metadata?.tag) {
-              const cache = getWeatherCache();
-              const lastTag = cache.alertMetadata?.lastTag;
-
-              if (alertResp.metadata.tag !== lastTag) {
-                updateAlertTag(alertResp.metadata.tag);
-                const first = alertResp.alerts[0];
-                const themeColor = mapWeatherAlertColorToThemeColor(first.color?.code);
-                const ev = new CustomEvent("messagePopup:open", {
-                  detail: {
-                    type: "weatherAlert",
-                    title:
-                      first.headline ||
-                      (first.eventType?.name ? `${first.eventType.name}预警` : "天气预警"),
-                    message: first.description || "请注意当前天气预警信息。",
-                    themeColor,
-                  },
-                });
-                window.dispatchEvent(ev);
-              }
             }
           }
         }
       } catch (e) {
         logger.warn("天气预警处理失败:", e);
       }
-
-      try {
-        if (study.minutelyPrecipEnabled) {
-          const dismissed = safeReadSessionFlag(MINUTELY_PRECIP_POPUP_DISMISSED_KEY);
-          await refreshMinutelyPrecip(locationParam, {
-            forceApi: false,
-            allowOpen: !dismissed,
-          });
-        }
-      } catch (e) {
-        logger.warn("分钟级降水处理失败:", e);
-      }
-
-      tickWeatherReminders();
     },
-    [
-      refreshMinutelyPrecip,
-      study.minutelyPrecipEnabled,
-      study.weatherAlertEnabled,
-      tickWeatherReminders,
-    ]
+    [study.weatherAlertEnabled]
   );
 
-  /**
-   * 组件挂载时初始化天气数据
-   */
   useEffect(() => {
-    void initializeWeather();
-    tickWeatherReminders();
-
-    const intervalMs = clampInt(autoRefreshIntervalMin, 15, 180) * 60 * 1000;
-    const interval = setInterval(() => void initializeWeather(), intervalMs);
-
-    // 监听天气刷新事件
-    const handleWeatherRefresh = (e: Event) => {
-      const detail = (e as CustomEvent).detail || {};
-      showErrorPopupRef.current = detail.showErrorPopup === true;
-      const preferredLocationMode =
-        detail.preferredLocationMode === "auto" || detail.preferredLocationMode === "manual"
-          ? (detail.preferredLocationMode as "auto" | "manual")
-          : undefined;
-      void initializeWeather({ preferredLocationMode });
-    };
-
-    window.addEventListener("weatherRefresh", handleWeatherRefresh);
-    const handleLocationRefresh = (e: Event) => {
-      const detail = (e as CustomEvent).detail || {};
-      showErrorPopupRef.current = detail.showErrorPopup === true;
-      const preferredLocationMode =
-        detail.preferredLocationMode === "auto" || detail.preferredLocationMode === "manual"
-          ? (detail.preferredLocationMode as "auto" | "manual")
-          : undefined;
-      void refreshLocationOnly({ preferredLocationMode, forceGeolocation: true });
-    };
-    window.addEventListener(WEATHER_LOCATION_REFRESH_EVENT, handleLocationRefresh);
-    const handleMinutelyManualRefresh = (e: Event) => {
-      const detail = (e as CustomEvent).detail || {};
-      const forceApi = detail.forceApi === true;
-      const allowOpen = detail.openIfRain === true || detail.allowOpen === true;
-      const showUpdatedHint = detail.showUpdatedHint === true;
-
-      const coords = getValidCoords();
-      if (!coords) return;
-
-      const locationParam = `${coords.lon},${coords.lat}`;
-      refreshMinutelyPrecip(locationParam, {
-        forceApi,
-        allowOpen,
-        showUpdatedHint,
-      });
-    };
-    window.addEventListener(
-      MINUTELY_PRECIP_MANUAL_REFRESH_EVENT,
-      handleMinutelyManualRefresh as EventListener
+    const enabled = Boolean(study.weatherAlertEnabled);
+    const wasEnabled = weatherAlertEnabledRef.current;
+    weatherAlertEnabledRef.current = enabled;
+    if (!enabled || !wasEnabled) {
+      lastHandledAlertRevisionRef.current = weatherAlerts.revision;
+      return;
+    }
+    if (
+      weatherAlerts.status !== "ready" ||
+      weatherAlerts.revision <= lastHandledAlertRevisionRef.current
+    ) {
+      return;
+    }
+    lastHandledAlertRevisionRef.current = weatherAlerts.revision;
+    handleWeatherAlerts(
+      {
+        alerts: weatherAlerts.alerts.map((item) => item.alert),
+        metadata: weatherAlerts.metadata ?? undefined,
+      },
+      weatherAlerts.coords
     );
-    const onDone = (e: Event) => {
-      const detail = (e as CustomEvent).detail || {};
-      handleAlertsAndPrecip(detail.coords || null);
-    };
-    window.addEventListener("weatherRefreshDone", onDone as EventListener);
-
-    return () => {
-      clearInterval(interval);
-      window.removeEventListener("weatherRefresh", handleWeatherRefresh);
-      window.removeEventListener(WEATHER_LOCATION_REFRESH_EVENT, handleLocationRefresh);
-      window.removeEventListener(
-        MINUTELY_PRECIP_MANUAL_REFRESH_EVENT,
-        handleMinutelyManualRefresh as EventListener
-      );
-      window.removeEventListener("weatherRefreshDone", onDone as EventListener);
-    };
   }, [
-    autoRefreshIntervalMin,
-    initializeWeather,
-    refreshLocationOnly,
-    handleAlertsAndPrecip,
-    refreshMinutelyPrecip,
-    tickWeatherReminders,
+    handleWeatherAlerts,
+    study.weatherAlertEnabled,
+    weatherAlerts.alerts,
+    weatherAlerts.coords,
+    weatherAlerts.metadata,
+    weatherAlerts.revision,
+    weatherAlerts.status,
   ]);
+
+  useEffect(() => {
+    const cache = getWeatherCache();
+    const currentLocation = cache.coords
+      ? createWeatherLocationKey(cache.coords.lat, cache.coords.lon)
+      : null;
+    const now =
+      currentLocation && cache.details?.location === currentLocation ? cache.now?.data.now : null;
+    if (now) {
+      const text = now.text ?? "";
+      setWeatherData({
+        temperature: now.temp ?? "",
+        text,
+        location: cache.location?.city || "未知",
+        icon: resolveWeatherIconCode(text),
+      });
+    } else {
+      setWeatherData(null);
+    }
+    setLoading(false);
+    tickWeatherReminders();
+  }, [coordinator.updatedAt, tickWeatherReminders]);
+
+  useEffect(() => {
+    const timer = setInterval(tickWeatherReminders, 60 * 1000);
+    return () => clearInterval(timer);
+  }, [tickWeatherReminders]);
 
   // 加载状态
   if (loading) {
@@ -1003,11 +360,10 @@ const Weather: React.FC = () => {
     );
   }
 
-  const displayTempText = !error && weatherData?.temperature ? `${weatherData.temperature}°` : "--";
-  const displayTextRaw = !error && weatherData?.text ? weatherData.text : "--";
-  const displayIconCode = !error && weatherData?.icon ? weatherData.icon : null;
-  const titleText =
-    !error && weatherData ? `${weatherData.text} ${weatherData.temperature}°C` : "--";
+  const displayTempText = weatherData?.temperature ? `${weatherData.temperature}°` : "--";
+  const displayTextRaw = weatherData?.text || "--";
+  const displayIconCode = weatherData?.icon || null;
+  const titleText = weatherData ? `${weatherData.text} ${weatherData.temperature}°C` : "--";
 
   return (
     <WeatherPresentation

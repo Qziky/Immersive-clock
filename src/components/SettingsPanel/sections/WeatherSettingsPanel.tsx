@@ -1,6 +1,12 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 
 import { useAppDispatch, useAppState } from "../../../contexts/AppContext";
+import { useMinutelyWeatherSnapshot } from "../../../hooks/useMinutelyWeatherSnapshot";
+import { useWeatherCoordinatorSnapshot } from "../../../hooks/useWeatherCoordinatorSnapshot";
+import {
+  requestWeatherRefresh,
+  type WeatherCoordinatorStatus,
+} from "../../../services/weatherCoordinator";
 import {
   Button as FormButton,
   FormSection,
@@ -16,7 +22,19 @@ import {
 } from "../../../ui";
 import { getAppSettings, updateGeneralSettings } from "../../../utils/appSettings";
 import { broadcastSettingsEvent, SETTINGS_EVENTS } from "../../../utils/settingsEvents";
-import { getWeatherCache } from "../../../utils/weatherStorage";
+import {
+  createDefaultWeatherScheduleSettings,
+  normalizeWeatherScheduleSettings,
+  resolveEffectiveWeatherSchedule,
+  WEATHER_SCHEDULE_LIMITS,
+  type WeatherSafetySettings,
+  type WeatherScheduleIntervals,
+  type WeatherScheduleProfile,
+} from "../../../utils/weatherSchedule";
+import { createWeatherLocationKey, getWeatherCache } from "../../../utils/weatherStorage";
+
+import { WeatherLivePanel } from "./WeatherLivePanel";
+import styles from "./WeatherSettingsPanel.module.css";
 
 export interface WeatherSettingsPanelProps {
   onRegisterSave?: (fn: () => void) => void;
@@ -25,25 +43,29 @@ export interface WeatherSettingsPanelProps {
 
 export type WeatherSettingsSection = "alerts" | "location" | "live";
 
-function formatDateHM(iso?: string): string {
-  if (!iso) return "--";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  const hh = String(d.getHours()).padStart(2, "0");
-  const mm = String(d.getMinutes()).padStart(2, "0");
-  return `${y}-${m}-${dd} ${hh}:${mm}`;
+function formatTime(value: number | null): string {
+  if (value == null || !Number.isFinite(value)) return "暂无";
+  return new Date(value).toLocaleString("zh-CN", {
+    hour: "2-digit",
+    minute: "2-digit",
+    month: "2-digit",
+    day: "2-digit",
+  });
 }
 
-function formatSunHM(iso?: string): string {
-  if (!iso) return "--";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  const hh = String(d.getHours()).padStart(2, "0");
-  const mm = String(d.getMinutes()).padStart(2, "0");
-  return `${hh}:${mm}`;
+const COORDINATOR_STATUS_LABELS: Record<WeatherCoordinatorStatus, string> = {
+  cooldown: "冷却中",
+  error: "失败",
+  "error-with-cache": "失败，使用缓存",
+  idle: "等待调度",
+  offline: "离线",
+  "rate-limited": "等待请求保护",
+  ready: "成功",
+  refreshing: "刷新中",
+};
+
+function getCoordinatorStatusLabel(status: WeatherCoordinatorStatus): string {
+  return COORDINATOR_STATUS_LABELS[status];
 }
 
 /**
@@ -54,14 +76,14 @@ function formatSunHM(iso?: string): string {
 const WeatherSettingsPanel: React.FC<WeatherSettingsPanelProps> = ({ onRegisterSave, section }) => {
   const { study } = useAppState();
   const dispatch = useAppDispatch();
+  const coordinator = useWeatherCoordinatorSnapshot();
+  const minutelyWeather = useMinutelyWeatherSnapshot(section == null || section === "live");
   const [cache, setCache] = useState(() => getWeatherCache());
-  const [_weatherRefreshStatus, setWeatherRefreshStatus] = useState<string>("");
-  const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
+  const [weatherRefreshStatus, setWeatherRefreshStatus] = useState<string>("");
+  const [advancedSafetyOpen, setAdvancedSafetyOpen] = useState(false);
+  const safetySettingsRef = useRef<HTMLDivElement>(null);
   const [weatherAlertEnabled, setWeatherAlertEnabled] = useState<boolean>(
     !!study.weatherAlertEnabled
-  );
-  const [minutelyPrecipEnabled, setMinutelyPrecipEnabled] = useState<boolean>(
-    !!study.minutelyPrecipEnabled
   );
   const [airQualityAlertEnabled, setAirQualityAlertEnabled] = useState<boolean>(
     !!study.airQualityAlertEnabled
@@ -71,9 +93,14 @@ const WeatherSettingsPanel: React.FC<WeatherSettingsPanelProps> = ({ onRegisterS
   );
 
   const initialWeatherSettings = getAppSettings().general.weather;
-  const [autoRefreshIntervalMin, setAutoRefreshIntervalMin] = useState<number>(() => {
-    const v = Number(initialWeatherSettings.autoRefreshIntervalMin);
-    return Number.isFinite(v) ? v : 30;
+  const [scheduleProfile, setScheduleProfile] = useState<WeatherScheduleProfile>(
+    initialWeatherSettings.schedule.profile
+  );
+  const [customSchedule, setCustomSchedule] = useState<WeatherScheduleIntervals>({
+    ...initialWeatherSettings.schedule.custom,
+  });
+  const [safetySettings, setSafetySettings] = useState<WeatherSafetySettings>({
+    ...initialWeatherSettings.schedule.safety,
   });
   const [locationMode, setLocationMode] = useState<"auto" | "manual">(
     initialWeatherSettings.locationMode === "manual" ? "manual" : "auto"
@@ -93,6 +120,11 @@ const WeatherSettingsPanel: React.FC<WeatherSettingsPanelProps> = ({ onRegisterS
     return typeof v === "number" && Number.isFinite(v) ? String(v) : "";
   });
 
+  useEffect(() => {
+    if (!advancedSafetyOpen) return;
+    safetySettingsRef.current?.scrollIntoView?.({ block: "nearest", inline: "nearest" });
+  }, [advancedSafetyOpen]);
+
   const refreshDisplayData = useCallback(() => {
     setCache(getWeatherCache());
   }, []);
@@ -101,13 +133,27 @@ const WeatherSettingsPanel: React.FC<WeatherSettingsPanelProps> = ({ onRegisterS
    * 刷新天气数据（不强制更新地理位置缓存）
    */
   const handleRefreshWeather = useCallback(() => {
-    const weatherRefreshEvent = new CustomEvent("weatherRefresh", {
-      detail: { showErrorPopup: true },
-    });
-    window.dispatchEvent(weatherRefreshEvent);
+    if (coordinator.status === "refreshing") return;
     setWeatherRefreshStatus("刷新中");
-    setIsRefreshing(true);
-  }, []);
+    void requestWeatherRefresh({ force: true, reason: "manual", target: "all" })
+      .then((next) => {
+        refreshDisplayData();
+        setWeatherRefreshStatus(getCoordinatorStatusLabel(next.status));
+      })
+      .catch((error: unknown) => {
+        const message = error instanceof Error ? error.message : String(error);
+        setWeatherRefreshStatus("失败");
+        window.dispatchEvent(
+          new CustomEvent("messagePopup:open", {
+            detail: {
+              message,
+              title: "天气获取失败",
+              type: "error",
+            },
+          })
+        );
+      });
+  }, [coordinator.status, refreshDisplayData]);
 
   const handleRefreshLocationAuto = useCallback(() => {
     const weatherRefreshEvent = new CustomEvent("weatherLocationRefresh", {
@@ -115,7 +161,6 @@ const WeatherSettingsPanel: React.FC<WeatherSettingsPanelProps> = ({ onRegisterS
     });
     window.dispatchEvent(weatherRefreshEvent);
     setWeatherRefreshStatus("刷新中");
-    setIsRefreshing(true);
   }, []);
 
   useEffect(() => {
@@ -123,7 +168,6 @@ const WeatherSettingsPanel: React.FC<WeatherSettingsPanelProps> = ({ onRegisterS
       const detail = (e as CustomEvent).detail || {};
       const status = detail.status || "";
       setWeatherRefreshStatus(status);
-      setIsRefreshing(false);
       refreshDisplayData();
     };
     window.addEventListener("weatherRefreshDone", onDone as EventListener);
@@ -134,17 +178,23 @@ const WeatherSettingsPanel: React.FC<WeatherSettingsPanelProps> = ({ onRegisterS
     };
   }, [refreshDisplayData]);
 
+  const currentLocationKey = cache.coords
+    ? createWeatherLocationKey(cache.coords.lat, cache.coords.lon)
+    : null;
+  const hasMatchingDetails =
+    currentLocationKey != null && cache.details?.location === currentLocationKey;
+
+  useEffect(() => {
+    if (section !== "live" || hasMatchingDetails || weatherRefreshStatus) return;
+    handleRefreshWeather();
+  }, [handleRefreshWeather, hasMatchingDetails, section, weatherRefreshStatus]);
+
   // 注册保存：将天气提醒开关持久化
   useEffect(() => {
     onRegisterSave?.(() => {
       dispatch({ type: "SET_WEATHER_ALERT_ENABLED", payload: weatherAlertEnabled });
-      dispatch({ type: "SET_MINUTELY_PRECIP_ENABLED", payload: minutelyPrecipEnabled });
       dispatch({ type: "SET_AIR_QUALITY_ALERT_ENABLED", payload: airQualityAlertEnabled });
       dispatch({ type: "SET_SUNRISE_SUNSET_ALERT_ENABLED", payload: sunriseSunsetAlertEnabled });
-
-      const roundedInterval = Math.round(Number(autoRefreshIntervalMin));
-      const intervalOptions = [15, 30, 60];
-      const normalizedInterval = intervalOptions.includes(roundedInterval) ? roundedInterval : 30;
 
       const manualLocation =
         manualType === "coords"
@@ -161,29 +211,35 @@ const WeatherSettingsPanel: React.FC<WeatherSettingsPanelProps> = ({ onRegisterS
               type: "city" as const,
               cityName: String(manualCityName || "").trim(),
             };
+      const normalizedSchedule = normalizeWeatherScheduleSettings({
+        profile: scheduleProfile,
+        custom: customSchedule,
+        safety: safetySettings,
+      });
 
       updateGeneralSettings({
         weather: {
-          autoRefreshIntervalMin: normalizedInterval,
           locationMode,
           manualLocation,
+          schedule: normalizedSchedule,
         },
       });
 
       broadcastSettingsEvent(SETTINGS_EVENTS.WeatherSettingsUpdated, {
-        autoRefreshIntervalMin: normalizedInterval,
         locationMode,
         manualLocation,
+        schedule: normalizedSchedule,
       });
     });
   }, [
     onRegisterSave,
     dispatch,
     weatherAlertEnabled,
-    minutelyPrecipEnabled,
     airQualityAlertEnabled,
     sunriseSunsetAlertEnabled,
-    autoRefreshIntervalMin,
+    scheduleProfile,
+    customSchedule,
+    safetySettings,
     locationMode,
     manualType,
     manualCityName,
@@ -191,7 +247,6 @@ const WeatherSettingsPanel: React.FC<WeatherSettingsPanelProps> = ({ onRegisterS
     manualLon,
   ]);
 
-  const now = cache.now?.data.now;
   const geoDiag = cache.geolocation?.diagnostics;
   const geoHint = (() => {
     const msg = String(geoDiag?.errorMessage || "").toLowerCase();
@@ -213,18 +268,30 @@ const WeatherSettingsPanel: React.FC<WeatherSettingsPanelProps> = ({ onRegisterS
   const coordsText = cache.coords
     ? `${cache.coords.lat.toFixed(4)}, ${cache.coords.lon.toFixed(4)}`
     : "--";
-  const airQualityIndex = cache.airQuality?.data?.indexes?.[0];
-  const humidity = now?.humidity ? Number.parseFloat(String(now.humidity)) : NaN;
-  const pressure = now?.pressure ? Number.parseFloat(String(now.pressure)) : NaN;
-  const dailyForecast = cache.daily3d?.data?.daily ?? [];
-  const sunriseText = cache.astronomySun?.data?.sunrise
-    ? formatSunHM(cache.astronomySun.data.sunrise)
-    : "--:--";
-  const sunsetText = cache.astronomySun?.data?.sunset
-    ? formatSunHM(cache.astronomySun.data.sunset)
-    : "--:--";
   const isSectionHidden = (candidate: WeatherSettingsSection) =>
     section ? section !== candidate : undefined;
+  const effectiveSchedule = resolveEffectiveWeatherSchedule({
+    profile: scheduleProfile,
+    custom: customSchedule,
+    safety: safetySettings,
+  });
+  const isRefreshing = coordinator.status === "refreshing";
+  const displayedRefreshStatus =
+    weatherRefreshStatus || getCoordinatorStatusLabel(coordinator.status);
+
+  const updateCustomSchedule = (key: keyof WeatherScheduleIntervals, value: string) => {
+    setCustomSchedule((current) => ({
+      ...current,
+      [key]: Number(value),
+    }));
+  };
+
+  const updateSafety = (key: keyof WeatherSafetySettings, value: string) => {
+    setSafetySettings((current) => ({
+      ...current,
+      [key]: Number(value),
+    }));
+  };
 
   return (
     <div id="weather-panel">
@@ -244,18 +311,6 @@ const WeatherSettingsPanel: React.FC<WeatherSettingsPanelProps> = ({ onRegisterS
                 checked={weatherAlertEnabled}
                 onCheckedChange={setWeatherAlertEnabled}
                 aria-label="天气预警弹窗"
-              />
-            }
-          />
-          <SettingItem
-            title="分钟级降水提醒"
-            description="短时降水临近时显示提醒。"
-            icon="feature.weatherPrecipitation"
-            control={
-              <FormSwitch
-                checked={minutelyPrecipEnabled}
-                onCheckedChange={setMinutelyPrecipEnabled}
-                aria-label="分钟级降水提醒"
               />
             }
           />
@@ -286,19 +341,145 @@ const WeatherSettingsPanel: React.FC<WeatherSettingsPanelProps> = ({ onRegisterS
         </SettingGrid>
       </FormSection>
 
-      <FormSection title="刷新设置" variant="plain" hidden={isSectionHidden("location")}>
-        <FormRow gap="sm" align="center">
-          <FormSegmented
-            label="自动刷新间隔"
-            value={String(Math.round(autoRefreshIntervalMin))}
-            options={[
-              { label: "15分钟", value: "15" },
-              { label: "30分钟", value: "30" },
-              { label: "1小时", value: "60" },
-            ]}
-            onChange={(v) => setAutoRefreshIntervalMin(Number(v))}
+      <FormSection
+        title="天气调度"
+        variant="plain"
+        description="设置本设备的天气更新频率和请求保护。"
+        hidden={isSectionHidden("location")}
+      >
+        <FormSegmented<WeatherScheduleProfile>
+          label="刷新档位"
+          value={scheduleProfile}
+          options={[
+            { label: "保守", value: "conservative" },
+            { label: "均衡", value: "balanced" },
+            { label: "高频", value: "frequent" },
+            { label: "自定义", value: "custom" },
+          ]}
+          onChange={setScheduleProfile}
+        />
+
+        <SettingGrid columns={3} className={styles.scheduleMetricsGrid}>
+          <MetricCard
+            label="上次更新"
+            value={formatTime(coordinator.lastSuccessAt)}
+            meta={getCoordinatorStatusLabel(coordinator.status)}
           />
-        </FormRow>
+          <MetricCard
+            label="下次执行"
+            value={formatTime(coordinator.nextRefreshAt)}
+            meta={coordinator.error || "按当前档位调度"}
+            tone={coordinator.error ? "warning" : "neutral"}
+          />
+          <MetricCard
+            label="本小时请求"
+            value={`${coordinator.requestsThisHour} / ${safetySettings.maxRequestsPerHour}`}
+            meta={`请求间隔至少 ${safetySettings.minRequestGapSec} 秒`}
+          />
+        </SettingGrid>
+
+        <InfoPanel tone="info">
+          前台全量 {effectiveSchedule.allForegroundMin} 分钟，后台全量{" "}
+          {effectiveSchedule.allBackgroundMin} 分钟；无雨分钟 {effectiveSchedule.minutelyDryMin}{" "}
+          分钟，临雨或降雨 {effectiveSchedule.minutelyRainMin} 分钟。
+        </InfoPanel>
+
+        {scheduleProfile === "custom" ? (
+          <div className={styles.scheduleInputGrid}>
+            <FormInput
+              label="前台全量"
+              type="number"
+              min={WEATHER_SCHEDULE_LIMITS.intervalMin.min}
+              max={WEATHER_SCHEDULE_LIMITS.intervalMin.max}
+              suffix="分钟"
+              value={customSchedule.allForegroundMin}
+              onChange={(event) => updateCustomSchedule("allForegroundMin", event.target.value)}
+            />
+            <FormInput
+              label="后台全量"
+              type="number"
+              min={WEATHER_SCHEDULE_LIMITS.intervalMin.min}
+              max={WEATHER_SCHEDULE_LIMITS.intervalMin.max}
+              suffix="分钟"
+              value={customSchedule.allBackgroundMin}
+              onChange={(event) => updateCustomSchedule("allBackgroundMin", event.target.value)}
+            />
+            <FormInput
+              label="分钟无雨"
+              type="number"
+              min={WEATHER_SCHEDULE_LIMITS.intervalMin.min}
+              max={WEATHER_SCHEDULE_LIMITS.intervalMin.max}
+              suffix="分钟"
+              value={customSchedule.minutelyDryMin}
+              onChange={(event) => updateCustomSchedule("minutelyDryMin", event.target.value)}
+            />
+            <FormInput
+              label="分钟临雨/降雨"
+              type="number"
+              min={WEATHER_SCHEDULE_LIMITS.intervalMin.min}
+              max={WEATHER_SCHEDULE_LIMITS.intervalMin.max}
+              suffix="分钟"
+              value={customSchedule.minutelyRainMin}
+              onChange={(event) => updateCustomSchedule("minutelyRainMin", event.target.value)}
+            />
+            <FormInput
+              label="分钟后台"
+              type="number"
+              min={WEATHER_SCHEDULE_LIMITS.intervalMin.min}
+              max={WEATHER_SCHEDULE_LIMITS.intervalMin.max}
+              suffix="分钟"
+              value={customSchedule.minutelyBackgroundMin}
+              onChange={(event) =>
+                updateCustomSchedule("minutelyBackgroundMin", event.target.value)
+              }
+            />
+          </div>
+        ) : null}
+
+        <FormButton
+          variant="ghost"
+          size="sm"
+          icon={advancedSafetyOpen ? "action.collapse" : "action.expand"}
+          aria-expanded={advancedSafetyOpen}
+          aria-controls="weather-request-safety"
+          onClick={() => setAdvancedSafetyOpen((current) => !current)}
+        >
+          请求保护
+        </FormButton>
+        <div
+          ref={safetySettingsRef}
+          id="weather-request-safety"
+          className={styles.safetySettings}
+          hidden={!advancedSafetyOpen}
+        >
+          <FormInput
+            label="最小请求间隔"
+            type="number"
+            min={WEATHER_SCHEDULE_LIMITS.minRequestGapSec.min}
+            max={WEATHER_SCHEDULE_LIMITS.minRequestGapSec.max}
+            suffix="秒"
+            value={safetySettings.minRequestGapSec}
+            onChange={(event) => updateSafety("minRequestGapSec", event.target.value)}
+          />
+          <FormInput
+            label="每小时请求上限"
+            type="number"
+            min={WEATHER_SCHEDULE_LIMITS.maxRequestsPerHour.min}
+            max={WEATHER_SCHEDULE_LIMITS.maxRequestsPerHour.max}
+            suffix="次"
+            value={safetySettings.maxRequestsPerHour}
+            onChange={(event) => updateSafety("maxRequestsPerHour", event.target.value)}
+          />
+          <FormButton
+            variant="secondary"
+            size="sm"
+            onClick={() => {
+              setSafetySettings({ ...createDefaultWeatherScheduleSettings().safety });
+            }}
+          >
+            恢复默认值
+          </FormButton>
+        </div>
       </FormSection>
 
       <FormSection title="地理位置" variant="plain" hidden={isSectionHidden("location")}>
@@ -387,79 +568,14 @@ const WeatherSettingsPanel: React.FC<WeatherSettingsPanelProps> = ({ onRegisterS
         {geoHint ? <InfoPanel tone="warning">{geoHint}</InfoPanel> : null}
       </FormSection>
 
-      <FormSection
-        title="实时天气"
-        variant="plain"
-        description={`观测时间：${now?.obsTime ? formatDateHM(now.obsTime) : "--"}；状态：${now?.text || "--"}`}
+      <WeatherLivePanel
+        cache={cache}
         hidden={isSectionHidden("live")}
-      >
-        <FormButtonGroup align="left">
-          <FormButton
-            variant="secondary"
-            onClick={handleRefreshWeather}
-            icon="action.refresh"
-            loading={isRefreshing}
-          >
-            刷新数据
-          </FormButton>
-        </FormButtonGroup>
-
-        <SettingGrid columns={3}>
-          <MetricCard
-            icon="weather.temperature"
-            label="气温"
-            value={`${now?.temp || "--"}°`}
-            meta={`体感 ${now?.feelsLike || "--"}°`}
-          />
-          <MetricCard
-            icon="weather.windDirection"
-            iconRotation={Number(now?.wind360) || 0}
-            label="风况"
-            value={`${now?.windDir || "--"} ${now?.windScale ? `${now.windScale}级` : ""}`}
-            meta={now?.windSpeed ? `${now.windSpeed} km/h` : "暂无风速"}
-          />
-          <MetricCard
-            icon="weather.airQuality"
-            label="空气质量"
-            value={
-              typeof airQualityIndex?.aqi === "number" ? `AQI ${airQualityIndex.aqi}` : "AQI --"
-            }
-            meta={airQualityIndex?.category || "暂无空气质量"}
-          />
-          <MetricCard
-            icon="weather.humidity"
-            label="湿度"
-            value={Number.isFinite(humidity) ? `${Math.round(humidity)}%` : "--"}
-            meta="相对湿度"
-          />
-          <MetricCard
-            icon="weather.pressure"
-            label="气压"
-            value={Number.isFinite(pressure) ? `${Math.round(pressure)}` : "--"}
-            meta="hPa"
-          />
-          <MetricCard
-            icon="weather.sunrise"
-            label="日出 / 日落"
-            value={`${sunriseText} / ${sunsetText}`}
-            meta="本地天文时间"
-          />
-        </SettingGrid>
-
-        <InfoPanel tone="neutral" title="未来三日">
-          {dailyForecast.length > 0
-            ? dailyForecast
-                .slice(0, 3)
-                .map((day) => `${day.textDay} ${day.tempMin}°~${day.tempMax}°`)
-                .join(" ｜ ")
-            : "暂无预报数据"}
-        </InfoPanel>
-
-        <InfoPanel tone="neutral">
-          数据更新于：
-          {cache.now?.updatedAt ? new Date(cache.now.updatedAt).toLocaleTimeString() : "--"}
-        </InfoPanel>
-      </FormSection>
+        isRefreshing={isRefreshing}
+        minutelyWeather={minutelyWeather}
+        refreshStatus={displayedRefreshStatus}
+        onRefresh={handleRefreshWeather}
+      />
     </div>
   );
 };

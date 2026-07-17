@@ -71,7 +71,7 @@ function nextScheduleItem(
 }
 
 function rainItem(
-  leadMinutes: 60 | 30 | 15 | 10 = 30,
+  leadMinutes: 120 | 60 | 30 | 15 | 10 = 30,
   backgroundProgressKind: StudyProgressKind = "day",
   order = 0
 ): StudyInfoItemConfig {
@@ -80,6 +80,19 @@ function rainItem(
     source: "rain",
     backgroundProgressKind,
     leadMinutes,
+    enabled: true,
+    order,
+  };
+}
+
+function weatherAlertItem(
+  backgroundProgressKind: StudyProgressKind = "day",
+  order = 0
+): StudyInfoItemConfig {
+  return {
+    id: "weather-alert",
+    source: "weatherAlert",
+    backgroundProgressKind,
     enabled: true,
     order,
   };
@@ -134,6 +147,7 @@ function rainStats(overrides: Partial<MinutelyRainStats>): MinutelyRainStats {
 function routineSignal(itemId: string, progressKind: StudyProgressKind = "day"): StudyInfoSignal {
   return {
     itemId,
+    frameId: itemId,
     source: itemId === "progress" ? "progress" : "custom",
     progressKind,
     priority: "routine",
@@ -214,6 +228,18 @@ describe("StudyStatus 中央信号", () => {
       settings: settings([rainItem(30, "schedule")]),
       weather: { stats: rainStats({ leadMinutes: 31 }), freshness: "fresh" },
     });
+    const outsideTwoHourWindow = resolveStudyInfoSignals({
+      now,
+      progress,
+      settings: settings([rainItem(120, "schedule")]),
+      weather: { stats: rainStats({ leadMinutes: 121 }), freshness: "fresh" },
+    });
+    const atTwoHourBoundary = resolveStudyInfoSignals({
+      now,
+      progress,
+      settings: settings([rainItem(120, "schedule")]),
+      weather: { stats: rainStats({ leadMinutes: 120 }), freshness: "fresh" },
+    })[0];
     const beforeRain = resolveStudyInfoSignals({
       now,
       progress,
@@ -237,6 +263,8 @@ describe("StudyStatus 中央信号", () => {
     })[0];
 
     expect(outsideWindow).toEqual([]);
+    expect(outsideTwoHourWindow).toEqual([]);
+    expect(atTwoHourBoundary).toMatchObject({ itemId: "rain", priority: "timely" });
     expect(beforeRain).toMatchObject({
       itemId: "rain",
       progressKind: "schedule",
@@ -244,6 +272,105 @@ describe("StudyStatus 中央信号", () => {
     });
     expect(whileRaining).toMatchObject({ itemId: "rain", priority: "critical" });
     expect(whileRaining.dedupeKey).not.toBe(beforeRain.dedupeKey);
+  });
+
+  it("预雨快照跨过开始时间后立即显示正在下雨", () => {
+    const rainStartAt = now.getTime();
+    const rainEndAt = rainStartAt + 10 * 60 * 1000;
+    const signal = resolveStudyInfoSignals({
+      now: rainStartAt + 1000,
+      progress,
+      settings: settings([rainItem(30)]),
+      weather: {
+        phase: "PRE_RAIN",
+        freshness: "fresh",
+        stats: rainStats({
+          isRainingNow: false,
+          rainStartAt,
+          nextRainStartAt: rainStartAt,
+          rainEndAt,
+        }),
+      },
+    })[0];
+
+    expect(signal).toMatchObject({
+      primaryText: "正在小雨",
+      secondaryText: "预计还剩 10 分钟",
+      priority: "critical",
+    });
+    expect(signal.primaryText).not.toContain("0 分钟");
+  });
+
+  it("一个天气预警配置展开为多条普通轮播帧并保持组内顺序", () => {
+    const signals = resolveStudyInfoSignals({
+      now,
+      progress,
+      settings: settings([
+        customItem("before", "前一条", 0),
+        weatherAlertItem("schedule", 1),
+        customItem("after", "后一条", 2),
+      ]),
+      weatherAlerts: {
+        alerts: [
+          {
+            expiresAt: now.getTime() + 2 * 60 * 60 * 1000,
+            publishedAt: now.getTime() - 5 * 60 * 1000,
+            signature: "orange",
+            summary: "至13:00降雨≥50毫米",
+            title: "暴雨橙色预警",
+          },
+          {
+            expiresAt: now.getTime() + 2 * 60 * 60 * 1000,
+            publishedAt: now.getTime() - 10 * 60 * 1000,
+            signature: "yellow",
+            summary: "雷电活动，注意防范",
+            title: "大风黄色预警",
+          },
+        ],
+      },
+    });
+
+    expect(signals.map((signal) => signal.frameId)).toEqual([
+      "before",
+      "weather-alert:orange",
+      "weather-alert:yellow",
+      "after",
+    ]);
+    expect(signals.slice(1, 3)).toEqual([
+      expect.objectContaining({
+        itemId: "weather-alert",
+        priority: "routine",
+        displayMode: "rotating",
+        progressKind: "schedule",
+        primaryText: "暴雨橙色预警",
+        secondaryText: "至13:00降雨≥50毫米",
+      }),
+      expect.objectContaining({
+        itemId: "weather-alert",
+        priority: "routine",
+        displayMode: "rotating",
+        primaryText: "大风黄色预警",
+      }),
+    ]);
+  });
+
+  it("动态天气预警帧不占用持久化配置上限且过期帧会被过滤", () => {
+    const alerts = Array.from({ length: MAX_STUDY_INFO_ITEMS + 3 }, (_, index) => ({
+      expiresAt: now.getTime() + (index === 0 ? -1 : 60 * 60 * 1000),
+      publishedAt: now.getTime() - index * 60 * 1000,
+      signature: `alert-${index}`,
+      summary: "注意防范",
+      title: `预警 ${index}`,
+    }));
+    const signals = resolveStudyInfoSignals({
+      now,
+      progress,
+      settings: settings([weatherAlertItem()]),
+      weatherAlerts: { alerts },
+    });
+
+    expect(signals).toHaveLength(MAX_STUDY_INFO_ITEMS + 2);
+    expect(signals.some((signal) => signal.frameId === "weather-alert:alert-0")).toBe(false);
   });
 
   it("普通信息保持用户顺序，timely 不会在解析阶段越过前项", () => {
@@ -352,6 +479,29 @@ describe("StudyStatus 信息调度器", () => {
     expect(result.current.currentSignal?.itemId).toBe("custom");
   });
 
+  it("单个 critical 打断后继续与普通信息轮播", () => {
+    vi.useFakeTimers();
+    const progressSignal = routineSignal("progress");
+    const rainSignal: StudyInfoSignal = {
+      ...routineSignal("rain", "schedule"),
+      source: "rain",
+      priority: "critical",
+      displayMode: "interrupt",
+      dedupeKey: "rain:active",
+    };
+    const { result, rerender } = renderHook(
+      ({ signals }) => useStudyInfoCarousel({ signals, intervalSec: 3 }),
+      { initialProps: { signals: [progressSignal] } }
+    );
+
+    rerender({ signals: [rainSignal, progressSignal] });
+    expect(result.current.currentSignal?.itemId).toBe("rain");
+    expect(result.current.canAdvance).toBe(true);
+
+    act(() => vi.advanceTimersByTime(3000));
+    expect(result.current.currentSignal?.itemId).toBe("progress");
+  });
+
   it("每秒更新内容和事件键时不会重置轮播位置或计时器", () => {
     vi.useFakeTimers();
     const { result, rerender } = renderHook(
@@ -395,7 +545,33 @@ describe("StudyStatus 信息调度器", () => {
     expect(result.current.currentSignal?.itemId).toBe("custom");
   });
 
-  it("多个 critical 会在关键队列内轮换，不会露出 routine", () => {
+  it("新增天气预警帧不会打断当前内容并会逐条参与轮播", () => {
+    const progressSignal = routineSignal("progress");
+    const firstAlert: StudyInfoSignal = {
+      ...routineSignal("weather-alert"),
+      frameId: "weather-alert:first",
+      source: "weatherAlert",
+      primaryText: "暴雨橙色预警",
+    };
+    const secondAlert: StudyInfoSignal = {
+      ...routineSignal("weather-alert"),
+      frameId: "weather-alert:second",
+      source: "weatherAlert",
+      primaryText: "大风黄色预警",
+    };
+    const { result, rerender } = renderHook(({ signals }) => useStudyInfoCarousel({ signals }), {
+      initialProps: { signals: [progressSignal] },
+    });
+
+    rerender({ signals: [progressSignal, firstAlert, secondAlert] });
+    expect(result.current.currentSignal?.frameId).toBe("progress");
+    act(() => result.current.next());
+    expect(result.current.currentSignal?.frameId).toBe("weather-alert:first");
+    act(() => result.current.next());
+    expect(result.current.currentSignal?.frameId).toBe("weather-alert:second");
+  });
+
+  it("多个 critical 优先展示后继续轮播普通信息", () => {
     vi.useFakeTimers();
     const first: StudyInfoSignal = {
       ...routineSignal("first-critical"),
@@ -420,6 +596,8 @@ describe("StudyStatus 信息调度器", () => {
     act(() => vi.advanceTimersByTime(3000));
     expect(result.current.currentSignal?.itemId).toBe("second-critical");
     expect(result.current.currentSignal?.priority).toBe("critical");
+    act(() => vi.advanceTimersByTime(3000));
+    expect(result.current.currentSignal?.itemId).toBe("progress");
   });
 
   it("暂停和页面隐藏时停止计时，恢复后继续轮播", () => {

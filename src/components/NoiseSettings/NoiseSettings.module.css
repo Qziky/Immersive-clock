@@ -4,78 +4,6 @@
   gap: 0.75rem;
 }
 
-.chart {
-  width: 100%;
-  height: 160px;
-  display: block;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.03);
-  overflow: hidden;
-}
-
-.chart svg {
-  width: 100%;
-  height: 100%;
-  display: block;
-}
-
-.axis {
-  stroke: rgba(255, 255, 255, 0.25);
-  stroke-width: 1;
-}
-
-.tick {
-  stroke: rgba(255, 255, 255, 0.3);
-  stroke-width: 1;
-}
-
-.tickLabel {
-  fill: var(--ui-color-text, #ffffff);
-  opacity: 0.9;
-  font-size: 0.75rem;
-  font-family: var(
-    --ui-font-sans,
-    -apple-system,
-    BlinkMacSystemFont,
-    "Segoe UI",
-    Roboto,
-    sans-serif
-  );
-}
-
-.gridLine {
-  stroke: rgba(255, 255, 255, 0.12);
-  stroke-width: 1;
-  stroke-dasharray: 3 3;
-}
-
-.line {
-  fill: none;
-  stroke: #4cc9f0;
-  stroke-width: 2;
-  stroke-linecap: round;
-  shape-rendering: geometricPrecision;
-}
-
-.threshold {
-  stroke: #ff6b6b;
-  stroke-width: 1.5;
-  stroke-dasharray: 5 4;
-}
-
-.empty {
-  padding: 0.75rem;
-  color: rgba(255, 255, 255, 0.7);
-}
-
-.sourceNote {
-  margin-top: 0.4rem;
-  font-size: 0.8rem;
-  color: rgba(255, 255, 255, 0.6);
-  font-family: var(--ui-font-sans);
-}
-
 .statsGrid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -119,14 +47,34 @@
 }
 
 .chartHeader {
-  display: flex;
-  justify-content: space-between;
   align-items: center;
-  margin-bottom: 0.4rem;
-  color: rgba(255, 255, 255, 0.85);
-  font-family: var(--ui-font-sans);
-  flex-wrap: wrap;
-  gap: 0.5rem;
+  display: flex;
+  gap: var(--ui-space-5);
+  justify-content: space-between;
+  margin-bottom: var(--ui-space-3);
+}
+
+.chartMetric {
+  display: grid;
+  gap: 2px;
+}
+
+.chartMetric:last-child {
+  justify-items: end;
+  text-align: right;
+}
+
+.chartMetric span {
+  color: var(--ui-color-text-subtle);
+  font-size: var(--ui-font-size-xs);
+}
+
+.chartMetric strong {
+  color: var(--ui-color-text);
+  font-family: var(--ui-font-number);
+  font-size: var(--ui-font-size-lg);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
 }
 
 .historyTime {
@@ -186,15 +134,7 @@
     white-space: normal;
   }
 
-  .chartHeader {
-    font-size: 0.85rem;
-  }
-
-  .chart {
-    height: 140px;
-  }
-
-  .sourceNote {
-    font-size: 0.75rem;
+  .chartMetric strong {
+    font-size: var(--ui-font-size-md);
   }
 }

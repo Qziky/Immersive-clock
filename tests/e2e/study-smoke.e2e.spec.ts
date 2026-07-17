@@ -174,6 +174,247 @@ test("中央信息：隐藏天气组件后仍显示共享快照中的降雨主�
   await expectInfoContentIsCentered(statusRoot);
 });
 
+test("中央信息：隐藏天气组件后天气预警逐条轮播且不打断当前信息", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await page.setViewportSize({ width: 320, height: 568 });
+  const now = Date.now();
+  await page.route("**/api/xiaomi-weather/wtr-v3/location/city/geo?*", async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify([{ locationKey: "weathercn:101270101", name: "成都" }]),
+    });
+  });
+  await page.route("**/api/xiaomi-weather/wtr-v3/weather/all?*", async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({
+        status: 0,
+        updateTime: now,
+        alerts: [
+          {
+            alertId: "orange-alert",
+            detail: "请注意防范短时强降水。",
+            level: "橙色",
+            pubTime: now - 20 * 60 * 1000,
+            title: "青羊区暴雨橙色预警",
+            type: "暴雨",
+          },
+          {
+            alertId: "yellow-alert",
+            detail: "请注意防范雷电活动。",
+            level: "黄色",
+            pubTime: now - 5 * 60 * 1000,
+            title: "青羊区雷电黄色预警",
+            type: "雷电",
+          },
+        ],
+      }),
+    });
+  });
+  await page.addInitScript(
+    ({ seededAt }) => {
+      localStorage.setItem("immersive-clock:has-seen-tour", "true");
+      localStorage.setItem(
+        "AppSettings",
+        JSON.stringify({
+          version: 5,
+          study: {
+            display: {
+              showWeather: false,
+              showNoiseMonitor: false,
+              showCountdown: false,
+            },
+            infoCarousel: {
+              intervalSec: 30,
+              items: [
+                {
+                  id: "custom-before-alerts",
+                  source: "custom",
+                  backgroundProgressKind: "day",
+                  enabled: true,
+                  order: 0,
+                  text: "继续专注",
+                },
+                {
+                  id: "weather-alert-default",
+                  source: "weatherAlert",
+                  backgroundProgressKind: "day",
+                  enabled: true,
+                  order: 1,
+                },
+              ],
+            },
+          },
+        })
+      );
+      localStorage.setItem(
+        "weather-cache",
+        JSON.stringify({
+          coords: { lat: 30.67, lon: 104.06, source: "manual_city", updatedAt: seededAt },
+          location: {
+            city: "成都市",
+            signature: "30.6700,104.0600",
+            updatedAt: seededAt,
+          },
+        })
+      );
+    },
+    { seededAt: now }
+  );
+
+  await page.goto("/study");
+  await showHud(page);
+
+  const statusRoot = page.getByRole("progressbar", { name: "今日进度" }).locator("..");
+  await expect(page.getByLabel("天气")).toHaveCount(0);
+  await expect(statusRoot.locator('[class*="stageText"]')).toHaveText("继续专注");
+  await expect(page.getByRole("button", { name: "继续专注" })).toBeVisible();
+
+  await page.getByRole("button", { name: "继续专注" }).click();
+  const orangeAlert = page.getByRole("button", { name: /青羊区暴雨橙色预警/ });
+  await expect(orangeAlert).toBeVisible();
+  await expect(orangeAlert).toContainText("短时强降水，注意防范");
+  await orangeAlert.click();
+  const yellowAlert = page.getByRole("button", { name: /青羊区雷电黄色预警/ });
+  await expect(yellowAlert).toBeVisible();
+  await expect(yellowAlert).toContainText("雷电活动，注意防范");
+  await expectStatusColumnsDoNotOverlap(statusRoot);
+});
+
+test("中央信息：正在下雨打断后继续轮播普通信息", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await page.addInitScript(() => {
+    const now = Date.now();
+    const rainEndAt = now + 10 * 60 * 1000;
+    localStorage.setItem("immersive-clock:has-seen-tour", "true");
+    localStorage.setItem(
+      "AppSettings",
+      JSON.stringify({
+        version: 4,
+        study: {
+          display: {
+            showWeather: false,
+            showNoiseMonitor: false,
+            showCountdown: false,
+          },
+          infoCarousel: {
+            intervalSec: 3,
+            items: [
+              {
+                id: "rain-active",
+                source: "rain",
+                backgroundProgressKind: "day",
+                leadMinutes: 30,
+                enabled: true,
+                order: 0,
+              },
+              {
+                id: "custom-after-rain",
+                source: "custom",
+                backgroundProgressKind: "day",
+                enabled: true,
+                order: 1,
+                text: "继续专注",
+              },
+            ],
+          },
+        },
+      })
+    );
+    localStorage.setItem(
+      "weather-cache",
+      JSON.stringify({
+        coords: { lat: 31.2, lon: 121.5, source: "e2e", updatedAt: now },
+        minutely: {
+          data: {
+            code: "200",
+            updateTime: new Date(now).toISOString(),
+            summary: "正在下雨",
+            minutely: [
+              { fxTime: new Date(now).toISOString(), precip: "0.2" },
+              { fxTime: new Date(now + 5 * 60 * 1000).toISOString(), precip: "0.2" },
+              { fxTime: new Date(rainEndAt).toISOString(), precip: "0" },
+            ],
+          },
+          location: "121.50,31.20",
+          updatedAt: now,
+          lastApiFetchAt: now,
+        },
+      })
+    );
+  });
+
+  await page.goto("/study");
+
+  const statusRoot = page.getByRole("progressbar", { name: "今日进度" }).locator("..");
+  const stageText = statusRoot.locator('[class*="stageText"]');
+  await expect(stageText).toHaveText("正在中雨");
+  await expect(page.locator('[class*="liveRegion"]')).toHaveText("继续专注", { timeout: 10000 });
+});
+
+test("中央信息：到达降雨开始时间后立即切换为正在下雨", async ({ page }) => {
+  await page.addInitScript(() => {
+    const now = Date.now();
+    const rainStartAt = now + 4 * 1000;
+    const rainEndAt = rainStartAt + 10 * 60 * 1000;
+    localStorage.setItem("immersive-clock:has-seen-tour", "true");
+    localStorage.setItem(
+      "AppSettings",
+      JSON.stringify({
+        version: 4,
+        study: {
+          display: {
+            showWeather: false,
+            showNoiseMonitor: false,
+            showCountdown: false,
+          },
+          infoCarousel: {
+            intervalSec: 6,
+            items: [
+              {
+                id: "rain-boundary",
+                source: "rain",
+                backgroundProgressKind: "day",
+                leadMinutes: 30,
+                enabled: true,
+                order: 0,
+              },
+            ],
+          },
+        },
+      })
+    );
+    localStorage.setItem(
+      "weather-cache",
+      JSON.stringify({
+        coords: { lat: 31.2, lon: 121.5, source: "e2e", updatedAt: now },
+        minutely: {
+          data: {
+            code: "200",
+            updateTime: new Date(now).toISOString(),
+            summary: "即将有雨",
+            minutely: [
+              { fxTime: new Date(now).toISOString(), precip: "0" },
+              { fxTime: new Date(rainStartAt).toISOString(), precip: "0.2" },
+              { fxTime: new Date(rainEndAt).toISOString(), precip: "0" },
+            ],
+          },
+          location: "121.50,31.20",
+          updatedAt: now,
+          lastApiFetchAt: now,
+        },
+      })
+    );
+  });
+
+  await page.goto("/study");
+
+  const statusRoot = page.getByRole("progressbar", { name: "今日进度" }).locator("..");
+  const stageText = statusRoot.locator('[class*="stageText"]');
+  await expect(stageText).toHaveText("预计 1 分钟后下雨");
+  await expect(page.getByText("正在中雨", { exact: true })).toBeVisible({ timeout: 7000 });
+});
+
 for (const viewport of [
   { width: 1440, height: 900 },
   { width: 390, height: 844 },

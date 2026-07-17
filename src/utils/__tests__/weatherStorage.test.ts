@@ -1,16 +1,20 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 
+import type { WeatherDetailsResponse } from "../../types/weather";
 import {
   clearWeatherCache,
   cleanupWeatherCache,
+  createWeatherLocationKey,
   getWeatherCache,
   getValidCoords,
   getValidDaily3d,
+  getValidWeatherDetails,
   getValidHourly72h,
   getValidAirQuality,
   getValidAstronomySun,
   getValidLocation,
   getValidMinutely,
+  getValidXiaomiLocation,
   readStationAlertRecord,
   updateCoordsCache,
   updateDaily3dCache,
@@ -24,7 +28,9 @@ import {
   updateMinutelyCriticalFetch,
   updateMinutelyLastFetch,
   updateAlertTag,
+  updateWeatherDetailsCache,
   updateWeatherNowSnapshot,
+  updateXiaomiLocationCache,
   writeStationAlertRecord,
 } from "../weatherStorage";
 
@@ -54,6 +60,29 @@ class MemoryStorage implements Storage {
   setItem(key: string, value: string): void {
     this.store.set(key, value);
   }
+}
+
+function weatherDetailsFixture(): WeatherDetailsResponse {
+  return {
+    alerts: [],
+    brands: [],
+    daily: [],
+    hourly: [],
+    indices: [],
+    previousHours: [],
+    raw: {
+      sourceMaps: { rawSentinel: "details-raw" },
+      status: 0,
+    },
+    technical: {
+      channels: [],
+      sourceMaps: { rawSentinel: "details-raw" },
+      statuses: { response: 0 },
+      units: {},
+      urls: {},
+    },
+    typhoons: [],
+  };
 }
 
 /** weatherStorage 单元测试（函数级注释：验证缓存 TTL、签名合并与预警记录清理） */
@@ -123,16 +152,92 @@ describe("weatherStorage", () => {
     expect(cache.alertMetadata?.lastTag).toBe("tag-1");
   });
 
+  it("完整天气详情按标准化坐标签名写入并保留原始响应", () => {
+    vi.spyOn(Date, "now").mockReturnValue(1000);
+    const location = createWeatherLocationKey(31.2, 121.5);
+    const details = weatherDetailsFixture();
+
+    updateWeatherDetailsCache(location, details);
+
+    expect(location).toBe("121.5000,31.2000");
+    expect(getValidWeatherDetails(location)).toBeTruthy();
+    expect(getValidWeatherDetails(location)?.raw.sourceMaps).toEqual({
+      rawSentinel: "details-raw",
+    });
+    expect(getWeatherCache().details).toMatchObject({
+      location: "121.5000,31.2000",
+      updatedAt: 1000,
+    });
+  });
+
+  it("完整天气详情仅对匹配坐标生效，并在三小时后失效", () => {
+    vi.spyOn(Date, "now").mockReturnValue(1000);
+    updateWeatherDetailsCache("121.5000,31.2000", weatherDetailsFixture());
+
+    expect(getValidWeatherDetails("116.4080,39.9040")).toBeNull();
+
+    vi.spyOn(Date, "now").mockReturnValue(1000 + 3 * 60 * 60 * 1000 + 1);
+    expect(getValidWeatherDetails("121.5000,31.2000")).toBeNull();
+  });
+
+  it("小米 locationKey 按四位坐标签名缓存 24 小时", () => {
+    vi.spyOn(Date, "now").mockReturnValue(1000);
+    updateXiaomiLocationCache({
+      lat: 31.2,
+      locationKey: "weathercn:101020100",
+      lon: 121.5,
+      name: "上海市",
+    });
+
+    expect(getValidXiaomiLocation(31.20001, 121.50001)).toMatchObject({
+      locationKey: "weathercn:101020100",
+      name: "上海市",
+    });
+    expect(getValidXiaomiLocation(39.904, 116.408)).toBeNull();
+
+    vi.spyOn(Date, "now").mockReturnValue(1000 + 24 * 60 * 60 * 1000 + 1);
+    expect(getValidXiaomiLocation(31.2, 121.5)).toBeNull();
+  });
+
   it("updateMinutelyCache 与分钟级请求时间写入函数会保留/更新元数据", () => {
     vi.spyOn(Date, "now").mockReturnValue(1000);
-    updateMinutelyCache("121.5,31.2", { code: "200", summary: "ok" }, 900);
+    updateMinutelyCache(
+      "121.5,31.2",
+      {
+        code: "200",
+        provider: {
+          flags: { responseStatus: 0 },
+          raw: { new: "raw-v1", status: 0 },
+        },
+        summary: "ok",
+      },
+      900
+    );
     expect(getWeatherCache().minutely?.lastApiFetchAt).toBe(900);
+    expect(getWeatherCache().minutely?.data.provider?.raw).toEqual({
+      new: "raw-v1",
+      status: 0,
+    });
 
     updateMinutelyLastFetch(1200);
     expect(getWeatherCache().minutely?.lastApiFetchAt).toBe(1200);
 
     updateMinutelyCriticalFetch(1300);
     expect(getWeatherCache().minutely?.lastCriticalFetchAt).toBe(1300);
+  });
+
+  it("切换坐标写入分钟数据时不继承旧地点请求时间", () => {
+    vi.spyOn(Date, "now").mockReturnValue(1000);
+    updateMinutelyCache("121.5000,31.2000", { code: "200" }, 900);
+    updateMinutelyCriticalFetch(950);
+
+    vi.spyOn(Date, "now").mockReturnValue(1100);
+    updateMinutelyCache("116.4080,39.9040", { code: "200" });
+
+    const minutely = getWeatherCache().minutely;
+    expect(minutely?.location).toBe("116.4080,39.9040");
+    expect(minutely).not.toHaveProperty("lastApiFetchAt");
+    expect(minutely).not.toHaveProperty("lastCriticalFetchAt");
   });
 
   it("updateHourly72hCache 与 updateHourly72hLastFetch 会保留/更新 lastApiFetchAt", () => {
@@ -188,6 +293,16 @@ describe("weatherStorage", () => {
       JSON.stringify({
         coords: { lat: 1, lon: 2, source: "ip", updatedAt: 0 },
         location: { signature: "1.0000,2.0000", updatedAt: 0, city: "X", address: "Y" },
+        xiaomiLocation: {
+          data: { lat: 1, locationKey: "weathercn:old", lon: 2 },
+          location: "2.0000,1.0000",
+          updatedAt: 0,
+        },
+        details: {
+          location: "2.0000,1.0000",
+          data: weatherDetailsFixture(),
+          updatedAt: 0,
+        },
         minutely: { location: "2,1", data: { code: "200" }, updatedAt: 0, lastApiFetchAt: 0 },
         daily3d: { location: "2,1", data: { code: "200" }, updatedAt: 0 },
         hourly72h: { location: "2,1", data: { code: "200" }, updatedAt: 0, lastApiFetchAt: 0 },
@@ -199,12 +314,14 @@ describe("weatherStorage", () => {
       })
     );
 
-    vi.spyOn(Date, "now").mockReturnValue(12 * 60 * 60 * 1000 + 10);
+    vi.spyOn(Date, "now").mockReturnValue(24 * 60 * 60 * 1000 + 10);
     cleanupWeatherCache();
 
     const cache = getWeatherCache();
     expect(cache.coords).toBeUndefined();
     expect(cache.location).toBeUndefined();
+    expect(cache.xiaomiLocation).toBeUndefined();
+    expect(cache.details).toBeUndefined();
     expect(cache.minutely).toBeUndefined();
     expect(cache.daily3d).toBeUndefined();
     expect(cache.hourly72h).toBeUndefined();
@@ -217,6 +334,19 @@ describe("weatherStorage", () => {
     vi.spyOn(console, "warn").mockImplementation(() => {});
     localStorage.setItem("weather-cache", "{bad json");
     expect(getWeatherCache()).toEqual({});
+  });
+
+  it("旧版缓存没有详情字段时仍可正常读取", () => {
+    localStorage.setItem(
+      "weather-cache",
+      JSON.stringify({
+        coords: { lat: 31.2, lon: 121.5, source: "legacy", updatedAt: 1000 },
+        now: { data: { code: "200", now: { temp: "28" } }, updatedAt: 1000 },
+      })
+    );
+
+    expect(getWeatherCache().now?.data.now?.temp).toBe("28");
+    expect(getValidWeatherDetails("121.5000,31.2000")).toBeNull();
   });
 
   it("getValidMinutely 在 TTL 内有效，超时后无效", () => {

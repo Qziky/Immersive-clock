@@ -12,6 +12,10 @@ vi.mock("../../../utils/timeSync", () => ({
   startTimeSyncManager: () => () => {},
 }));
 
+vi.mock("../../../services/weatherCoordinator", () => ({
+  startWeatherCoordinator: () => () => {},
+}));
+
 vi.mock("../../../utils/tour", () => ({
   startTour: () => {},
   isTourActive: () => false,
@@ -56,7 +60,6 @@ vi.mock("../../../components/Study/Study", () => ({
 describe("消息事件通知适配", () => {
   afterEach(() => {
     vi.useRealTimers();
-    sessionStorage.clear();
   });
 
   it("保持 messagePopup 事件协议并投递到统一通知视口", () => {
@@ -105,71 +108,5 @@ describe("消息事件通知适配", () => {
     });
 
     expect(screen.queryByRole("status")).not.toBeInTheDocument();
-  });
-
-  it("手动关闭分钟级降雨通知时同步会话标记", () => {
-    render(
-      <MemoryRouter>
-        <AppContextProvider>
-          <AppearanceProvider>
-            <FeedbackProvider>
-              <ClockPage />
-            </FeedbackProvider>
-          </AppearanceProvider>
-        </AppContextProvider>
-      </MemoryRouter>
-    );
-
-    act(() => {
-      window.dispatchEvent(
-        new CustomEvent("messagePopup:open", {
-          detail: {
-            id: "weather:minutelyPrecip",
-            type: "weatherForecast",
-            title: "分钟级降雨",
-          },
-        })
-      );
-    });
-
-    expect(sessionStorage.getItem("weather.minutely.popupOpen")).toBe("1");
-    act(() => screen.getByRole("button", { name: "关闭通知" }).click());
-    expect(sessionStorage.getItem("weather.minutely.popupOpen")).toBe("0");
-    expect(sessionStorage.getItem("weather.minutely.popupDismissed")).toBe("1");
-  });
-
-  it("分钟级降雨通知超时后只清理打开标记", () => {
-    vi.useFakeTimers();
-    render(
-      <MemoryRouter>
-        <AppContextProvider>
-          <AppearanceProvider>
-            <FeedbackProvider>
-              <ClockPage />
-            </FeedbackProvider>
-          </AppearanceProvider>
-        </AppContextProvider>
-      </MemoryRouter>
-    );
-
-    act(() => {
-      window.dispatchEvent(
-        new CustomEvent("messagePopup:open", {
-          detail: {
-            id: "weather:minutelyPrecip",
-            type: "weatherForecast",
-            title: "分钟级降雨",
-          },
-        })
-      );
-    });
-
-    act(() => {
-      vi.advanceTimersByTime(6000);
-    });
-
-    expect(screen.queryByText("分钟级降雨")).not.toBeInTheDocument();
-    expect(sessionStorage.getItem("weather.minutely.popupOpen")).toBe("0");
-    expect(sessionStorage.getItem("weather.minutely.popupDismissed")).toBeNull();
   });
 });

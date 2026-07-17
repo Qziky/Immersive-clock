@@ -1,0 +1,55 @@
+.liveMetricsGrid {
+  min-width: 0;
+}
+
+.scheduleMetricsGrid {
+  min-width: 0;
+}
+
+.scheduleInputGrid,
+.safetySettings {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--ui-space-3);
+  min-width: 0;
+}
+
+.safetySettings[hidden] {
+  display: none;
+}
+
+.safetySettings > :last-child {
+  align-self: end;
+  justify-self: start;
+}
+
+@media (max-width: 720px) {
+  .liveMetricsGrid {
+    --ui-setting-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .precipitationStatusCard {
+    grid-column: span 2;
+  }
+
+  .scheduleInputGrid,
+  .safetySettings {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 360px) {
+  .liveMetricsGrid {
+    --ui-setting-columns: minmax(0, 1fr) !important;
+  }
+
+  .precipitationStatusCard {
+    grid-column: auto;
+  }
+}
+
+@media (max-width: 520px) {
+  .scheduleMetricsGrid {
+    --ui-setting-columns: minmax(0, 1fr) !important;
+  }
+}

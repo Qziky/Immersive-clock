@@ -4,6 +4,7 @@ import type {
   GeolocationDiagnostics,
   MinutelyPrecipResponse,
   WeatherDaily3dResponse,
+  WeatherDetailsResponse,
   WeatherHourly72hResponse,
   WeatherNow,
 } from "../types/weather";
@@ -18,9 +19,18 @@ const LOCATION_TTL = 12 * 60 * 60 * 1000; // 12小时
 const ALERT_TTL = 12 * 60 * 60 * 1000; // 12小时
 const MINUTELY_TTL = 5 * 60 * 1000; // 5分钟
 const DAILY_TTL = 3 * 60 * 60 * 1000; // 3小时
+const DETAILS_TTL = 3 * 60 * 60 * 1000; // 3小时
 const HOURLY72H_TTL = 60 * 60 * 1000; // 1小时
 const AIR_QUALITY_TTL = 60 * 60 * 1000; // 1小时
 const ASTRONOMY_TTL = 12 * 60 * 60 * 1000; // 12小时
+const XIAOMI_LOCATION_TTL = 24 * 60 * 60 * 1000; // 24小时
+
+export interface XiaomiLocationCacheData {
+  lat: number;
+  locationKey: string;
+  lon: number;
+  name?: string;
+}
 
 export interface WeatherCache {
   // 1. 坐标与定位缓存
@@ -46,9 +56,23 @@ export interface WeatherCache {
     updatedAt: number;
   };
 
+  // 2.1 小米天气 locationKey
+  xiaomiLocation?: {
+    data: XiaomiLocationCacheData;
+    location: string;
+    updatedAt: number;
+  };
+
   // 3. 实时天气快照
   now?: {
     data: WeatherNow;
+    updatedAt: number;
+  };
+
+  // 3.1 全量天气详情与供应商原始响应
+  details?: {
+    data: WeatherDetailsResponse;
+    location: string;
     updatedAt: number;
   };
 
@@ -199,6 +223,42 @@ export function updateWeatherNowSnapshot(data: WeatherNow) {
   });
 }
 
+export function createWeatherLocationKey(lat: number, lon: number): string {
+  return `${lon.toFixed(4)},${lat.toFixed(4)}`;
+}
+
+export function updateXiaomiLocationCache(data: XiaomiLocationCacheData): void {
+  saveWeatherCache({
+    xiaomiLocation: {
+      data,
+      location: createWeatherLocationKey(data.lat, data.lon),
+      updatedAt: Date.now(),
+    },
+  });
+}
+
+export function getValidXiaomiLocation(lat: number, lon: number): XiaomiLocationCacheData | null {
+  const cache = getWeatherCache();
+  if (
+    cache.xiaomiLocation &&
+    cache.xiaomiLocation.location === createWeatherLocationKey(lat, lon) &&
+    Date.now() - cache.xiaomiLocation.updatedAt < XIAOMI_LOCATION_TTL
+  ) {
+    return cache.xiaomiLocation.data;
+  }
+  return null;
+}
+
+export function updateWeatherDetailsCache(location: string, data: WeatherDetailsResponse) {
+  saveWeatherCache({
+    details: {
+      data,
+      location,
+      updatedAt: Date.now(),
+    },
+  });
+}
+
 /**
  * 更新分钟级降水缓存
  */
@@ -208,13 +268,14 @@ export function updateMinutelyCache(
   lastApiFetchAt?: number
 ) {
   saveWeatherCache((current) => {
+    const existing = current.minutely?.location === location ? current.minutely : undefined;
     return {
       minutely: {
         data,
         location,
         updatedAt: Date.now(),
-        lastApiFetchAt: lastApiFetchAt ?? current.minutely?.lastApiFetchAt,
-        lastCriticalFetchAt: current.minutely?.lastCriticalFetchAt,
+        lastApiFetchAt: lastApiFetchAt ?? existing?.lastApiFetchAt,
+        lastCriticalFetchAt: existing?.lastCriticalFetchAt,
       },
     };
   });
@@ -401,6 +462,18 @@ export function getValidDaily3d(location: string) {
   return null;
 }
 
+export function getValidWeatherDetails(location: string) {
+  const cache = getWeatherCache();
+  if (
+    cache.details &&
+    cache.details.location === location &&
+    Date.now() - cache.details.updatedAt < DETAILS_TTL
+  ) {
+    return cache.details.data;
+  }
+  return null;
+}
+
 export function getValidHourly72h(location: string) {
   const cache = getWeatherCache();
   if (
@@ -506,6 +579,11 @@ export function cleanupWeatherCache() {
       changed = true;
     }
 
+    if (current.xiaomiLocation && now - current.xiaomiLocation.updatedAt > XIAOMI_LOCATION_TTL) {
+      updates.xiaomiLocation = undefined;
+      changed = true;
+    }
+
     // 清理分钟级降水
     if (current.minutely && now - current.minutely.updatedAt > MINUTELY_TTL) {
       updates.minutely = undefined;
@@ -514,6 +592,11 @@ export function cleanupWeatherCache() {
 
     if (current.daily3d && now - current.daily3d.updatedAt > DAILY_TTL) {
       updates.daily3d = undefined;
+      changed = true;
+    }
+
+    if (current.details && now - current.details.updatedAt > DETAILS_TTL) {
+      updates.details = undefined;
       changed = true;
     }
 

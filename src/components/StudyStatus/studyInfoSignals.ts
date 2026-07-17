@@ -27,6 +27,8 @@ export type StudyInfoDisplayMode = "interrupt" | "rotating";
 export interface StudyInfoSignal {
   /** 持久化配置项 ID；天气和课程事件变化不会改变当前轮播位置。 */
   itemId: string;
+  /** 当前轮播帧的稳定身份；一个配置项可以展开为多个运行时帧。 */
+  frameId: string;
   source: StudyInfoSource;
   progressKind: StudyProgressKind;
   priority: StudyInfoPriority;
@@ -40,6 +42,8 @@ export interface StudyInfoSignal {
   dedupeKey: string;
   /** 配置顺序只用于信号稳定排序，不需要额外持久化。 */
   order?: number;
+  /** 同一配置项展开后的帧顺序。 */
+  subOrder?: number;
 }
 
 /** 天气运行层可以直接适配此最小快照，不要求 StudyStatus 依赖 Weather 组件。 */
@@ -61,6 +65,18 @@ export interface StudyInfoWeatherSnapshot {
   stale?: boolean;
 }
 
+export interface StudyInfoWeatherAlert {
+  expiresAt: number;
+  publishedAt: number | null;
+  signature: string;
+  summary: string;
+  title: string;
+}
+
+export interface StudyInfoWeatherAlertSnapshot {
+  alerts: StudyInfoWeatherAlert[];
+}
+
 export interface StudyInfoProgressSnapshot {
   stageText: string;
   stageAriaText?: string;
@@ -72,6 +88,7 @@ export interface StudyInfoProgressSnapshot {
 type ProgressItemConfig = Extract<StudyInfoItemConfig, { source: "progress" }>;
 type NextScheduleItemConfig = Extract<StudyInfoItemConfig, { source: "nextSchedule" }>;
 type RainItemConfig = Extract<StudyInfoItemConfig, { source: "rain" }>;
+type WeatherAlertItemConfig = Extract<StudyInfoItemConfig, { source: "weatherAlert" }>;
 type CustomItemConfig = Extract<StudyInfoItemConfig, { source: "custom" }>;
 
 export const MAX_STUDY_INFO_ITEMS = MAX_PERSISTED_STUDY_INFO_ITEMS;
@@ -123,6 +140,7 @@ function buildProgressSignal(
 
   return {
     itemId: config.id,
+    frameId: config.id,
     source: "progress",
     progressKind: config.progressKind,
     priority: "routine",
@@ -132,6 +150,7 @@ function buildProgressSignal(
     ariaText,
     dedupeKey: `progress:${config.progressKind}:${progress.statusText}:${primaryText}`,
     order: config.order,
+    subOrder: 0,
   };
 }
 
@@ -160,6 +179,7 @@ function buildNextScheduleSignal(
 
   return {
     itemId: config.id,
+    frameId: config.id,
     source: "nextSchedule",
     progressKind: config.backgroundProgressKind,
     priority,
@@ -171,6 +191,7 @@ function buildNextScheduleSignal(
     expiresAt: next.startAt,
     dedupeKey: `next-schedule:${next.period.id}:${next.startAt}`,
     order: config.order,
+    subOrder: 0,
   };
 }
 
@@ -184,16 +205,23 @@ function buildRainSignal(
   }
   const stats = weather.stats;
   if (stats?.hasReliableTimestamps === false) return null;
-  const phase = String(
+  const snapshotPhase = String(
     weather.phase ?? (stats?.isRainingNow ? "raining" : stats?.hasRain ? "preRain" : "unknown")
   )
     .toLowerCase()
     .replace(/_/g, "");
-  if (phase !== "raining" && phase !== "prerain") return null;
 
   const intensity = weather.intensityLabel ?? stats?.intensityLabel ?? "下雨";
   const rainStartAt = weather.rainStartAt ?? stats?.rainStartAt ?? stats?.nextRainStartAt;
   const rainEndAt = weather.rainEndAt ?? stats?.rainEndAt;
+  const phase =
+    snapshotPhase === "prerain" &&
+    rainStartAt != null &&
+    rainStartAt <= nowMs &&
+    (rainEndAt == null || nowMs < rainEndAt)
+      ? "raining"
+      : snapshotPhase;
+  if (phase !== "raining" && phase !== "prerain") return null;
   const leadMinutes =
     rainStartAt != null
       ? (rainStartAt - nowMs) / 60000
@@ -232,6 +260,7 @@ function buildRainSignal(
 
   return {
     itemId: config.id,
+    frameId: config.id,
     source: "rain",
     progressKind: config.backgroundProgressKind,
     priority,
@@ -244,13 +273,41 @@ function buildRainSignal(
     // 同一阶段保持稳定，开始下雨时切换一次键，让读屏播报状态变化。
     dedupeKey: `rain:${rainStartAt ?? "active"}:${rainEndAt ?? "unknown"}:${phase}`,
     order: config.order,
+    subOrder: 0,
   };
+}
+
+function buildWeatherAlertSignals(
+  weatherAlerts: StudyInfoWeatherAlertSnapshot | undefined,
+  config: WeatherAlertItemConfig
+): StudyInfoSignal[] {
+  if (!weatherAlerts) return [];
+  return weatherAlerts.alerts.map((alert, index) => {
+    const secondaryText = alert.summary;
+    return {
+      itemId: config.id,
+      frameId: `${config.id}:${alert.signature}`,
+      source: "weatherAlert",
+      progressKind: config.backgroundProgressKind,
+      priority: "routine",
+      displayMode: "rotating",
+      primaryText: alert.title,
+      secondaryText,
+      ariaText: [alert.title, secondaryText].filter(Boolean).join("，"),
+      eventAt: alert.publishedAt ?? undefined,
+      expiresAt: alert.expiresAt,
+      dedupeKey: `weather-alert:${alert.signature}:${alert.title}:${alert.summary}`,
+      order: config.order,
+      subOrder: index,
+    };
+  });
 }
 
 function buildCustomSignal(config: CustomItemConfig): StudyInfoSignal | null {
   if (!config.text) return null;
   return {
     itemId: config.id,
+    frameId: config.id,
     source: "custom",
     progressKind: config.backgroundProgressKind,
     priority: "routine",
@@ -259,6 +316,7 @@ function buildCustomSignal(config: CustomItemConfig): StudyInfoSignal | null {
     ariaText: config.text,
     dedupeKey: `custom:${config.id}:${config.text}`,
     order: config.order,
+    subOrder: 0,
   };
 }
 
@@ -274,7 +332,8 @@ function sortSignals(first: StudyInfoSignal, second: StudyInfoSignal): number {
   return (
     eventDifference ||
     (first.order ?? 0) - (second.order ?? 0) ||
-    first.itemId.localeCompare(second.itemId)
+    (first.subOrder ?? 0) - (second.subOrder ?? 0) ||
+    first.frameId.localeCompare(second.frameId)
   );
 }
 
@@ -286,6 +345,7 @@ export function resolveStudyInfoSignals(params: {
   progress: Record<StudyProgressKind, StudyInfoProgressSnapshot>;
   schedule?: StudyPeriod[];
   weather?: StudyInfoWeatherSnapshot;
+  weatherAlerts?: StudyInfoWeatherAlertSnapshot;
   settings?: StudyInfoCarouselSettings;
 }): StudyInfoSignal[] {
   const nowMs = typeof params.now === "number" ? params.now : params.now.getTime();
@@ -304,6 +364,9 @@ export function resolveStudyInfoSignals(params: {
       case "rain":
         signal = buildRainSignal(params.weather, nowMs, item);
         break;
+      case "weatherAlert":
+        signals.push(...buildWeatherAlertSignals(params.weatherAlerts, item));
+        break;
       case "custom":
         signal = buildCustomSignal(item);
         break;
@@ -315,10 +378,9 @@ export function resolveStudyInfoSignals(params: {
     .filter((signal) => signal.expiresAt == null || signal.expiresAt > nowMs)
     .filter(
       (signal, index, all) =>
-        all.findIndex((candidate) => candidate.itemId === signal.itemId) === index
+        all.findIndex((candidate) => candidate.frameId === signal.frameId) === index
     )
-    .sort(sortSignals)
-    .slice(0, MAX_STUDY_INFO_ITEMS);
+    .sort(sortSignals);
 }
 
 /** 当配置非空但条件提示均无内容时，为首项保留其背景进度。 */
@@ -330,6 +392,7 @@ export function resolveStudyInfoStandbySignal(
 
   return {
     itemId: firstItem.id,
+    frameId: firstItem.id,
     source: firstItem.source,
     progressKind: getStudyInfoItemProgressKind(firstItem),
     priority: "routine",
@@ -338,6 +401,7 @@ export function resolveStudyInfoStandbySignal(
     ariaText: "",
     dedupeKey: `standby:${firstItem.id}`,
     order: firstItem.order,
+    subOrder: 0,
   };
 }
 

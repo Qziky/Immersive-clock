@@ -9,7 +9,7 @@
 
 ```tsx
 <Button icon="action.apply">应用</Button>
-<SettingItem icon="feature.weatherLive" title="实时天气" />
+<SettingItem icon="feature.weatherLive" title="天气数据" />
 ```
 
 纯图标操作使用 `IconButton`，必须提供可访问名称：

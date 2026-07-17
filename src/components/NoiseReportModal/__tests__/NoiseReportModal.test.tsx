@@ -88,8 +88,8 @@ describe("NoiseReportModal", () => {
     const mainChart = within(dialog).getByRole("img", { name: /^噪音走势/ });
     const singleMode = within(dialog).getByRole("radio", { name: "单图" });
     const combinedMode = within(dialog).getByRole("radio", { name: "三图" });
-    const combinedScorePath = 'path[mask="url(#scoreCoverageMaskMain)"]';
-    const combinedEventBar = 'rect[shape-rendering="crispEdges"]';
+    const combinedScorePath = 'path[data-chart-series="score"]';
+    const combinedEventBar = 'rect[data-chart-bar-series="events"]';
 
     expect(singleMode).toBeChecked();
     expect(mainChart.querySelector(combinedScorePath)).not.toBeInTheDocument();

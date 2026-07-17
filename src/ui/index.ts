@@ -20,6 +20,20 @@ export type {
 export { Button } from "./components/Button";
 export type { CardProps, CardSurface } from "./components/Card";
 export { Card } from "./components/Card";
+export type {
+  ChartBarSeries,
+  ChartCurve,
+  ChartLegendItem,
+  ChartLegendProps,
+  ChartLineSeries,
+  ChartPoint,
+  ChartSize,
+  ChartThreshold,
+  ChartTick,
+  ChartTone,
+  LineChartProps,
+} from "./components/Chart";
+export { ChartLegend, LineChart } from "./components/Chart";
 export type { CheckboxProps } from "./components/Checkbox";
 export { Checkbox } from "./components/Checkbox";
 export type { ConfirmDialogProps } from "./components/ConfirmDialog";

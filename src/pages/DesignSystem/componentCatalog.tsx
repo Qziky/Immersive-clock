@@ -8,6 +8,7 @@ import {
   Badge,
   Button,
   Card,
+  ChartLegend,
   Checkbox,
   ConfirmDialog,
   Dropdown,
@@ -21,6 +22,7 @@ import {
   Input,
   KeyboardShortcut,
   ListItem,
+  LineChart,
   Menu,
   MetricCard,
   Modal,
@@ -111,6 +113,9 @@ const COLOR_TOKENS = [
   ["--ui-color-warning", "警告"],
   ["--ui-color-danger", "危险"],
   ["--ui-color-static-white", "静态白色"],
+  ["--ui-chart-surface", "图表表面"],
+  ["--ui-chart-grid", "图表网格"],
+  ["--ui-chart-axis", "图表坐标"],
 ] as const;
 
 const SPACE_TOKENS = [
@@ -687,12 +692,16 @@ function FormSectionExample() {
     <Grid minColumnWidth={260}>
       <FormSection
         title="柔和分区"
-        description="适合设置页面中的相关字段。"
+        description="用于独立表单或页面内需要强调的二级分组。"
         action={<Button size="sm">重置</Button>}
       >
         <Input label="计划名称" defaultValue="晨间计划" />
       </FormSection>
-      <FormSection title="无底色分区" description="用于已经具有容器的上下文。" variant="plain">
+      <FormSection
+        title="无底色分区"
+        description="用于 SettingsShell 等已经具有容器的顶层内容区。"
+        variant="plain"
+      >
         <Switch checked onCheckedChange={() => undefined} label="保持唤醒" />
       </FormSection>
     </Grid>
@@ -1319,7 +1328,7 @@ function SettingsShellDemo({
         </Inline>
       }
     >
-      <FormSection title="设置内容" description={`当前条目：${activeItem}`}>
+      <FormSection title="设置内容" description={`当前条目：${activeItem}`} variant="plain">
         <Input label="字段" placeholder="输入内容" />
         <Switch checked onCheckedChange={() => undefined} label="开关项" />
       </FormSection>
@@ -1337,6 +1346,136 @@ function SettingsShellDrawerExample() {
 
 function SettingsShellDisabledExample() {
   return <SettingsShellDemo disabled />;
+}
+
+const CHART_X_TICKS = [
+  { value: 0, label: "08:00" },
+  { value: 20, label: "08:20" },
+  { value: 40, label: "08:40" },
+  { value: 60, label: "09:00" },
+] as const;
+const CHART_Y_TICKS = [
+  { value: 20, label: "20" },
+  { value: 40, label: "40" },
+  { value: 60, label: "60" },
+  { value: 80, label: "80" },
+] as const;
+const CHART_NOISE_DATA = [
+  { x: 0, y: 38 },
+  { x: 8, y: 42 },
+  { x: 16, y: 37 },
+  { x: 24, y: 45 },
+  null,
+  { x: 36, y: 49 },
+  { x: 44, y: 58 },
+  { x: 52, y: 47 },
+  { x: 60, y: 51 },
+] as const;
+const CHART_SCORE_DATA = [
+  { x: 0, y: 70 },
+  { x: 8, y: 66 },
+  { x: 16, y: 74 },
+  { x: 24, y: 62 },
+  null,
+  { x: 36, y: 58 },
+  { x: 44, y: 46 },
+  { x: 52, y: 60 },
+  { x: 60, y: 56 },
+] as const;
+const CHART_EVENT_DATA = [
+  { x: 8, y: 1 },
+  { x: 24, y: 2 },
+  { x: 44, y: 4 },
+  { x: 52, y: 2 },
+] as const;
+
+function LineChartExample() {
+  return (
+    <LineChart
+      ariaLabel="自习环境走势示例"
+      description="确定性的噪音、纪律评分和打断密度组合图。"
+      series={[
+        {
+          id: "noise",
+          label: "平均噪音",
+          data: CHART_NOISE_DATA,
+          tone: "accent",
+          area: true,
+          colorAbove: { value: 55, tone: "danger" },
+        },
+        {
+          id: "score",
+          label: "纪律评分",
+          data: CHART_SCORE_DATA,
+          tone: "info",
+          opacity: 0.76,
+          strokeWidth: 1.75,
+        },
+      ]}
+      bars={[
+        {
+          id: "events",
+          label: "打断密度",
+          data: CHART_EVENT_DATA,
+          tone: "danger",
+          yDomain: [0, 5],
+          maxHeightRatio: 0.68,
+        },
+      ]}
+      xDomain={[0, 60]}
+      yDomain={[20, 80]}
+      xTicks={CHART_X_TICKS}
+      yTicks={CHART_Y_TICKS}
+      thresholds={[{ value: 55, label: "55 dB", tone: "danger" }]}
+      showLegend
+    />
+  );
+}
+
+function CompactLineChartExample() {
+  return (
+    <Stack gap="sm">
+      <ChartLegend
+        items={[
+          { id: "score", label: "纪律评分", tone: "info", kind: "line" },
+          { id: "events", label: "打断密度", tone: "danger", kind: "bar" },
+        ]}
+      />
+      <LineChart
+        ariaLabel="紧凑评分走势示例"
+        series={[
+          {
+            id: "score",
+            label: "纪律评分",
+            data: CHART_SCORE_DATA,
+            tone: "info",
+            area: true,
+          },
+        ]}
+        xDomain={[0, 60]}
+        yDomain={[20, 80]}
+        xTicks={[CHART_X_TICKS[0], CHART_X_TICKS[3]]}
+        yTicks={[
+          { value: 20, label: "20" },
+          { value: 80, label: "80" },
+        ]}
+        size="compact"
+      />
+    </Stack>
+  );
+}
+
+function EmptyLineChartExample() {
+  return (
+    <LineChart
+      ariaLabel="空图表示例"
+      emptyMessage="等待可用样本"
+      series={[]}
+      xDomain={[0, 1]}
+      yDomain={[0, 100]}
+      size="compact"
+    />
+  );
 }
 
 function PortalExample() {
@@ -1961,6 +2100,35 @@ export const COMPONENT_CATALOG: readonly ComponentCatalogEntry[] = [
         ["grid", "control", "tone", "disabled", "body"],
         SettingsCompositesExample
       ),
+    ],
+  },
+  {
+    id: "charts",
+    title: "LineChart / ChartLegend",
+    description: "统一折线、面积、阈值、断点、附加柱层、图例和响应式图表表面。",
+    section: "compositions",
+    kind: "visual",
+    publicExports: ["LineChart", "ChartLegend"],
+    requiredStates: [
+      "default",
+      "multiple-series",
+      "area",
+      "threshold",
+      "gaps",
+      "bars",
+      "legend",
+      "compact",
+      "empty",
+    ],
+    examples: [
+      makeExample(
+        "line-chart-combined",
+        "组合走势",
+        ["default", "multiple-series", "area", "threshold", "gaps", "bars", "legend"],
+        LineChartExample
+      ),
+      makeExample("line-chart-compact", "紧凑走势与独立图例", ["compact"], CompactLineChartExample),
+      makeExample("line-chart-empty", "无样本", ["empty"], EmptyLineChartExample),
     ],
   },
   {

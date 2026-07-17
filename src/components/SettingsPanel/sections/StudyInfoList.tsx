@@ -13,7 +13,6 @@ import {
   Dropdown,
   IconButton,
   Input as FormInput,
-  Select as FormSelect,
   SettingItem,
   Slider as FormSlider,
   VisuallyHidden,
@@ -33,7 +32,14 @@ import styles from "./StudyInfoList.module.css";
 type ProgressItem = Extract<StudyInfoItemConfig, { source: "progress" }>;
 type NextScheduleItem = Extract<StudyInfoItemConfig, { source: "nextSchedule" }>;
 type RainItem = Extract<StudyInfoItemConfig, { source: "rain" }>;
+type WeatherAlertItem = Extract<StudyInfoItemConfig, { source: "weatherAlert" }>;
 type CustomItem = Extract<StudyInfoItemConfig, { source: "custom" }>;
+type BuiltinItemKind =
+  | "progress-day"
+  | "progress-schedule"
+  | "nextSchedule"
+  | "rain"
+  | "weatherAlert";
 
 interface StudyInfoListProps {
   settings: StudyInfoCarouselSettings;
@@ -54,6 +60,7 @@ const NEXT_SCHEDULE_LEAD_OPTIONS = [
 ];
 
 const RAIN_LEAD_OPTIONS = [
+  { value: "120", label: "提前 120 分钟" },
   { value: "60", label: "提前 60 分钟" },
   { value: "30", label: "提前 30 分钟" },
   { value: "15", label: "提前 15 分钟" },
@@ -78,6 +85,7 @@ function getItemTitle(item: StudyInfoItemConfig): string {
   if (item.source === "progress") return getProgressLabel(item.progressKind);
   if (item.source === "nextSchedule") return "下一课时";
   if (item.source === "rain") return "短时降雨";
+  if (item.source === "weatherAlert") return "天气预警";
   return item.text.trim() || "自定义文案";
 }
 
@@ -85,6 +93,7 @@ function getItemIcon(item: StudyInfoItemConfig): AppIconName {
   if (item.source === "progress") return "feature.progress";
   if (item.source === "nextSchedule") return "feature.event";
   if (item.source === "rain") return "feature.weatherPrecipitation";
+  if (item.source === "weatherAlert") return "feature.weatherAlerts";
   return "feature.message";
 }
 
@@ -100,7 +109,9 @@ function getItemDescription(item: StudyInfoItemConfig): string {
   }
 
   const background = getProgressLabel(item.backgroundProgressKind);
-  if (item.source === "custom") return `提示信息 · 背景：${background}`;
+  if (item.source === "custom" || item.source === "weatherAlert") {
+    return `提示信息 · 背景：${background}`;
+  }
   return `提示信息 · ${getLeadLabel(item.leadMinutes)} · 背景：${background}`;
 }
 
@@ -110,7 +121,7 @@ function getBuiltinProgressId(kind: StudyProgressKind): string {
     : STUDY_INFO_BUILTIN_IDS.progressDay;
 }
 
-function createBuiltinItem(kind: "progress-day" | "progress-schedule" | "nextSchedule" | "rain") {
+function createBuiltinItem(kind: BuiltinItemKind) {
   if (kind === "progress-day" || kind === "progress-schedule") {
     const progressKind: StudyProgressKind = kind === "progress-schedule" ? "schedule" : "day";
     return {
@@ -131,14 +142,23 @@ function createBuiltinItem(kind: "progress-day" | "progress-schedule" | "nextSch
       order: 0,
     } satisfies NextScheduleItem;
   }
+  if (kind === "rain") {
+    return {
+      id: STUDY_INFO_BUILTIN_IDS.rain,
+      source: "rain",
+      backgroundProgressKind: "day",
+      leadMinutes: 30,
+      enabled: true,
+      order: 0,
+    } satisfies RainItem;
+  }
   return {
-    id: STUDY_INFO_BUILTIN_IDS.rain,
-    source: "rain",
+    id: STUDY_INFO_BUILTIN_IDS.weatherAlert,
+    source: "weatherAlert",
     backgroundProgressKind: "day",
-    leadMinutes: 30,
     enabled: true,
     order: 0,
-  } satisfies RainItem;
+  } satisfies WeatherAlertItem;
 }
 
 function createCustomItem(existingIds: Set<string>): CustomItem {
@@ -208,7 +228,7 @@ export function StudyInfoList({ settings, onChange }: StudyInfoListProps) {
     );
   };
 
-  const addBuiltinItem = (kind: "progress-day" | "progress-schedule" | "nextSchedule" | "rain") => {
+  const addBuiltinItem = (kind: BuiltinItemKind) => {
     if (atLimit) return;
     const existing = orderedItems.find((item) => {
       if (kind === "progress-day" || kind === "progress-schedule") {
@@ -286,12 +306,10 @@ export function StudyInfoList({ settings, onChange }: StudyInfoListProps) {
       setItemEnabled(value.slice("restore:".length), true);
       return;
     }
-    addBuiltinItem(value as "progress-day" | "progress-schedule" | "nextSchedule" | "rain");
+    addBuiltinItem(value as BuiltinItemKind);
   };
 
-  const hasEnabledBuiltin = (
-    kind: "progress-day" | "progress-schedule" | "nextSchedule" | "rain"
-  ) =>
+  const hasEnabledBuiltin = (kind: BuiltinItemKind) =>
     enabledItems.some((item) => {
       if (kind === "progress-day" || kind === "progress-schedule") {
         const progressKind = kind === "progress-schedule" ? "schedule" : "day";
@@ -332,6 +350,12 @@ export function StudyInfoList({ settings, onChange }: StudyInfoListProps) {
           label: `短时降雨${hasEnabledBuiltin("rain") ? "（已添加）" : ""}`,
           disabled: atLimit || hasEnabledBuiltin("rain"),
           icon: "feature.weatherPrecipitation",
+        },
+        {
+          value: "weatherAlert",
+          label: `天气预警${hasEnabledBuiltin("weatherAlert") ? "（已添加）" : ""}`,
+          disabled: atLimit || hasEnabledBuiltin("weatherAlert"),
+          icon: "feature.weatherAlerts",
         },
         {
           value: "new-custom",
@@ -455,45 +479,48 @@ export function StudyInfoList({ settings, onChange }: StudyInfoListProps) {
                 >
                   {isExpanded && item.source !== "progress" && (
                     <div className={styles.configGrid} id={`study-info-config-${item.id}`}>
-                      <FormSelect
+                      <Dropdown
                         label="背景进度"
                         value={item.backgroundProgressKind}
                         options={PROGRESS_OPTIONS}
-                        onChange={(event) =>
+                        onChange={(value) =>
+                          (value === "day" || value === "schedule") &&
                           replaceItem({
                             ...item,
-                            backgroundProgressKind: event.target.value as StudyProgressKind,
+                            backgroundProgressKind: value,
                           })
                         }
                       />
                       {item.source === "nextSchedule" && (
-                        <FormSelect
+                        <Dropdown
                           label="显示时机"
                           value={String(item.leadMinutes)}
                           options={NEXT_SCHEDULE_LEAD_OPTIONS}
-                          onChange={(event) =>
+                          onChange={(value) => {
+                            if (typeof value !== "string") return;
                             replaceItem({
                               ...item,
                               leadMinutes:
-                                event.target.value === "always"
+                                value === "always"
                                   ? "always"
-                                  : (Number(event.target.value) as Exclude<
+                                  : (Number(value) as Exclude<
                                       StudyNextScheduleLeadMinutes,
                                       "always"
                                     >),
-                            })
-                          }
+                            });
+                          }}
                         />
                       )}
                       {item.source === "rain" && (
-                        <FormSelect
+                        <Dropdown
                           label="显示时机"
                           value={String(item.leadMinutes)}
                           options={RAIN_LEAD_OPTIONS}
-                          onChange={(event) =>
+                          onChange={(value) =>
+                            typeof value === "string" &&
                             replaceItem({
                               ...item,
-                              leadMinutes: Number(event.target.value) as StudyRainLeadMinutes,
+                              leadMinutes: Number(value) as StudyRainLeadMinutes,
                             })
                           }
                         />

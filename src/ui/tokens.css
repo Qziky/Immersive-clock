@@ -25,6 +25,13 @@
   --ui-color-success: #4fce8b;
   --ui-color-success-soft: rgba(79, 206, 139, 0.12);
 
+  --ui-chart-surface: rgba(9, 14, 12, 0.72);
+  --ui-chart-border: rgba(232, 233, 224, 0.14);
+  --ui-chart-grid: rgba(232, 233, 224, 0.11);
+  --ui-chart-axis: rgba(232, 233, 224, 0.58);
+  --ui-chart-highlight: rgba(232, 233, 224, 0.055);
+  --ui-chart-shadow: inset 0 -20px 44px rgba(0, 0, 0, 0.1);
+
   --ui-glass-backdrop: rgba(2, 5, 4, 0.5);
   --ui-glass-surface: rgba(14, 19, 18, 0.76);
   --ui-glass-surface-strong: rgba(14, 19, 18, 0.9);

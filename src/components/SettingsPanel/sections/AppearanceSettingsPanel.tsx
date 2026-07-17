@@ -194,7 +194,7 @@ function BackgroundEditor({
   ];
 
   return (
-    <FormSection title={title} description={description}>
+    <FormSection title={title} description={description} variant="plain">
       <SettingItem icon="appearance.background" title="背景类型">
         <FormSegmented
           value={background.type}
@@ -631,11 +631,19 @@ export function AppearanceSettingsPanel({ section = "overview" }: AppearanceSett
     <div className={styles.panel}>
       {isOverview ? (
         <>
-          <FormSection title="实时预览" description="这里展示所有页面共用的字体与整体背景。">
+          <FormSection
+            title="实时预览"
+            description="这里展示所有页面共用的字体与整体背景。"
+            variant="plain"
+          >
             <AppearancePreview overview />
           </FormSection>
 
-          <FormSection title="字体设置" description="没有单独调整的文字会使用这里的字体。">
+          <FormSection
+            title="字体设置"
+            description="没有单独调整的文字会使用这里的字体。"
+            variant="plain"
+          >
             <SettingGrid className={styles.editorGrid} columns={2}>
               {(["numeric", "text"] as const).map((category) => (
                 <SettingItem
@@ -683,7 +691,11 @@ export function AppearanceSettingsPanel({ section = "overview" }: AppearanceSett
             onError={reportBackgroundError}
           />
 
-          <FormSection title="字体资源" description="导入字体后，可用于整体样式或任一组件。">
+          <FormSection
+            title="字体资源"
+            description="导入字体后，可用于整体样式或任一组件。"
+            variant="plain"
+          >
             <SettingGrid className={styles.editorGrid} columns={2}>
               <FormInput
                 label="字体名称"
@@ -706,6 +718,7 @@ export function AppearanceSettingsPanel({ section = "overview" }: AppearanceSett
           <FormSection
             title="资源清单"
             description="查看资源状态、预览或重新应用背景，并删除未使用的本地资源。"
+            variant="plain"
           >
             {backgroundAssets.length === 0 && fonts.length === 0 ? (
               <InfoPanel tone="neutral">暂无已导入资源。</InfoPanel>
@@ -798,7 +811,11 @@ export function AppearanceSettingsPanel({ section = "overview" }: AppearanceSett
             ) : null}
           </FormSection>
 
-          <FormSection title="恢复外观" description="恢复操作只修改草稿，保存后才会生效。">
+          <FormSection
+            title="恢复外观"
+            description="恢复操作只修改草稿，保存后才会生效。"
+            variant="plain"
+          >
             <FormButtonGroup align="left">
               <FormButton variant="secondary" icon="action.reset" onClick={handleGlobalReset}>
                 恢复整体样式
@@ -812,7 +829,11 @@ export function AppearanceSettingsPanel({ section = "overview" }: AppearanceSett
       ) : (
         <>
           {isTime ? (
-            <FormSection title="显示内容" description="分别调整四个主要时间页面的显示样式。">
+            <FormSection
+              title="显示内容"
+              description="分别调整四个主要时间页面的显示样式。"
+              variant="plain"
+            >
               <FormSegmented
                 ariaLabel="时间显示类型"
                 value={timeView}
@@ -823,7 +844,11 @@ export function AppearanceSettingsPanel({ section = "overview" }: AppearanceSett
           ) : null}
 
           {isTopDock ? (
-            <FormSection title="信息栏内容" description="分别调整顶部信息栏的栏体与各项辅助信息。">
+            <FormSection
+              title="信息栏内容"
+              description="分别调整顶部信息栏的栏体与各项辅助信息。"
+              variant="plain"
+            >
               <FormSegmented
                 ariaLabel="顶部信息栏内容"
                 value={topDockView}
@@ -833,7 +858,11 @@ export function AppearanceSettingsPanel({ section = "overview" }: AppearanceSett
             </FormSection>
           ) : null}
 
-          <FormSection title={definition.label} description={definition.description}>
+          <FormSection
+            title={definition.label}
+            description={definition.description}
+            variant="plain"
+          >
             <div className={styles.editor}>
               <AppearancePreview
                 componentId={definition.id}
@@ -945,6 +974,7 @@ export function AppearanceSettingsPanel({ section = "overview" }: AppearanceSett
             <FormSection
               title="状态样式"
               description="为组件在特定运行状态下设置统一的颜色与显示效果。"
+              variant="plain"
             >
               <div className={styles.editor}>
                 <Tabs

@@ -12,6 +12,10 @@ vi.mock("../../../utils/timeSync", () => ({
   startTimeSyncManager: () => () => {},
 }));
 
+vi.mock("../../../services/weatherCoordinator", () => ({
+  startWeatherCoordinator: () => () => {},
+}));
+
 vi.mock("../../../utils/tour", () => ({
   startTour: () => {},
   isTourActive: () => false,

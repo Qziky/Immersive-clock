@@ -2,9 +2,10 @@ import fs from "fs";
 import * as path from "path";
 import { fileURLToPath } from "url";
 
-import { app, BrowserWindow, protocol, session, systemPreferences } from "electron";
+import { app, BrowserWindow, net, protocol, session, systemPreferences } from "electron";
 
 import { registerTimeSyncIpc } from "./ipc/registerTimeSyncIpc";
+import { resolveXiaomiWeatherUpstreamUrl } from "./xiaomiWeatherProxy";
 
 // ES 模块中获取 __dirname
 const __filename = fileURLToPath(import.meta.url);
@@ -100,6 +101,21 @@ async function registerAppProtocol() {
   await protocol.handle("app", async (request) => {
     try {
       const url = new URL(request.url);
+      const xiaomiWeatherUpstreamUrl = resolveXiaomiWeatherUpstreamUrl(request.url);
+      if (xiaomiWeatherUpstreamUrl) {
+        if (request.method !== "GET") {
+          return new Response("Method Not Allowed", {
+            status: 405,
+            headers: { allow: "GET" },
+          });
+        }
+        try {
+          return await net.fetch(xiaomiWeatherUpstreamUrl);
+        } catch {
+          return new Response("Bad Gateway", { status: 502 });
+        }
+      }
+
       let pathname = decodeURIComponent(url.pathname || "/");
       if (pathname === "/") pathname = "/index.html";
 

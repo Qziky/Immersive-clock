@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 
 import { useComponentAppearance } from "../../contexts/AppearanceContext";
 import { useMinutelyWeatherSnapshot } from "../../hooks/useMinutelyWeatherSnapshot";
+import { useWeatherAlertSnapshot } from "../../hooks/useWeatherAlertSnapshot";
 import type { StudyInfoCarouselSettings, StudyProgressKind } from "../../types";
 import { DEFAULT_SCHEDULE } from "../../types/studySchedule";
 import type { StudyPeriod } from "../../types/studySchedule";
@@ -10,11 +11,13 @@ import { logger } from "../../utils/logger";
 import { subscribeSettingsEvent, SETTINGS_EVENTS } from "../../utils/settingsEvents";
 import { readStudySchedule } from "../../utils/studyScheduleStorage";
 import { getAdjustedDate } from "../../utils/timeSync";
+import { summarizeWeatherAlert } from "../../utils/weatherAlert";
 
 import { getDayGreeting } from "./dayGreeting";
 import {
   resolveStudyInfoSignals,
   resolveStudyInfoStandbySignal,
+  type StudyInfoWeatherAlertSnapshot,
   type StudyInfoWeatherSnapshot,
 } from "./studyInfoSignals";
 import { StudyStatusPresentation } from "./StudyStatusPresentation";
@@ -216,7 +219,11 @@ const StudyStatus: React.FC<StudyStatusProps> = () => {
   const rainSourceEnabled = infoCarouselSettings.items.some(
     (item) => item.source === "rain" && item.enabled
   );
+  const weatherAlertSourceEnabled = infoCarouselSettings.items.some(
+    (item) => item.source === "weatherAlert" && item.enabled
+  );
   const minutelyWeather = useMinutelyWeatherSnapshot(rainSourceEnabled);
+  const weatherAlerts = useWeatherAlertSnapshot(weatherAlertSourceEnabled);
 
   const normalizeSchedule = useCallback((input: StudyPeriod[]): StudyPeriod[] => {
     return input.map((p, index) => {
@@ -306,6 +313,21 @@ const StudyStatus: React.FC<StudyStatusProps> = () => {
     };
   }, [minutelyWeather, rainSourceEnabled]);
 
+  const weatherAlertSnapshot = useMemo<StudyInfoWeatherAlertSnapshot | undefined>(() => {
+    if (!weatherAlertSourceEnabled) return undefined;
+    return {
+      alerts: weatherAlerts.alerts.map((item) => ({
+        expiresAt: item.expiresAt,
+        publishedAt: item.publishedAt,
+        signature: item.signature,
+        summary: summarizeWeatherAlert(item.alert),
+        title:
+          item.alert.headline ||
+          (item.alert.eventType?.name ? `${item.alert.eventType.name}预警` : "天气预警"),
+      })),
+    };
+  }, [weatherAlertSourceEnabled, weatherAlerts.alerts]);
+
   const infoSignals = useMemo(
     () =>
       resolveStudyInfoSignals({
@@ -328,9 +350,17 @@ const StudyStatus: React.FC<StudyStatusProps> = () => {
         },
         schedule,
         weather: weatherSnapshot,
+        weatherAlerts: weatherAlertSnapshot,
         settings: infoCarouselSettings,
       }),
-    [currentTime, infoCarouselSettings, progressSnapshots, schedule, weatherSnapshot]
+    [
+      currentTime,
+      infoCarouselSettings,
+      progressSnapshots,
+      schedule,
+      weatherAlertSnapshot,
+      weatherSnapshot,
+    ]
   );
   const infoCarousel = useStudyInfoCarousel({
     signals: infoSignals,

@@ -6,7 +6,7 @@ export type MinutelyRainPhase = "DRY" | "PRE_RAIN" | "RAINING" | "POST_RAIN";
 
 export interface MinutelyPrecipCacheLike extends Pick<
   MinutelyPrecipResponse,
-  "updateTime" | "summary" | "minutely"
+  "updateTime" | "summary" | "minutely" | "provider"
 > {
   fetchedAt: number;
 }
@@ -27,6 +27,34 @@ export interface MinutelyRainStats {
   leadMinutes: number | null;
   /** 预报时间轴是否来自可解析的服务端时间（而不是本地推断） */
   hasReliableTimestamps?: boolean;
+}
+
+function isNormalProviderStatus(value: unknown): boolean {
+  if (value == null || value === "") return true;
+  const status = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(status) && status === 0;
+}
+
+export function isUsableMinutelyResponse(
+  data: MinutelyPrecipResponse | null | undefined
+): data is MinutelyPrecipResponse & {
+  minutely: NonNullable<MinutelyPrecipResponse["minutely"]>;
+} {
+  if (!data || data.error || data.code !== "200" || !Array.isArray(data.minutely)) return false;
+  if (
+    !isNormalProviderStatus(data.provider?.flags.responseStatus) ||
+    !isNormalProviderStatus(data.provider?.flags.precipitationStatus)
+  ) {
+    return false;
+  }
+  return (
+    data.minutely.length > 0 &&
+    data.minutely.every((sample) => {
+      if (sample.precip == null || String(sample.precip).trim() === "") return false;
+      const precipitation = Number(sample.precip);
+      return Number.isFinite(precipitation) && precipitation >= 0;
+    })
+  );
 }
 
 /**
@@ -326,6 +354,7 @@ export function shouldTriggerCriticalRefresh(params: {
   if (lastApiFetchAt <= 0) return false;
   const elapsed = nowMs - lastApiFetchAt;
   if (elapsed <= 0) return false;
+  if (elapsed < minCriticalGapMs) return false;
   if (elapsed >= baseIntervalMs) return false;
   if (nowMs - lastCriticalFetchAt < minCriticalGapMs) return false;
 

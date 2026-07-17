@@ -1,0 +1,162 @@
+.chart {
+  background:
+    linear-gradient(180deg, var(--ui-chart-highlight), transparent 38%), var(--ui-chart-surface);
+  border: 1px solid var(--ui-chart-border);
+  border-radius: var(--ui-radius-lg);
+  box-shadow: var(--ui-chart-shadow);
+  min-width: 0;
+  overflow: hidden;
+  position: relative;
+  width: 100%;
+}
+
+.chart::after {
+  border-radius: inherit;
+  box-shadow: inset 0 1px 0 var(--ui-chart-highlight);
+  content: "";
+  inset: 0;
+  pointer-events: none;
+  position: absolute;
+}
+
+.default {
+  min-height: 184px;
+}
+
+.compact {
+  min-height: 118px;
+}
+
+.svg {
+  display: block;
+  overflow: visible;
+  width: 100%;
+}
+
+.gridLine {
+  stroke: var(--ui-chart-grid);
+  stroke-dasharray: 3 5;
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.axisLabel,
+.thresholdLabel {
+  font-family: var(--ui-font-number);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+}
+
+.axisLabel {
+  fill: var(--ui-chart-axis);
+}
+
+.thresholdLine {
+  stroke: currentColor;
+  stroke-dasharray: 7 5;
+  stroke-width: 1.25;
+  vector-effect: non-scaling-stroke;
+}
+
+.thresholdLabel {
+  fill: currentColor;
+  paint-order: stroke;
+  stroke: var(--ui-chart-surface);
+  stroke-linejoin: round;
+  stroke-width: 4px;
+}
+
+.area {
+  pointer-events: none;
+}
+
+.line,
+.lineHalo {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.point {
+  vector-effect: non-scaling-stroke;
+}
+
+.lineHalo {
+  stroke-width: 5;
+}
+
+.legend {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  min-width: 0;
+}
+
+.legendOverlay {
+  justify-content: flex-end;
+  left: 46px;
+  pointer-events: none;
+  position: absolute;
+  right: 14px;
+  top: 10px;
+  z-index: 1;
+}
+
+.legendItem {
+  align-items: center;
+  color: var(--ui-color-text-muted);
+  display: inline-flex;
+  font-size: var(--ui-font-size-xs);
+  gap: 6px;
+  line-height: 1.25;
+  min-width: 0;
+}
+
+.legendMark {
+  color: var(--chart-legend-color);
+  display: inline-block;
+  flex: 0 0 auto;
+}
+
+.legendMarkLine {
+  border-top: 2px solid currentColor;
+  width: 14px;
+}
+
+.legendMarkBar {
+  background: currentColor;
+  border-radius: var(--ui-radius-xs);
+  height: 9px;
+  opacity: 0.72;
+  width: 4px;
+}
+
+.empty {
+  align-items: center;
+  color: var(--ui-color-text-subtle);
+  display: flex;
+  font-size: var(--ui-font-size-sm);
+  justify-content: center;
+  min-height: inherit;
+  padding: var(--ui-space-4);
+  text-align: center;
+}
+
+@media (max-width: 480px) {
+  .legendOverlay {
+    gap: 5px 9px;
+  }
+
+  .legendItem {
+    font-size: 10px;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .chart {
+    background: var(--ui-color-bg-elevated);
+  }
+}

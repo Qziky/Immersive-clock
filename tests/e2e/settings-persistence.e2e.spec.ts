@@ -36,6 +36,329 @@ async function addStudyInfo(page: Page, dialog: Locator, optionName: string) {
   await page.getByRole("option", { name: optionName, exact: false }).click();
 }
 
+async function openWeatherSettingsSection(page: Page, dialog: Locator, sectionName: string) {
+  if ((page.viewportSize()?.width ?? 1280) <= 720) {
+    const compactNavigation = dialog.getByRole("navigation", { name: "设置紧凑导航" });
+    await compactNavigation.getByRole("button", { name: "环境提醒" }).click();
+    await dialog
+      .getByRole("navigation", { name: "环境提醒子分类" })
+      .getByRole("button", { name: sectionName })
+      .click();
+    await expect(dialog.locator("#settings-compact-submenu")).toHaveCount(0);
+    return;
+  }
+
+  const sectionButton = dialog.getByRole("button", { name: sectionName });
+  if (!(await sectionButton.isVisible())) {
+    await dialog.getByRole("button", { name: "环境提醒" }).click();
+  }
+  await sectionButton.click();
+}
+
+async function waitForAnimations(locator: Locator) {
+  await locator.evaluate(async (element) => {
+    await Promise.all(
+      element
+        .getAnimations({ subtree: true })
+        .map((animation) => animation.finished.catch(() => undefined))
+    );
+  });
+}
+
+async function seedMinutelyWeatherSettings(page: Page) {
+  await page.addInitScript(() => {
+    if (sessionStorage.getItem("weather-settings-e2e-seeded") === "1") return;
+    sessionStorage.setItem("weather-settings-e2e-seeded", "1");
+    const now = Date.now();
+    const rainStartAt = now + 15 * 60 * 1000;
+    const rainEndAt = rainStartAt + 20 * 60 * 1000;
+    localStorage.setItem(
+      "AppSettings",
+      JSON.stringify({
+        version: 4,
+        study: {
+          alerts: { minutelyPrecip: true },
+          display: {
+            showWeather: false,
+            showNoiseMonitor: false,
+            showCountdown: false,
+          },
+          infoCarousel: {
+            intervalSec: 6,
+            items: [
+              {
+                id: "rain-default",
+                source: "rain",
+                backgroundProgressKind: "schedule",
+                leadMinutes: 60,
+                enabled: false,
+                order: 0,
+              },
+            ],
+          },
+        },
+      })
+    );
+    localStorage.setItem(
+      "weather-cache",
+      JSON.stringify({
+        coords: { lat: 31.2, lon: 121.5, source: "e2e", updatedAt: now },
+        location: {
+          address: "上海市测试路 1 号",
+          city: "上海市",
+          signature: "31.2000,121.5000",
+          updatedAt: now,
+        },
+        now: {
+          data: {
+            code: "200",
+            now: {
+              feelsLike: "30",
+              humidity: "0",
+              obsTime: new Date(now).toISOString(),
+              pressure: "1008",
+              temp: "28",
+              text: "多云",
+              uvIndex: "0",
+              vis: "",
+              wind360: "188",
+              windDir: "南风",
+              windSpeed: "2",
+            },
+          },
+          updatedAt: now,
+        },
+        details: {
+          data: {
+            airQuality: {
+              aqi: "50",
+              category: "优",
+              pollutants: [
+                { code: "pm25", description: "细颗粒物", unit: "μg/m3", value: "0" },
+                { code: "pm10", description: "可吸入颗粒物", unit: "μg/m3", value: "40" },
+                { code: "so2", description: "二氧化硫", unit: "μg/m3", value: "6" },
+                { code: "no2", description: "二氧化氮", unit: "μg/m3", value: "19" },
+                { code: "o3", description: "臭氧", unit: "μg/m3", value: "140" },
+                { code: "co", description: "一氧化碳", unit: "mg/m3", value: "0.5" },
+              ],
+              primary: "pm25",
+              publishedAt: new Date(now - 60 * 60 * 1000).toISOString(),
+              source: "E2E 监测站",
+              suggestion: "适宜户外活动",
+            },
+            alerts: [
+              {
+                defenses: [{ icon: "shield", text: "减少外出" }],
+                detail: "注意防范短时强降水",
+                id: "e2e-alert",
+                images: ["alert-icon.png", "alert-notice.png"],
+                level: "蓝色",
+                locationKey: "weathercn:101020100",
+                publishedAt: new Date(now - 30 * 60 * 1000).toISOString(),
+                title: "暴雨蓝色预警",
+                type: "暴雨",
+              },
+            ],
+            brands: [
+              {
+                brandId: "weathercn",
+                logo: "weathercn.png",
+                names: { zh_CN: "中国天气" },
+                url: "https://example.com/weathercn",
+              },
+            ],
+            code: "200",
+            current: {
+              feelsLike: { unit: "℃", value: "30" },
+              humidity: { unit: "%", value: "0" },
+              observationTime: new Date(now).toISOString(),
+              pressure: { unit: "hPa", value: "1008" },
+              temperature: { unit: "℃", value: "28" },
+              uvIndex: "0",
+              visibility: { unit: "km", value: "" },
+              weatherCode: "1",
+              weatherText: "多云",
+              windDirection: { unit: "°", value: "188" },
+              windDirectionText: "南风",
+              windSpeed: { unit: "km/h", value: "2" },
+            },
+            daily: [
+              {
+                aqi: "45",
+                date: "2026-07-17",
+                precipitationProbability: "0",
+                sunrise: "2026-07-17T05:01:00+08:00",
+                sunset: "2026-07-17T18:59:00+08:00",
+                temperatureMax: { unit: "℃", value: "35" },
+                temperatureMin: { unit: "℃", value: "27" },
+                weatherCodeDay: "1",
+                weatherCodeNight: "2",
+                weatherTextDay: "多云",
+                weatherTextNight: "阴",
+                windDirectionDay: { unit: "°", value: "90" },
+                windDirectionDayText: "东风",
+                windDirectionNight: { unit: "°", value: "180" },
+                windDirectionNightText: "南风",
+                windSpeedDay: { unit: "km/h", value: "5" },
+                windSpeedNight: { unit: "km/h", value: "8" },
+              },
+              {
+                aqi: "46",
+                date: "2026-07-18",
+                precipitationProbability: "80",
+                temperatureMax: { unit: "℃", value: "34" },
+                temperatureMin: { unit: "℃", value: "26" },
+                weatherTextDay: "小雨",
+                weatherTextNight: "中雨",
+              },
+              {
+                aqi: "47",
+                date: "2026-07-19",
+                precipitationProbability: "20",
+                temperatureMax: { unit: "℃", value: "33" },
+                temperatureMin: { unit: "℃", value: "25" },
+                weatherTextDay: "阴",
+                weatherTextNight: "多云",
+              },
+            ],
+            embeddedMinutely: {
+              new: "embedded-v2",
+              precipitation: {
+                description: "全量接口分钟回退",
+                probability: [30, 70],
+                pubTime: new Date(now).toISOString(),
+                status: 0,
+                value: [0, 0.3],
+              },
+              status: 0,
+            },
+            hourly: [
+              {
+                aqi: "40",
+                forecastTime: "2026-07-17T10:00:00+08:00",
+                temperature: { unit: "℃", value: "28" },
+                weatherText: "多云",
+                windDirectionText: "南风",
+                windSpeed: { unit: "km/h", value: "2" },
+              },
+              {
+                aqi: "41",
+                forecastTime: "2026-07-17T11:00:00+08:00",
+                temperature: { unit: "℃", value: "29" },
+                weatherText: "阴",
+              },
+              {
+                aqi: "42",
+                forecastTime: "2026-07-17T12:00:00+08:00",
+                temperature: { unit: "℃", value: "30" },
+                weatherText: "小雨",
+              },
+              {
+                aqi: "43",
+                forecastTime: "2026-07-17T13:00:00+08:00",
+                temperature: { unit: "℃", value: "31" },
+                weatherText: "中雨",
+              },
+            ],
+            indices: [
+              { type: "uvIndex", value: "0" },
+              { type: "carWash", value: "" },
+              { type: "sports", value: "较适宜" },
+            ],
+            previousHours: [
+              {
+                observationTime: new Date(now - 60 * 60 * 1000).toISOString(),
+                temperature: { unit: "℃", value: "27" },
+                weatherText: "晴",
+              },
+            ],
+            raw: {
+              minutely: {
+                new: "embedded-v2",
+                precipitation: { status: 0, value: [0, 0.3] },
+                status: 0,
+              },
+              sourceMaps: {
+                current: { temperature: "weathercn" },
+                rawSentinel: "weather-all-e2e",
+              },
+              status: 0,
+              updateTime: new Date(now).toISOString(),
+            },
+            technical: {
+              channels: [{ type: "CWA6" }],
+              sourceMaps: {
+                current: { temperature: "weathercn" },
+                rawSentinel: "weather-all-e2e",
+              },
+              statuses: { airQuality: 0, daily: 0, hourly: 0, response: 0 },
+              units: { currentTemperature: "℃", dailyWindSpeed: "km/h" },
+              urls: {
+                caiyun: "https://example.com/caiyun",
+                weathercn: "https://example.com/weathercn",
+              },
+            },
+            typhoons: [{ name: "测试台风", status: "active" }],
+            updateTime: new Date(now).toISOString(),
+            yesterday: {
+              aqi: "46",
+              date: "2026-07-16",
+              temperatureMax: { unit: "℃", value: "36" },
+              temperatureMin: { unit: "℃", value: "28" },
+              weatherTextEnd: "阴",
+              weatherTextStart: "晴",
+            },
+          },
+          location: "121.5000,31.2000",
+          updatedAt: now,
+        },
+        minutely: {
+          data: {
+            code: "200",
+            updateTime: new Date(now).toISOString(),
+            summary: "即将有雨",
+            minutely: [
+              { fxTime: new Date(now + 60 * 1000).toISOString(), precip: "0" },
+              { fxTime: new Date(rainStartAt).toISOString(), precip: "0.2" },
+              { fxTime: new Date(rainStartAt + 10 * 60 * 1000).toISOString(), precip: "0.3" },
+              { fxTime: new Date(rainEndAt).toISOString(), precip: "0" },
+            ],
+            provider: {
+              description: "分钟接口完整描述",
+              flags: {
+                isModify: false,
+                isShow: true,
+                precipitationStatus: 0,
+                responseStatus: 0,
+                version: "minute-e2e-v1",
+              },
+              headDescription: "十五分钟后有小雨",
+              interval: 1,
+              probability: [20, 80],
+              rainRemainingMinutes: 8,
+              raw: {
+                new: "minute-raw-e2e",
+                precipitation: {
+                  description: "分钟接口完整描述",
+                  status: 0,
+                  value: [0, 0.2, 0.3, 0],
+                },
+                status: 0,
+              },
+              shortDescription: "即将有雨",
+              subtitle: "出门请带伞",
+              weatherCode: "7",
+            },
+          },
+          location: "121.5000,31.2000",
+          updatedAt: now,
+          lastApiFetchAt: now,
+        },
+      })
+    );
+  });
+}
+
 /** 端到端用例：验证设置保存后写入本地存储且刷新后仍生效（函数级注释） */
 test("设置持久化：修改目标年份并保存", async ({ page }) => {
   await page.goto("/");
@@ -155,6 +478,261 @@ test("自习显示：进度条目取消不保存并可持久化课时进度", as
   await dialog.getByRole("button", { name: "自习显示" }).click();
   await expect(dialog.getByRole("button", { name: "移出课时/课间进度" })).toBeVisible();
 });
+
+test("自习显示：天气预警独立添加、取消和保存背景进度", async ({ page }) => {
+  await page.goto("/");
+
+  let dialog = await openStudySettings(page);
+  await dialog.getByRole("button", { name: "自习显示" }).click();
+  await addStudyInfo(page, dialog, "天气预警");
+  await dialog.getByRole("button", { name: "配置天气预警" }).click();
+  await dialog.getByRole("button", { name: "背景进度" }).click();
+  await page.getByRole("option", { name: "课时/课间进度", exact: true }).last().click();
+  await dialog.getByRole("button", { name: "取消" }).click();
+
+  expect(
+    await page.evaluate(() => {
+      const raw = localStorage.getItem("AppSettings");
+      const items = raw ? (JSON.parse(raw)?.study?.infoCarousel?.items ?? []) : [];
+      return items.find((item: { source?: string }) => item.source === "weatherAlert")?.enabled;
+    })
+  ).not.toBe(true);
+
+  dialog = await openStudySettings(page);
+  await dialog.getByRole("button", { name: "自习显示" }).click();
+  await addStudyInfo(page, dialog, "天气预警");
+  await dialog.getByRole("button", { name: "配置天气预警" }).click();
+  await dialog.getByRole("button", { name: "背景进度" }).click();
+  await page.getByRole("option", { name: "课时/课间进度", exact: true }).last().click();
+  await dialog.getByRole("button", { name: "保存" }).click();
+
+  expect(
+    await page.evaluate(() => {
+      const raw = localStorage.getItem("AppSettings");
+      const items = raw ? (JSON.parse(raw)?.study?.infoCarousel?.items ?? []) : [];
+      return items.find((item: { source?: string }) => item.source === "weatherAlert");
+    })
+  ).toMatchObject({
+    enabled: true,
+    backgroundProgressKind: "schedule",
+  });
+
+  await page.reload();
+  dialog = await openStudySettings(page);
+  await dialog.getByRole("button", { name: "自习显示" }).click();
+  await expect(dialog.getByRole("button", { name: "移出天气预警" })).toBeVisible();
+});
+
+test("天气设置：移除分钟降水弹窗并在天气数据保留完整数据", async ({ page }) => {
+  await seedMinutelyWeatherSettings(page);
+  await page.goto("/");
+
+  const dialog = await openStudySettings(page);
+  await openWeatherSettingsSection(page, dialog, "天气提醒");
+  await expect(dialog.getByRole("switch", { name: "分钟级降水提醒" })).toHaveCount(0);
+
+  const migrated = await page.evaluate(() => {
+    const raw = localStorage.getItem("AppSettings");
+    const settings = raw ? JSON.parse(raw) : null;
+    return {
+      version: settings?.version,
+      schedule: settings?.general?.weather?.schedule,
+      hasLegacyField: Object.prototype.hasOwnProperty.call(
+        settings?.study?.alerts ?? {},
+        "minutelyPrecip"
+      ),
+      rain: settings?.study?.infoCarousel?.items?.find(
+        (item: { source?: string }) => item.source === "rain"
+      ),
+    };
+  });
+  expect(migrated).toMatchObject({
+    version: 7,
+    schedule: {
+      profile: "balanced",
+      safety: {
+        maxRequestsPerHour: 120,
+        minRequestGapSec: 2,
+      },
+    },
+    hasLegacyField: false,
+    rain: {
+      backgroundProgressKind: "schedule",
+      leadMinutes: 60,
+      enabled: false,
+      order: 0,
+    },
+  });
+
+  await openWeatherSettingsSection(page, dialog, "天气数据");
+  const weatherTabs = dialog.getByRole("tablist", { name: "天气数据分类" });
+  await expect(weatherTabs.getByRole("tab")).toHaveCount(7);
+  await weatherTabs.getByRole("tab", { name: "分钟" }).click();
+  await expect(dialog.getByRole("tabpanel")).toHaveAttribute(
+    "aria-labelledby",
+    "weather-live-tabs-tab-minutely"
+  );
+  await expect(dialog.getByText("十五分钟后有小雨")).toBeVisible();
+  await expect(dialog.getByText("20 / 80")).toBeVisible();
+  await expect(dialog.getByText("50%")).toBeVisible();
+  await expect(dialog.getByText("20 分钟")).toBeVisible();
+  await expect(dialog.getByText("0.5 mm")).toBeVisible();
+  await expect(dialog.getByRole("region", { name: "全部分钟降水样本" })).toContainText("0.3 mm");
+});
+
+test("天气设置：自定义调度与请求保护保存后持久化", async ({ page }) => {
+  await seedMinutelyWeatherSettings(page);
+  await page.goto("/");
+
+  let dialog = await openStudySettings(page);
+  await openWeatherSettingsSection(page, dialog, "定位刷新");
+  const profileGroup = dialog.getByRole("radiogroup", { name: "刷新档位" });
+  await expect(profileGroup.getByRole("radio", { name: "均衡" })).toBeChecked();
+  await profileGroup.getByRole("radio", { name: "自定义" }).click();
+  await dialog.getByLabel("前台全量").fill("7");
+  await dialog.getByLabel("后台全量").fill("20");
+  await dialog.getByLabel("分钟无雨").fill("6");
+  await dialog.getByLabel("分钟临雨/降雨").fill("3");
+  await dialog.getByLabel("分钟后台").fill("18");
+  const requestSafetyButton = dialog.getByRole("button", { name: "请求保护" });
+  const requestGapInput = dialog.getByLabel("最小请求间隔");
+  await expect(requestSafetyButton).toHaveAttribute("aria-expanded", "false");
+  await expect(requestGapInput).not.toBeVisible();
+  await requestSafetyButton.click();
+  await expect(requestSafetyButton).toHaveAttribute("aria-expanded", "true");
+  await expect(requestGapInput).toBeVisible();
+  await requestGapInput.fill("4");
+  await dialog.getByLabel("每小时请求上限").fill("120");
+  await dialog.getByRole("button", { name: "保存" }).click();
+
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const raw = localStorage.getItem("AppSettings");
+        return raw ? JSON.parse(raw)?.general?.weather?.schedule : null;
+      })
+    )
+    .toMatchObject({
+      profile: "custom",
+      custom: {
+        allBackgroundMin: 20,
+        allForegroundMin: 7,
+        minutelyBackgroundMin: 18,
+        minutelyDryMin: 6,
+        minutelyRainMin: 3,
+      },
+      safety: {
+        maxRequestsPerHour: 120,
+        minRequestGapSec: 4,
+      },
+    });
+
+  await page.reload();
+  dialog = await openStudySettings(page);
+  await openWeatherSettingsSection(page, dialog, "定位刷新");
+  await expect(
+    dialog.getByRole("radiogroup", { name: "刷新档位" }).getByRole("radio", { name: "自定义" })
+  ).toBeChecked();
+  await expect(dialog.getByLabel("前台全量")).toHaveValue("7");
+  await dialog.getByRole("button", { name: "请求保护" }).click();
+  await expect(dialog.getByLabel("最小请求间隔")).toHaveValue("4");
+  await expect(dialog.getByLabel("每小时请求上限")).toHaveValue("120");
+});
+
+for (const viewport of [
+  { width: 1440, height: 900 },
+  { width: 390, height: 844 },
+  { width: 320, height: 568 },
+]) {
+  test(`天气设置：${viewport.width}x${viewport.height} 天气数据布局无溢出`, async ({
+    page,
+  }, testInfo) => {
+    const consoleErrors: string[] = [];
+    page.on("console", (message) => {
+      if (message.type() === "error") consoleErrors.push(message.text());
+    });
+    page.on("pageerror", (error) => consoleErrors.push(error.message));
+
+    await page.setViewportSize(viewport);
+    await seedMinutelyWeatherSettings(page);
+    await page.goto("/");
+
+    const dialog = await openStudySettings(page);
+    await openWeatherSettingsSection(page, dialog, "天气提醒");
+    await expect(dialog.getByRole("switch", { name: "分钟级降水提醒" })).toHaveCount(0);
+    await waitForAnimations(dialog);
+    const alertsScreenshotPath = testInfo.outputPath("weather-alerts.png");
+    await page.screenshot({ path: alertsScreenshotPath });
+    await testInfo.attach("weather-alerts", {
+      path: alertsScreenshotPath,
+      contentType: "image/png",
+    });
+
+    await openWeatherSettingsSection(page, dialog, "天气数据");
+    await waitForAnimations(dialog);
+
+    const tablist = dialog.getByRole("tablist", { name: "天气数据分类" });
+    const tabNames = ["概览", "分钟", "逐时", "逐日", "空气", "预警", "接口"];
+    await expect(tablist.getByRole("tab")).toHaveCount(tabNames.length);
+    for (const tabName of tabNames) {
+      await expect(tablist.getByRole("tab", { name: tabName })).toBeVisible();
+    }
+    if (viewport.width <= 390) {
+      expect(await tablist.evaluate((element) => element.scrollWidth > element.clientWidth)).toBe(
+        true
+      );
+    }
+
+    const tabChecks = [
+      { name: "概览", text: "当前观测" },
+      { name: "分钟", text: "分钟接口完整描述" },
+      { name: "逐时", text: "逐时预报 · 4 条" },
+      { name: "逐日", text: "逐日预报 · 3 天" },
+      { name: "空气", text: "E2E 监测站" },
+      { name: "预警", text: "暴雨蓝色预警" },
+      { name: "接口", text: "weather-all-e2e" },
+    ];
+    for (const check of tabChecks) {
+      const tab = tablist.getByRole("tab", { name: check.name });
+      await tab.click();
+      const panel = dialog.getByRole("tabpanel");
+      await expect(panel).toHaveAttribute("aria-labelledby", await tab.getAttribute("id"));
+      await expect(panel.getByText(check.text, { exact: false }).first()).toBeVisible();
+      expect(
+        await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)
+      ).toBe(true);
+      expect(await dialog.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(
+        true
+      );
+    }
+
+    await tablist.getByRole("tab", { name: "逐日" }).click();
+    const dailyTable = dialog.getByRole("region", { name: "全部逐日天气预报" });
+    await expect(dailyTable).toBeVisible();
+    expect(await dailyTable.evaluate((element) => getComputedStyle(element).overflowX)).toBe(
+      "auto"
+    );
+    if (viewport.width <= 390) {
+      expect(
+        await dailyTable.evaluate((element) => element.scrollWidth > element.clientWidth)
+      ).toBe(true);
+    }
+
+    const screenshotPath = testInfo.outputPath("weather-live.png");
+    await page.screenshot({ path: screenshotPath });
+    await testInfo.attach("weather-live", { path: screenshotPath, contentType: "image/png" });
+
+    await tablist.getByRole("tab", { name: "分钟" }).click();
+    await dialog.getByRole("region", { name: "全部分钟降水样本" }).scrollIntoViewIfNeeded();
+    const precipitationScreenshotPath = testInfo.outputPath("weather-precipitation.png");
+    await page.screenshot({ path: precipitationScreenshotPath });
+    await testInfo.attach("weather-precipitation", {
+      path: precipitationScreenshotPath,
+      contentType: "image/png",
+    });
+    expect(consoleErrors).toEqual([]);
+  });
+}
 
 test("组件外观：实时预览、取消回滚并在保存后持久化", async ({ page }) => {
   await page.goto("/");

@@ -17,6 +17,8 @@ export type {
   StudyInfoPriority,
   StudyInfoSignal,
   StudyInfoSource,
+  StudyInfoWeatherAlert,
+  StudyInfoWeatherAlertSnapshot,
   StudyInfoWeatherSnapshot,
   StudyProgressKind,
 } from "./studyInfoSignals";
