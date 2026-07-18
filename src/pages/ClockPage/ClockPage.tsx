@@ -13,7 +13,7 @@ import { Stopwatch } from "../../components/Stopwatch/Stopwatch";
 import { Study } from "../../components/Study/Study";
 import { useAppState, useAppDispatch } from "../../contexts/AppContext";
 import { useAppearance } from "../../contexts/AppearanceContext";
-import { startWeatherCoordinator } from "../../services/weatherCoordinator";
+import { startWeatherRuntime } from "../../services/weatherRuntime";
 import type { AppMode } from "../../types";
 import type { MessagePopupOpenDetail, MessagePopupType } from "../../types/messagePopup";
 import { IconButton, useFeedback, type ToastVariant } from "../../ui";
@@ -89,7 +89,7 @@ export function ClockPage() {
   }, []);
 
   useEffect(() => {
-    return startWeatherCoordinator();
+    return startWeatherRuntime();
   }, []);
 
   /**

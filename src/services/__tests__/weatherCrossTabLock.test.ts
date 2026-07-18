@@ -44,6 +44,35 @@ describe("weatherCrossTabLock", () => {
     releases.shift()?.();
 
     await expect(Promise.all([first, second])).resolves.toEqual(expect.arrayContaining([1, 2]));
-    expect(localStorage.getItem("immersive-clock:xiaomi-weather-lease:v1")).toBeNull();
+    expect(
+      Array.from({ length: localStorage.length }, (_, index) => localStorage.key(index)).some(
+        (key) => key?.startsWith("immersive-clock:xiaomi-weather-lease:v1:")
+      )
+    ).toBe(false);
+  });
+
+  it("localStorage 租约按请求键隔离", async () => {
+    const lock = await import("../weatherCrossTabLock");
+    const started: string[] = [];
+    const releases: Array<() => void> = [];
+    const createTask = (requestKey: string) =>
+      lock.withWeatherCrossTabLock(
+        () =>
+          new Promise<string>((resolve) => {
+            started.push(requestKey);
+            releases.push(() => resolve(requestKey));
+          }),
+        requestKey
+      );
+
+    const all = createTask("all");
+    const city = createTask("city:杭州");
+    await vi.advanceTimersByTimeAsync(500);
+
+    expect(started).toEqual(expect.arrayContaining(["all", "city:杭州"]));
+    releases.splice(0).forEach((release) => release());
+    await expect(Promise.all([all, city])).resolves.toEqual(
+      expect.arrayContaining(["all", "city:杭州"])
+    );
   });
 });

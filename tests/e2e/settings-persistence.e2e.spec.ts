@@ -168,13 +168,21 @@ async function seedMinutelyWeatherSettings(page: Page) {
     localStorage.setItem(
       "weather-cache",
       JSON.stringify({
-        coords: { lat: 31.2, lon: 121.5, source: "e2e", updatedAt: now },
-        location: {
-          address: "上海市测试路 1 号",
-          city: "上海市",
-          signature: "31.2000,121.5000",
-          updatedAt: now,
+        version: 2,
+        activeLocation: {
+          city: {
+            affiliation: "上海市",
+            lat: 31.2,
+            locationKey: "weathercn:101020100",
+            lon: 121.5,
+            name: "上海市",
+          },
+          coords: { accuracy: 18, lat: 31.2, lon: 121.5 },
+          mode: "auto",
+          resolvedAt: now,
+          source: "browser",
         },
+        coords: { lat: 31.2, lon: 121.5, source: "e2e", updatedAt: now },
         now: {
           data: {
             code: "200",
@@ -602,7 +610,10 @@ test("天气设置：移除分钟降水弹窗并在天气数据保留完整数�
     const settings = raw ? JSON.parse(raw) : null;
     return {
       version: settings?.version,
-      schedule: settings?.general?.weather?.schedule,
+      hasSchedule: Object.prototype.hasOwnProperty.call(
+        settings?.general?.weather ?? {},
+        "schedule"
+      ),
       hasLegacyField: Object.prototype.hasOwnProperty.call(
         settings?.study?.alerts ?? {},
         "minutelyPrecip"
@@ -613,14 +624,8 @@ test("天气设置：移除分钟降水弹窗并在天气数据保留完整数�
     };
   });
   expect(migrated).toMatchObject({
-    version: 7,
-    schedule: {
-      profile: "balanced",
-      safety: {
-        maxRequestsPerHour: 120,
-        minRequestGapSec: 2,
-      },
-    },
+    version: 8,
+    hasSchedule: false,
     hasLegacyField: false,
     rain: {
       backgroundProgressKind: "schedule",
@@ -649,71 +654,104 @@ test("天气设置：移除分钟降水弹窗并在天气数据保留完整数�
   await expect(dialog.getByRole("region", { name: "全部分钟降水样本" })).toContainText("0.3 mm");
 });
 
-test("天气设置：自定义调度与请求保护保存后持久化", async ({ page }) => {
+test("天气设置：更新状态只读并使用固定自适应调度", async ({ page }) => {
   await seedMinutelyWeatherSettings(page);
   await page.goto("/");
 
-  let dialog = await openStudySettings(page);
+  const dialog = await openStudySettings(page);
   await openEnvironmentSettingsPage(page, dialog, "天气服务");
   await dialog
     .getByRole("tablist", { name: "天气服务分类" })
-    .getByRole("tab", { name: "调度" })
+    .getByRole("tab", { name: "更新" })
     .click();
-  const profileGroup = dialog.getByRole("radiogroup", { name: "刷新档位" });
-  await expect(profileGroup.getByRole("radio", { name: "均衡" })).toBeChecked();
-  await profileGroup.getByRole("radio", { name: "自定义" }).click();
-  await dialog.getByLabel("前台全量").fill("7");
-  await dialog.getByLabel("后台全量").fill("20");
-  await dialog.getByLabel("分钟无雨").fill("6");
-  await dialog.getByLabel("分钟临雨/降雨").fill("3");
-  await dialog.getByLabel("分钟后台").fill("18");
-  const requestSafetyButton = dialog.getByRole("button", { name: "请求保护" });
-  const requestGapInput = dialog.getByLabel("最小请求间隔");
-  await expect(requestSafetyButton).toHaveAttribute("aria-expanded", "false");
-  await expect(requestGapInput).not.toBeVisible();
-  await requestSafetyButton.click();
-  await expect(requestSafetyButton).toHaveAttribute("aria-expanded", "true");
-  await expect(requestGapInput).toBeVisible();
-  await requestGapInput.fill("4");
-  await dialog.getByLabel("每小时请求上限").fill("120");
+  await expect(dialog.getByRole("heading", { name: "天气更新" })).toBeVisible();
+  await expect(dialog.getByText(/前台全量天气每 10 分钟/)).toBeVisible();
+  await expect(dialog.getByText("内部请求保护已启用")).toBeVisible();
+  await expect(dialog.getByRole("button", { name: "刷新天气" })).toBeVisible();
+  await expect(dialog.getByRole("radiogroup", { name: "刷新档位" })).toHaveCount(0);
+  await expect(dialog.getByLabel("最小请求间隔")).toHaveCount(0);
+  expect(
+    await page.evaluate(() => {
+      const raw = localStorage.getItem("AppSettings");
+      return raw ? JSON.parse(raw)?.general?.weather?.schedule : undefined;
+    })
+  ).toBeUndefined();
+});
+
+test("定位设置：手动城市必须搜索并选择小米候选", async ({ page }) => {
+  await seedMinutelyWeatherSettings(page);
+  await page.route("**/api/xiaomi-weather/wtr-v3/**", async (route) => {
+    const url = route.request().url();
+    if (url.includes("/location/city/search?")) {
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify([
+          {
+            affiliation: "浙江省",
+            latitude: "30.2741",
+            locationKey: "weathercn:101210101",
+            longitude: "120.1551",
+            name: "杭州市",
+          },
+          {
+            affiliation: "湖北省",
+            latitude: "30.3000",
+            locationKey: "weathercn:101200101",
+            longitude: "120.2000",
+            name: "杭州区",
+          },
+        ]),
+      });
+      return;
+    }
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({
+        alerts: [],
+        current: { pubTime: Date.now(), temperature: { value: "26" }, weather: "0" },
+        forecastDaily: { sunRiseSet: { value: [{ from: "05:00", to: "19:00" }] } },
+        status: 0,
+        updateTime: Date.now(),
+      }),
+    });
+  });
+  await page.goto("/");
+
+  const dialog = await openStudySettings(page);
+  await openEnvironmentSettingsPage(page, dialog, "定位服务");
+  await dialog.getByRole("radio", { name: "手动城市" }).click();
+  await dialog.getByLabel("城市名称").fill("杭州");
+  await dialog.getByRole("button", { name: "保存" }).click();
+  await expect(dialog.getByText("手动定位必须搜索并选择一个城市")).toBeVisible();
+
+  await dialog.getByRole("button", { name: "搜索城市" }).click();
+  await dialog.getByRole("button", { name: "搜索结果" }).click();
+  await page
+    .getByRole("listbox")
+    .getByRole("option", { name: /杭州市/ })
+    .click();
   await dialog.getByRole("button", { name: "保存" }).click();
 
   await expect
     .poll(() =>
       page.evaluate(() => {
         const raw = localStorage.getItem("AppSettings");
-        return raw ? JSON.parse(raw)?.general?.weather?.schedule : null;
+        return raw ? JSON.parse(raw)?.general?.weather : null;
       })
     )
     .toMatchObject({
-      profile: "custom",
-      custom: {
-        allBackgroundMin: 20,
-        allForegroundMin: 7,
-        minutelyBackgroundMin: 18,
-        minutelyDryMin: 6,
-        minutelyRainMin: 3,
-      },
-      safety: {
-        maxRequestsPerHour: 120,
-        minRequestGapSec: 4,
+      locationMode: "manual",
+      manualLocation: {
+        query: "杭州",
+        selected: {
+          affiliation: "浙江省",
+          lat: 30.2741,
+          locationKey: "weathercn:101210101",
+          lon: 120.1551,
+          name: "杭州市",
+        },
       },
     });
-
-  await page.reload();
-  dialog = await openStudySettings(page);
-  await openEnvironmentSettingsPage(page, dialog, "天气服务");
-  await dialog
-    .getByRole("tablist", { name: "天气服务分类" })
-    .getByRole("tab", { name: "调度" })
-    .click();
-  await expect(
-    dialog.getByRole("radiogroup", { name: "刷新档位" }).getByRole("radio", { name: "自定义" })
-  ).toBeChecked();
-  await expect(dialog.getByLabel("前台全量")).toHaveValue("7");
-  await dialog.getByRole("button", { name: "请求保护" }).click();
-  await expect(dialog.getByLabel("最小请求间隔")).toHaveValue("4");
-  await expect(dialog.getByLabel("每小时请求上限")).toHaveValue("120");
 });
 
 for (const viewport of [
@@ -805,7 +843,7 @@ for (const viewport of [
     await openEnvironmentSettingsPage(page, dialog, "天气服务");
     await expect(dialog.getByRole("heading", { name: "天气服务", level: 2 })).toHaveCount(0);
     const weatherServiceTabs = dialog.getByRole("tablist", { name: "天气服务分类" });
-    await expect(weatherServiceTabs.getByRole("tab")).toHaveText(["提醒", "调度", "数据"]);
+    await expect(weatherServiceTabs.getByRole("tab")).toHaveText(["提醒", "更新", "数据"]);
     await expect(dialog.getByRole("switch", { name: "天气预警弹窗" })).toBeVisible();
     await expectSettingsFooterDocked(dialog);
     await expect(dialog.getByRole("heading", { name: "天气刷新" })).toHaveCount(0);
@@ -824,8 +862,8 @@ for (const viewport of [
       ).toBe(1);
     }
 
-    await weatherServiceTabs.getByRole("tab", { name: "调度" }).click();
-    await expect(dialog.getByRole("heading", { name: "天气刷新" })).toBeVisible();
+    await weatherServiceTabs.getByRole("tab", { name: "更新" }).click();
+    await expect(dialog.getByRole("heading", { name: "天气更新" })).toBeVisible();
     await expect(dialog.getByRole("switch", { name: "天气预警弹窗" })).toHaveCount(0);
     await expect(dialog.getByRole("tablist", { name: "天气数据分类" })).toHaveCount(0);
 
@@ -851,21 +889,17 @@ for (const viewport of [
 
     await openEnvironmentSettingsPage(page, dialog, "定位服务");
     await expect(dialog.getByRole("heading", { name: "定位服务", level: 2 })).toHaveCount(0);
-    const locationServiceTabs = dialog.getByRole("tablist", { name: "定位服务分类" });
-    await expect(locationServiceTabs.getByRole("tab")).toHaveText(["设置", "状态"]);
+    await expect(dialog.getByRole("tablist", { name: "定位服务分类" })).toHaveCount(0);
     await expect(dialog.getByRole("heading", { name: "定位设置" })).toBeVisible();
-    await expect(dialog.getByRole("heading", { name: "定位状态" })).toHaveCount(0);
+    await expect(dialog.getByRole("heading", { name: "定位状态" })).toBeVisible();
     await expect(dialog.getByRole("radiogroup", { name: "定位方式" })).toBeVisible();
+    await expect(dialog.getByText("当前坐标", { exact: true })).toBeVisible();
     await expectSettingsFooterDocked(dialog);
     await expect(dialog.getByRole("switch", { name: "天气预警弹窗" })).toHaveCount(0);
     await expect(dialog.getByRole("radiogroup", { name: "刷新档位" })).toHaveCount(0);
     await expect(dialog.getByRole("tablist", { name: "天气数据分类" })).toHaveCount(0);
     await expect(dialog.getByRole("heading", { name: "噪音控制" })).toHaveCount(0);
 
-    await locationServiceTabs.getByRole("tab", { name: "状态" }).click();
-    await expect(dialog.getByRole("heading", { name: "定位状态" })).toBeVisible();
-    await expect(dialog.getByText("当前坐标", { exact: true })).toBeVisible();
-    await expect(dialog.getByRole("radiogroup", { name: "定位方式" })).toHaveCount(0);
     await expect
       .poll(() =>
         dialog
@@ -975,12 +1009,16 @@ test("组件外观：实时预览、取消回滚并在保存后持久化", async
   const preview = dialog.getByLabel("时钟外观预览");
   const previewTime = preview.getByText("12:45:09");
   const previewDate = preview.getByText("2026年7月13日星期一");
+  await expect(previewTime).toHaveAttribute("data-preview-highlighted", "true");
   await objectTabs.getByRole("tab", { name: "日期" }).hover();
-  await expect(previewDate).toHaveAttribute("data-preview-highlighted", "true");
+  await expect(previewTime).toHaveAttribute("data-preview-highlighted", "true");
+  await expect(previewDate).not.toHaveAttribute("data-preview-highlighted");
   await dialog.getByRole("heading", { name: "时钟", level: 3, exact: true }).hover();
   await expect(previewTime).toHaveAttribute("data-preview-highlighted", "true");
 
   await objectTabs.getByRole("tab", { name: "日期" }).click();
+  await expect(previewDate).toHaveAttribute("data-preview-highlighted", "true");
+  await expect(previewTime).not.toHaveAttribute("data-preview-highlighted");
   await expect(dialog.getByLabel("颜色代码")).toHaveValue("#bbbbbb");
   await expect(dialog.getByText("使用整体样式")).toBeVisible();
   await objectTabs.getByRole("tab", { name: "主时间" }).click();

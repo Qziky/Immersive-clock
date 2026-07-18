@@ -27,8 +27,15 @@ export async function xiaomiWeatherGetJson(
   const path = pathWithQuery.startsWith("/") ? pathWithQuery : `/${pathWithQuery}`;
   const url = `${XIAOMI_WEATHER_PROXY_PREFIX}${XIAOMI_WEATHER_PATH_PREFIX}${path}`;
   let requestKind: WeatherRequestKind = "other";
+  let requestKey = path;
   if (path.startsWith("/weather/all")) requestKind = "all";
   else if (path.startsWith("/weather/xm/forecast/minutely")) requestKind = "minutely";
-  else if (path.startsWith("/location/city/")) requestKind = "location";
-  return executeWeatherRequest(() => httpGetJson(url, undefined, timeoutMs), requestKind);
+  else if (path.startsWith("/location/city/search")) requestKind = "citySearch";
+  else if (path.startsWith("/location/city/geo")) requestKind = "geoResolve";
+  if (requestKind === "all" || requestKind === "minutely") requestKey = requestKind;
+  return executeWeatherRequest(
+    () => httpGetJson(url, undefined, timeoutMs),
+    requestKind,
+    requestKey
+  );
 }

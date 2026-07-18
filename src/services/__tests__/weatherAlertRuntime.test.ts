@@ -1,12 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
-  buildLocationFlow: vi.fn(),
   fetchWeatherAlertsByCoords: vi.fn(),
-}));
-
-vi.mock("../locationService", () => ({
-  buildLocationFlow: mocks.buildLocationFlow,
 }));
 
 vi.mock("../weatherService", () => ({
@@ -17,7 +12,6 @@ describe("weatherAlertRuntime", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.resetModules();
-    mocks.buildLocationFlow.mockReset();
     mocks.fetchWeatherAlertsByCoords.mockReset();
   });
 
@@ -33,32 +27,27 @@ describe("weatherAlertRuntime", () => {
 
     await vi.advanceTimersByTimeAsync(5 * 60 * 1000);
 
-    expect(mocks.buildLocationFlow).not.toHaveBeenCalled();
     expect(mocks.fetchWeatherAlertsByCoords).not.toHaveBeenCalled();
     unsubscribe();
   });
 
-  it("全量天气事件直接注入预警快照", async () => {
+  it("全量天气响应直接注入预警快照", async () => {
     const runtime = await import("../weatherAlertRuntime");
     const stop = runtime.startWeatherAlertRuntime();
 
-    window.dispatchEvent(
-      new CustomEvent("weatherRefreshDone", {
-        detail: {
-          alerts: {
-            alerts: [
-              {
-                expireTime: "2026-07-18T12:00:00+08:00",
-                headline: "暴雨蓝色预警",
-                id: "alert-1",
-                issuedTime: "2026-07-17T09:00:00+08:00",
-              },
-            ],
-            metadata: { tag: "weather-tag" },
+    runtime.ingestWeatherAlertResponse(
+      {
+        alerts: [
+          {
+            expireTime: "2026-07-18T12:00:00+08:00",
+            headline: "暴雨蓝色预警",
+            id: "alert-1",
+            issuedTime: "2026-07-17T09:00:00+08:00",
           },
-          coords: { lat: 31.2, lon: 121.5 },
-        },
-      })
+        ],
+        metadata: { tag: "weather-tag" },
+      },
+      { lat: 31.2, lon: 121.5 }
     );
 
     expect(runtime.getWeatherAlertSnapshot()).toMatchObject({

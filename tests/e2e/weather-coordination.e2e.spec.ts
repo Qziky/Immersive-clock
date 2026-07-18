@@ -7,9 +7,10 @@ test("同设备双标签页只执行一次全量天气请求并同步缓存", as
 
   await context.addInitScript(() => {
     (window as Window & { __weatherCrossTabSyncCount?: number }).__weatherCrossTabSyncCount = 0;
-    window.addEventListener("weatherRefreshDone", (event) => {
-      const detail = (event as CustomEvent).detail;
-      if (detail?.source === "cross-tab") {
+    window.addEventListener("storage", (event) => {
+      if (event.key === "immersive-clock:weather-cache-sync-message:v1" && event.newValue) {
+        const detail = JSON.parse(event.newValue);
+        if (detail?.type !== "cache-updated" || detail?.target !== "all") return;
         const state = window as Window & { __weatherCrossTabSyncCount?: number };
         state.__weatherCrossTabSyncCount = (state.__weatherCrossTabSyncCount ?? 0) + 1;
       }
@@ -18,21 +19,11 @@ test("同设备双标签页只执行一次全量天气请求并同步缓存", as
     localStorage.setItem(
       "AppSettings",
       JSON.stringify({
-        version: 7,
+        version: 8,
         general: {
           weather: {
             locationMode: "auto",
-            schedule: {
-              profile: "balanced",
-              custom: {
-                allBackgroundMin: 15,
-                allForegroundMin: 5,
-                minutelyBackgroundMin: 15,
-                minutelyDryMin: 5,
-                minutelyRainMin: 2,
-              },
-              safety: { maxRequestsPerHour: 120, minRequestGapSec: 2 },
-            },
+            manualLocation: { query: "", selected: null },
           },
         },
       })
@@ -40,7 +31,21 @@ test("同设备双标签页只执行一次全量天气请求并同步缓存", as
     localStorage.setItem(
       "weather-cache",
       JSON.stringify({
-        coords: { lat: 31.2, lon: 121.5, source: "e2e", updatedAt: now },
+        version: 2,
+        activeLocation: {
+          city: {
+            affiliation: "上海市",
+            lat: 31.2,
+            locationKey: "weathercn:101020100",
+            lon: 121.5,
+            name: "上海市",
+          },
+          coords: { accuracy: 18, lat: 31.2, lon: 121.5 },
+          mode: "auto",
+          resolvedAt: now,
+          source: "browser",
+        },
+        coords: { accuracy: 18, lat: 31.2, lon: 121.5, source: "browser", updatedAt: now },
         details: {
           data: {
             alerts: [],
@@ -56,25 +61,20 @@ test("同设备双标签页只执行一次全量天气请求并同步缓存", as
           location: "121.5000,31.2000",
           updatedAt: now - 10 * 60 * 1000,
         },
-        location: {
-          address: "上海市测试路 1 号",
-          city: "上海市",
-          signature: "31.2000,121.5000",
-          updatedAt: now,
-        },
         now: {
           data: { code: "200", now: { temp: "20", text: "旧天气" } },
           updatedAt: now - 10 * 60 * 1000,
         },
-        xiaomiLocation: {
-          data: {
-            lat: 31.2,
-            locationKey: "weathercn:101020100",
-            lon: 121.5,
-            name: "上海市",
+        xiaomiLocations: {
+          "121.5000,31.2000": {
+            data: {
+              lat: 31.2,
+              locationKey: "weathercn:101020100",
+              lon: 121.5,
+              name: "上海市",
+            },
+            updatedAt: now,
           },
-          location: "121.5000,31.2000",
-          updatedAt: now,
         },
       })
     );

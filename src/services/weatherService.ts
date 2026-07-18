@@ -1,8 +1,6 @@
 import type {
-  AddressInfo,
   AirQualityCurrentResponse,
   AstronomySunResponse,
-  CityLookupResponse,
   Coords,
   GeolocationDiagnostics,
   GeolocationPermissionState,
@@ -13,6 +11,7 @@ import type {
   WeatherAlertResponse,
   WeatherDaily3dResponse,
   WeatherNow,
+  WeatherLocation,
   WeatherScalarDetail,
   XiaomiEmbeddedMinutely,
   XiaomiMinutelyPrecipitation,
@@ -20,37 +19,28 @@ import type {
   XiaomiValueUnit,
   XiaomiWeatherAllResponse,
 } from "../types/weather";
-import { getValidXiaomiLocation, updateXiaomiLocationCache } from "../utils/weatherStorage";
 
-import {
-  buildLocationFlow,
-  fetchCityLookup,
-  fetchXiaomiCityByCoords,
-  type LocationFlowOptions,
-} from "./locationService";
 import { withXiaomiWeatherParams, xiaomiWeatherGetJson } from "./xiaomiWeatherClient";
 
 export type {
-  AddressInfo,
   AirQualityCurrentResponse,
   AstronomySunResponse,
-  CityLookupResponse,
   Coords,
   GeolocationDiagnostics,
   GeolocationPermissionState,
   GeolocationResult,
   MinutelyPrecipResponse,
-  LocationFlowOptions,
   WeatherDetailsResponse,
   WeatherAlertResponse,
   WeatherDaily3dResponse,
   WeatherNow,
 };
 
-export interface WeatherFlowOptions extends LocationFlowOptions {
+export interface WeatherFlowOptions {
   fetchDaily3d?: boolean;
   fetchAstronomySun?: boolean;
   fetchAirQuality?: boolean;
+  location: WeatherLocation;
 }
 
 export interface XiaomiResolvedLocation {
@@ -498,45 +488,6 @@ export function adaptWeatherDetails(data: XiaomiWeatherAllResponse): WeatherDeta
   };
 }
 
-async function resolveXiaomiLocation(
-  coords: Coords,
-  city?: string | null
-): Promise<XiaomiResolvedLocation | null> {
-  const cached = getValidXiaomiLocation(coords.lat, coords.lon);
-  if (cached) return cached;
-
-  const byCoords = await fetchXiaomiCityByCoords(coords.lat, coords.lon);
-  const key = byCoords?.locationKey || byCoords?.key;
-  if (key) {
-    const resolved = {
-      lat: coords.lat,
-      lon: coords.lon,
-      locationKey: key,
-      name: byCoords?.name,
-    };
-    updateXiaomiLocationCache(resolved);
-    return resolved;
-  }
-
-  if (city) {
-    const lookup = await fetchCityLookup(city);
-    const first = lookup.location?.[0];
-    const fallbackKey = first?.locationKey || first?.id;
-    if (fallbackKey) {
-      const resolved = {
-        lat: coords.lat,
-        lon: coords.lon,
-        locationKey: fallbackKey,
-        name: first?.name,
-      };
-      updateXiaomiLocationCache(resolved);
-      return resolved;
-    }
-  }
-
-  return null;
-}
-
 async function fetchXiaomiWeatherAllByResolved(
   resolved: XiaomiResolvedLocation
 ): Promise<XiaomiWeatherAllResponse> {
@@ -801,20 +752,18 @@ export function adaptMinutely(
   };
 }
 
-/** @internal Network access is scheduled exclusively by weatherCoordinator. */
+/** @internal Network access is scheduled exclusively by WeatherRuntime. */
 export async function fetchMinutelyPrecip(
   location: string,
-  providerLocation?: XiaomiResolvedLocation | null
+  providerLocation: XiaomiResolvedLocation
 ): Promise<MinutelyPrecipResponse> {
   try {
     const coords = parseLocationParam(location);
     if (!coords) return { error: "Invalid location" };
-    const resolved = providerLocation ?? (await resolveXiaomiLocation(coords));
-    if (!resolved) return { error: "Missing Xiaomi locationKey" };
     const query = withXiaomiWeatherParams({
-      latitude: resolved.lat,
-      longitude: resolved.lon,
-      locationKey: resolved.locationKey,
+      latitude: providerLocation.lat,
+      longitude: providerLocation.lon,
+      locationKey: providerLocation.locationKey,
     });
     const data = (await xiaomiWeatherGetJson(
       `/weather/xm/forecast/minutely?${query}`
@@ -830,7 +779,7 @@ export interface WeatherFlowResult {
   coords: Coords | null;
   coordsSource?: string | null;
   city?: string | null;
-  addressInfo?: AddressInfo | null;
+  location?: WeatherLocation | null;
   weather?: WeatherNow | null;
   alerts?: WeatherAlertResponse | null;
   details?: WeatherDetailsResponse | null;
@@ -841,17 +790,16 @@ export interface WeatherFlowResult {
   providerLocation?: XiaomiResolvedLocation | null;
 }
 
-/** @internal Network access is scheduled exclusively by weatherCoordinator. */
-export async function buildWeatherFlow(options?: WeatherFlowOptions): Promise<WeatherFlowResult> {
-  const loc = await buildLocationFlow(options);
-  if (!loc.coords) {
-    return { coords: null, coordsSource: null };
-  }
-
-  const resolved = await resolveXiaomiLocation(loc.coords, loc.city);
-  const weatherAll = resolved
-    ? await fetchXiaomiWeatherAllByResolved(resolved)
-    : ({ error: "Missing Xiaomi locationKey" } as XiaomiWeatherAllResponse);
+/** @internal Network access is scheduled exclusively by WeatherRuntime. */
+export async function buildWeatherFlow(options: WeatherFlowOptions): Promise<WeatherFlowResult> {
+  const location = options.location;
+  const resolved = {
+    lat: location.coords.lat,
+    locationKey: location.city.locationKey,
+    lon: location.coords.lon,
+    name: location.city.name,
+  };
+  const weatherAll = await fetchXiaomiWeatherAllByResolved(resolved);
 
   const weather = adaptWeatherNow(weatherAll);
   const alerts = adaptWeatherAlerts(weatherAll);
@@ -862,10 +810,10 @@ export async function buildWeatherFlow(options?: WeatherFlowOptions): Promise<We
   const embeddedMinutely = adaptMinutely(weatherAll);
 
   return {
-    coords: loc.coords,
-    coordsSource: loc.coordsSource,
-    city: loc.city,
-    addressInfo: loc.addressInfo,
+    coords: location.coords,
+    coordsSource: location.source,
+    city: location.city.name,
+    location,
     weather,
     alerts,
     details,

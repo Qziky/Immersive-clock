@@ -250,66 +250,58 @@ describe("appSettings", () => {
     expect(s.study.display.showDate).toBe(true);
   });
 
-  it("v5 天气刷新间隔迁移为自定义调度并补齐默认字段", () => {
+  it("v7 天气设置移除调度并保留待确认的旧城市", () => {
     localStorage.setItem(
       APP_SETTINGS_KEY,
       JSON.stringify({
-        version: 5,
+        version: 7,
         general: {
-          weather: { autoRefreshIntervalMin: 60 },
+          weather: {
+            locationMode: "manual",
+            manualLocation: { type: "city", cityName: "杭州市" },
+            schedule: { profile: "frequent" },
+          },
         },
       })
     );
 
     const s = getAppSettings();
     expect(s.version).toBe(CURRENT_SETTINGS_VERSION);
-    expect(s.general.weather.schedule).toMatchObject({
-      profile: "custom",
-      custom: {
-        allForegroundMin: 60,
-        allBackgroundMin: 60,
-        minutelyDryMin: 60,
-        minutelyRainMin: 5,
-        minutelyBackgroundMin: 60,
-      },
-      safety: {
-        maxRequestsPerHour: 120,
-        minRequestGapSec: 2,
-      },
-    });
-    expect(s.general.weather.locationMode).toBe("auto");
-    expect(s.general.weather.manualLocation.type).toBe("city");
+    expect(s.general.weather).not.toHaveProperty("schedule");
+    expect(s.general.weather.locationMode).toBe("manual");
+    expect(s.general.weather.manualLocation).toEqual({ query: "杭州市", selected: null });
   });
 
-  it("v6 旧默认小时上限迁移为 120，并保留其他自定义上限", () => {
-    const migratedDefault = normalizeAppSettings({
-      version: 6,
+  it("v7 手动经纬度与已解析城市迁移为一次性 legacyCoords", () => {
+    const coords = normalizeAppSettings({
+      version: 7,
       general: {
         weather: {
-          schedule: {
-            profile: "balanced",
-            safety: { maxRequestsPerHour: 60, minRequestGapSec: 4 },
-          },
+          locationMode: "manual",
+          manualLocation: { type: "coords", lat: 30.2, lon: 120.1 },
         },
       },
     });
-    const preservedCustom = normalizeAppSettings({
-      version: 6,
+    const resolvedCity = normalizeAppSettings({
+      version: 7,
       general: {
         weather: {
-          schedule: {
-            profile: "balanced",
-            safety: { maxRequestsPerHour: 90, minRequestGapSec: 4 },
+          locationMode: "manual",
+          manualLocation: {
+            type: "city",
+            cityName: "杭州",
+            resolved: { city: "杭州", lat: 30.2, lon: 120.1 },
           },
         },
       },
     });
 
-    expect(migratedDefault.general.weather.schedule.safety).toEqual({
-      maxRequestsPerHour: 120,
-      minRequestGapSec: 4,
+    expect(coords.general.weather.manualLocation.legacyCoords).toEqual({ lat: 30.2, lon: 120.1 });
+    expect(resolvedCity.general.weather.manualLocation).toMatchObject({
+      legacyCoords: { lat: 30.2, lon: 120.1 },
+      query: "杭州",
+      selected: null,
     });
-    expect(preservedCustom.general.weather.schedule.safety.maxRequestsPerHour).toBe(90);
   });
 
   it("v4 迁移只清理分钟降水弹窗字段，不改变降雨轮播配置", () => {
@@ -439,34 +431,28 @@ describe("appSettings", () => {
     expect(s.general.timeSync.timeApiUrl).toBe("https://api.example/time");
   });
 
-  it("updateGeneralSettings 深合并天气 custom 与 safety 调度字段", () => {
+  it("updateGeneralSettings 保存完整手动城市选择", () => {
     updateGeneralSettings({
       weather: {
-        schedule: {
-          profile: "custom",
-          custom: {
-            allForegroundMin: 9,
-          },
-          safety: {
-            minRequestGapSec: 4,
+        locationMode: "manual",
+        manualLocation: {
+          query: "杭州",
+          selected: {
+            affiliation: "浙江省",
+            lat: 30.2,
+            locationKey: "weathercn:101210101",
+            lon: 120.1,
+            name: "杭州市",
           },
         },
       },
     });
 
-    const schedule = getAppSettings().general.weather.schedule;
-    expect(schedule).toMatchObject({
-      profile: "custom",
-      custom: {
-        allBackgroundMin: 15,
-        allForegroundMin: 9,
-        minutelyBackgroundMin: 15,
-        minutelyDryMin: 5,
-        minutelyRainMin: 2,
-      },
-      safety: {
-        maxRequestsPerHour: 120,
-        minRequestGapSec: 4,
+    expect(getAppSettings().general.weather).toMatchObject({
+      locationMode: "manual",
+      manualLocation: {
+        query: "杭州",
+        selected: { locationKey: "weathercn:101210101", name: "杭州市" },
       },
     });
   });

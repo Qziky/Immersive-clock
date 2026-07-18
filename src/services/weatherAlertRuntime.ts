@@ -23,7 +23,7 @@ export interface WeatherAlertSnapshot {
 }
 
 export interface WeatherAlertRuntimeOptions {
-  /** Deprecated compatibility field. API scheduling is owned by weatherCoordinator. */
+  /** Deprecated compatibility field. API scheduling is owned by WeatherRuntime. */
   apiIntervalMs?: number;
   localTickMs?: number;
 }
@@ -47,7 +47,6 @@ let snapshot: WeatherAlertSnapshot = EMPTY_SNAPSHOT;
 const listeners = new Set<SnapshotListener>();
 let runtimeStarted = false;
 let runtimeTimer: ReturnType<typeof setInterval> | null = null;
-let stopRuntimeListeners: (() => void) | null = null;
 
 function clampInterval(value: number, min: number, max: number): number {
   if (!Number.isFinite(value)) return min;
@@ -146,26 +145,9 @@ export function ingestWeatherAlertResponse(
   listeners.forEach((listener) => listener());
 }
 
-/** Compatibility entry point. Network refreshes are owned by weatherCoordinator. */
+/** Compatibility entry point. Network refreshes are owned by WeatherRuntime. */
 export async function refreshWeatherAlerts(): Promise<void> {
   pruneExpiredAlerts();
-}
-
-function attachRuntimeListeners(): () => void {
-  if (typeof window === "undefined") return () => undefined;
-  const onWeatherRefreshDone = (event: Event) => {
-    const detail = (event as CustomEvent).detail ?? {};
-    const coords =
-      detail.coords &&
-      typeof detail.coords.lat === "number" &&
-      typeof detail.coords.lon === "number"
-        ? { lat: detail.coords.lat, lon: detail.coords.lon }
-        : null;
-    const response = detail.alerts as WeatherAlertResponse | null | undefined;
-    if (response) ingestWeatherAlertResponse(response, coords);
-  };
-  window.addEventListener("weatherRefreshDone", onWeatherRefreshDone);
-  return () => window.removeEventListener("weatherRefreshDone", onWeatherRefreshDone);
 }
 
 export function startWeatherAlertRuntime(options?: WeatherAlertRuntimeOptions): () => void {
@@ -178,7 +160,6 @@ export function startWeatherAlertRuntime(options?: WeatherAlertRuntimeOptions): 
   );
   pruneExpiredAlerts();
   runtimeTimer = setInterval(pruneExpiredAlerts, localTickMs);
-  stopRuntimeListeners = attachRuntimeListeners();
   return stopWeatherAlertRuntime;
 }
 
@@ -187,8 +168,6 @@ export function stopWeatherAlertRuntime(): void {
     clearInterval(runtimeTimer);
     runtimeTimer = null;
   }
-  stopRuntimeListeners?.();
-  stopRuntimeListeners = null;
   runtimeStarted = false;
 }
 

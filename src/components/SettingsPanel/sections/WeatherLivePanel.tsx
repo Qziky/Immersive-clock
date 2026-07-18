@@ -308,8 +308,8 @@ function OverviewPanel({
       <DataSection title="位置与更新时间">
         <KeyValueGrid
           items={[
-            { label: "城市", value: displayValue(cache.location?.city) },
-            { label: "地址", value: displayValue(cache.location?.address) },
+            { label: "城市", value: displayValue(cache.activeLocation?.city.name) },
+            { label: "定位来源", value: displayValue(cache.activeLocation?.source) },
             {
               label: "坐标",
               value: cache.coords
@@ -965,7 +965,7 @@ export function WeatherLivePanel({
       variant="plain"
     >
       <div className={styles.summaryBar}>
-        <span>{cache.location?.city || "未知位置"}</span>
+        <span>{cache.activeLocation?.city.name || "未知位置"}</span>
         <span>{current?.weatherText || "暂无天气"}</span>
         <span>{formatDateTime(current?.observationTime)}</span>
         <StatusPill tone={statusTone}>{refreshStatus || "缓存数据"}</StatusPill>

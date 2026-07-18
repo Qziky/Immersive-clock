@@ -15,6 +15,12 @@
   min-width: 0;
 }
 
+.locationContent {
+  display: grid;
+  gap: var(--ui-space-7);
+  min-width: 0;
+}
+
 .scheduleInputGrid,
 .safetySettings {
   display: grid;
@@ -65,5 +71,15 @@
   .alertSettingsGrid,
   .scheduleMetricsGrid {
     --ui-setting-columns: minmax(0, 1fr) !important;
+  }
+
+  .citySearchRow {
+    align-items: stretch !important;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .locationContent {
+    gap: var(--ui-space-6);
   }
 }

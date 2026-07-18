@@ -1,5 +1,5 @@
 const LOCK_NAME = "immersive-clock:xiaomi-weather-request";
-const LEASE_STORAGE_KEY = "immersive-clock:xiaomi-weather-lease:v1";
+const LEASE_STORAGE_PREFIX = "immersive-clock:xiaomi-weather-lease:v1:";
 const CONTENDER_STORAGE_PREFIX = "immersive-clock:xiaomi-weather-contender:v1:";
 const LEASE_TTL_MS = 30_000;
 const LEASE_HEARTBEAT_MS = 5_000;
@@ -56,12 +56,12 @@ function removeIfOwned(key: string, owner: string): void {
   if (readRecord(key)?.owner === owner) localStorage.removeItem(key);
 }
 
-function listActiveContenders(now: number): ContenderRecord[] {
+function listActiveContenders(now: number, contenderPrefix: string): ContenderRecord[] {
   if (typeof localStorage === "undefined") return [];
   const contenders: ContenderRecord[] = [];
   for (let index = localStorage.length - 1; index >= 0; index -= 1) {
     const key = localStorage.key(index);
-    if (!key?.startsWith(CONTENDER_STORAGE_PREFIX)) continue;
+    if (!key?.startsWith(contenderPrefix)) continue;
     const contender = readRecord<ContenderRecord>(key);
     if (!contender || contender.expiresAt <= now || !Number.isFinite(contender.requestedAt)) {
       localStorage.removeItem(key);
@@ -74,16 +74,19 @@ function listActiveContenders(now: number): ContenderRecord[] {
   );
 }
 
-async function withLocalStorageLease<T>(task: () => Promise<T>): Promise<T> {
+async function withLocalStorageLease<T>(task: () => Promise<T>, requestKey: string): Promise<T> {
   if (typeof localStorage === "undefined") return task();
   const owner = createOwnerId();
-  const contenderKey = `${CONTENDER_STORAGE_PREFIX}${owner}`;
+  const keySuffix = encodeURIComponent(requestKey);
+  const leaseKey = `${LEASE_STORAGE_PREFIX}${keySuffix}`;
+  const contenderPrefix = `${CONTENDER_STORAGE_PREFIX}${keySuffix}:`;
+  const contenderKey = `${contenderPrefix}${owner}`;
   const requestedAt = Date.now();
 
   try {
     while (true) {
       const now = Date.now();
-      const activeLease = readRecord<LeaseRecord>(LEASE_STORAGE_KEY);
+      const activeLease = readRecord<LeaseRecord>(leaseKey);
       if (activeLease && activeLease.expiresAt > now && activeLease.owner !== owner) {
         await waitFor(Math.min(LEASE_RETRY_MS, activeLease.expiresAt - now));
         continue;
@@ -97,7 +100,7 @@ async function withLocalStorageLease<T>(task: () => Promise<T>): Promise<T> {
       localStorage.setItem(contenderKey, JSON.stringify(contender));
       await waitFor(LEASE_SETTLE_MS);
 
-      const leaseAfterSettle = readRecord<LeaseRecord>(LEASE_STORAGE_KEY);
+      const leaseAfterSettle = readRecord<LeaseRecord>(leaseKey);
       if (
         leaseAfterSettle &&
         leaseAfterSettle.expiresAt > Date.now() &&
@@ -107,29 +110,26 @@ async function withLocalStorageLease<T>(task: () => Promise<T>): Promise<T> {
         continue;
       }
 
-      const winner = listActiveContenders(Date.now())[0];
+      const winner = listActiveContenders(Date.now(), contenderPrefix)[0];
       if (winner?.owner !== owner) {
         await waitFor(LEASE_RETRY_MS);
         continue;
       }
 
       localStorage.setItem(
-        LEASE_STORAGE_KEY,
+        leaseKey,
         JSON.stringify({ expiresAt: Date.now() + LEASE_TTL_MS, owner } satisfies LeaseRecord)
       );
       await waitFor(LEASE_SETTLE_MS);
-      if (readRecord<LeaseRecord>(LEASE_STORAGE_KEY)?.owner !== owner) {
+      if (readRecord<LeaseRecord>(leaseKey)?.owner !== owner) {
         await waitFor(LEASE_RETRY_MS);
         continue;
       }
 
       const heartbeat = setInterval(() => {
-        if (readRecord<LeaseRecord>(LEASE_STORAGE_KEY)?.owner !== owner) return;
+        if (readRecord<LeaseRecord>(leaseKey)?.owner !== owner) return;
         const expiresAt = Date.now() + LEASE_TTL_MS;
-        localStorage.setItem(
-          LEASE_STORAGE_KEY,
-          JSON.stringify({ expiresAt, owner } satisfies LeaseRecord)
-        );
+        localStorage.setItem(leaseKey, JSON.stringify({ expiresAt, owner } satisfies LeaseRecord));
         localStorage.setItem(
           contenderKey,
           JSON.stringify({ expiresAt, owner, requestedAt } satisfies ContenderRecord)
@@ -140,7 +140,7 @@ async function withLocalStorageLease<T>(task: () => Promise<T>): Promise<T> {
         return await task();
       } finally {
         clearInterval(heartbeat);
-        removeIfOwned(LEASE_STORAGE_KEY, owner);
+        removeIfOwned(leaseKey, owner);
       }
     }
   } finally {
@@ -154,20 +154,24 @@ function getLockManager(): LockManagerLike | null {
   return locks && typeof locks.request === "function" ? locks : null;
 }
 
-export function withWeatherCrossTabLock<T>(task: () => Promise<T>): Promise<T> {
+export function withWeatherCrossTabLock<T>(
+  task: () => Promise<T>,
+  requestKey = "global"
+): Promise<T> {
   const lockManager = getLockManager();
   if (lockManager) {
-    return lockManager.request(LOCK_NAME, { mode: "exclusive" }, task);
+    return lockManager.request(`${LOCK_NAME}:${requestKey}`, { mode: "exclusive" }, task);
   }
-  return withLocalStorageLease(task);
+  return withLocalStorageLease(task, requestKey);
 }
 
 export function __resetWeatherCrossTabLockForTests(): void {
   ownerSequence = 0;
   if (typeof localStorage === "undefined") return;
-  localStorage.removeItem(LEASE_STORAGE_KEY);
   for (let index = localStorage.length - 1; index >= 0; index -= 1) {
     const key = localStorage.key(index);
-    if (key?.startsWith(CONTENDER_STORAGE_PREFIX)) localStorage.removeItem(key);
+    if (key?.startsWith(CONTENDER_STORAGE_PREFIX) || key?.startsWith(LEASE_STORAGE_PREFIX)) {
+      localStorage.removeItem(key);
+    }
   }
 }

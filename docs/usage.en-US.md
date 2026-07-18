@@ -56,8 +56,10 @@ This document explains Immersive Clock features, operations, and details. Use th
   - Countdown type: Gaokao target year or custom event (name & date).
   - Target year range: current year to +10 years.
 - Weather settings:
-  - Manual refresh; show city, temperature, humidity, wind, and more.
-  - Data source priority: Browser Geolocation → AMap IP → other IP; main weather provider: HeWeather.
+  - Xiaomi Weather is the only weather and city-resolution provider. It supplies current weather, hourly and daily forecasts, minutely precipitation, AQI, alerts, sunrise, and sunset.
+  - Automatic location requests high-accuracy browser Geolocation only. If it fails, the app falls back to a public-IP city-level location and labels the source and reported browser accuracy.
+  - Manual location requires entering a city, selecting **Search City**, and choosing an exact Xiaomi candidate. The saved city-center coordinates and `locationKey` are reused directly.
+  - The **Updates** tab shows the last success, next refresh, and runtime status, with a manual refresh command. Scheduling and request protection are managed internally.
 - Noise settings:
   - Microphone calibration and baseline slider.
   - Auto pop report (on by default), preferences are persisted.
@@ -74,8 +76,11 @@ This document explains Immersive Clock features, operations, and details. Use th
 
 ## Weather
 
-- Weather component shows city location and multiple real-time parameters.
-- If location is denied, it falls back to IP-based sources.
+- The weather component shows the current city and live conditions. Full forecasts, air quality, alerts, minutely precipitation, and provider data are available under **Weather Service → Data**.
+- Full weather refreshes every 10 minutes in the foreground and every 30 minutes in the background. Minutely precipitation accelerates to every 2 minutes near or during rain.
+- Startup, window resume, and network recovery refresh expired data only. Failures retain the last weather from the same location mode and retry with backoff.
+- Hiding the top weather component does not stop weather alerts, AQI, sunrise/sunset reminders, or central rain status updates.
+- If high-accuracy browser location fails, the app falls back to a public-IP city-level location; manual city selection remains available.
 - Manual refresh in settings to get the latest weather.
 
 ## Component Appearance

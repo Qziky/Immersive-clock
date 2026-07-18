@@ -7,6 +7,7 @@ import type {
   WeatherDetailsResponse,
   WeatherHourly72hResponse,
   WeatherNow,
+  WeatherLocation,
 } from "../types/weather";
 
 import { logger } from "./logger";
@@ -15,7 +16,6 @@ const STORAGE_KEY = "weather-cache";
 
 // 缓存有效期常量
 const COORDS_TTL = 12 * 60 * 60 * 1000; // 12小时
-const LOCATION_TTL = 12 * 60 * 60 * 1000; // 12小时
 const ALERT_TTL = 12 * 60 * 60 * 1000; // 12小时
 const MINUTELY_TTL = 5 * 60 * 1000; // 5分钟
 const DAILY_TTL = 3 * 60 * 60 * 1000; // 3小时
@@ -26,6 +26,7 @@ const ASTRONOMY_TTL = 12 * 60 * 60 * 1000; // 12小时
 const XIAOMI_LOCATION_TTL = 24 * 60 * 60 * 1000; // 24小时
 
 export interface XiaomiLocationCacheData {
+  affiliation?: string;
   lat: number;
   locationKey: string;
   lon: number;
@@ -33,11 +34,14 @@ export interface XiaomiLocationCacheData {
 }
 
 export interface WeatherCache {
+  version?: 2;
+  activeLocation?: WeatherLocation;
   // 1. 坐标与定位缓存
   coords?: {
     lat: number;
     lon: number;
-    source: string; // 来源: 'geolocation' | 'amap_ip' | 'ip'
+    accuracy?: number;
+    source: string;
     updatedAt: number;
   };
 
@@ -47,21 +51,14 @@ export interface WeatherCache {
     updatedAt: number;
   };
 
-  // 2. 城市与地址缓存
-  location?: {
-    city?: string;
-    address?: string;
-    addressSource?: string;
-    signature: string; // 坐标签名 (lat,lon)
-    updatedAt: number;
-  };
-
-  // 2.1 小米天气 locationKey
-  xiaomiLocation?: {
-    data: XiaomiLocationCacheData;
-    location: string;
-    updatedAt: number;
-  };
+  // 2. 按坐标签名缓存的小米城市结果
+  xiaomiLocations?: Record<
+    string,
+    {
+      data: XiaomiLocationCacheData;
+      updatedAt: number;
+    }
+  >;
 
   // 3. 实时天气快照
   now?: {
@@ -167,6 +164,98 @@ export function updateCoordsCache(lat: number, lon: number, source: string) {
   });
 }
 
+export interface WeatherRuntimeBundleCacheInput {
+  airQuality?: AirQualityCurrentResponse | null;
+  astronomySun?: AstronomySunResponse | null;
+  daily3d?: WeatherDaily3dResponse | null;
+  details?: WeatherDetailsResponse | null;
+  location: WeatherLocation;
+  minutely?: MinutelyPrecipResponse | null;
+  weather: WeatherNow;
+}
+
+/** 全量天气成功后一次性写入同一位置的所有数据，避免消费者观察到半更新状态。 */
+export function updateWeatherRuntimeBundle(
+  input: WeatherRuntimeBundleCacheInput,
+  astronomyDate: string,
+  updatedAt = Date.now()
+): WeatherCache {
+  const locationKey = createWeatherLocationKey(
+    input.location.coords.lat,
+    input.location.coords.lon
+  );
+  const current = getWeatherCache();
+  const next: WeatherCache = {
+    version: 2,
+    activeLocation: input.location,
+    coords: {
+      accuracy: input.location.coords.accuracy,
+      lat: input.location.coords.lat,
+      lon: input.location.coords.lon,
+      source: input.location.source,
+      updatedAt: input.location.resolvedAt,
+    },
+    geolocation: current.geolocation,
+    xiaomiLocations: {
+      ...getFreshXiaomiLocations(current, updatedAt),
+      [locationKey]: {
+        data: {
+          affiliation: input.location.city.affiliation,
+          lat: input.location.coords.lat,
+          locationKey: input.location.city.locationKey,
+          lon: input.location.coords.lon,
+          name: input.location.city.name,
+        },
+        updatedAt: input.location.resolvedAt,
+      },
+    },
+    now: { data: input.weather, updatedAt },
+    alerts: current.alerts,
+    alertMetadata: current.alertMetadata,
+    ...(input.details && !input.details.error
+      ? { details: { data: input.details, location: locationKey, updatedAt } }
+      : {}),
+    ...(input.daily3d && !input.daily3d.error
+      ? { daily3d: { data: input.daily3d, location: locationKey, updatedAt } }
+      : {}),
+    ...(input.airQuality && !input.airQuality.error
+      ? {
+          airQuality: {
+            data: input.airQuality,
+            signature: `${input.location.coords.lat.toFixed(4)},${input.location.coords.lon.toFixed(4)}`,
+            updatedAt,
+          },
+        }
+      : {}),
+    ...(input.astronomySun && !input.astronomySun.error
+      ? {
+          astronomySun: {
+            data: input.astronomySun,
+            date: astronomyDate,
+            location: locationKey,
+            updatedAt,
+          },
+        }
+      : {}),
+    ...(input.minutely
+      ? {
+          minutely: {
+            data: input.minutely,
+            lastApiFetchAt: updatedAt,
+            location: locationKey,
+            updatedAt,
+          },
+        }
+      : {}),
+  };
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+  } catch (error) {
+    logger.error("Failed to save weather runtime bundle", error);
+  }
+  return next;
+}
+
 /**
  * 更新浏览器定位诊断信息缓存
  */
@@ -176,38 +265,6 @@ export function updateGeolocationDiagnostics(diagnostics: GeolocationDiagnostics
       diagnostics,
       updatedAt: Date.now(),
     },
-  });
-}
-
-/**
- * 更新位置信息缓存 (城市/地址)
- */
-export function updateLocationCache(
-  lat: number,
-  lon: number,
-  data: {
-    city?: string;
-    address?: string;
-    addressSource?: string;
-  }
-) {
-  // 仅当提供了有效数据时才更新，保留旧字段
-  saveWeatherCache((current) => {
-    const signature = `${lat.toFixed(4)},${lon.toFixed(4)}`;
-    // 修复：显式为回退对象标注类型，以便安全访问其属性
-    const existing = (current.location?.signature === signature ? current.location : {}) as Partial<
-      NonNullable<WeatherCache["location"]>
-    >;
-
-    return {
-      location: {
-        signature,
-        updatedAt: Date.now(),
-        city: data.city ?? existing.city,
-        address: data.address ?? existing.address,
-        addressSource: data.addressSource ?? existing.addressSource,
-      },
-    };
   });
 }
 
@@ -227,26 +284,48 @@ export function createWeatherLocationKey(lat: number, lon: number): string {
   return `${lon.toFixed(4)},${lat.toFixed(4)}`;
 }
 
+function getFreshXiaomiLocations(
+  cache: WeatherCache,
+  now = Date.now()
+): NonNullable<WeatherCache["xiaomiLocations"]> {
+  const fresh = Object.fromEntries(
+    Object.entries(cache.xiaomiLocations ?? {}).filter(
+      ([, entry]) => now - entry.updatedAt < XIAOMI_LOCATION_TTL
+    )
+  );
+  const legacy = (
+    cache as WeatherCache & {
+      xiaomiLocation?: { data?: XiaomiLocationCacheData; location?: string; updatedAt?: number };
+    }
+  ).xiaomiLocation;
+  if (
+    legacy?.data?.locationKey &&
+    legacy.location &&
+    typeof legacy.updatedAt === "number" &&
+    now - legacy.updatedAt < XIAOMI_LOCATION_TTL
+  ) {
+    fresh[legacy.location] = { data: legacy.data, updatedAt: legacy.updatedAt };
+  }
+  return fresh;
+}
+
 export function updateXiaomiLocationCache(data: XiaomiLocationCacheData): void {
-  saveWeatherCache({
-    xiaomiLocation: {
-      data,
-      location: createWeatherLocationKey(data.lat, data.lon),
-      updatedAt: Date.now(),
-    },
+  saveWeatherCache((current) => {
+    const now = Date.now();
+    const updates: Partial<WeatherCache> & { xiaomiLocation?: undefined } = {
+      xiaomiLocation: undefined,
+      xiaomiLocations: {
+        ...getFreshXiaomiLocations(current, now),
+        [createWeatherLocationKey(data.lat, data.lon)]: { data, updatedAt: now },
+      },
+    };
+    return updates;
   });
 }
 
 export function getValidXiaomiLocation(lat: number, lon: number): XiaomiLocationCacheData | null {
   const cache = getWeatherCache();
-  if (
-    cache.xiaomiLocation &&
-    cache.xiaomiLocation.location === createWeatherLocationKey(lat, lon) &&
-    Date.now() - cache.xiaomiLocation.updatedAt < XIAOMI_LOCATION_TTL
-  ) {
-    return cache.xiaomiLocation.data;
-  }
-  return null;
+  return getFreshXiaomiLocations(cache)[createWeatherLocationKey(lat, lon)]?.data ?? null;
 }
 
 export function updateWeatherDetailsCache(location: string, data: WeatherDetailsResponse) {
@@ -416,22 +495,6 @@ export function getValidCoords() {
 }
 
 /**
- * 读取并清理过期的位置缓存
- */
-export function getValidLocation(lat: number, lon: number) {
-  const cache = getWeatherCache();
-  const signature = `${lat.toFixed(4)},${lon.toFixed(4)}`;
-  if (
-    cache.location &&
-    cache.location.signature === signature &&
-    Date.now() - cache.location.updatedAt < LOCATION_TTL
-  ) {
-    return cache.location;
-  }
-  return null;
-}
-
-/**
  * 读取有效的分钟级降水缓存
  */
 export function getValidMinutely(location: string) {
@@ -567,20 +630,27 @@ export function cleanupWeatherCache() {
     const updates: Partial<WeatherCache> = {};
     let changed = false;
 
+    if ("location" in current) {
+      (updates as Partial<WeatherCache> & { location?: undefined }).location = undefined;
+      changed = true;
+    }
+
     // 清理坐标
     if (current.coords && now - current.coords.updatedAt > COORDS_TTL) {
       updates.coords = undefined;
       changed = true;
     }
 
-    // 清理位置
-    if (current.location && now - current.location.updatedAt > LOCATION_TTL) {
-      updates.location = undefined;
-      changed = true;
-    }
-
-    if (current.xiaomiLocation && now - current.xiaomiLocation.updatedAt > XIAOMI_LOCATION_TTL) {
-      updates.xiaomiLocation = undefined;
+    const freshXiaomiLocations = getFreshXiaomiLocations(current, now);
+    if (
+      Object.keys(freshXiaomiLocations).length !==
+        Object.keys(current.xiaomiLocations ?? {}).length ||
+      "xiaomiLocation" in current
+    ) {
+      (updates as Partial<WeatherCache> & { xiaomiLocation?: undefined }).xiaomiLocation =
+        undefined;
+      updates.xiaomiLocations =
+        Object.keys(freshXiaomiLocations).length > 0 ? freshXiaomiLocations : undefined;
       changed = true;
     }
 

@@ -58,7 +58,6 @@ const listeners = new Set<SnapshotListener>();
 let runtimeTimer: ReturnType<typeof setInterval> | null = null;
 let runtimeStarted = false;
 let lastRefreshError: string | null = null;
-let stopRuntimeListeners: (() => void) | null = null;
 
 function clampInterval(value: number, min: number, max: number): number {
   if (!Number.isFinite(value)) return min;
@@ -177,21 +176,9 @@ export function setMinutelyWeatherRuntimeError(error: string | null): void {
   recomputeMinutelyWeatherSnapshot();
 }
 
-/** Compatibility entry point. Network refreshes are owned by weatherCoordinator. */
+/** Compatibility entry point. Network refreshes are owned by WeatherRuntime. */
 export async function refreshMinutelyWeather(_options?: { force?: boolean }): Promise<void> {
   recomputeMinutelyWeatherSnapshot();
-}
-
-function attachRuntimeListeners(): () => void {
-  if (typeof window === "undefined") return () => undefined;
-  const onWeatherRefreshDone = () => recomputeMinutelyWeatherSnapshot();
-  const onTimeSync = () => recomputeMinutelyWeatherSnapshot();
-  window.addEventListener("weatherRefreshDone", onWeatherRefreshDone);
-  window.addEventListener("timeSync:updated", onTimeSync);
-  return () => {
-    window.removeEventListener("weatherRefreshDone", onWeatherRefreshDone);
-    window.removeEventListener("timeSync:updated", onTimeSync);
-  };
 }
 
 export function startMinutelyWeatherRuntime(options?: MinutelyWeatherRuntimeOptions): () => void {
@@ -204,7 +191,6 @@ export function startMinutelyWeatherRuntime(options?: MinutelyWeatherRuntimeOpti
   );
   recomputeMinutelyWeatherSnapshot();
   runtimeTimer = setInterval(recomputeMinutelyWeatherSnapshot, localTickMs);
-  stopRuntimeListeners = attachRuntimeListeners();
   return stopMinutelyWeatherRuntime;
 }
 
@@ -213,8 +199,6 @@ export function stopMinutelyWeatherRuntime(): void {
     clearInterval(runtimeTimer);
     runtimeTimer = null;
   }
-  stopRuntimeListeners?.();
-  stopRuntimeListeners = null;
   runtimeStarted = false;
 }
 

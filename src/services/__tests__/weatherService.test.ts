@@ -4,12 +4,6 @@ vi.mock("../weatherRequestGuard", () => ({
   executeWeatherRequest: <T>(runner: () => Promise<T>) => runner(),
 }));
 
-function xiaomiCity() {
-  return [
-    { name: "上海市", locationKey: "weathercn:101020100", latitude: "31.2", longitude: "121.5" },
-  ];
-}
-
 function xiaomiWeatherAll() {
   return {
     status: 0,
@@ -61,7 +55,6 @@ describe("weatherService", () => {
     vi.restoreAllMocks();
     vi.unstubAllEnvs();
     vi.resetModules();
-    vi.stubEnv("VITE_AMAP_API_KEY", "test-amap-key");
   });
 
   afterEach(() => {
@@ -237,55 +230,9 @@ describe("weatherService", () => {
     expect(coords?.lon).toBeCloseTo(121.5);
   });
 
-  it("buildWeatherFlow 不再请求和风 GeoAPI，并可从反编码提取城市名", async () => {
-    if (!globalThis.localStorage) {
-      const store = new Map<string, string>();
-      globalThis.localStorage = {
-        getItem: (key: string) => store.get(key) ?? null,
-        setItem: (key: string, value: string) => void store.set(key, value),
-        removeItem: (key: string) => void store.delete(key),
-        clear: () => void store.clear(),
-        key: (index: number) => Array.from(store.keys())[index] ?? null,
-        get length() {
-          return store.size;
-        },
-      } as unknown as Storage;
-    }
-
-    localStorage.setItem(
-      "weather-cache",
-      JSON.stringify({
-        coords: { lat: 31.2, lon: 121.5, source: "geolocation", updatedAt: Date.now() },
-      })
-    );
-
+  it("buildWeatherFlow 使用已解析小米位置且不请求额外城市或地址接口", async () => {
     const fetchMock = vi.fn((input: RequestInfo | URL) => {
       const url = String(input);
-      if (url.includes("/geo/v2/"))
-        return Promise.reject(new Error(`GeoAPI should not be called: ${url}`));
-      if (url.startsWith("https://restapi.amap.com/v3/geocode/regeo?")) {
-        return Promise.resolve({
-          ok: true,
-          status: 200,
-          statusText: "OK",
-          text: async () =>
-            JSON.stringify({
-              status: "1",
-              regeocode: {
-                formatted_address: "中国 上海市 浦东新区",
-                addressComponent: { city: "上海市" },
-              },
-            }),
-        });
-      }
-      if (url.includes("/wtr-v3/location/city/geo?")) {
-        return Promise.resolve({
-          ok: true,
-          status: 200,
-          statusText: "OK",
-          text: async () => JSON.stringify(xiaomiCity()),
-        });
-      }
       if (url.includes("/wtr-v3/weather/all?")) {
         return Promise.resolve({
           ok: true,
@@ -299,14 +246,28 @@ describe("weatherService", () => {
     globalThis.fetch = fetchMock as unknown as typeof fetch;
 
     const { buildWeatherFlow } = await import("../weatherService");
-    const result = await buildWeatherFlow();
+    const result = await buildWeatherFlow({
+      location: {
+        city: {
+          affiliation: "上海市",
+          lat: 31.2,
+          locationKey: "weathercn:101020100",
+          lon: 121.5,
+          name: "上海市",
+        },
+        coords: { accuracy: 20, lat: 31.2, lon: 121.5 },
+        mode: "auto",
+        resolvedAt: Date.now(),
+        source: "browser",
+      },
+    });
 
     expect(result.coords).not.toBeNull();
     expect(result.city).toBe("上海市");
     expect(result.weather?.code).toBe("200");
 
     const calledUrls = fetchMock.mock.calls.map((c) => String(c[0]));
-    expect(calledUrls.some((u) => u.includes("/geo/v2/"))).toBe(false);
+    expect(calledUrls.some((u) => u.includes("/location/city/"))).toBe(false);
     expect(calledUrls.some((u) => u.includes("/wtr-v3/weather/all"))).toBe(true);
     expect(calledUrls.some((u) => u.includes("locationKey=weathercn%3A101020100"))).toBe(true);
   });

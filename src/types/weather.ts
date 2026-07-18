@@ -1,6 +1,25 @@
 export interface Coords {
   lat: number;
   lon: number;
+  accuracy?: number;
+}
+
+export interface WeatherCitySelection {
+  affiliation?: string;
+  lat: number;
+  locationKey: string;
+  lon: number;
+  name: string;
+}
+
+export type WeatherLocationSource = "browser" | "public_ip" | "manual_city";
+
+export interface WeatherLocation {
+  city: WeatherCitySelection;
+  coords: Coords;
+  mode: "auto" | "manual";
+  resolvedAt: number;
+  source: WeatherLocationSource;
 }
 
 export type GeolocationPermissionState =
@@ -25,31 +44,6 @@ export interface GeolocationDiagnostics {
 export interface GeolocationResult {
   coords: Coords | null;
   diagnostics: GeolocationDiagnostics;
-}
-
-export interface AddressInfo {
-  address?: string;
-  source?: string;
-  raw?: unknown;
-  error?: string;
-}
-
-export interface CityLookupResponse {
-  code?: string;
-  location?: Array<{
-    name?: string;
-    id?: string;
-    lat?: string;
-    lon?: string;
-    adm2?: string;
-    adm1?: string;
-    country?: string;
-    tz?: string;
-    type?: string;
-    rank?: string;
-    locationKey?: string;
-  }>;
-  error?: string;
 }
 
 export interface XiaomiCityLocation {

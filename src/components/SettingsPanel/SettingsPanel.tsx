@@ -254,7 +254,7 @@ const paneItems: SettingsPane[] = [
     value: "location",
     group: "environment",
     label: "定位服务",
-    description: "选择自动或手动定位，并查看坐标、地址和诊断。",
+    description: "选择高精度自动定位或手动城市，并查看坐标、来源和诊断。",
     icon: "feature.location",
     panel: "weather",
     section: "location",

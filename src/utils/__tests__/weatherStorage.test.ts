@@ -12,7 +12,6 @@ import {
   getValidHourly72h,
   getValidAirQuality,
   getValidAstronomySun,
-  getValidLocation,
   getValidMinutely,
   getValidXiaomiLocation,
   readStationAlertRecord,
@@ -23,7 +22,6 @@ import {
   updateAirQualityCache,
   updateAstronomySunCache,
   updateGeolocationDiagnostics,
-  updateLocationCache,
   updateMinutelyCache,
   updateMinutelyCriticalFetch,
   updateMinutelyLastFetch,
@@ -107,23 +105,6 @@ describe("weatherStorage", () => {
     expect(getValidCoords()).toBeNull();
   });
 
-  it("位置缓存按 signature 命中，并在同签名下保留旧字段", () => {
-    vi.spyOn(Date, "now").mockReturnValue(1000);
-    updateLocationCache(31.20009, 121.50001, {
-      city: "上海",
-      address: "A 路 1 号",
-      addressSource: "amap",
-    });
-
-    vi.spyOn(Date, "now").mockReturnValue(1100);
-    updateLocationCache(31.20008, 121.50002, { city: "上海市" });
-
-    const loc = getValidLocation(31.20008, 121.50002);
-    expect(loc?.city).toBe("上海市");
-    expect(loc?.address).toBe("A 路 1 号");
-    expect(loc?.addressSource).toBe("amap");
-  });
-
   it("站点预警记录在 TTL 内可读，超时后不可读", () => {
     vi.spyOn(Date, "now").mockReturnValue(1000);
     writeStationAlertRecord("station-1", "sig-1");
@@ -194,6 +175,15 @@ describe("weatherStorage", () => {
       name: "上海市",
     });
     expect(getValidXiaomiLocation(39.904, 116.408)).toBeNull();
+
+    updateXiaomiLocationCache({
+      lat: 39.904,
+      locationKey: "weathercn:101010100",
+      lon: 116.408,
+      name: "北京市",
+    });
+    expect(getValidXiaomiLocation(31.2, 121.5)?.name).toBe("上海市");
+    expect(getValidXiaomiLocation(39.904, 116.408)?.name).toBe("北京市");
 
     vi.spyOn(Date, "now").mockReturnValue(1000 + 24 * 60 * 60 * 1000 + 1);
     expect(getValidXiaomiLocation(31.2, 121.5)).toBeNull();
@@ -319,8 +309,9 @@ describe("weatherStorage", () => {
 
     const cache = getWeatherCache();
     expect(cache.coords).toBeUndefined();
-    expect(cache.location).toBeUndefined();
-    expect(cache.xiaomiLocation).toBeUndefined();
+    expect("location" in cache).toBe(false);
+    expect("xiaomiLocation" in cache).toBe(false);
+    expect(cache.xiaomiLocations).toBeUndefined();
     expect(cache.details).toBeUndefined();
     expect(cache.minutely).toBeUndefined();
     expect(cache.daily3d).toBeUndefined();
@@ -375,7 +366,6 @@ describe("weatherStorage", () => {
   it("cleanupWeatherCache 在无过期数据时不应清空字段", () => {
     vi.spyOn(Date, "now").mockReturnValue(1000);
     updateCoordsCache(1, 2, "ip");
-    updateLocationCache(1, 2, { city: "X" });
     writeStationAlertRecord("station-1", "sig-1");
 
     vi.spyOn(Date, "now").mockReturnValue(2000);
@@ -383,7 +373,6 @@ describe("weatherStorage", () => {
 
     const cache = getWeatherCache();
     expect(cache.coords).toBeDefined();
-    expect(cache.location).toBeDefined();
     expect(cache.alerts?.["station-1"]).toBeDefined();
   });
 });

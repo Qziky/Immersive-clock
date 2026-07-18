@@ -1,14 +1,18 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 
 import { useAppDispatch, useAppState } from "../../../contexts/AppContext";
 import { useMinutelyWeatherSnapshot } from "../../../hooks/useMinutelyWeatherSnapshot";
-import { useWeatherCoordinatorSnapshot } from "../../../hooks/useWeatherCoordinatorSnapshot";
+import { useWeatherRuntimeSnapshot } from "../../../hooks/useWeatherRuntimeSnapshot";
 import {
-  requestWeatherRefresh,
-  type WeatherCoordinatorStatus,
-} from "../../../services/weatherCoordinator";
+  refreshLocation,
+  refreshWeather,
+  searchWeatherCities,
+  type WeatherRuntimeStatus,
+} from "../../../services/weatherRuntime";
+import type { WeatherCitySelection } from "../../../types/weather";
 import {
   Button as FormButton,
+  Dropdown,
   FormSection,
   InfoPanel,
   Inline as FormButtonGroup,
@@ -23,16 +27,6 @@ import {
 } from "../../../ui";
 import { getAppSettings, updateGeneralSettings } from "../../../utils/appSettings";
 import { broadcastSettingsEvent, SETTINGS_EVENTS } from "../../../utils/settingsEvents";
-import {
-  createDefaultWeatherScheduleSettings,
-  normalizeWeatherScheduleSettings,
-  resolveEffectiveWeatherSchedule,
-  WEATHER_SCHEDULE_LIMITS,
-  type WeatherSafetySettings,
-  type WeatherScheduleIntervals,
-  type WeatherScheduleProfile,
-} from "../../../utils/weatherSchedule";
-import { createWeatherLocationKey, getWeatherCache } from "../../../utils/weatherStorage";
 
 import { WeatherLivePanel } from "./WeatherLivePanel";
 import styles from "./WeatherSettingsPanel.module.css";
@@ -47,16 +41,23 @@ type WeatherServiceTab = "alerts" | "refresh" | "live";
 type LocationServiceTab = "locationSettings" | "locationStatus";
 type WeatherContentSection = WeatherServiceTab | LocationServiceTab;
 
-const WEATHER_SERVICE_TABS: Array<{ value: WeatherContentSection; label: string }> = [
+const WEATHER_SERVICE_TABS: Array<{ value: WeatherServiceTab; label: string }> = [
   { value: "alerts", label: "提醒" },
-  { value: "refresh", label: "调度" },
+  { value: "refresh", label: "更新" },
   { value: "live", label: "数据" },
 ];
 
-const LOCATION_SERVICE_TABS: Array<{ value: WeatherContentSection; label: string }> = [
-  { value: "locationSettings", label: "设置" },
-  { value: "locationStatus", label: "状态" },
-];
+const STATUS_LABELS: Record<WeatherRuntimeStatus, string> = {
+  error: "失败",
+  idle: "等待更新",
+  loading: "加载中",
+  locating: "定位中",
+  offline: "离线",
+  rate_limited: "等待请求保护",
+  ready: "已更新",
+  refreshing: "更新中",
+  stale: "使用过期数据",
+};
 
 function formatTime(value: number | null): string {
   if (value == null || !Number.isFinite(value)) return "暂无";
@@ -68,281 +69,182 @@ function formatTime(value: number | null): string {
   });
 }
 
-const COORDINATOR_STATUS_LABELS: Record<WeatherCoordinatorStatus, string> = {
-  cooldown: "冷却中",
-  error: "失败",
-  "error-with-cache": "失败，使用缓存",
-  idle: "等待调度",
-  offline: "离线",
-  "rate-limited": "等待请求保护",
-  ready: "成功",
-  refreshing: "刷新中",
-};
-
-function getCoordinatorStatusLabel(status: WeatherCoordinatorStatus): string {
-  return COORDINATOR_STATUS_LABELS[status];
+function candidateValue(candidate: WeatherCitySelection, index: number): string {
+  return `${candidate.locationKey}:${candidate.lon}:${candidate.lat}:${index}`;
 }
 
-/**
- * 天气设置分段组件
- * - 展示当前天气信息与定位来源
- * - 手动刷新天气数据
- */
 const WeatherSettingsPanel: React.FC<WeatherSettingsPanelProps> = ({ onRegisterSave, section }) => {
   const { study } = useAppState();
   const dispatch = useAppDispatch();
-  const coordinator = useWeatherCoordinatorSnapshot();
+  const runtime = useWeatherRuntimeSnapshot();
   const minutelyWeather = useMinutelyWeatherSnapshot(section === "weather");
   const [activeWeatherTab, setActiveWeatherTab] = useState<WeatherServiceTab>("alerts");
-  const [activeLocationTab, setActiveLocationTab] =
-    useState<LocationServiceTab>("locationSettings");
-  const [cache, setCache] = useState(() => getWeatherCache());
-  const [weatherRefreshStatus, setWeatherRefreshStatus] = useState<string>("");
-  const [advancedSafetyOpen, setAdvancedSafetyOpen] = useState(false);
-  const safetySettingsRef = useRef<HTMLDivElement>(null);
-  const [weatherAlertEnabled, setWeatherAlertEnabled] = useState<boolean>(
-    !!study.weatherAlertEnabled
+  const [weatherAlertEnabled, setWeatherAlertEnabled] = useState(
+    Boolean(study.weatherAlertEnabled)
   );
-  const [airQualityAlertEnabled, setAirQualityAlertEnabled] = useState<boolean>(
-    !!study.airQualityAlertEnabled
+  const [airQualityAlertEnabled, setAirQualityAlertEnabled] = useState(
+    Boolean(study.airQualityAlertEnabled)
   );
-  const [sunriseSunsetAlertEnabled, setSunriseSunsetAlertEnabled] = useState<boolean>(
-    !!study.sunriseSunsetAlertEnabled
+  const [sunriseSunsetAlertEnabled, setSunriseSunsetAlertEnabled] = useState(
+    Boolean(study.sunriseSunsetAlertEnabled)
   );
 
   const initialWeatherSettings = getAppSettings().general.weather;
-  const [scheduleProfile, setScheduleProfile] = useState<WeatherScheduleProfile>(
-    initialWeatherSettings.schedule.profile
-  );
-  const [customSchedule, setCustomSchedule] = useState<WeatherScheduleIntervals>({
-    ...initialWeatherSettings.schedule.custom,
-  });
-  const [safetySettings, setSafetySettings] = useState<WeatherSafetySettings>({
-    ...initialWeatherSettings.schedule.safety,
-  });
   const [locationMode, setLocationMode] = useState<"auto" | "manual">(
-    initialWeatherSettings.locationMode === "manual" ? "manual" : "auto"
+    initialWeatherSettings.locationMode
   );
-  const [manualType, setManualType] = useState<"city" | "coords">(
-    initialWeatherSettings.manualLocation?.type === "coords" ? "coords" : "city"
+  const [manualQuery, setManualQuery] = useState(initialWeatherSettings.manualLocation.query);
+  const [selectedCity, setSelectedCity] = useState<WeatherCitySelection | null>(
+    initialWeatherSettings.manualLocation.selected
   );
-  const [manualCityName, setManualCityName] = useState<string>(() => {
-    return String(initialWeatherSettings.manualLocation?.cityName || "");
-  });
-  const [manualLat, setManualLat] = useState<string>(() => {
-    const v = initialWeatherSettings.manualLocation?.lat;
-    return typeof v === "number" && Number.isFinite(v) ? String(v) : "";
-  });
-  const [manualLon, setManualLon] = useState<string>(() => {
-    const v = initialWeatherSettings.manualLocation?.lon;
-    return typeof v === "number" && Number.isFinite(v) ? String(v) : "";
-  });
+  const [cityCandidates, setCityCandidates] = useState<WeatherCitySelection[]>(() =>
+    initialWeatherSettings.manualLocation.selected
+      ? [initialWeatherSettings.manualLocation.selected]
+      : []
+  );
+  const [selectedCandidateValue, setSelectedCandidateValue] = useState<string | undefined>(() =>
+    initialWeatherSettings.manualLocation.selected
+      ? candidateValue(initialWeatherSettings.manualLocation.selected, 0)
+      : undefined
+  );
+  const [citySearchError, setCitySearchError] = useState<string | null>(null);
+  const [isSearchingCities, setIsSearchingCities] = useState(false);
 
-  useEffect(() => {
-    if (!advancedSafetyOpen) return;
-    safetySettingsRef.current?.scrollIntoView?.({ block: "nearest", inline: "nearest" });
-  }, [advancedSafetyOpen]);
+  const isRefreshing =
+    runtime.status === "locating" ||
+    runtime.status === "loading" ||
+    runtime.status === "refreshing";
+  const isSectionHidden = (candidate: WeatherContentSection) =>
+    section === "weather"
+      ? candidate !== activeWeatherTab
+      : candidate !== "locationSettings" && candidate !== "locationStatus";
+  const location = runtime.location;
 
-  const refreshDisplayData = useCallback(() => {
-    setCache(getWeatherCache());
-  }, []);
+  const candidateOptions = useMemo(
+    () =>
+      cityCandidates.map((candidate, index) => ({
+        description: [
+          candidate.affiliation,
+          `${candidate.lat.toFixed(4)}, ${candidate.lon.toFixed(4)}`,
+        ]
+          .filter(Boolean)
+          .join(" · "),
+        label: candidate.name,
+        value: candidateValue(candidate, index),
+      })),
+    [cityCandidates]
+  );
 
-  /**
-   * 刷新天气数据（不强制更新地理位置缓存）
-   */
-  const handleRefreshWeather = useCallback(() => {
-    if (coordinator.status === "refreshing") return;
-    setWeatherRefreshStatus("刷新中");
-    void requestWeatherRefresh({ force: true, reason: "manual", target: "all" })
-      .then((next) => {
-        refreshDisplayData();
-        setWeatherRefreshStatus(getCoordinatorStatusLabel(next.status));
-      })
-      .catch((error: unknown) => {
-        const message = error instanceof Error ? error.message : String(error);
-        setWeatherRefreshStatus("失败");
-        window.dispatchEvent(
-          new CustomEvent("messagePopup:open", {
-            detail: {
-              message,
-              title: "天气获取失败",
-              type: "error",
-            },
-          })
-        );
-      });
-  }, [coordinator.status, refreshDisplayData]);
+  const handleCitySearch = useCallback(async () => {
+    const query = manualQuery.trim();
+    if (!query) {
+      setCitySearchError("请输入城市名称");
+      return;
+    }
+    setIsSearchingCities(true);
+    setCitySearchError(null);
+    try {
+      const candidates = await searchWeatherCities(query);
+      setCityCandidates(candidates);
+      setSelectedCity(null);
+      setSelectedCandidateValue(undefined);
+      if (candidates.length === 0) setCitySearchError("未找到匹配城市，请补充省份或地区名称");
+    } catch (error: unknown) {
+      setCityCandidates([]);
+      setCitySearchError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setIsSearchingCities(false);
+    }
+  }, [manualQuery]);
 
-  const handleRefreshLocationAuto = useCallback(() => {
-    const weatherRefreshEvent = new CustomEvent("weatherLocationRefresh", {
-      detail: { preferredLocationMode: "auto", showErrorPopup: true },
-    });
-    window.dispatchEvent(weatherRefreshEvent);
-    setWeatherRefreshStatus("刷新中");
-  }, []);
+  const handleCandidateChange = (value: string | number | Array<string | number> | undefined) => {
+    if (Array.isArray(value) || value == null) return;
+    const normalized = String(value);
+    const index = candidateOptions.findIndex((option) => option.value === normalized);
+    const candidate = index >= 0 ? cityCandidates[index] : null;
+    setSelectedCandidateValue(normalized);
+    setSelectedCity(candidate);
+    setCitySearchError(candidate ? null : "请选择有效城市");
+  };
 
-  useEffect(() => {
-    const onDone = (e: Event) => {
-      const detail = (e as CustomEvent).detail || {};
-      const status = detail.status || "";
-      setWeatherRefreshStatus(status);
-      refreshDisplayData();
-    };
-    window.addEventListener("weatherRefreshDone", onDone as EventListener);
-    window.addEventListener("weatherLocationRefreshDone", onDone as EventListener);
-    return () => {
-      window.removeEventListener("weatherRefreshDone", onDone as EventListener);
-      window.removeEventListener("weatherLocationRefreshDone", onDone as EventListener);
-    };
-  }, [refreshDisplayData]);
-
-  const currentLocationKey = cache.coords
-    ? createWeatherLocationKey(cache.coords.lat, cache.coords.lon)
-    : null;
-  const hasMatchingDetails =
-    currentLocationKey != null && cache.details?.location === currentLocationKey;
-
-  useEffect(() => {
-    if (section !== "weather" || hasMatchingDetails || weatherRefreshStatus) return;
-    handleRefreshWeather();
-  }, [handleRefreshWeather, hasMatchingDetails, section, weatherRefreshStatus]);
-
-  // 注册保存：将天气提醒开关持久化
   useEffect(() => {
     onRegisterSave?.(() => {
+      if (locationMode === "manual" && !selectedCity) {
+        setCitySearchError("手动定位必须搜索并选择一个城市");
+        throw new Error("手动定位必须搜索并选择一个城市");
+      }
       dispatch({ type: "SET_WEATHER_ALERT_ENABLED", payload: weatherAlertEnabled });
       dispatch({ type: "SET_AIR_QUALITY_ALERT_ENABLED", payload: airQualityAlertEnabled });
       dispatch({ type: "SET_SUNRISE_SUNSET_ALERT_ENABLED", payload: sunriseSunsetAlertEnabled });
-
-      const manualLocation =
-        manualType === "coords"
-          ? {
-              type: "coords" as const,
-              lat: Number.isFinite(Number.parseFloat(manualLat))
-                ? Number.parseFloat(manualLat)
-                : undefined,
-              lon: Number.isFinite(Number.parseFloat(manualLon))
-                ? Number.parseFloat(manualLon)
-                : undefined,
-            }
-          : {
-              type: "city" as const,
-              cityName: String(manualCityName || "").trim(),
-            };
-      const normalizedSchedule = normalizeWeatherScheduleSettings({
-        profile: scheduleProfile,
-        custom: customSchedule,
-        safety: safetySettings,
-      });
-
-      updateGeneralSettings({
-        weather: {
-          locationMode,
-          manualLocation,
-          schedule: normalizedSchedule,
-        },
-      });
-
+      const manualLocation = {
+        query: manualQuery.trim(),
+        selected:
+          locationMode === "manual" ? selectedCity : initialWeatherSettings.manualLocation.selected,
+      };
+      updateGeneralSettings({ weather: { locationMode, manualLocation } });
       broadcastSettingsEvent(SETTINGS_EVENTS.WeatherSettingsUpdated, {
         locationMode,
         manualLocation,
-        schedule: normalizedSchedule,
       });
     });
   }, [
-    onRegisterSave,
-    dispatch,
-    weatherAlertEnabled,
     airQualityAlertEnabled,
-    sunriseSunsetAlertEnabled,
-    scheduleProfile,
-    customSchedule,
-    safetySettings,
+    dispatch,
+    initialWeatherSettings.manualLocation.selected,
     locationMode,
-    manualType,
-    manualCityName,
-    manualLat,
-    manualLon,
+    manualQuery,
+    onRegisterSave,
+    selectedCity,
+    sunriseSunsetAlertEnabled,
+    weatherAlertEnabled,
   ]);
 
-  const geoDiag = cache.geolocation?.diagnostics;
-  const geoHint = (() => {
-    const msg = String(geoDiag?.errorMessage || "").toLowerCase();
-    if (geoDiag?.errorCode === 2 && msg.includes("network service")) {
-      return "提示：Electron/Chromium 可能在调用网络定位服务时失败（常见于 googleapis 不可用）。建议开启 Windows 位置服务（设置→隐私和安全→位置），并在支持定位的浏览器环境中刷新天气。";
-    }
-    return null;
-  })();
   const sourceLabel = (() => {
-    const source = cache.coords?.source;
-    if (!source) return "--";
-    if (source === "geolocation") return "浏览器定位";
-    if (source === "amap_ip") return "高德IP定位";
-    if (source === "ip") return "公共IP定位";
-    if (source === "manual_city") return "手动城市";
-    if (source === "manual_coords") return "手动经纬度";
-    return source;
+    if (!location) return "--";
+    if (location.source === "browser") return "高精度浏览器定位";
+    if (location.source === "public_ip") return "公共 IP 降级定位";
+    return "手动城市";
   })();
-  const coordsText = cache.coords
-    ? `${cache.coords.lat.toFixed(4)}, ${cache.coords.lon.toFixed(4)}`
+  const coordsText = location
+    ? `${location.coords.lat.toFixed(4)}, ${location.coords.lon.toFixed(4)}`
     : "--";
-  const activeContentSection: WeatherContentSection =
-    section === "weather" ? activeWeatherTab : activeLocationTab;
-  const contentTabs = section === "weather" ? WEATHER_SERVICE_TABS : LOCATION_SERVICE_TABS;
-  const contentTabsLabel = section === "weather" ? "天气服务分类" : "定位服务分类";
-  const isSectionHidden = (candidate: WeatherContentSection) => candidate !== activeContentSection;
-  const handleContentTabChange = (next: WeatherContentSection) => {
-    if (section === "weather") {
-      setActiveWeatherTab(next as WeatherServiceTab);
-      return;
-    }
-    setActiveLocationTab(next as LocationServiceTab);
-  };
-  const effectiveSchedule = resolveEffectiveWeatherSchedule({
-    profile: scheduleProfile,
-    custom: customSchedule,
-    safety: safetySettings,
-  });
-  const isRefreshing = coordinator.status === "refreshing";
-  const displayedRefreshStatus =
-    weatherRefreshStatus || getCoordinatorStatusLabel(coordinator.status);
-
-  const updateCustomSchedule = (key: keyof WeatherScheduleIntervals, value: string) => {
-    setCustomSchedule((current) => ({
-      ...current,
-      [key]: Number(value),
-    }));
-  };
-
-  const updateSafety = (key: keyof WeatherSafetySettings, value: string) => {
-    setSafetySettings((current) => ({
-      ...current,
-      [key]: Number(value),
-    }));
-  };
+  const accuracyText =
+    location?.source === "browser" && location.coords.accuracy != null
+      ? `约 ${Math.round(location.coords.accuracy)} 米`
+      : "--";
+  const diagnostics = runtime.cache.geolocation?.diagnostics;
 
   return (
     <div id="weather-panel">
-      <Tabs<WeatherContentSection>
-        id="weather-settings-tabs"
-        className={styles.sectionTabs}
-        items={contentTabs.map((item) => ({
-          ...item,
-          ariaControls: `weather-settings-panel-${item.value}`,
-          id: `weather-settings-tabs-tab-${item.value}`,
-        }))}
-        label={contentTabsLabel}
-        scrollable
-        value={activeContentSection}
-        variant="underlined"
-        onChange={handleContentTabChange}
-      />
+      {section === "weather" ? (
+        <Tabs<WeatherServiceTab>
+          id="weather-settings-tabs"
+          className={styles.sectionTabs}
+          items={WEATHER_SERVICE_TABS.map((item) => ({
+            ...item,
+            ariaControls: `weather-settings-panel-${item.value}`,
+            id: `weather-settings-tabs-tab-${item.value}`,
+          }))}
+          label="天气服务分类"
+          scrollable
+          value={activeWeatherTab}
+          variant="underlined"
+          onChange={setActiveWeatherTab}
+        />
+      ) : null}
 
       <div
-        aria-labelledby={`weather-settings-tabs-tab-${activeContentSection}`}
-        id={`weather-settings-panel-${activeContentSection}`}
-        role="tabpanel"
-        tabIndex={0}
+        aria-labelledby={
+          section === "weather" ? `weather-settings-tabs-tab-${activeWeatherTab}` : undefined
+        }
+        className={section === "location" ? styles.locationContent : undefined}
+        id={
+          section === "weather"
+            ? `weather-settings-panel-${activeWeatherTab}`
+            : "weather-location-content"
+        }
+        role={section === "weather" ? "tabpanel" : undefined}
+        tabIndex={section === "weather" ? 0 : undefined}
       >
         <FormSection
           title="提醒开关"
@@ -391,150 +293,48 @@ const WeatherSettingsPanel: React.FC<WeatherSettingsPanelProps> = ({ onRegisterS
         </FormSection>
 
         <FormSection
-          title="天气刷新"
+          title="天气更新"
           variant="plain"
-          description="设置本设备的天气更新频率和请求保护。"
+          description="天气由系统根据前后台、降雨和失败状态自动更新。"
           hidden={isSectionHidden("refresh")}
         >
-          <FormSegmented<WeatherScheduleProfile>
-            label="刷新档位"
-            value={scheduleProfile}
-            options={[
-              { label: "保守", value: "conservative" },
-              { label: "均衡", value: "balanced" },
-              { label: "高频", value: "frequent" },
-              { label: "自定义", value: "custom" },
-            ]}
-            onChange={setScheduleProfile}
-          />
-
           <SettingGrid columns={3} className={styles.scheduleMetricsGrid}>
             <MetricCard
               label="上次更新"
-              value={formatTime(coordinator.lastSuccessAt)}
-              meta={getCoordinatorStatusLabel(coordinator.status)}
+              value={formatTime(runtime.lastSuccessAt)}
+              meta={STATUS_LABELS[runtime.status]}
             />
             <MetricCard
-              label="下次执行"
-              value={formatTime(coordinator.nextRefreshAt)}
-              meta={coordinator.error || "按当前档位调度"}
-              tone={coordinator.error ? "warning" : "neutral"}
+              label="下次更新"
+              value={formatTime(runtime.nextRefreshAt)}
+              meta={runtime.error || "系统自适应调度"}
+              tone={runtime.error ? "warning" : "neutral"}
             />
             <MetricCard
               label="本小时请求"
-              value={`${coordinator.requestsThisHour} / ${safetySettings.maxRequestsPerHour}`}
-              meta={`请求间隔至少 ${safetySettings.minRequestGapSec} 秒`}
+              value={String(runtime.requestsThisHour)}
+              meta="内部请求保护已启用"
             />
           </SettingGrid>
-
           <InfoPanel tone="info">
-            前台全量 {effectiveSchedule.allForegroundMin} 分钟，后台全量{" "}
-            {effectiveSchedule.allBackgroundMin} 分钟；无雨分钟 {effectiveSchedule.minutelyDryMin}{" "}
-            分钟，临雨或降雨 {effectiveSchedule.minutelyRainMin} 分钟。
+            前台全量天气每 10 分钟、后台每 30 分钟；分钟降水会在临雨或降雨时自动加快。
           </InfoPanel>
-
-          {scheduleProfile === "custom" ? (
-            <div className={styles.scheduleInputGrid}>
-              <FormInput
-                label="前台全量"
-                type="number"
-                min={WEATHER_SCHEDULE_LIMITS.intervalMin.min}
-                max={WEATHER_SCHEDULE_LIMITS.intervalMin.max}
-                suffix="分钟"
-                value={customSchedule.allForegroundMin}
-                onChange={(event) => updateCustomSchedule("allForegroundMin", event.target.value)}
-              />
-              <FormInput
-                label="后台全量"
-                type="number"
-                min={WEATHER_SCHEDULE_LIMITS.intervalMin.min}
-                max={WEATHER_SCHEDULE_LIMITS.intervalMin.max}
-                suffix="分钟"
-                value={customSchedule.allBackgroundMin}
-                onChange={(event) => updateCustomSchedule("allBackgroundMin", event.target.value)}
-              />
-              <FormInput
-                label="分钟无雨"
-                type="number"
-                min={WEATHER_SCHEDULE_LIMITS.intervalMin.min}
-                max={WEATHER_SCHEDULE_LIMITS.intervalMin.max}
-                suffix="分钟"
-                value={customSchedule.minutelyDryMin}
-                onChange={(event) => updateCustomSchedule("minutelyDryMin", event.target.value)}
-              />
-              <FormInput
-                label="分钟临雨/降雨"
-                type="number"
-                min={WEATHER_SCHEDULE_LIMITS.intervalMin.min}
-                max={WEATHER_SCHEDULE_LIMITS.intervalMin.max}
-                suffix="分钟"
-                value={customSchedule.minutelyRainMin}
-                onChange={(event) => updateCustomSchedule("minutelyRainMin", event.target.value)}
-              />
-              <FormInput
-                label="分钟后台"
-                type="number"
-                min={WEATHER_SCHEDULE_LIMITS.intervalMin.min}
-                max={WEATHER_SCHEDULE_LIMITS.intervalMin.max}
-                suffix="分钟"
-                value={customSchedule.minutelyBackgroundMin}
-                onChange={(event) =>
-                  updateCustomSchedule("minutelyBackgroundMin", event.target.value)
-                }
-              />
-            </div>
-          ) : null}
-
-          <FormButton
-            variant="ghost"
-            size="sm"
-            icon={advancedSafetyOpen ? "action.collapse" : "action.expand"}
-            aria-expanded={advancedSafetyOpen}
-            aria-controls="weather-request-safety"
-            onClick={() => setAdvancedSafetyOpen((current) => !current)}
-          >
-            请求保护
-          </FormButton>
-          <div
-            ref={safetySettingsRef}
-            id="weather-request-safety"
-            className={styles.safetySettings}
-            hidden={!advancedSafetyOpen}
-          >
-            <FormInput
-              label="最小请求间隔"
-              type="number"
-              min={WEATHER_SCHEDULE_LIMITS.minRequestGapSec.min}
-              max={WEATHER_SCHEDULE_LIMITS.minRequestGapSec.max}
-              suffix="秒"
-              value={safetySettings.minRequestGapSec}
-              onChange={(event) => updateSafety("minRequestGapSec", event.target.value)}
-            />
-            <FormInput
-              label="每小时请求上限"
-              type="number"
-              min={WEATHER_SCHEDULE_LIMITS.maxRequestsPerHour.min}
-              max={WEATHER_SCHEDULE_LIMITS.maxRequestsPerHour.max}
-              suffix="次"
-              value={safetySettings.maxRequestsPerHour}
-              onChange={(event) => updateSafety("maxRequestsPerHour", event.target.value)}
-            />
+          <FormButtonGroup align="left">
             <FormButton
               variant="secondary"
-              size="sm"
-              onClick={() => {
-                setSafetySettings({ ...createDefaultWeatherScheduleSettings().safety });
-              }}
+              icon="action.refresh"
+              loading={isRefreshing}
+              onClick={() => void refreshWeather({ force: true, reason: "manual" })}
             >
-              恢复默认值
+              刷新天气
             </FormButton>
-          </div>
+          </FormButtonGroup>
         </FormSection>
 
         <FormSection
           title="定位设置"
           variant="plain"
-          description="选择自动或手动定位，并调整手动位置。"
+          description="自动定位优先使用高精度浏览器坐标，失败时降级到公共 IP。"
           hidden={isSectionHidden("locationSettings")}
         >
           <FormRow gap="sm" align="center">
@@ -543,9 +343,9 @@ const WeatherSettingsPanel: React.FC<WeatherSettingsPanelProps> = ({ onRegisterS
               value={locationMode}
               options={[
                 { label: "自动定位", value: "auto" },
-                { label: "手动设置", value: "manual" },
+                { label: "手动城市", value: "manual" },
               ]}
-              onChange={(v) => setLocationMode(v as "auto" | "manual")}
+              onChange={(value) => setLocationMode(value as "auto" | "manual")}
             />
           </FormRow>
 
@@ -553,89 +353,85 @@ const WeatherSettingsPanel: React.FC<WeatherSettingsPanelProps> = ({ onRegisterS
             <FormButtonGroup align="left">
               <FormButton
                 variant="secondary"
-                onClick={handleRefreshLocationAuto}
                 icon="action.refresh"
                 loading={isRefreshing}
+                onClick={() => void refreshLocation()}
               >
-                刷新定位
+                刷新高精度定位
               </FormButton>
             </FormButtonGroup>
-          ) : null}
-
-          {locationMode === "manual" ? (
+          ) : (
             <>
-              <FormRow gap="sm" align="center">
-                <FormSegmented
-                  label="手动类型"
-                  value={manualType}
-                  options={[
-                    { label: "城市名称", value: "city" },
-                    { label: "经纬度", value: "coords" },
-                  ]}
-                  onChange={(v) => setManualType(v as "city" | "coords")}
-                />
-              </FormRow>
-              {manualType === "city" ? (
+              <FormRow gap="sm" align="end" className={styles.citySearchRow}>
                 <FormInput
                   label="城市名称"
-                  value={manualCityName}
-                  onChange={(e) => setManualCityName(e.target.value)}
-                  placeholder="例如：北京"
+                  value={manualQuery}
+                  error={citySearchError || undefined}
+                  placeholder="例如：杭州市"
+                  onChange={(event) => {
+                    setManualQuery(event.target.value);
+                    setSelectedCity(null);
+                    setSelectedCandidateValue(undefined);
+                    setCitySearchError(null);
+                  }}
                 />
-              ) : (
-                <FormRow gap="sm" align="center">
-                  <FormInput
-                    label="纬度"
-                    value={manualLat}
-                    onChange={(e) => setManualLat(e.target.value)}
-                    placeholder="例如：39.90"
-                    variant="number"
-                  />
-                  <FormInput
-                    label="经度"
-                    value={manualLon}
-                    onChange={(e) => setManualLon(e.target.value)}
-                    placeholder="例如：116.40"
-                    variant="number"
-                  />
-                </FormRow>
-              )}
-              <InfoPanel tone="info">保存后生效；手动定位优先级高于自动定位。</InfoPanel>
+                <FormButton
+                  variant="secondary"
+                  icon="action.search"
+                  loading={isSearchingCities}
+                  onClick={() => void handleCitySearch()}
+                >
+                  搜索城市
+                </FormButton>
+              </FormRow>
+              {candidateOptions.length > 0 ? (
+                <Dropdown
+                  label="搜索结果"
+                  searchable
+                  options={candidateOptions}
+                  placeholder="请选择准确城市"
+                  value={selectedCandidateValue}
+                  onChange={handleCandidateChange}
+                />
+              ) : null}
+              <InfoPanel tone="info">只有从小米城市搜索结果中选定城市后才能保存。</InfoPanel>
             </>
-          ) : null}
+          )}
         </FormSection>
 
         <FormSection
           title="定位状态"
           variant="plain"
-          description="查看当前坐标、地址和定位诊断。"
+          description="查看当前天气城市、坐标来源和浏览器定位诊断。"
           hidden={isSectionHidden("locationStatus")}
         >
           <SettingGrid columns={3} className={styles.locationMetricsGrid}>
             <MetricCard
               icon="feature.location"
-              label="当前坐标"
-              value={coordsText}
-              meta={`来源：${sourceLabel}`}
+              label="当前城市"
+              value={location?.city.name || "--"}
+              meta={location?.city.affiliation || location?.city.locationKey || "尚未定位"}
             />
-            <MetricCard label="地址" value={cache.location?.address || "--"} meta="定位解析结果" />
+            <MetricCard label="当前坐标" value={coordsText} meta={`来源：${sourceLabel}`} />
             <MetricCard
-              label="定位诊断"
-              value={geoDiag ? geoDiag.permissionState : "--"}
-              meta={geoDiag?.errorMessage || "暂无异常"}
-              tone={geoDiag?.errorMessage ? "warning" : "neutral"}
+              label="浏览器精度"
+              value={accuracyText}
+              meta={diagnostics?.errorMessage || `权限：${diagnostics?.permissionState || "--"}`}
+              tone={diagnostics?.errorMessage ? "warning" : "neutral"}
             />
           </SettingGrid>
-          {geoHint ? <InfoPanel tone="warning">{geoHint}</InfoPanel> : null}
+          {location?.source === "public_ip" ? (
+            <InfoPanel tone="warning">高精度浏览器定位失败，当前使用公共 IP 城市级位置。</InfoPanel>
+          ) : null}
         </FormSection>
 
         <WeatherLivePanel
-          cache={cache}
+          cache={runtime.cache}
           hidden={isSectionHidden("live")}
           isRefreshing={isRefreshing}
           minutelyWeather={minutelyWeather}
-          refreshStatus={displayedRefreshStatus}
-          onRefresh={handleRefreshWeather}
+          refreshStatus={STATUS_LABELS[runtime.status]}
+          onRefresh={() => void refreshWeather({ force: true, reason: "manual" })}
         />
       </div>
     </div>

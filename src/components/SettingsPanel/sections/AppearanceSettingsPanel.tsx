@@ -319,9 +319,7 @@ export function AppearanceSettingsPanel({ section = "overview" }: AppearanceSett
     [definition]
   );
   const [slot, setSlot] = useState(slotOptions[0]?.value ?? "");
-  const [hoveredSlot, setHoveredSlot] = useState<string | null>(null);
   const [selectedState, setSelectedState] = useState(definition.states?.[0]?.id ?? "");
-  const [hoveredState, setHoveredState] = useState<string | null>(null);
   const [previewMode, setPreviewMode] = useState<"object" | "state">("object");
   const [instanceScope, setInstanceScope] = useState<"all" | "specific">("all");
   const [instanceId, setInstanceId] = useState("");
@@ -380,7 +378,7 @@ export function AppearanceSettingsPanel({ section = "overview" }: AppearanceSett
   const pageBackground = activeAppearance.scenes[scene].background;
   const currentOverrideCount = Object.keys(currentOverrideStyle).length;
   const stateOverrideCount = Object.keys(stateOverrideStyle).length;
-  const previewStateId = previewMode === "state" ? (hoveredState ?? selectedState) : undefined;
+  const previewStateId = previewMode === "state" ? selectedState : undefined;
   const selectedInstance = countdownItems.find((item) => item.id === instanceId);
   const referencedResources = useMemo(
     () => collectAppearanceResourceIds(activeAppearance),
@@ -418,9 +416,7 @@ export function AppearanceSettingsPanel({ section = "overview" }: AppearanceSett
 
   useEffect(() => {
     setSlot(definition.supportsSurface ? "__container" : (definition.slots[0]?.id ?? ""));
-    setHoveredSlot(null);
     setSelectedState(definition.states?.[0]?.id ?? "");
-    setHoveredState(null);
     setPreviewMode("object");
     setInstanceScope("all");
     setInstanceId("");
@@ -866,7 +862,6 @@ export function AppearanceSettingsPanel({ section = "overview" }: AppearanceSett
             <div className={styles.editor}>
               <AppearancePreview
                 componentId={definition.id}
-                hoveredSlot={previewMode === "object" ? hoveredSlot : null}
                 instanceId={instanceId}
                 instanceLabel={
                   selectedInstance?.name ||
@@ -920,10 +915,6 @@ export function AppearanceSettingsPanel({ section = "overview" }: AppearanceSett
                   onChange={(value) => {
                     setSlot(value);
                     setPreviewMode("object");
-                  }}
-                  onPreviewChange={(value) => {
-                    setHoveredSlot(value);
-                    if (value) setPreviewMode("object");
                   }}
                 />
               </div>
@@ -985,10 +976,6 @@ export function AppearanceSettingsPanel({ section = "overview" }: AppearanceSett
                   onChange={(value) => {
                     setSelectedState(value);
                     setPreviewMode("state");
-                  }}
-                  onPreviewChange={(value) => {
-                    setHoveredState(value);
-                    if (value) setPreviewMode("state");
                   }}
                 />
                 <p className={styles.stateTargets}>作用于：{stateTargetLabels.join("、")}</p>

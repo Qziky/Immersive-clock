@@ -23,6 +23,7 @@ const MERGE_WINDOW_MS = 5000;
 let initialized = false;
 let errorCenterMode: ErrorCenterMode = "off";
 let records: ErrorCenterRecord[] = [];
+let lastWeatherError = "";
 const listeners = new Set<ErrorCenterListener>();
 
 function safeJsonStringify(value: unknown): string {
@@ -220,6 +221,28 @@ export function pushErrorCenterRecord(input: {
   return rec;
 }
 
+export function reportWeatherRuntimeError(input: {
+  coords?: { lat: number; lon: number } | null;
+  error: string | null;
+  source?: string | null;
+  status: string;
+}): void {
+  if (!input.error || (input.status !== "error" && input.status !== "stale")) return;
+  const signature = `${input.status}:${input.error}`;
+  if (signature === lastWeatherError) return;
+  lastWeatherError = signature;
+  pushErrorCenterRecord({
+    level: "error",
+    source: "weather",
+    title: input.status === "stale" ? "天气更新失败，继续使用旧数据" : "天气获取失败",
+    message: input.error,
+    extra: {
+      coords: input.coords ?? null,
+      coordsSource: input.source ?? null,
+    },
+  });
+}
+
 export function dispatchErrorPopup(detail: {
   title: string;
   message: unknown;
@@ -273,36 +296,6 @@ export function initErrorCenterGlobalCapture(): void {
         message,
       });
     }
-  });
-
-  window.addEventListener("weatherRefreshDone", (e: Event) => {
-    const detail = (e as CustomEvent).detail || {};
-    if (detail.status !== "失败") return;
-    pushErrorCenterRecord({
-      level: "error",
-      source: "weather",
-      title: "天气获取失败",
-      message: detail.errorMessage || "未知错误",
-      extra: {
-        coords: detail.coords || null,
-        coordsSource: detail.coordsSource || null,
-      },
-    });
-  });
-
-  window.addEventListener("weatherLocationRefreshDone", (e: Event) => {
-    const detail = (e as CustomEvent).detail || {};
-    if (detail.status !== "失败") return;
-    pushErrorCenterRecord({
-      level: "error",
-      source: "weather",
-      title: "定位失败",
-      message: detail.errorMessage || "未知错误",
-      extra: {
-        coords: detail.coords || null,
-        coordsSource: detail.coordsSource || null,
-      },
-    });
   });
 
   window.addEventListener("error", (e: ErrorEvent) => {

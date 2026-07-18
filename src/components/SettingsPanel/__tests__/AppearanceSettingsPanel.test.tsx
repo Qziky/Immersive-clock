@@ -199,13 +199,18 @@ describe("AppearanceSettingsPanel", () => {
     expectPlainFormSection("显示内容");
     expectPlainFormSection("时钟");
     expectPlainFormSection("时钟页面背景");
-    fireEvent.click(screen.getByRole("tab", { name: "日期，已单独调整" }));
-
     const preview = screen.getByLabelText("时钟外观预览");
-    expect(within(preview).getByText("2026年7月13日星期一")).toHaveAttribute(
-      "data-preview-highlighted",
-      "true"
-    );
+    const previewTime = within(preview).getByText("12:45:09");
+    const previewDate = within(preview).getByText("2026年7月13日星期一");
+    const dateTab = screen.getByRole("tab", { name: "日期，已单独调整" });
+    expect(previewTime).toHaveAttribute("data-preview-highlighted", "true");
+
+    fireEvent.pointerEnter(dateTab);
+    expect(previewTime).toHaveAttribute("data-preview-highlighted", "true");
+    expect(previewDate).not.toHaveAttribute("data-preview-highlighted");
+
+    fireEvent.click(dateTab);
+    expect(previewDate).toHaveAttribute("data-preview-highlighted", "true");
     expect(screen.getByText("已单独调整 1 项")).toBeInTheDocument();
     expect(screen.getByText("更多文字设置").closest("details")).not.toHaveAttribute("open");
 
@@ -248,6 +253,22 @@ describe("AppearanceSettingsPanel", () => {
       "aria-selected",
       "true"
     );
+
+    const preview = screen.getByLabelText("倒计时外观预览");
+    const finishedStateTab = within(stateSection).getByRole("tab", { name: "结束状态" });
+    fireEvent.pointerEnter(finishedStateTab);
+    expect(within(preview).getByText("00:25:00")).toHaveAttribute(
+      "data-preview-highlighted",
+      "true"
+    );
+    expect(within(preview).queryByText("00:00:00")).not.toBeInTheDocument();
+
+    fireEvent.click(finishedStateTab);
+    expect(within(preview).getByText("00:00:00")).toHaveAttribute(
+      "data-preview-highlighted",
+      "true"
+    );
+    fireEvent.click(within(stateSection).getByRole("tab", { name: "警告状态" }));
 
     fireEvent.change(within(stateSection).getByLabelText("颜色代码"), {
       target: { value: "#123456" },

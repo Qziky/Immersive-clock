@@ -45,7 +45,6 @@ import styles from "./AppearanceSettingsPanel.module.css";
 
 interface AppearancePreviewProps {
   componentId?: AppearanceComponentId;
-  hoveredSlot?: string | null;
   instanceId?: string;
   instanceLabel?: string;
   overview?: boolean;
@@ -397,7 +396,6 @@ function usePreviewHighlightFrames(
 
 export function AppearancePreview({
   componentId = "clock",
-  hoveredSlot,
   instanceId,
   instanceLabel,
   overview = false,
@@ -407,7 +405,7 @@ export function AppearancePreview({
   const { activeAppearance, getBackgroundImage } = useAppearance();
   const definition =
     APPEARANCE_COMPONENTS.find((item) => item.id === componentId) ?? APPEARANCE_COMPONENTS[0];
-  const highlightedSlot = hoveredSlot ?? selectedSlot;
+  const highlightedSlot = selectedSlot;
   const activeState = definition.states?.find((item) => item.id === stateId);
   const highlightedSlots = activeState?.slotIds ?? (highlightedSlot ? [highlightedSlot] : []);
   const isPreviewFrameHighlighted =

@@ -225,7 +225,15 @@ describe("dataManagement", () => {
     settings.general.timeSync.lastError = "offline";
     settings.general.timeSync.lastRttMs = 88;
     settings.general.timeSync.lastSyncAt = 456;
-    settings.general.weather.manualLocation.resolved = { city: "杭州", lat: 30, lon: 120 };
+    settings.general.weather.manualLocation = {
+      query: "杭州",
+      selected: {
+        lat: 30,
+        locationKey: "weathercn:101210101",
+        lon: 120,
+        name: "杭州市",
+      },
+    };
     localStorage.setItem(APP_SETTINGS_KEY, JSON.stringify(settings));
     dataState.assets = [backgroundAsset("background-main")];
     dataState.noise = [noiseSlice()];
@@ -243,7 +251,10 @@ describe("dataManagement", () => {
     expect(timeSync).toMatchObject({ offsetMs: 0, lastSyncAt: 0 });
     expect(timeSync).not.toHaveProperty("lastError");
     expect(timeSync).not.toHaveProperty("lastRttMs");
-    expect(weather.manualLocation).not.toHaveProperty("resolved");
+    expect(weather.manualLocation).toMatchObject({
+      query: "杭州",
+      selected: { locationKey: "weathercn:101210101", name: "杭州市" },
+    });
 
     const prepared = await prepareBackup(JSON.stringify(backup));
     expect(prepared.preview.hasNoiseHistory).toBe(true);

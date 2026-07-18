@@ -37,6 +37,7 @@ import type {
 import { HITOKOTO_CATEGORY_LIST } from "../types/quote";
 import { DEFAULT_SCHEDULE, type StudyPeriod } from "../types/studySchedule";
 import { DeepPartial } from "../types/utilityTypes";
+import type { WeatherCitySelection } from "../types/weather";
 
 import {
   createDefaultAppearance,
@@ -45,11 +46,6 @@ import {
 } from "./appearanceModel";
 import { logger } from "./logger";
 import { StudyBackgroundType } from "./studyBackgroundStorage";
-import {
-  createDefaultWeatherScheduleSettings,
-  normalizeWeatherScheduleSettings,
-  type WeatherScheduleSettings,
-} from "./weatherSchedule";
 
 export interface AppSettings {
   version: number;
@@ -68,13 +64,10 @@ export interface AppSettings {
     weather: {
       locationMode: "auto" | "manual";
       manualLocation: {
-        type: "city" | "coords";
-        cityName?: string;
-        lat?: number;
-        lon?: number;
-        resolved?: { city?: string; lat: number; lon: number };
+        legacyCoords?: { lat: number; lon: number };
+        query: string;
+        selected: WeatherCitySelection | null;
       };
-      schedule: WeatherScheduleSettings;
     };
     timeSync: {
       enabled: boolean;
@@ -153,7 +146,7 @@ export interface AppSettings {
 
 export const APP_SETTINGS_KEY = "AppSettings";
 export const APP_SETTINGS_QUARANTINE_KEY = "immersive-clock:quarantine:app-settings";
-export const CURRENT_SETTINGS_VERSION = 7;
+export const CURRENT_SETTINGS_VERSION = 8;
 
 /** 中央信息轮播的硬上限，配置与运行时都应遵守该值。 */
 export const MAX_STUDY_INFO_ITEMS = 20;
@@ -772,10 +765,9 @@ const DEFAULT_SETTINGS: AppSettings = {
     weather: {
       locationMode: "auto",
       manualLocation: {
-        type: "city",
-        cityName: "",
+        query: "",
+        selected: null,
       },
-      schedule: createDefaultWeatherScheduleSettings(),
     },
     timeSync: {
       enabled: false,
@@ -908,22 +900,67 @@ export function clearQuarantinedAppSettings(): void {
   localStorage.removeItem(APP_SETTINGS_QUARANTINE_KEY);
 }
 
-function migrateWeatherScheduleForVersion(
-  parsedWeather: Record<string, unknown>,
-  storedVersion: number
-): unknown {
-  const schedule = isRecord(parsedWeather.schedule) ? parsedWeather.schedule : null;
-  const safety = schedule && isRecord(schedule.safety) ? schedule.safety : null;
-  if (storedVersion >= 7 || !schedule || safety?.maxRequestsPerHour !== 60) {
-    return parsedWeather.schedule;
+function normalizeWeatherCitySelection(value: unknown): WeatherCitySelection | null {
+  if (!isRecord(value)) return null;
+  const lat = Number(value.lat);
+  const lon = Number(value.lon);
+  const name = typeof value.name === "string" ? value.name.trim() : "";
+  const locationKey = typeof value.locationKey === "string" ? value.locationKey.trim() : "";
+  if (
+    !name ||
+    !locationKey ||
+    !Number.isFinite(lat) ||
+    !Number.isFinite(lon) ||
+    lat < -90 ||
+    lat > 90 ||
+    lon < -180 ||
+    lon > 180
+  ) {
+    return null;
   }
-  return {
-    ...schedule,
-    safety: {
-      ...safety,
-      maxRequestsPerHour: DEFAULT_SETTINGS.general.weather.schedule.safety.maxRequestsPerHour,
-    },
-  };
+  const affiliation =
+    typeof value.affiliation === "string" && value.affiliation.trim()
+      ? value.affiliation.trim()
+      : undefined;
+  return { affiliation, lat, locationKey, lon, name };
+}
+
+function normalizeLegacyCoords(value: unknown): { lat: number; lon: number } | undefined {
+  if (!isRecord(value)) return undefined;
+  const lat = Number(value.lat);
+  const lon = Number(value.lon);
+  if (
+    !Number.isFinite(lat) ||
+    !Number.isFinite(lon) ||
+    lat < -90 ||
+    lat > 90 ||
+    lon < -180 ||
+    lon > 180
+  ) {
+    return undefined;
+  }
+  return { lat, lon };
+}
+
+function normalizeManualWeatherLocation(
+  value: unknown
+): AppSettings["general"]["weather"]["manualLocation"] {
+  const source = isRecord(value) ? value : {};
+  const selected = normalizeWeatherCitySelection(source.selected);
+  const querySource =
+    typeof source.query === "string"
+      ? source.query
+      : typeof source.cityName === "string"
+        ? source.cityName
+        : selected?.name || "";
+  const query = querySource.trim();
+  const legacyCoords =
+    selected == null
+      ? (normalizeLegacyCoords(source.legacyCoords) ??
+        normalizeLegacyCoords(source.resolved) ??
+        (source.type === "coords" ? normalizeLegacyCoords(source) : undefined))
+      : undefined;
+  return { query, selected, ...(legacyCoords ? { legacyCoords } : {}) };
 }
 
 export function normalizeAppSettings(value: unknown): AppSettings {
@@ -999,16 +1036,7 @@ export function normalizeAppSettings(value: unknown): AppSettings {
       announcement: { ...DEFAULT_SETTINGS.general.announcement, ...parsedAnnouncement },
       weather: {
         locationMode: parsedWeather.locationMode === "manual" ? "manual" : "auto",
-        manualLocation: {
-          ...DEFAULT_SETTINGS.general.weather.manualLocation,
-          ...(isRecord(parsedWeather.manualLocation) ? parsedWeather.manualLocation : {}),
-        },
-        schedule: normalizeWeatherScheduleSettings(
-          migrateWeatherScheduleForVersion(parsedWeather, storedVersion),
-          {
-            legacyIntervalMin: storedVersion < 6 ? parsedWeather.autoRefreshIntervalMin : undefined,
-          }
-        ),
+        manualLocation: normalizeManualWeatherLocation(parsedWeather.manualLocation),
       },
       timeSync: { ...DEFAULT_SETTINGS.general.timeSync, ...parsedTimeSync },
       background: { ...DEFAULT_SETTINGS.general.background, ...parsedGeneralBackground },
@@ -1092,43 +1120,11 @@ export function updateAppSettings(
           ? {
               ...current.general.weather,
               ...generalUpdates.weather,
-              schedule: generalUpdates.weather.schedule
-                ? normalizeWeatherScheduleSettings({
-                    ...current.general.weather.schedule,
-                    ...generalUpdates.weather.schedule,
-                    custom: generalUpdates.weather.schedule.custom
-                      ? {
-                          ...current.general.weather.schedule.custom,
-                          ...generalUpdates.weather.schedule.custom,
-                        }
-                      : current.general.weather.schedule.custom,
-                    safety: generalUpdates.weather.schedule.safety
-                      ? {
-                          ...current.general.weather.schedule.safety,
-                          ...generalUpdates.weather.schedule.safety,
-                        }
-                      : current.general.weather.schedule.safety,
-                  })
-                : current.general.weather.schedule,
               manualLocation: generalUpdates.weather.manualLocation
-                ? {
+                ? normalizeManualWeatherLocation({
                     ...current.general.weather.manualLocation,
                     ...generalUpdates.weather.manualLocation,
-                    type:
-                      generalUpdates.weather.manualLocation.type ??
-                      current.general.weather.manualLocation.type,
-                    resolved:
-                      generalUpdates.weather.manualLocation.resolved &&
-                      generalUpdates.weather.manualLocation.resolved.lat != null &&
-                      generalUpdates.weather.manualLocation.resolved.lon != null
-                        ? {
-                            ...current.general.weather.manualLocation.resolved,
-                            ...generalUpdates.weather.manualLocation.resolved,
-                            lat: generalUpdates.weather.manualLocation.resolved.lat,
-                            lon: generalUpdates.weather.manualLocation.resolved.lon,
-                          }
-                        : current.general.weather.manualLocation.resolved,
-                  }
+                  })
                 : current.general.weather.manualLocation,
             }
           : current.general.weather,

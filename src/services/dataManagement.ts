@@ -325,11 +325,6 @@ function stripSettingsRuntimeState(settings: Record<string, unknown>): Record<st
     delete timeSync.lastRttMs;
     delete timeSync.lastError;
   }
-  const weather = general && isRecord(general.weather) ? general.weather : null;
-  const manualLocation =
-    weather && isRecord(weather.manualLocation) ? weather.manualLocation : null;
-  if (manualLocation) delete manualLocation.resolved;
-
   removeRegenerableFields(settings);
   return settings;
 }

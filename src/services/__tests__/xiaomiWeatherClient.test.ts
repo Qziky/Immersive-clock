@@ -32,7 +32,7 @@ describe("xiaomiWeatherClient", () => {
     expect(mocks.executeWeatherRequest.mock.calls.map((call) => call[1])).toEqual([
       "all",
       "minutely",
-      "location",
+      "geoResolve",
     ]);
     expect(mocks.httpGetJson.mock.calls.map((call) => call[0])).toEqual([
       "/api/xiaomi-weather/wtr-v3/weather/all?locationKey=test",

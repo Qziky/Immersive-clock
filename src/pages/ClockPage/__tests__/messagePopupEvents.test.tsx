@@ -12,8 +12,8 @@ vi.mock("../../../utils/timeSync", () => ({
   startTimeSyncManager: () => () => {},
 }));
 
-vi.mock("../../../services/weatherCoordinator", () => ({
-  startWeatherCoordinator: () => () => {},
+vi.mock("../../../services/weatherRuntime", () => ({
+  startWeatherRuntime: () => () => {},
 }));
 
 vi.mock("../../../utils/tour", () => ({

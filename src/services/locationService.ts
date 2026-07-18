@@ -1,346 +1,229 @@
 import type {
-  AddressInfo,
-  CityLookupResponse,
   Coords,
   GeolocationDiagnostics,
   GeolocationPermissionState,
   GeolocationResult,
+  WeatherCitySelection,
+  WeatherLocation,
   XiaomiCityLocation,
 } from "../types/weather";
-import { getAppSettings } from "../utils/appSettings";
-import {
-  getValidCoords,
-  getValidLocation,
-  updateCoordsCache,
-  updateGeolocationDiagnostics,
-  updateLocationCache,
-} from "../utils/weatherStorage";
+import { getAppSettings, updateGeneralSettings } from "../utils/appSettings";
+import { getValidXiaomiLocation, updateXiaomiLocationCache } from "../utils/weatherStorage";
 
 import { httpGetJson } from "./httpClient";
-import { requireEnv } from "./serviceEnv";
 import { xiaomiWeatherGetJson } from "./xiaomiWeatherClient";
 
 export type {
-  AddressInfo,
-  CityLookupResponse,
   Coords,
   GeolocationDiagnostics,
   GeolocationPermissionState,
   GeolocationResult,
+  WeatherCitySelection,
+  WeatherLocation,
 };
 
 export type LocationFlowOptions = {
-  preferredLocationMode?: "auto" | "manual";
+  cachedLocation?: WeatherLocation | null;
   forceGeolocation?: boolean;
+  preferredLocationMode?: "auto" | "manual";
 };
 
-// 第三方响应类型声明
-interface AmapIpResponse {
-  status?: string;
-  info?: string;
-  rectangle?: string;
-}
+const BROWSER_LOCATION_TTL_MS = 30 * 60 * 1000;
+const PUBLIC_IP_LOCATION_TTL_MS = 6 * 60 * 60 * 1000;
+const CITY_SEARCH_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+const CITY_SEARCH_CACHE_KEY = "immersive-clock:xiaomi-city-search:v1";
 
 interface IpInfoResponse {
   loc?: string;
 }
 
-interface OsmAddress {
-  road?: string;
-  house_number?: string;
-  neighbourhood?: string;
-  suburb?: string;
-  city?: string;
-  town?: string;
-  village?: string;
-  county?: string;
-  state?: string;
-  country?: string;
+interface CachedCitySearch {
+  candidates: WeatherCitySelection[];
+  updatedAt: number;
 }
 
-interface OsmReverseResponse {
-  address?: OsmAddress;
-  display_name?: string;
+function validateCoords(lat: number, lon: number): boolean {
+  return (
+    Number.isFinite(lat) &&
+    Number.isFinite(lon) &&
+    lat >= -90 &&
+    lat <= 90 &&
+    lon >= -180 &&
+    lon <= 180
+  );
 }
 
-interface AmapReverseResponse {
-  status?: string;
-  info?: string;
-  regeocode?: {
-    formatted_address?: string;
-    addressComponent?: {
-      streetNumber?: { street?: string; number?: string };
-      township?: string;
-      district?: string;
-      city?: string;
-      province?: string;
-    };
-  };
+function normalizeQuery(value: string): string {
+  return value.trim().replace(/\s+/g, " ").toLocaleLowerCase("zh-CN");
 }
 
-let cachedAmapKey: string | null = null;
-
-/**
- * 获取高德 Web API Key
- * 从环境变量中获取并校验高德 Web API Key
- * @returns 校验后的高德 Web API Key
- */
-function getAmapKey(): string {
-  if (cachedAmapKey) return cachedAmapKey;
-  cachedAmapKey = requireEnv("VITE_AMAP_API_KEY", import.meta.env.VITE_AMAP_API_KEY);
-  return cachedAmapKey;
+function readCitySearchCache(): Record<string, CachedCitySearch> {
+  if (typeof localStorage === "undefined") return {};
+  try {
+    const parsed = JSON.parse(localStorage.getItem(CITY_SEARCH_CACHE_KEY) || "{}") as Record<
+      string,
+      CachedCitySearch
+    >;
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return {};
+  }
 }
 
-/**
- * 获取浏览器定位权限状态
- * 检查浏览器是否支持定位权限查询，以及当前状态是否为已授权、拒绝或提示
- * @returns 定位权限状态（granted/denied/prompt/unsupported/unknown）
- */
+function writeCitySearchCache(query: string, candidates: WeatherCitySelection[]): void {
+  if (typeof localStorage === "undefined") return;
+  try {
+    const now = Date.now();
+    const current = readCitySearchCache();
+    const next = Object.fromEntries(
+      Object.entries(current).filter(
+        ([, entry]) => now - entry.updatedAt < CITY_SEARCH_CACHE_TTL_MS
+      )
+    );
+    next[query] = { candidates, updatedAt: now };
+    localStorage.setItem(CITY_SEARCH_CACHE_KEY, JSON.stringify(next));
+  } catch {
+    // 城市搜索缓存失败不应阻断定位。
+  }
+}
+
 async function getGeolocationPermissionState(): Promise<GeolocationPermissionState> {
   try {
-    if (typeof navigator === "undefined" || !("permissions" in navigator)) {
-      return "unsupported";
-    }
-    const perms = navigator.permissions as unknown as {
-      query: (d: { name: string }) => Promise<{ state?: string }>;
+    if (typeof navigator === "undefined" || !("permissions" in navigator)) return "unsupported";
+    const permissions = navigator.permissions as unknown as {
+      query: (descriptor: { name: string }) => Promise<{ state?: string }>;
     };
-    const status = await perms.query({ name: "geolocation" });
-    const state = String(status?.state || "").toLowerCase();
-    if (state === "granted" || state === "denied" || state === "prompt") return state;
-    return "unknown";
+    const state = String(
+      (await permissions.query({ name: "geolocation" })).state || ""
+    ).toLowerCase();
+    return state === "granted" || state === "denied" || state === "prompt" ? state : "unknown";
   } catch {
     return "unknown";
   }
 }
 
-/**
- * 通过浏览器原生 Geolocation API 获取坐标与诊断信息
- */
+/** 浏览器定位固定请求全新高精度坐标，不执行低精度重试。 */
 export async function getGeolocationResult(options?: {
   timeoutMs?: number;
-  maximumAgeMs?: number;
-  enableHighAccuracy?: boolean;
 }): Promise<GeolocationResult> {
   const attemptedAt = Date.now();
   const isSupported = typeof navigator !== "undefined" && "geolocation" in navigator;
   const isSecureContext = typeof window !== "undefined" ? Boolean(window.isSecureContext) : false;
   const permissionState = await getGeolocationPermissionState();
-
-  const timeoutMs = options?.timeoutMs ?? 25000;
-  const maximumAgeMs = options?.maximumAgeMs ?? 60 * 1000;
-  const enableHighAccuracy = options?.enableHighAccuracy ?? true;
-
-  const baseDiagnostics: GeolocationDiagnostics = {
-    isSupported,
-    isSecureContext,
-    permissionState,
-    usedHighAccuracy: enableHighAccuracy,
-    timeoutMs,
-    maximumAgeMs,
+  const timeoutMs = options?.timeoutMs ?? 20_000;
+  const diagnostics: GeolocationDiagnostics = {
     attemptedAt,
+    isSecureContext,
+    isSupported,
+    maximumAgeMs: 0,
+    permissionState,
+    timeoutMs,
+    usedHighAccuracy: true,
   };
 
-  if (!isSupported || !isSecureContext) {
-    return { coords: null, diagnostics: baseDiagnostics };
-  }
+  if (!isSupported || !isSecureContext) return { coords: null, diagnostics };
 
-  const runOnce = (cfg: {
-    enableHighAccuracy: boolean;
-    timeout: number;
-    maximumAge: number;
-  }): Promise<{ coords: Coords | null; error?: GeolocationPositionError }> => {
-    return new Promise((resolve) => {
-      try {
-        navigator.geolocation.getCurrentPosition(
-          (pos) => {
-            const lat = pos?.coords?.latitude;
-            const lon = pos?.coords?.longitude;
-            if (typeof lat === "number" && typeof lon === "number") {
-              resolve({ coords: { lat, lon } });
-            } else {
-              resolve({ coords: null });
-            }
-          },
-          (err) => resolve({ coords: null, error: err }),
-          cfg
-        );
-      } catch {
-        resolve({ coords: null });
-      }
-    });
-  };
-
-  const first = await runOnce({
-    enableHighAccuracy,
-    timeout: timeoutMs,
-    maximumAge: maximumAgeMs,
-  });
-
-  if (first.coords) {
-    return { coords: first.coords, diagnostics: baseDiagnostics };
-  }
-
-  const firstErrCode = first.error?.code;
-  const firstErrMessage = first.error?.message;
-
-  if (firstErrCode === 1) {
-    return {
-      coords: null,
-      diagnostics: { ...baseDiagnostics, errorCode: firstErrCode, errorMessage: firstErrMessage },
-    };
-  }
-
-  if (enableHighAccuracy) {
-    const second = await runOnce({
-      enableHighAccuracy: false,
-      timeout: Math.min(12000, timeoutMs),
-      maximumAge: maximumAgeMs,
-    });
-    if (second.coords) {
-      return {
-        coords: second.coords,
-        diagnostics: { ...baseDiagnostics, usedHighAccuracy: false },
-      };
-    }
-    return {
-      coords: null,
-      diagnostics: {
-        ...baseDiagnostics,
-        usedHighAccuracy: false,
-        errorCode: second.error?.code ?? firstErrCode,
-        errorMessage: second.error?.message ?? firstErrMessage,
-      },
-    };
-  }
-
-  return {
-    coords: null,
-    diagnostics: { ...baseDiagnostics, errorCode: firstErrCode, errorMessage: firstErrMessage },
-  };
-}
-
-/**
- * 通过浏览器原生 Geolocation API 获取坐标
- */
-export async function getCoordsViaGeolocation(): Promise<Coords | null> {
-  const result = await getGeolocationResult();
-  return result.coords;
-}
-
-/**
- * 使用高德地图 IP 定位获取坐标
- * 失败返回 null
- */
-export async function getCoordsViaAmapIP(): Promise<Coords | null> {
-  const url = `https://restapi.amap.com/v3/ip?key=${encodeURIComponent(getAmapKey())}`;
-  try {
-    const data = (await httpGetJson(url, undefined, 10000, {
-      apiClass: "amap",
-      requestKey: "amap:ip",
-      softTtlMs: 30 * 60 * 1000,
-      minIntervalMs: 3 * 60 * 1000,
-    })) as AmapIpResponse;
-    if (String(data?.status) !== "1") {
-      return null;
-    }
-    const rect: string | undefined = data?.rectangle;
-    if (rect && rect.includes(";")) {
-      const [p1, p2] = rect.split(";");
-      const [lon1Str, lat1Str] = p1.split(",");
-      const [lon2Str, lat2Str] = p2.split(",");
-      const lon1 = parseFloat(lon1Str);
-      const lat1 = parseFloat(lat1Str);
-      const lon2 = parseFloat(lon2Str);
-      const lat2 = parseFloat(lat2Str);
-      if ([lon1, lat1, lon2, lat2].every((v) => Number.isFinite(v))) {
-        const lon = (lon1 + lon2) / 2;
-        const lat = (lat1 + lat2) / 2;
-        return { lat, lon };
-      }
-    }
-    return null;
-  } catch {
-    return null;
-  }
-}
-
-/**
- * 使用第三方 IP 服务获取坐标
- */
-export async function getCoordsViaIP(): Promise<Coords | null> {
-  const sources: Array<[string, string[]]> = [
-    ["https://ipapi.co/json/", ["latitude", "longitude"]],
-    ["https://ipinfo.io/json", ["loc"]],
-  ];
-  for (const [url, keys] of sources) {
+  return new Promise((resolve) => {
     try {
-      const data = (await httpGetJson(url, undefined, 10000, {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const lat = position.coords.latitude;
+          const lon = position.coords.longitude;
+          if (!validateCoords(lat, lon)) {
+            resolve({ coords: null, diagnostics });
+            return;
+          }
+          const accuracy = Number(position.coords.accuracy);
+          resolve({
+            coords: {
+              lat,
+              lon,
+              ...(Number.isFinite(accuracy) && accuracy >= 0 ? { accuracy } : {}),
+            },
+            diagnostics,
+          });
+        },
+        (error) => {
+          resolve({
+            coords: null,
+            diagnostics: {
+              ...diagnostics,
+              errorCode: error.code,
+              errorMessage: error.message,
+            },
+          });
+        },
+        { enableHighAccuracy: true, maximumAge: 0, timeout: timeoutMs }
+      );
+    } catch (error: unknown) {
+      resolve({
+        coords: null,
+        diagnostics: {
+          ...diagnostics,
+          errorMessage: error instanceof Error ? error.message : String(error),
+        },
+      });
+    }
+  });
+}
+
+export async function getCoordsViaGeolocation(): Promise<Coords | null> {
+  return (await getGeolocationResult()).coords;
+}
+
+/** 公共 IP 定位只在浏览器高精度定位失败后使用。 */
+export async function getCoordsViaIP(): Promise<Coords | null> {
+  const sources: Array<[string, "pair" | "loc"]> = [
+    ["https://ipapi.co/json/", "pair"],
+    ["https://ipinfo.io/json", "loc"],
+  ];
+  for (const [url, format] of sources) {
+    try {
+      const data = (await httpGetJson(url, undefined, 8000, {
         apiClass: "free",
         requestKey: `ip:${url}`,
-        softTtlMs: 20 * 60 * 1000,
+        softTtlMs: PUBLIC_IP_LOCATION_TTL_MS,
         minIntervalMs: 60 * 1000,
       })) as Record<string, unknown>;
-      if (keys.length === 1 && keys[0] === "loc") {
-        const loc = (data as IpInfoResponse)?.loc;
-        if (loc && loc.includes(",")) {
-          const [latStr, lonStr] = loc.split(",", 2);
-          return { lat: parseFloat(latStr), lon: parseFloat(lonStr) };
-        }
-      } else {
-        const latRaw = data[keys[0]];
-        const lonRaw = data[keys[1]];
-        const latNum =
-          typeof latRaw === "number"
-            ? latRaw
-            : typeof latRaw === "string"
-              ? parseFloat(latRaw)
-              : NaN;
-        const lonNum =
-          typeof lonRaw === "number"
-            ? lonRaw
-            : typeof lonRaw === "string"
-              ? parseFloat(lonRaw)
-              : NaN;
-        if (Number.isFinite(latNum) && Number.isFinite(lonNum)) {
-          return { lat: latNum, lon: lonNum };
-        }
-      }
+      const values =
+        format === "loc"
+          ? String((data as IpInfoResponse).loc || "").split(",", 2)
+          : [data.latitude, data.longitude];
+      const lat = Number.parseFloat(String(values[0] ?? ""));
+      const lon = Number.parseFloat(String(values[1] ?? ""));
+      if (validateCoords(lat, lon)) return { lat, lon };
     } catch {
-      // 继续尝试下一个数据源
+      // 继续尝试下一个公共 IP 数据源。
     }
   }
   return null;
 }
 
-function adaptXiaomiCityLookup(data: unknown): CityLookupResponse {
-  const list = Array.isArray(data) ? (data as XiaomiCityLocation[]) : [];
-  return {
-    code: "200",
-    location: list.map((item) => ({
-      name: item.name,
-      id: item.locationKey || item.key,
-      locationKey: item.locationKey || item.key,
-      lat: item.latitude,
-      lon: item.longitude,
-      adm1: item.affiliation,
-      country: item.affiliation,
-      tz: item.timeZoneShift != null ? String(item.timeZoneShift) : undefined,
-    })),
-  };
+function toCitySelection(item: XiaomiCityLocation | null | undefined): WeatherCitySelection | null {
+  const lat = Number.parseFloat(String(item?.latitude ?? ""));
+  const lon = Number.parseFloat(String(item?.longitude ?? ""));
+  const name = String(item?.name || "").trim();
+  const locationKey = String(item?.locationKey || item?.key || "").trim();
+  if (!name || !locationKey || !validateCoords(lat, lon)) return null;
+  const affiliation = String(item?.affiliation || "").trim() || undefined;
+  return { affiliation, lat, locationKey, lon, name };
 }
 
-/**
- * 使用小米天气城市搜索接口进行城市查询
- */
-export async function fetchCityLookup(keyword: string): Promise<CityLookupResponse> {
-  try {
-    const data = await xiaomiWeatherGetJson(
-      `/location/city/search?name=${encodeURIComponent(keyword)}&locale=zh_cn`
-    );
-    return adaptXiaomiCityLookup(data);
-  } catch (e: unknown) {
-    return { error: String(e) } as CityLookupResponse;
+export async function searchWeatherCities(query: string): Promise<WeatherCitySelection[]> {
+  const normalized = normalizeQuery(query);
+  if (!normalized) return [];
+  const cached = readCitySearchCache()[normalized];
+  if (cached && Date.now() - cached.updatedAt < CITY_SEARCH_CACHE_TTL_MS) {
+    return cached.candidates;
   }
+  const data = await xiaomiWeatherGetJson(
+    `/location/city/search?name=${encodeURIComponent(query.trim())}&locale=zh_cn`
+  );
+  const candidates = (Array.isArray(data) ? data : [])
+    .map((item) => toCitySelection(item as XiaomiCityLocation))
+    .filter((item): item is WeatherCitySelection => item != null);
+  writeCitySearchCache(normalized, candidates);
+  return candidates;
 }
 
 export async function fetchXiaomiCityByCoords(
@@ -360,283 +243,104 @@ export async function fetchXiaomiCityByCoords(
   }
 }
 
-function isFiniteNumber(n: unknown): n is number {
-  return typeof n === "number" && Number.isFinite(n);
-}
-
-/**
- * 校验经纬度是否合法
- */
-function validateCoords(lat: number, lon: number): boolean {
-  return (
-    Number.isFinite(lat) &&
-    Number.isFinite(lon) &&
-    lat >= -90 &&
-    lat <= 90 &&
-    lon >= -180 &&
-    lon <= 180
-  );
-}
-
-/**
- * 从 AppSettings 的手动定位设置解析坐标
- */
-async function resolveManualCoordsFromSettings(): Promise<
-  { coords: Coords; coordsSource: string } | { coords: null; coordsSource: null }
-> {
-  try {
-    const weather = getAppSettings().general.weather;
-    if (weather.locationMode !== "manual") return { coords: null, coordsSource: null };
-    const manual = weather.manualLocation;
-    if (manual.type === "coords") {
-      const lat = manual.lat;
-      const lon = manual.lon;
-      if (isFiniteNumber(lat) && isFiniteNumber(lon) && validateCoords(lat, lon)) {
-        return { coords: { lat, lon }, coordsSource: "manual_coords" };
-      }
-      return { coords: null, coordsSource: null };
-    }
-    const cityName = String(manual.cityName || "").trim();
-    if (!cityName) return { coords: null, coordsSource: null };
-    const resp = await fetchCityLookup(cityName);
-    const first = resp.location && resp.location.length > 0 ? resp.location[0] : null;
-    const lat = first?.lat != null ? Number.parseFloat(String(first.lat)) : NaN;
-    const lon = first?.lon != null ? Number.parseFloat(String(first.lon)) : NaN;
-    if (validateCoords(lat, lon)) {
-      return { coords: { lat, lon }, coordsSource: "manual_city" };
-    }
-    return { coords: null, coordsSource: null };
-  } catch {
-    return { coords: null, coordsSource: null };
+export async function resolveCityByCoords(
+  lat: number,
+  lon: number
+): Promise<WeatherCitySelection | null> {
+  const cached = getValidXiaomiLocation(lat, lon);
+  if (cached?.locationKey && cached.name) {
+    return {
+      affiliation: cached.affiliation,
+      lat,
+      locationKey: cached.locationKey,
+      lon,
+      name: cached.name,
+    };
   }
+  const city = toCitySelection(await fetchXiaomiCityByCoords(lat, lon));
+  if (!city) return null;
+  const selection = { ...city, lat, lon };
+  updateXiaomiLocationCache(selection);
+  return selection;
 }
 
-/**
- * 使用 OSM Nominatim 反向地理编码
- */
-export async function reverseGeocodeOSM(lat: number, lon: number): Promise<AddressInfo> {
-  const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}`;
-  try {
-    const data = (await httpGetJson(url, undefined, 10000, {
-      apiClass: "free",
-      requestKey: `osm:reverse:${lat.toFixed(3)},${lon.toFixed(3)}`,
-      softTtlMs: 4 * 60 * 60 * 1000,
-      minIntervalMs: 0,
-      bypassSoftCache: true,
-    })) as OsmReverseResponse;
-    const addr: OsmAddress = data?.address || {};
-    const parts: string[] = [];
-    if (addr.road) parts.push(addr.road);
-    if (addr.house_number) parts.push(addr.house_number);
-    if (addr.neighbourhood) parts.push(addr.neighbourhood);
-    else if (addr.suburb) parts.push(addr.suburb);
-    const city = addr.city || addr.town || addr.village || addr.county;
-    if (city) parts.push(city);
-    if (addr.state) parts.push(addr.state);
-    if (addr.country) parts.push(addr.country);
-    const formatted = parts.length ? parts.join(" ") : data?.display_name;
-    return { address: formatted, raw: addr, source: "OSM" };
-  } catch (e: unknown) {
-    return { error: String(e), source: "OSM" } as AddressInfo;
-  }
+function locationFromSelection(
+  selection: WeatherCitySelection,
+  source: WeatherLocation["source"],
+  mode: WeatherLocation["mode"],
+  coords: Coords = { lat: selection.lat, lon: selection.lon }
+): WeatherLocation {
+  return { city: selection, coords, mode, resolvedAt: Date.now(), source };
 }
 
-/**
- * 使用高德反向地理编码
- */
-export async function reverseGeocodeAmap(lat: number, lon: number): Promise<AddressInfo> {
-  const url = `https://restapi.amap.com/v3/geocode/regeo?key=${encodeURIComponent(getAmapKey())}&location=${encodeURIComponent(
-    `${lon},${lat}`
-  )}&radius=100&extensions=base`;
-  try {
-    const data = (await httpGetJson(url, undefined, 10000, {
-      apiClass: "amap",
-      requestKey: `amap:reverse:${lat.toFixed(3)},${lon.toFixed(3)}`,
-      softTtlMs: 12 * 60 * 60 * 1000,
-      minIntervalMs: 0,
-      bypassSoftCache: true,
-    })) as AmapReverseResponse;
-    if (String(data?.status) !== "1") {
+export async function resolveWeatherLocation(
+  options: LocationFlowOptions = {}
+): Promise<{ diagnostics: GeolocationDiagnostics | null; location: WeatherLocation }> {
+  const settings = getAppSettings().general.weather;
+  const mode = options.preferredLocationMode ?? settings.locationMode;
+  if (mode === "manual") {
+    if (settings.manualLocation.selected) {
       return {
-        error: String(data?.info || "Amap reverse geocode failed"),
-        source: "Amap",
-        raw: data,
+        diagnostics: null,
+        location: locationFromSelection(settings.manualLocation.selected, "manual_city", "manual"),
       };
     }
-    const addr = data?.regeocode?.formatted_address || "";
-    return { address: addr, source: "Amap", raw: data?.regeocode?.addressComponent || {} };
-  } catch (e: unknown) {
-    return { error: String(e), source: "Amap" } as AddressInfo;
-  }
-}
-
-/**
- * 从高德反编码地址对象中提取城市名
- */
-function extractCityFromAmapReverse(raw: unknown): string | null {
-  const comp = raw as
-    | NonNullable<AmapReverseResponse["regeocode"]>["addressComponent"]
-    | null
-    | undefined;
-  const pickText = (v: unknown): string | null => {
-    if (typeof v === "string" && v.trim()) return v.trim();
-    if (Array.isArray(v)) {
-      for (const item of v) {
-        if (typeof item === "string" && item.trim()) return item.trim();
+    if (settings.manualLocation.legacyCoords) {
+      const { lat, lon } = settings.manualLocation.legacyCoords;
+      const city = await resolveCityByCoords(lat, lon);
+      if (city) {
+        updateGeneralSettings({
+          weather: {
+            manualLocation: { query: city.name, selected: city, legacyCoords: undefined },
+          },
+        });
+        return {
+          diagnostics: null,
+          location: locationFromSelection(city, "manual_city", "manual", { lat, lon }),
+        };
       }
     }
-    return null;
-  };
-
-  const city = pickText(comp?.city);
-  if (city) return city;
-
-  const district = pickText(comp?.district);
-  if (district) return district;
-
-  const province = pickText(comp?.province);
-  if (province) return province;
-
-  return null;
-}
-
-/**
- * 从 OSM 反向地理编码地址对象中提取城市名
- */
-function extractCityFromOsmAddress(raw: unknown): string | null {
-  const addr = raw as Partial<OsmAddress> | null | undefined;
-  const city =
-    addr?.city || addr?.town || addr?.village || addr?.county || addr?.state || addr?.country;
-  if (typeof city === "string" && city.trim()) return city.trim();
-  return null;
-}
-
-/**
- * 根据反向地理编码结果抽取城市名
- */
-function extractCityFromAddressInfo(info: AddressInfo | null): string | null {
-  if (!info) return null;
-  if (info.source === "Amap") return extractCityFromAmapReverse(info.raw);
-  if (info.source === "OSM") return extractCityFromOsmAddress(info.raw);
-  return null;
-}
-
-/**
- * 获取坐标与地址信息并写入缓存
- * 优先级：手动定位 -> 缓存 -> 浏览器定位 -> IP 定位
- */
-async function resolveCoordsAndLocation(options?: LocationFlowOptions): Promise<{
-  coords: Coords | null;
-  coordsSource: string | null;
-  city: string | null;
-  addressInfo: AddressInfo | null;
-}> {
-  let coords: Coords | null = null;
-  let coordsSource: string | null = null;
-
-  if (options?.preferredLocationMode !== "auto") {
-    const manualResolved = await resolveManualCoordsFromSettings();
-    if (manualResolved.coords) {
-      coords = manualResolved.coords;
-      coordsSource = manualResolved.coordsSource;
-      updateCoordsCache(coords.lat, coords.lon, coordsSource);
-    }
+    throw new Error("手动城市尚未确认，请在定位设置中搜索并选择城市");
   }
 
+  const now = Date.now();
+  const cached = options.cachedLocation?.mode === "auto" ? options.cachedLocation : null;
   if (
-    options?.forceGeolocation === true &&
-    coordsSource !== "manual_city" &&
-    coordsSource !== "manual_coords"
+    !options.forceGeolocation &&
+    cached?.source === "browser" &&
+    now - cached.resolvedAt < BROWSER_LOCATION_TTL_MS
   ) {
-    const geo = await getGeolocationResult();
-    updateGeolocationDiagnostics(geo.diagnostics);
-    if (geo.coords) {
-      coords = geo.coords;
-      coordsSource = "geolocation";
-      updateCoordsCache(coords.lat, coords.lon, coordsSource);
+    return { diagnostics: null, location: cached };
+  }
+
+  const geolocation = await getGeolocationResult();
+  if (geolocation.coords) {
+    const city = await resolveCityByCoords(geolocation.coords.lat, geolocation.coords.lon);
+    if (city) {
+      return {
+        diagnostics: geolocation.diagnostics,
+        location: locationFromSelection(city, "browser", "auto", geolocation.coords),
+      };
     }
   }
 
-  const cachedCoords = getValidCoords();
-  if (!coords && cachedCoords) {
-    coords = { lat: cachedCoords.lat, lon: cachedCoords.lon };
-    coordsSource = cachedCoords.source;
+  if (cached?.source === "public_ip" && now - cached.resolvedAt < PUBLIC_IP_LOCATION_TTL_MS) {
+    return { diagnostics: geolocation.diagnostics, location: cached };
   }
 
-  if (
-    options?.forceGeolocation !== true &&
-    (!coords || coordsSource !== "geolocation") &&
-    coordsSource !== "manual_city" &&
-    coordsSource !== "manual_coords"
-  ) {
-    const geo = await getGeolocationResult();
-    updateGeolocationDiagnostics(geo.diagnostics);
-    if (geo.coords) {
-      coords = geo.coords;
-      coordsSource = "geolocation";
-      updateCoordsCache(coords.lat, coords.lon, coordsSource);
+  const ipCoords = await getCoordsViaIP();
+  if (ipCoords) {
+    const city = await resolveCityByCoords(ipCoords.lat, ipCoords.lon);
+    if (city) {
+      return {
+        diagnostics: geolocation.diagnostics,
+        location: locationFromSelection(city, "public_ip", "auto", ipCoords),
+      };
     }
   }
 
-  if (!coords) {
-    const i = await getCoordsViaIP();
-    if (i) {
-      coords = i;
-      coordsSource = "ip";
-    } else {
-      const a = await getCoordsViaAmapIP();
-      if (a) {
-        coords = a;
-        coordsSource = "amap_ip";
-      }
-    }
-    if (coords && coordsSource) {
-      updateCoordsCache(coords.lat, coords.lon, coordsSource);
-    }
-  }
-
-  if (!coords) {
-    return { coords: null, coordsSource: null, city: null, addressInfo: null };
-  }
-
-  let city: string | null = null;
-  let addressInfo: AddressInfo | null = null;
-
-  const cachedLoc = getValidLocation(coords.lat, coords.lon);
-  if (cachedLoc) {
-    city = cachedLoc.city || null;
-    addressInfo = { address: cachedLoc.address, source: cachedLoc.addressSource };
-  } else {
-    let tmp = await reverseGeocodeOSM(coords.lat, coords.lon);
-    if (!tmp.address) {
-      const fb = await reverseGeocodeAmap(coords.lat, coords.lon);
-      if (fb?.address) tmp = fb;
-    }
-    addressInfo = tmp;
-    city = extractCityFromAddressInfo(addressInfo);
-
-    updateLocationCache(coords.lat, coords.lon, {
-      city: city || undefined,
-      address: addressInfo.address,
-      addressSource: addressInfo.source,
-    });
-  }
-
-  return { coords, coordsSource, city, addressInfo };
-}
-
-/**
- * 构建位置获取流程
- * 更新并返回当前坐标、来源、城市及地址
- * @param options - 位置获取选项
- * @returns 包含坐标、来源、城市及地址信息的对象
- */
-export async function buildLocationFlow(options?: LocationFlowOptions): Promise<{
-  coords: Coords | null;
-  coordsSource?: string | null;
-  city?: string | null;
-  addressInfo?: AddressInfo | null;
-}> {
-  const { coords, coordsSource, city, addressInfo } = await resolveCoordsAndLocation(options);
-  return { coords, coordsSource, city, addressInfo };
+  const detail = geolocation.diagnostics.errorMessage
+    ? `：${geolocation.diagnostics.errorMessage}`
+    : "";
+  throw new Error(`高精度浏览器定位和公共 IP 定位均失败${detail}`);
 }

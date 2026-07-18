@@ -1,4 +1,4 @@
-type ApiClass = "amap" | "xiaomiWeather" | "free" | "timesync";
+type ApiClass = "xiaomiWeather" | "free" | "timesync";
 
 type Policy = {
   minIntervalMs: number;
@@ -13,10 +13,6 @@ type CacheEntry<T> = {
 const FIXED_GOVERNANCE_MODE = "balanced";
 
 const DEFAULT_POLICIES: Record<ApiClass, Policy> = {
-  amap: {
-    minIntervalMs: 12000,
-    softTtlMs: 5 * 60 * 1000,
-  },
   xiaomiWeather: {
     minIntervalMs: 500,
     softTtlMs: 20 * 1000,

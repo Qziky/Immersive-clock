@@ -1,6 +1,3 @@
-import { getAppSettings } from "../utils/appSettings";
-import { resolveEffectiveWeatherSchedule } from "../utils/weatherSchedule";
-
 import { HttpRequestError } from "./httpClient";
 import { withWeatherCrossTabLock, __resetWeatherCrossTabLockForTests } from "./weatherCrossTabLock";
 
@@ -9,14 +6,20 @@ const WINDOW_MS = 60 * 60 * 1000;
 const RATE_LIMIT_FALLBACK_MS = 30 * 60 * 1000;
 const FORBIDDEN_COOLDOWN_MS = 2 * 60 * 60 * 1000;
 
-export type WeatherRequestKind = "all" | "location" | "minutely" | "other";
+export type WeatherRequestKind = "all" | "citySearch" | "geoResolve" | "minutely" | "other";
 
 const ENDPOINT_MIN_GAP_MS: Record<WeatherRequestKind, number> = {
   all: 60 * 1000,
-  location: 10 * 60 * 1000,
+  citySearch: 1000,
+  geoResolve: 1000,
   minutely: 60 * 1000,
   other: 0,
 };
+
+const FIXED_SAFETY_SETTINGS = {
+  maxRequestsPerHour: 120,
+  minRequestGapSec: 2,
+} as const;
 
 interface StoredWeatherRequestGuardState {
   cooldownUntil: number;
@@ -49,7 +52,7 @@ export class WeatherRequestDeferredError extends Error {
 }
 
 function emptyEndpointTimestamps(): Record<WeatherRequestKind, number> {
-  return { all: 0, location: 0, minutely: 0, other: 0 };
+  return { all: 0, citySearch: 0, geoResolve: 0, minutely: 0, other: 0 };
 }
 
 const EMPTY_STATE: StoredWeatherRequestGuardState = {
@@ -81,7 +84,8 @@ function normalizeEndpointTimestamps(value: unknown): Record<WeatherRequestKind,
       : {};
   return {
     all: normalizeTimestamp(source.all),
-    location: normalizeTimestamp(source.location),
+    citySearch: normalizeTimestamp(source.citySearch ?? source.location),
+    geoResolve: normalizeTimestamp(source.geoResolve ?? source.location),
     minutely: normalizeTimestamp(source.minutely),
     other: normalizeTimestamp(source.other),
   };
@@ -134,7 +138,7 @@ function writeState(state: StoredWeatherRequestGuardState): void {
 }
 
 function getSafetySettings() {
-  return resolveEffectiveWeatherSchedule(getAppSettings().general.weather.schedule).safety;
+  return FIXED_SAFETY_SETTINGS;
 }
 
 function calculateHourlyAllowedAt(
@@ -293,11 +297,12 @@ async function runGuardedRequest<T>(
 
 export function executeWeatherRequest<T>(
   runner: () => Promise<T>,
-  kind: WeatherRequestKind = "other"
+  kind: WeatherRequestKind = "other",
+  requestKey: string = kind
 ): Promise<T> {
   const task = requestQueue.then(
-    () => withWeatherCrossTabLock(() => runGuardedRequest(runner, kind)),
-    () => withWeatherCrossTabLock(() => runGuardedRequest(runner, kind))
+    () => withWeatherCrossTabLock(() => runGuardedRequest(runner, kind), requestKey),
+    () => withWeatherCrossTabLock(() => runGuardedRequest(runner, kind), requestKey)
   );
   requestQueue = task.then(
     () => undefined,

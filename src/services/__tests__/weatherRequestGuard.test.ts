@@ -5,31 +5,6 @@ import { HttpRequestError } from "../httpClient";
 const mocks = vi.hoisted(() => ({
   lockTail: Promise.resolve() as Promise<void>,
   locksRequest: vi.fn(),
-  maxRequestsPerHour: 60,
-  minRequestGapSec: 2,
-}));
-
-vi.mock("../../utils/appSettings", () => ({
-  getAppSettings: () => ({
-    general: {
-      weather: {
-        schedule: {
-          profile: "balanced",
-          custom: {
-            allForegroundMin: 5,
-            allBackgroundMin: 15,
-            minutelyDryMin: 5,
-            minutelyRainMin: 2,
-            minutelyBackgroundMin: 15,
-          },
-          safety: {
-            maxRequestsPerHour: mocks.maxRequestsPerHour,
-            minRequestGapSec: mocks.minRequestGapSec,
-          },
-        },
-      },
-    },
-  }),
 }));
 
 describe("weatherRequestGuard", () => {
@@ -39,8 +14,6 @@ describe("weatherRequestGuard", () => {
     vi.useFakeTimers();
     vi.setSystemTime("2026-07-17T10:00:00+08:00");
     localStorage.clear();
-    mocks.maxRequestsPerHour = 60;
-    mocks.minRequestGapSec = 2;
     mocks.lockTail = Promise.resolve();
     mocks.locksRequest.mockReset();
     mocks.locksRequest.mockImplementation(
@@ -83,23 +56,21 @@ describe("weatherRequestGuard", () => {
     expect(runner).toHaveBeenCalledTimes(2);
   });
 
-  it("达到滚动小时上限后返回可排队时间", async () => {
-    mocks.maxRequestsPerHour = 10;
-    mocks.minRequestGapSec = 1;
+  it("达到固定滚动小时上限后返回可排队时间", async () => {
     const guard = await import("../weatherRequestGuard");
 
-    for (let index = 0; index < 10; index += 1) {
+    for (let index = 0; index < 120; index += 1) {
       const task = guard.executeWeatherRequest(async () => index);
-      await vi.advanceTimersByTimeAsync(index === 0 ? 0 : 1_000);
+      await vi.advanceTimersByTimeAsync(index === 0 ? 0 : 2_000);
       await task;
     }
 
-    const blocked = guard.executeWeatherRequest(async () => 11);
+    const blocked = guard.executeWeatherRequest(async () => 121);
     await expect(blocked).rejects.toMatchObject({
       name: "WeatherRequestDeferredError",
       retryAt: Date.parse("2026-07-17T11:00:00+08:00"),
     });
-    expect(guard.getWeatherRequestGuardSnapshot().requestsThisHour).toBe(10);
+    expect(guard.getWeatherRequestGuardSnapshot().requestsThisHour).toBe(120);
   });
 
   it("429 会持久化 Retry-After 冷却", async () => {
