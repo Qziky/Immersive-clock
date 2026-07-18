@@ -2,9 +2,14 @@ import type { ReactNode } from "react";
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 
 import { ConfirmDialog } from "./ConfirmDialog";
-import { ToastViewport, type ToastDismissReason, type ToastMessage } from "./ToastViewport";
+import {
+  TOAST_EXIT_DURATION_MS,
+  ToastViewport,
+  type ToastDismissReason,
+  type ToastMessage,
+} from "./ToastViewport";
 
-export interface NotifyOptions extends Omit<ToastMessage, "id" | "revision"> {
+export interface NotifyOptions extends Omit<ToastMessage, "id" | "revision" | "presence"> {
   id?: string;
 }
 
@@ -44,22 +49,52 @@ export function FeedbackProvider({ children }: FeedbackProviderProps) {
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const [confirmations, setConfirmations] = useState<ConfirmRequest[]>([]);
   const toastsRef = useRef<ToastMessage[]>([]);
+  const dismissTimersRef = useRef(new Map<string, ReturnType<typeof setTimeout>>());
   const confirmationsRef = useRef<ConfirmRequest[]>([]);
 
   const dismiss = useCallback((id: string, reason: ToastDismissReason = "programmatic") => {
     const dismissedToast = toastsRef.current.find((toast) => toast.id === id);
-    if (!dismissedToast) return;
+    if (!dismissedToast || dismissedToast.presence === "exiting") return;
 
-    const next = toastsRef.current.filter((toast) => toast.id !== id);
+    const next = toastsRef.current.map((toast) =>
+      toast.id === id ? { ...toast, presence: "exiting" as const } : toast
+    );
     toastsRef.current = next;
     setToasts(next);
     dismissedToast.onDismiss?.(reason);
+
+    const existingTimer = dismissTimersRef.current.get(id);
+    if (existingTimer !== undefined) clearTimeout(existingTimer);
+    dismissTimersRef.current.set(
+      id,
+      setTimeout(() => {
+        const current = toastsRef.current.find(
+          (toast) => toast.id === id && toast.presence === "exiting"
+        );
+        if (!current) return;
+
+        const remaining = toastsRef.current.filter((toast) => toast.id !== id);
+        toastsRef.current = remaining;
+        setToasts(remaining);
+        dismissTimersRef.current.delete(id);
+      }, TOAST_EXIT_DURATION_MS)
+    );
   }, []);
 
   const notify = useCallback((options: NotifyOptions) => {
     const id = options.id ?? createFeedbackId("toast");
     nextToastRevision += 1;
-    const toast: ToastMessage = { ...options, id, revision: nextToastRevision };
+    const existingTimer = dismissTimersRef.current.get(id);
+    if (existingTimer !== undefined) {
+      clearTimeout(existingTimer);
+      dismissTimersRef.current.delete(id);
+    }
+    const toast: ToastMessage = {
+      ...options,
+      id,
+      revision: nextToastRevision,
+      presence: "entering",
+    };
     const existingIndex = toastsRef.current.findIndex((item) => item.id === id);
     const next =
       existingIndex === -1
@@ -97,8 +132,13 @@ export function FeedbackProvider({ children }: FeedbackProviderProps) {
   }, []);
 
   useEffect(() => {
+    const dismissTimers = dismissTimersRef.current;
     return () => {
-      toastsRef.current.forEach((toast) => toast.onDismiss?.("programmatic"));
+      dismissTimers.forEach((timer) => clearTimeout(timer));
+      dismissTimers.clear();
+      toastsRef.current
+        .filter((toast) => toast.presence !== "exiting")
+        .forEach((toast) => toast.onDismiss?.("programmatic"));
       toastsRef.current = [];
       confirmationsRef.current.forEach((request) => request.resolve(false));
       confirmationsRef.current = [];

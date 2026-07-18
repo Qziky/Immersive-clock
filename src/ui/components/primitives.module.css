@@ -1661,6 +1661,15 @@
   min-width: 0;
 }
 
+.toastItem[data-ui-motion="default"][data-ui-presence="entering"] {
+  animation: uiToastIn var(--ui-motion-duration-slow) var(--ui-motion-ease-emphasized) both;
+}
+
+.toastItem[data-ui-motion="default"][data-ui-presence="exiting"] {
+  animation: uiToastOut var(--ui-motion-duration-exit) var(--ui-motion-ease-exit) both;
+  pointer-events: none;
+}
+
 .confirmDescription {
   color: var(--ui-color-text-muted);
   line-height: 1.6;
@@ -2915,6 +2924,18 @@
   }
 }
 
+@keyframes uiToastOut {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+
+  to {
+    opacity: 0;
+    transform: translateY(var(--ui-motion-distance-sm)) scale(0.98);
+  }
+}
+
 @keyframes settingsReveal {
   from {
     opacity: 0;
@@ -2990,6 +3011,7 @@
   .dropdownMenu[data-ui-motion="default"],
   .popoverPanel[data-ui-motion="default"],
   .toast[data-ui-motion="default"],
+  .toastItem[data-ui-motion="default"],
   .modalBackdrop[data-ui-motion="default"],
   .modalPanel[data-ui-motion="default"] {
     animation: none;

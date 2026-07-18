@@ -48,6 +48,17 @@ const ANNOUNCEMENT_TAB_ICONS: Record<AnnouncementTab, AppIconName> = {
   feedback: "feature.feedback",
 };
 
+const INACTIVITY_TIMEOUT_MS = 120_000;
+const COUNTDOWN_VISIBLE_SECONDS = 60;
+const COUNTDOWN_TICK_MS = 1_000;
+const USER_ACTIVITY_EVENTS = [
+  "pointerdown",
+  "touchstart",
+  "keydown",
+  "wheel",
+  "scroll",
+] as const satisfies readonly (keyof DocumentEventMap)[];
+
 /**
  * 公告弹窗组件
  * 支持显示公告和更新日志，具有选项卡切换功能
@@ -64,7 +75,9 @@ const AnnouncementModal: React.FC<AnnouncementModalProps> = ({
 
   // 当前激活的选项卡
   const [activeTab, setActiveTab] = useState<AnnouncementTab>(initialTab);
+  const [autoCloseRemainingSeconds, setAutoCloseRemainingSeconds] = useState<number | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const inactivityDeadlineRef = useRef<number | null>(null);
   // 是否勾选"一周内不再显示"
   const [dontShowAgain, setDontShowAgain] = useState(false);
   // Markdown文档状态
@@ -144,12 +157,17 @@ const AnnouncementModal: React.FC<AnnouncementModalProps> = ({
   /**
    * 处理关闭弹窗
    */
-  const handleClose = () => {
+  const handleClose = useCallback(() => {
     if (dontShowAgain) {
       setDontShowForWeek();
     }
     onClose();
-  };
+  }, [dontShowAgain, onClose]);
+  const handleCloseRef = useRef(handleClose);
+
+  useEffect(() => {
+    handleCloseRef.current = handleClose;
+  }, [handleClose]);
 
   /**
    * 处理选项卡切换
@@ -185,6 +203,71 @@ const AnnouncementModal: React.FC<AnnouncementModalProps> = ({
     }
   }, [isOpen, activeTab, isMarkdownTab, loadDocument]);
 
+  // 公告和更新日志在连续无操作 120 秒后自动关闭；反馈问卷填写期间暂停计时。
+  useEffect(() => {
+    if (!isOpen || activeTab === "feedback") {
+      inactivityDeadlineRef.current = null;
+      setAutoCloseRemainingSeconds(null);
+      return undefined;
+    }
+
+    let closeTimerId: number | null = null;
+
+    const resetInactivityDeadline = () => {
+      inactivityDeadlineRef.current = Date.now() + INACTIVITY_TIMEOUT_MS;
+      setAutoCloseRemainingSeconds(null);
+    };
+
+    const scheduleCloseCheck = (delayMs: number) => {
+      closeTimerId = window.setTimeout(() => {
+        const deadline = inactivityDeadlineRef.current;
+        if (deadline === null) return;
+
+        const remainingMs = deadline - Date.now();
+        if (remainingMs > 0) {
+          scheduleCloseCheck(remainingMs);
+          return;
+        }
+
+        inactivityDeadlineRef.current = null;
+        setAutoCloseRemainingSeconds(null);
+        handleCloseRef.current();
+      }, delayMs);
+    };
+
+    const updateCountdown = () => {
+      const deadline = inactivityDeadlineRef.current;
+      if (deadline === null) return;
+
+      const remainingSeconds = Math.ceil((deadline - Date.now()) / 1_000);
+      setAutoCloseRemainingSeconds(
+        remainingSeconds > 0 && remainingSeconds <= COUNTDOWN_VISIBLE_SECONDS
+          ? remainingSeconds
+          : null
+      );
+    };
+
+    resetInactivityDeadline();
+    scheduleCloseCheck(INACTIVITY_TIMEOUT_MS);
+    const countdownTimerId = window.setInterval(updateCountdown, COUNTDOWN_TICK_MS);
+
+    USER_ACTIVITY_EVENTS.forEach((eventName) => {
+      document.addEventListener(eventName, resetInactivityDeadline, {
+        capture: true,
+        passive: true,
+      });
+    });
+
+    return () => {
+      if (closeTimerId !== null) window.clearTimeout(closeTimerId);
+      window.clearInterval(countdownTimerId);
+      inactivityDeadlineRef.current = null;
+      USER_ACTIVITY_EVENTS.forEach((eventName) => {
+        document.removeEventListener(eventName, resetInactivityDeadline, true);
+      });
+    };
+  }, [activeTab, isOpen]);
+
   // 获取当前文档
   const currentDocument = isMarkdownTab(activeTab) ? documents[activeTab] : undefined;
   const currentTabConfig = ANNOUNCEMENT_TABS.find((t) => t.key === activeTab);
@@ -215,6 +298,11 @@ const AnnouncementModal: React.FC<AnnouncementModalProps> = ({
           </div>
 
           <FormButtonGroup className={styles.footerActions}>
+            {autoCloseRemainingSeconds !== null && (
+              <span className={styles.autoCloseCountdown} role="timer" aria-live="off">
+                {autoCloseRemainingSeconds}s 后自动关闭
+              </span>
+            )}
             <FormButton className={styles.confirmButton} onClick={handleClose} variant="primary">
               确定
             </FormButton>

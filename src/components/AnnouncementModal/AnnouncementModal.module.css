@@ -312,6 +312,17 @@
   flex: 0 0 auto;
 }
 
+.autoCloseCountdown {
+  color: var(--ui-color-text-subtle);
+  font-family: var(--ui-font-number);
+  font-size: var(--ui-font-size-xs);
+  font-variant-numeric: tabular-nums;
+  inline-size: 12em;
+  line-height: 1.45;
+  text-align: right;
+  white-space: nowrap;
+}
+
 .confirmButton {
   min-width: 92px;
 }
@@ -379,7 +390,15 @@
   }
 
   .footerActions {
+    display: grid;
+    gap: var(--ui-space-2);
+    grid-template-columns: minmax(0, 1fr);
     justify-self: stretch;
+    width: 100%;
+  }
+
+  .autoCloseCountdown {
+    justify-self: end;
   }
 
   .confirmButton {

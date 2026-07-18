@@ -7,10 +7,13 @@ import { Toast, type ToastProps } from "./Toast";
 
 export type ToastDismissReason = "timeout" | "close" | "programmatic";
 
+export const TOAST_EXIT_DURATION_MS = 180;
+
 export interface ToastMessage extends Omit<ToastProps, "className" | "motion" | "onClose"> {
   id: string;
   revision: number;
   duration?: number | null;
+  presence?: "entering" | "exiting";
   onDismiss?: (reason: ToastDismissReason) => void;
 }
 
@@ -25,7 +28,15 @@ interface TimedToastProps {
 }
 
 function TimedToast({ toast, onDismiss }: TimedToastProps) {
-  const duration = toast.action ? null : toast.duration === undefined ? 5000 : toast.duration;
+  const presence = toast.presence ?? "entering";
+  const isExiting = presence === "exiting";
+  const duration = isExiting
+    ? null
+    : toast.action
+      ? null
+      : toast.duration === undefined
+        ? 5000
+        : toast.duration;
   const remainingRef = useRef(duration ?? 0);
   const startedAtRef = useRef(0);
   const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -66,9 +77,9 @@ function TimedToast({ toast, onDismiss }: TimedToastProps) {
 
   useEffect(() => {
     remainingRef.current = duration ?? 0;
-    startTimer();
+    if (!isExiting) startTimer();
     return clearTimer;
-  }, [clearTimer, duration, startTimer, toast.revision]);
+  }, [clearTimer, duration, isExiting, startTimer, toast.revision]);
 
   const handleBlur = (event: FocusEvent<HTMLDivElement>) => {
     if (!event.currentTarget.contains(event.relatedTarget)) resumeTimer("focus");
@@ -77,6 +88,9 @@ function TimedToast({ toast, onDismiss }: TimedToastProps) {
   return (
     <div
       className={styles.toastItem}
+      data-ui-motion="default"
+      data-ui-presence={presence}
+      aria-hidden={isExiting || undefined}
       onMouseEnter={() => pauseTimer("hover")}
       onMouseLeave={() => resumeTimer("hover")}
       onFocusCapture={() => pauseTimer("focus")}
@@ -90,7 +104,8 @@ function TimedToast({ toast, onDismiss }: TimedToastProps) {
         accentColor={toast.accentColor}
         action={toast.action}
         role={toast.role}
-        onClose={() => onDismiss(toast.id, "close")}
+        motion="none"
+        onClose={isExiting ? undefined : () => onDismiss(toast.id, "close")}
       />
     </div>
   );

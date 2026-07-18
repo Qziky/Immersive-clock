@@ -2,12 +2,7 @@ import React, { useEffect, useState, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 
 import type { MessagePopupType } from "../../types/messagePopup";
-import {
-  Button as FormButton,
-  Toast,
-  type AppIconName,
-  type ToastVariant,
-} from "../../ui";
+import { Button as FormButton, Toast, type AppIconName, type ToastVariant } from "../../ui";
 
 import styles from "./messagePopup.module.css";
 
@@ -59,8 +54,14 @@ export default function MessagePopup({
   const autoCloseRemainingRef = useRef(0);
   const pauseReasonsRef = useRef(new Set<"focus" | "hover">());
   const hasActions = actions.length > 0;
-  const autoCloseDuration =
-    type === "general" ? 4000 : type === "error" || type === "weatherAlert" ? 8000 : 6000;
+  const autoCloseDuration: number | null =
+    type === "weatherAlert" || type === "weatherForecast" || type === "coolingReminder"
+      ? null
+      : type === "general"
+        ? 4000
+        : type === "error"
+          ? 8000
+          : 6000;
 
   // 打开时挂载并进入动画；关闭时触发退出动画
   useEffect(() => {
@@ -91,7 +92,14 @@ export default function MessagePopup({
   }, [onClose]);
 
   const startAutoClose = useCallback(() => {
-    if (!isOpen || !onClose || hasActions || pauseReasonsRef.current.size > 0) return;
+    if (
+      !isOpen ||
+      !onClose ||
+      hasActions ||
+      autoCloseDuration === null ||
+      pauseReasonsRef.current.size > 0
+    )
+      return;
 
     if (autoCloseTimerRef.current !== null) {
       clearTimeout(autoCloseTimerRef.current);
@@ -100,12 +108,12 @@ export default function MessagePopup({
     autoCloseTimerRef.current = window.setTimeout(() => {
       handleClose();
     }, autoCloseRemainingRef.current);
-  }, [handleClose, hasActions, isOpen, onClose]);
+  }, [autoCloseDuration, handleClose, hasActions, isOpen, onClose]);
 
   useEffect(() => {
     if (autoCloseTimerRef.current !== null) clearTimeout(autoCloseTimerRef.current);
     autoCloseTimerRef.current = null;
-    autoCloseRemainingRef.current = autoCloseDuration;
+    autoCloseRemainingRef.current = autoCloseDuration ?? 0;
     pauseReasonsRef.current.clear();
     startAutoClose();
 
@@ -137,11 +145,7 @@ export default function MessagePopup({
   if (!mounted) return null;
 
   const toastVariant: ToastVariant =
-    type === "error"
-      ? "danger"
-      : type === "weatherAlert"
-        ? "warning"
-        : "info";
+    type === "error" ? "danger" : type === "weatherAlert" ? "warning" : "info";
 
   const rootClass = `${styles.container} ${exiting ? styles.exit : styles.enter} ${!usePortal ? styles.inline : ""} ${className}`;
   const node = (

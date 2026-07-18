@@ -37,10 +37,14 @@ function getPopupToastVariant(type: MessagePopupType): ToastVariant {
   }
 }
 
-function getPopupDuration(type: MessagePopupType): number {
-  if (type === "general") return 4000;
-  if (type === "error" || type === "weatherAlert") return 8000;
-  return 6000;
+function getPopupDuration(type: MessagePopupType): number | null {
+  // 天气提醒需要用户读完并主动关闭，避免重要预警在几秒内消失。
+  if (type === "weatherAlert" || type === "weatherForecast" || type === "coolingReminder") {
+    return null;
+  }
+  if (type === "general") return 8000;
+  if (type === "error") return 12000;
+  return 12000;
 }
 
 /**

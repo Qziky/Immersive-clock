@@ -47,13 +47,7 @@ describe("MessagePopup compatibility adapter", () => {
   });
 
   it("renders a semantic icon through Toast", () => {
-    render(
-      <MessagePopup
-        isOpen
-        title="带图标通知"
-        icon="status.success"
-      />
-    );
+    render(<MessagePopup isOpen title="带图标通知" icon="status.success" />);
 
     expect(document.querySelector('[data-app-icon="status.success"]')).toBeInTheDocument();
   });
@@ -63,5 +57,18 @@ describe("MessagePopup compatibility adapter", () => {
 
     expect(screen.getByRole("status")).toBeInTheDocument();
     expect(document.querySelector('[data-app-icon="status.info"]')).toBeInTheDocument();
+  });
+
+  it("keeps weather reminders open until the user closes them", () => {
+    vi.useFakeTimers();
+    const onClose = vi.fn();
+    render(<MessagePopup isOpen title="天气预警" type="weatherAlert" onClose={onClose} />);
+
+    act(() => vi.advanceTimersByTime(60000));
+    expect(onClose).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "关闭通知" }));
+    act(() => vi.advanceTimersByTime(180));
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 });

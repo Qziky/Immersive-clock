@@ -11,6 +11,7 @@ import {
   RadioGroup as FormSegmented,
   SettingGrid,
   SettingItem,
+  Stack,
   StatusPill,
   Switch as FormSwitch,
 } from "../../../ui";
@@ -147,7 +148,7 @@ const AboutSettingsPanel: React.FC<AboutSettingsPanelProps> = ({ onRegisterSave,
   }, [records]);
 
   return (
-    <div id="about-panel">
+    <Stack id="about-panel" gap="xl">
       <FormSection
         title="项目信息"
         variant="plain"
@@ -306,7 +307,7 @@ const AboutSettingsPanel: React.FC<AboutSettingsPanelProps> = ({ onRegisterSave,
           </>
         ) : null}
       </FormSection>
-    </div>
+    </Stack>
   );
 };
 

@@ -14,6 +14,7 @@ import {
   SettingGrid,
   SettingItem,
   Slider as FormSlider,
+  Stack,
   StatusPill,
   Switch as FormSwitch,
 } from "../../../ui";
@@ -340,7 +341,7 @@ export const BasicSettingsPanel: React.FC<BasicSettingsPanelProps> = ({
     section ? section !== candidate : undefined;
 
   return (
-    <div id="basic-panel">
+    <Stack id="basic-panel" gap="xl">
       {/* 显示设置分区已前移到倒计时设置之前 */}
 
       <FormSection title="启动设置" variant="plain" hidden={isSectionHidden("startup")}>
@@ -787,7 +788,7 @@ export const BasicSettingsPanel: React.FC<BasicSettingsPanelProps> = ({
           }}
         />
       </div>
-    </div>
+    </Stack>
   );
 };
 

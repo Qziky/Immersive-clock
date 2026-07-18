@@ -109,4 +109,46 @@ describe("消息事件通知适配", () => {
 
     expect(screen.queryByRole("status")).not.toBeInTheDocument();
   });
+
+  it("keeps weather reminders visible until an explicit close", () => {
+    vi.useFakeTimers();
+    render(
+      <MemoryRouter>
+        <AppContextProvider>
+          <AppearanceProvider>
+            <FeedbackProvider>
+              <ClockPage />
+            </FeedbackProvider>
+          </AppearanceProvider>
+        </AppContextProvider>
+      </MemoryRouter>
+    );
+
+    act(() => {
+      window.dispatchEvent(
+        new CustomEvent("messagePopup:open", {
+          detail: {
+            id: "weather:air-quality:test",
+            type: "weatherForecast",
+            title: "空气污染提醒",
+            message: "AQI：135",
+          },
+        })
+      );
+      vi.advanceTimersByTime(60000);
+    });
+
+    expect(screen.getByRole("status")).toHaveTextContent("空气污染提醒");
+
+    act(() => {
+      window.dispatchEvent(
+        new CustomEvent("messagePopup:close", {
+          detail: { id: "weather:air-quality:test" },
+        })
+      );
+      vi.advanceTimersByTime(180);
+    });
+
+    expect(screen.queryByText("空气污染提醒")).not.toBeInTheDocument();
+  });
 });

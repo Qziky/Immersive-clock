@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useRef, useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -81,7 +81,7 @@ describe("FeedbackProvider", () => {
     expect(screen.queryByText("四")).not.toBeInTheDocument();
 
     await user.click(within(viewport).getAllByRole("button", { name: "关闭通知" })[0]);
-    expect(screen.getByText("四")).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText("四")).toBeInTheDocument());
     expect(viewport).toHaveAttribute("data-ui-scope");
   });
 
@@ -108,7 +108,7 @@ describe("FeedbackProvider", () => {
     expect(screen.getByText("三")).toBeInTheDocument();
 
     fireEvent.blur(toast.querySelector("button") as HTMLElement, { relatedTarget: document.body });
-    act(() => vi.advanceTimersByTime(3000));
+    act(() => vi.advanceTimersByTime(3180));
     expect(screen.queryByText("三")).not.toBeInTheDocument();
   });
 
@@ -127,7 +127,7 @@ describe("FeedbackProvider", () => {
     act(() => vi.advanceTimersByTime(1500));
     expect(screen.getByText("更新 2")).toBeInTheDocument();
 
-    act(() => vi.advanceTimersByTime(3500));
+    act(() => vi.advanceTimersByTime(3680));
     expect(screen.queryByText("更新 2")).not.toBeInTheDocument();
   });
 
@@ -167,6 +167,9 @@ describe("FeedbackProvider", () => {
     expect(screen.getByText("需处理")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "关闭通知" }));
+    const exitingToast = screen.getByText("需处理").closest("[data-ui-presence='exiting']");
+    expect(exitingToast).toHaveAttribute("data-ui-presence", "exiting");
+    act(() => vi.advanceTimersByTime(180));
     expect(screen.queryByText("需处理")).not.toBeInTheDocument();
   });
 
