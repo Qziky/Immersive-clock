@@ -71,8 +71,7 @@
   pointer-events: none;
 }
 
-.line,
-.lineHalo {
+.line {
   fill: none;
   stroke-linecap: round;
   stroke-linejoin: round;
@@ -81,10 +80,6 @@
 
 .point {
   vector-effect: non-scaling-stroke;
-}
-
-.lineHalo {
-  stroke-width: 5;
 }
 
 .legend {

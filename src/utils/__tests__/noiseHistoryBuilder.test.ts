@@ -46,6 +46,25 @@ describe("noiseHistoryBuilder", () => {
     expect(items[0].coverageRatio).toBeCloseTo(1, 6);
   });
 
+  it("滚动评分窗口不应让历史覆盖率重复累计", () => {
+    const schedule: StudyPeriod[] = [
+      { id: "rolling", name: "滚动窗口", startTime: "10:00", endTime: "10:01" },
+    ];
+    const start = new Date(2026, 0, 2, 10, 0, 0, 0).getTime();
+    const slices: NoiseSliceSummary[] = [
+      makeSlice({ start, end: start + 60_000, score: 60 }),
+      makeSlice({ start: start + 5_000, end: start + 65_000, score: 80 }),
+      makeSlice({ start: start + 10_000, end: start + 70_000, score: 100 }),
+    ];
+
+    const items = buildNoiseHistoryListItems({ slices, schedule });
+
+    expect(items).toHaveLength(1);
+    expect(items[0].coverageRatio).toBe(1);
+    expect(items[0].totalMs).toBe(60_000);
+    expect(items[0].avgScore).toBe(60);
+  });
+
   it("应按结束时间倒序排序", () => {
     const schedule: StudyPeriod[] = [
       { id: "1", name: "A", startTime: "10:00", endTime: "11:00" },

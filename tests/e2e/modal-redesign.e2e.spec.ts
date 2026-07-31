@@ -54,7 +54,7 @@ test.describe("弹层重设计", () => {
     await endInput.fill(validEndValue);
     await historyDialog.getByRole("button", { name: "查看报告" }).click();
 
-    const reportDialog = page.getByRole("dialog", { name: "自定义报告 统计报告" });
+    const reportDialog = page.getByRole("dialog", { name: "噪音统计报告" });
     await expect(reportDialog.getByText("该时段暂无有效噪音评分")).toBeVisible();
     await expect(reportDialog.locator("svg[role='img']")).toHaveCount(0);
     await reportDialog.getByRole("button", { name: "返回" }).click();
@@ -84,7 +84,11 @@ test.describe("弹层重设计", () => {
           coverageRatio: 1,
           signalHealth: "healthy" as const,
           confidence: "high" as const,
-          estimated: null,
+          estimated: {
+            calibrationId: "modal-e2e-calibration",
+            avgDbA: 42 + index * 2,
+            p95DbA: 50 + index * 2,
+          },
           score,
           detail: {
             activityMean: 0.05 + index * 0.1,
@@ -124,7 +128,12 @@ test.describe("弹层重设计", () => {
     if (await reopenedNotificationClose.count()) await reopenedNotificationClose.last().click();
     await reopenedHistory.getByText("自定义时间段报告").click();
     await reopenedHistory.getByRole("button", { name: "查看报告" }).click();
-    const populatedReport = page.getByRole("dialog", { name: "自定义报告 统计报告" });
+    const populatedReport = page.getByRole("dialog", { name: "噪音统计报告" });
+    const quietRateSummary = populatedReport.getByRole("group", { name: "安静达标率摘要" });
+    await expect(quietRateSummary).toBeVisible();
+    await expect(quietRateSummary.getByText("安静达标率")).toBeVisible();
+    await expect(quietRateSummary.getByText(/数据质量/)).toHaveCount(0);
+    await expect(populatedReport.getByText(/数据质量：覆盖/)).toBeVisible();
     await expect(populatedReport.locator("svg[role='img']")).toHaveCount(1);
     expect(
       await populatedReport
@@ -135,6 +144,33 @@ test.describe("弹层重设计", () => {
           )
         )
     ).toBe(true);
+
+    await populatedReport.getByRole("radio", { name: "估算 dB(A)" }).click();
+    await expect(populatedReport.getByRole("img", { name: "估算 dB(A) 走势" })).toBeVisible();
+
+    for (const viewport of [
+      { width: 1440, height: 900 },
+      { width: 390, height: 844 },
+      { width: 320, height: 568 },
+    ]) {
+      await page.setViewportSize(viewport);
+      await expect(populatedReport).toBeVisible();
+      await expect(populatedReport.getByRole("button", { name: "返回" })).toBeVisible();
+      const layout = await populatedReport.evaluate((dialog) => {
+        const rect = dialog.getBoundingClientRect();
+        const body = dialog.querySelector<HTMLElement>("[data-ui-modal-body]");
+        return {
+          bodyFits: body ? body.scrollWidth <= body.clientWidth : false,
+          dialogFits:
+            rect.left >= 0 &&
+            rect.top >= 0 &&
+            rect.right <= window.innerWidth &&
+            rect.bottom <= window.innerHeight,
+          documentFits: document.documentElement.scrollWidth <= window.innerWidth,
+        };
+      });
+      expect(layout).toEqual({ bodyFits: true, dialogFits: true, documentFits: true });
+    }
   });
 
   test("Toast 显示在右下角且始终位于业务弹窗上方", async ({ page }) => {

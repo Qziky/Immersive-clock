@@ -2139,18 +2139,19 @@
   flex: 0 0 auto;
   gap: var(--ui-space-3);
   justify-content: space-between;
-  padding: var(--ui-space-4);
-}
-
-.modalHeaderFlat {
-  padding-bottom: var(--ui-space-3);
 }
 
 .modalHeader {
-  padding-top: max(var(--ui-space-4), env(safe-area-inset-top));
+  padding: var(--ui-space-2) var(--ui-space-4);
+  padding-top: max(var(--ui-space-2), env(safe-area-inset-top));
+}
+
+.modalHeaderFlat {
+  padding-bottom: var(--ui-space-1);
 }
 
 .modalFooter {
+  padding: var(--ui-space-4);
   padding-bottom: max(var(--ui-space-4), env(safe-area-inset-bottom));
 }
 
@@ -2204,15 +2205,15 @@
 }
 
 .closeButton {
-  background: var(--ui-glass-surface-soft);
-  border-color: var(--ui-glass-border);
+  background: transparent;
+  border: 0;
   color: var(--ui-color-text-muted);
   cursor: pointer;
 }
 
-.closeButton:hover {
-  background: var(--ui-color-bg-elevated);
-  border-color: var(--ui-glass-border-strong);
+.iconButton.closeButton:hover:not(:disabled) {
+  background: transparent;
+  border: 0;
   color: var(--ui-color-text);
 }
 

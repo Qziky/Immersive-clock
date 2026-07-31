@@ -86,11 +86,11 @@
   grid-column: 2;
   grid-row: 2;
   inline-size: auto;
-  justify-content: flex-end;
-  justify-self: end;
+  justify-content: flex-start;
+  justify-self: start;
   line-height: 1;
   margin: 0;
-  min-inline-size: 6ch;
+  min-inline-size: 0;
   padding: 0;
   white-space: nowrap;
 }

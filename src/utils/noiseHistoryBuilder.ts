@@ -2,6 +2,8 @@ import { DEFAULT_NOISE_REPORT_RETENTION_DAYS } from "../constants/noiseReport";
 import type { NoiseSliceSummary } from "../types/noise";
 import type { StudyPeriod } from "../types/studySchedule";
 
+import { aggregateNoiseSlicesForRange } from "./noiseReportAggregation";
+
 export interface NoiseHistoryPeriod {
   id: string;
   name: string;
@@ -38,34 +40,6 @@ function buildDateTime(dateKey: string, timeStr: string): Date | null {
   const [h, m] = timeStr.split(":").map((v) => parseInt(v, 10));
   if (!Number.isFinite(h) || !Number.isFinite(m)) return null;
   return new Date(parsed.year, parsed.month - 1, parsed.day, h, m, 0, 0);
-}
-
-/**
- * 计算时段平均评分（函数级注释：按切片与时段的重叠时长对 score 进行加权平均，时长使用采样有效时长）
- */
-function computeAvgScoreForRange(
-  slices: NoiseSliceSummary[],
-  startTs: number,
-  endTs: number
-): { avgScore: number | null; totalMs: number } {
-  let totalMs = 0;
-  let sumScore = 0;
-  for (const s of slices) {
-    if (s.score === null) continue;
-    const overlapStart = Math.max(startTs, s.start);
-    const overlapEnd = Math.min(endTs, s.end);
-    const overlapMs = overlapEnd - overlapStart;
-    if (overlapMs <= 0) continue;
-
-    const sliceMs = Math.max(1, s.end - s.start);
-    const ratio = overlapMs / sliceMs;
-
-    const effectiveMs = sliceMs * s.coverageRatio * ratio;
-
-    totalMs += effectiveMs;
-    sumScore += s.score * effectiveMs;
-  }
-  return { avgScore: totalMs > 0 ? sumScore / totalMs : null, totalMs };
 }
 
 /**
@@ -110,7 +84,9 @@ export function buildNoiseHistoryListItems(params: {
       const periodMs = Math.max(1, endTs - startTs);
       if (endTs < cutoff || startTs > maxEnd) continue;
 
-      const { avgScore, totalMs } = computeAvgScoreForRange(sortedSlices, startTs, endTs);
+      const aggregate = aggregateNoiseSlicesForRange(sortedSlices, startTs, endTs);
+      const avgScore = aggregate.averageScore;
+      const totalMs = aggregate.validDurationMs;
       if (totalMs <= 0) continue;
 
       items.push({

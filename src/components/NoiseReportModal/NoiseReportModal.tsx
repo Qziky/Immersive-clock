@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 
 import type { NoiseSliceSummary } from "../../types/noise";
 import {
@@ -6,11 +6,15 @@ import {
   LineChart,
   MetricCard,
   Modal,
+  Progress,
   RadioGroup,
+  StatusPill,
   type ChartLineSeries,
   type ChartTick,
+  type UiTone,
 } from "../../ui";
 import { getNoiseControlSettings } from "../../utils/noiseControlSettings";
+import { aggregateNoiseSlicesForRange } from "../../utils/noiseReportAggregation";
 import { readNoiseSlices, subscribeNoiseSlicesUpdated } from "../../utils/noiseSliceService";
 
 import styles from "./NoiseReportModal.module.css";
@@ -43,15 +47,71 @@ const COLORS = {
 
 function formatDuration(durationMs: number): string {
   const seconds = Math.round(durationMs / 1000);
+  const hours = Math.floor(seconds / 3600);
   const minutes = Math.floor(seconds / 60);
-  return `${minutes}分${seconds % 60}秒`;
+  const remainingMinutes = minutes % 60;
+  const remainingSeconds = seconds % 60;
+  return hours > 0
+    ? `${hours}小时${remainingMinutes}分${remainingSeconds}秒`
+    : `${minutes}分${remainingSeconds}秒`;
 }
 
-function getScoreLevelText(score: number): string {
-  if (score >= 90) return "优秀";
-  if (score >= 75) return "良好";
-  if (score >= 60) return "一般";
-  return "较差";
+function formatPeriodRange(start: Date, end: Date): string {
+  const dateFormatter = new Intl.DateTimeFormat("zh-CN", {
+    year: "numeric",
+    month: "numeric",
+    day: "numeric",
+  });
+  const timeFormatter = new Intl.DateTimeFormat("zh-CN", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+  const sameDay =
+    start.getFullYear() === end.getFullYear() &&
+    start.getMonth() === end.getMonth() &&
+    start.getDate() === end.getDate();
+  if (sameDay) {
+    return `${dateFormatter.format(start)} ${timeFormatter.format(start)}–${timeFormatter.format(end)}`;
+  }
+  return `${dateFormatter.format(start)} ${timeFormatter.format(start)}–${dateFormatter.format(end)} ${timeFormatter.format(end)}`;
+}
+
+function getScoreLevel(score: number): { label: string; tone: UiTone } {
+  if (score >= 90) return { label: "优秀", tone: "success" };
+  if (score >= 75) return { label: "良好", tone: "accent" };
+  if (score >= 60) return { label: "一般", tone: "warning" };
+  return { label: "较差", tone: "danger" };
+}
+
+function clampCoverageRatio(value: number): number {
+  return Math.max(0, Math.min(1, Number.isFinite(value) ? value : 0));
+}
+
+function calculateQualifiedDurationMs(
+  slices: readonly (NoiseSliceSummary & { score: number })[],
+  startTs: number,
+  endTs: number,
+  minScore: number
+): number {
+  let coveredUntil = startTs;
+  let qualifiedDurationMs = 0;
+
+  for (const slice of slices) {
+    const overlapStart = Math.max(startTs, slice.start);
+    const overlapEnd = Math.min(endTs, slice.end);
+    const contributionStart = Math.max(overlapStart, coveredUntil);
+    const contributionDurationMs = Math.max(0, overlapEnd - contributionStart);
+    coveredUntil = Math.max(coveredUntil, overlapEnd);
+    if (contributionDurationMs <= 0) continue;
+
+    const validContributionMs =
+      contributionDurationMs * clampCoverageRatio(slice.detail.coverageRatio);
+    if (validContributionMs <= 0 || slice.score < minScore) continue;
+    qualifiedDurationMs += validContributionMs;
+  }
+
+  return qualifiedDurationMs;
 }
 
 function createSegmentedData(
@@ -80,7 +140,6 @@ export const NoiseReportModal: React.FC<NoiseReportModalProps> = ({
   onBack,
   period,
 }) => {
-  const chartContainerRef = useRef<HTMLDivElement>(null);
   const [slices, setSlices] = useState<NoiseSliceSummary[]>([]);
   const [metric, setMetric] = useState<ReportMetric>("quietness-score");
 
@@ -112,78 +171,9 @@ export const NoiseReportModal: React.FC<NoiseReportModalProps> = ({
     if (!period) return null;
     const startTs = period.start.getTime();
     const endTs = period.end.getTime();
-    const periodDurationMs = Math.max(0, endTs - startTs);
-    const periodSlices = slices
-      .filter((slice) => slice.end >= startTs && slice.start <= endTs)
-      .sort((left, right) => left.start - right.start);
-    const validSlices = periodSlices.filter(
-      (slice): slice is NoiseSliceSummary & { score: number } => slice.score !== null
-    );
-
-    let validDurationMs = 0;
-    let weightedScore = 0;
-    let weightedActivityMean = 0;
-    let weightedActivityFloor = 0;
-    let weightedEventFactor = 0;
-    let estimatedDurationMs = 0;
-    let weightedEstimatedDbA = 0;
-    let maxEstimatedDbA = -Infinity;
-    let segmentCount = 0;
-    const distribution = { excellent: 0, good: 0, fair: 0, poor: 0 };
-
-    for (const slice of validSlices) {
-      const overlapStart = Math.max(startTs, slice.start);
-      const overlapEnd = Math.min(endTs, slice.end);
-      const overlapMs = Math.max(0, overlapEnd - overlapStart);
-      const sliceDurationMs = Math.max(1, slice.end - slice.start);
-      const overlapRatio = overlapMs / sliceDurationMs;
-      const sampledDurationMs = Math.min(overlapMs, slice.detail.sampledDurationMs * overlapRatio);
-      if (sampledDurationMs <= 0) continue;
-
-      validDurationMs += sampledDurationMs;
-      weightedScore += slice.score * sampledDurationMs;
-      weightedActivityMean += slice.detail.activityMean * sampledDurationMs;
-      weightedActivityFloor += slice.detail.activityFloor * sampledDurationMs;
-      weightedEventFactor += slice.detail.eventFactor * sampledDurationMs;
-      segmentCount += Math.round(slice.detail.eventCount * overlapRatio);
-
-      if (slice.score >= 90) distribution.excellent += sampledDurationMs;
-      else if (slice.score >= 75) distribution.good += sampledDurationMs;
-      else if (slice.score >= 60) distribution.fair += sampledDurationMs;
-      else distribution.poor += sampledDurationMs;
-
-      if (slice.estimated) {
-        estimatedDurationMs += sampledDurationMs;
-        weightedEstimatedDbA += slice.estimated.avgDbA * sampledDurationMs;
-        maxEstimatedDbA = Math.max(maxEstimatedDbA, slice.estimated.p95DbA);
-      }
-    }
-
-    const averageScore = validDurationMs > 0 ? weightedScore / validDurationMs : null;
-    const hasEstimated = estimatedDurationMs > 0;
     return {
-      activityMean: validDurationMs > 0 ? weightedActivityMean / validDurationMs : 0,
-      activityFloor: validDurationMs > 0 ? weightedActivityFloor / validDurationMs : 0,
-      averageEstimatedDbA: hasEstimated ? weightedEstimatedDbA / estimatedDurationMs : null,
-      averageScore,
-      excludedDurationMs: Math.max(0, periodDurationMs - validDurationMs),
-      hasEstimated,
-      maxEstimatedDbA: hasEstimated ? maxEstimatedDbA : null,
-      periodDurationMs,
+      ...aggregateNoiseSlicesForRange(slices, startTs, endTs),
       scoreAlertThreshold: getNoiseControlSettings().scoreAlertThreshold,
-      segmentCount,
-      slices: validSlices,
-      eventFactor: validDurationMs > 0 ? weightedEventFactor / validDurationMs : 0,
-      validDurationMs,
-      distribution:
-        validDurationMs > 0
-          ? {
-              excellent: distribution.excellent / validDurationMs,
-              good: distribution.good / validDurationMs,
-              fair: distribution.fair / validDurationMs,
-              poor: distribution.poor / validDurationMs,
-            }
-          : { excellent: 0, good: 0, fair: 0, poor: 0 },
     };
   }, [period, slices]);
 
@@ -228,7 +218,7 @@ export const NoiseReportModal: React.FC<NoiseReportModalProps> = ({
     };
   }, [metric, period, report]);
 
-  const modalTitle = period ? `${period.name} 统计报告` : "统计报告";
+  const modalTitle = "噪音统计报告";
   const modalFooter = (
     <div className={styles.footer}>
       <FormButton variant="primary" size="sm" onClick={onBack ?? onClose}>
@@ -237,7 +227,7 @@ export const NoiseReportModal: React.FC<NoiseReportModalProps> = ({
     </div>
   );
 
-  if (!report || report.validDurationMs <= 0 || report.averageScore === null) {
+  if (!period || !report || report.validDurationMs <= 0 || report.averageScore === null) {
     return (
       <Modal
         isOpen={isOpen}
@@ -258,7 +248,26 @@ export const NoiseReportModal: React.FC<NoiseReportModalProps> = ({
 
   const score = Math.round(report.averageScore);
   const coveragePercent =
-    report.periodDurationMs > 0 ? (report.validDurationMs / report.periodDurationMs) * 100 : 0;
+    report.periodDurationMs > 0
+      ? Math.min(100, Math.max(0, (report.validDurationMs / report.periodDurationMs) * 100))
+      : 0;
+  const quietDurationMs = Math.min(
+    report.validDurationMs,
+    calculateQualifiedDurationMs(
+      report.slices,
+      period.start.getTime(),
+      period.end.getTime(),
+      report.scoreAlertThreshold
+    )
+  );
+  const quietRatePercent =
+    report.validDurationMs > 0
+      ? Math.min(100, Math.max(0, (quietDurationMs / report.validDurationMs) * 100))
+      : 0;
+  const attentionDurationMs = Math.max(0, report.validDurationMs - quietDurationMs);
+  const scoreLevel = getScoreLevel(score);
+  const coverageSufficient = coveragePercent >= 80;
+  const dataQualitySummary = `数据质量：覆盖 ${coveragePercent.toFixed(1)}% · 有效 ${formatDuration(report.validDurationMs)} · 排除 ${formatDuration(report.excludedDurationMs)}`;
 
   return (
     <Modal
@@ -271,56 +280,78 @@ export const NoiseReportModal: React.FC<NoiseReportModalProps> = ({
       footer={modalFooter}
     >
       <div className={`${styles.container} ${styles.reportContent}`}>
-        <section className={styles.section}>
-          <h4 className={styles.sectionTitle}>报告概览</h4>
-          <div className={styles.overviewGrid}>
-            <MetricCard
-              className={styles.card}
-              label="有效覆盖"
-              value={formatDuration(report.validDurationMs)}
-            />
-            <MetricCard
-              className={styles.card}
-              label="表现"
-              meta={`${getScoreLevelText(score)} · 仅统计有效切片`}
-              tone="accent"
-              value={`${score} 分`}
-            />
-            <MetricCard
-              className={styles.card}
-              label="排除时长"
-              value={formatDuration(report.excludedDurationMs)}
-            />
-            <MetricCard
-              className={styles.card}
-              label="平均活动度"
-              value={`${(report.activityMean * 100).toFixed(0)}%`}
-            />
-            <MetricCard
-              className={styles.card}
-              label="持续活动底"
-              value={`${(report.activityFloor * 100).toFixed(0)}%`}
-            />
-            <MetricCard className={styles.card} label="噪音事件" value={report.segmentCount} />
+        <section className={`${styles.section} ${styles.summarySection}`}>
+          <div className={styles.reportIntro}>
+            <div className={styles.reportIdentity}>
+              <span className={styles.eyebrow}>报告时段</span>
+              <h3 className={styles.reportName}>{period.name}</h3>
+              <p className={styles.periodRange}>
+                {formatPeriodRange(period.start, period.end)} · 共
+                {formatDuration(report.periodDurationMs)}
+              </p>
+            </div>
+            <StatusPill tone={coverageSufficient ? "success" : "warning"}>
+              {coverageSufficient ? "覆盖充分" : "覆盖有限"}
+            </StatusPill>
+          </div>
+          <div className={styles.summaryGrid}>
+            <div className={styles.scoreSummary}>
+              <span className={styles.summaryLabel}>环境安静评分</span>
+              <div className={styles.scoreRow}>
+                <strong className={styles.scoreValue}>{score}</strong>
+                <span className={styles.scoreUnit}>分</span>
+                <StatusPill tone={scoreLevel.tone}>{scoreLevel.label}</StatusPill>
+              </div>
+              <p className={styles.summaryDescription}>
+                评分越高，环境越安静。仅统计达到单窗口覆盖要求的有效数据。
+              </p>
+            </div>
+            <div className={styles.qualitySummary} role="group" aria-label="安静达标率摘要">
+              <div className={styles.qualityHeading}>
+                <span className={styles.summaryLabel}>安静达标率</span>
+                <strong>{quietRatePercent.toFixed(1)}%</strong>
+              </div>
+              <p className={styles.summaryDescription}>
+                达到提醒阈值的有效时段占比。越高表示越少需要留意。
+              </p>
+              <Progress value={quietRatePercent} label="安静达标率" />
+              <div className={styles.qualityDetails}>
+                <div>
+                  <span>安静时段</span>
+                  <strong>{formatDuration(quietDurationMs)}</strong>
+                </div>
+                <div>
+                  <span>需留意时段</span>
+                  <strong>{formatDuration(attentionDurationMs)}</strong>
+                </div>
+              </div>
+            </div>
           </div>
         </section>
 
         <section className={styles.section}>
           <div className={styles.sectionHeader}>
-            <h4 className={styles.sectionTitle}>环境趋势</h4>
-            <RadioGroup
-              className={styles.chartSwitch}
-              ariaLabel="报告主指标"
-              value={metric}
-              options={[
-                { value: "quietness-score", label: "评分" },
-                ...(report.hasEstimated ? [{ value: "estimated-dba", label: "估算 dB(A)" }] : []),
-              ]}
-              onChange={(value) => setMetric(value as ReportMetric)}
-            />
+            <div>
+              <h3 className={styles.sectionTitle}>环境趋势</h3>
+              <p className={styles.sectionDescription}>
+                查看安静评分随时间的变化，虚线表示低于提醒阈值的区间。
+              </p>
+            </div>
+            {report.hasEstimated && (
+              <RadioGroup
+                className={styles.chartSwitch}
+                ariaLabel="报告主指标"
+                value={metric}
+                options={[
+                  { value: "quietness-score", label: "评分" },
+                  { value: "estimated-dba", label: "估算 dB(A)" },
+                ]}
+                onChange={(value) => setMetric(value as ReportMetric)}
+              />
+            )}
           </div>
           {chart && chart.series[0].data.length >= 2 ? (
-            <div ref={chartContainerRef} className={styles.chartWrap}>
+            <div className={styles.chartWrap}>
               <LineChart
                 ariaLabel={chart.scoreMode ? "环境安静评分走势" : "估算 dB(A) 走势"}
                 description={
@@ -349,13 +380,22 @@ export const NoiseReportModal: React.FC<NoiseReportModalProps> = ({
           ) : (
             <div className={`${styles.empty} ${styles.chartEmpty}`}>趋势样本不足</div>
           )}
-          <div className={styles.rangeInfo}>
-            有效覆盖率 {coveragePercent.toFixed(1)}%；未校准切片只参与评分，不生成估算 dB(A)。
+          <p className={styles.dataQualityNote}>{dataQualitySummary}</p>
+          <div className={styles.chartNote}>
+            <strong>阅读说明</strong>
+            <span>
+              {report.hasEstimated
+                ? "可切换查看带校准快照的估算 dB(A)；校准不会改变安静评分。"
+                : "当前报告没有校准读数；有效窗口仍会参与安静评分。"}
+            </span>
           </div>
         </section>
 
         <section className={styles.section}>
-          <h4 className={styles.sectionTitle}>评分构成</h4>
+          <h3 className={styles.sectionTitle}>评分依据</h3>
+          <p className={styles.sectionDescription}>
+            评分分布展示各等级所占时间，环境特征越低表示对安静评分的影响越小。
+          </p>
           <div className={styles.chartGrid}>
             <div className={styles.chartContainer}>
               <div className={styles.chartTitle}>评分分布</div>
@@ -383,28 +423,30 @@ export const NoiseReportModal: React.FC<NoiseReportModalProps> = ({
               <div className={styles.legend}>
                 {(
                   [
-                    ["excellent", "优秀", COLORS.excellent],
-                    ["good", "良好", COLORS.good],
-                    ["fair", "一般", COLORS.fair],
-                    ["poor", "较差", COLORS.poor],
+                    ["excellent", "优秀", "90–100", COLORS.excellent],
+                    ["good", "良好", "75–89", COLORS.good],
+                    ["fair", "一般", "60–74", COLORS.fair],
+                    ["poor", "较差", "低于 60", COLORS.poor],
                   ] as const
-                ).map(([key, label, color]) => (
+                ).map(([key, label, range, color]) => (
                   <div className={styles.legendItem} key={key}>
                     <span className={styles.legendColor} style={{ background: color }} />
-                    {label} ({(report.distribution[key] * 100).toFixed(0)}%)
+                    <span>
+                      {label} {range} · {(report.distribution[key] * 100).toFixed(0)}%
+                    </span>
                   </div>
                 ))}
               </div>
             </div>
 
             <div className={styles.chartContainer}>
-              <div className={styles.chartTitle}>平均评分构成</div>
+              <div className={styles.chartTitle}>影响评分的环境特征</div>
               <div className={styles.penaltyList}>
                 {(
                   [
-                    ["平均活动度", report.activityMean, COLORS.sustained],
-                    ["持续活动底", report.activityFloor, COLORS.time],
-                    ["事件频度", report.eventFactor, COLORS.segment],
+                    ["整体声活动", report.activityMean, COLORS.sustained],
+                    ["持续背景声", report.activityFloor, COLORS.time],
+                    ["突发声频度", report.eventFactor, COLORS.segment],
                   ] as const
                 ).map(([label, value, color]) => (
                   <div className={styles.penaltyItem} key={label}>
@@ -425,7 +467,10 @@ export const NoiseReportModal: React.FC<NoiseReportModalProps> = ({
 
         {report.hasEstimated && (
           <section className={styles.section}>
-            <h4 className={styles.sectionTitle}>校准读数</h4>
+            <h3 className={styles.sectionTitle}>校准读数</h3>
+            <p className={styles.sectionDescription}>
+              仅作为经过外部参考校准后的估算值，不改变环境安静评分。
+            </p>
             <div className={styles.calibrationSummary}>
               <MetricCard
                 className={styles.card}

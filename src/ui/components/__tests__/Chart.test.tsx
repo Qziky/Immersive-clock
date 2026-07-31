@@ -61,6 +61,7 @@ describe("LineChart", () => {
       "stroke",
       "var(--ui-color-success)"
     );
+    expect(container.querySelectorAll('[class*="lineHalo"]')).toHaveLength(0);
     expect(container.querySelector('[data-chart-bar-series="events"]')).not.toBeNull();
     expect(container.querySelector('[data-chart-threshold="50"]')).not.toBeNull();
     expect(screen.getByLabelText("图表图例")).toHaveTextContent("噪音");

@@ -448,12 +448,6 @@ function LineChart({
                   ) : (
                     <g key={`${lineSeries.id}-segment-${segmentIndex}`}>
                       <path
-                        className={styles.lineHalo}
-                        d={path}
-                        stroke={stroke}
-                        opacity={(lineSeries.opacity ?? 1) * 0.06}
-                      />
-                      <path
                         className={styles.line}
                         data-chart-series={lineSeries.id}
                         d={path}

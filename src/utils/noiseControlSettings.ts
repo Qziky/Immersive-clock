@@ -57,6 +57,21 @@ function normalize(settings: Partial<NoiseControlSettings>): NoiseControlSetting
         : DEFAULT_SETTINGS.alertSoundEnabled,
   };
 }
+function areNoiseControlSettingsEqual(
+  current: NoiseControlSettings,
+  next: NoiseControlSettings
+): boolean {
+  return (
+    current.monitoringEnabled === next.monitoringEnabled &&
+    current.historyEnabled === next.historyEnabled &&
+    current.preferredInputDevice?.deviceId === next.preferredInputDevice?.deviceId &&
+    current.preferredInputDevice?.label === next.preferredInputDevice?.label &&
+    current.primaryMetric === next.primaryMetric &&
+    current.showRealtimeValue === next.showRealtimeValue &&
+    current.scoreAlertThreshold === next.scoreAlertThreshold &&
+    current.alertSoundEnabled === next.alertSoundEnabled
+  );
+}
 
 export function getNoiseControlSettings(): NoiseControlSettings {
   return normalize(getAppSettings().noiseControl);
@@ -64,7 +79,10 @@ export function getNoiseControlSettings(): NoiseControlSettings {
 
 export function saveNoiseControlSettings(settings: Partial<NoiseControlSettings>): void {
   try {
-    const next = normalize({ ...getNoiseControlSettings(), ...settings });
+    const current = getNoiseControlSettings();
+    const next = normalize({ ...current, ...settings });
+    if (areNoiseControlSettingsEqual(current, next)) return;
+
     updateNoiseSettings(next);
     broadcastSettingsEvent(SETTINGS_EVENTS.NoiseControlSettingsUpdated, { settings: next });
     broadcastNoiseSyncMessage(
