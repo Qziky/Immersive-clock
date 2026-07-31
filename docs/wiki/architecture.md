@@ -42,10 +42,10 @@ reducer。时间同步由 `src/utils/timeSync.ts` 管理，主页面挂载后启
 或 CacheStorage。清理操作使用注册键和已知缓存名称白名单，未知同源数据不属于应用数据域。
 
 备份协议将设置、自定义资源和可选的噪声历史按域版本封装；恢复先完成解析、迁移和完整
-校验，再按替换语义提交，并在写入失败时尝试恢复原设置、资源和历史。噪声切片的主存储为
-IndexedDB `noise-history` Store，按 `end` 索引查询；旧 `noise-slices` localStorage 数据在首次
-使用时幂等迁移，IndexedDB 不可用时才保留兼容回退。完整的数据归属、备份内容与清理边界
-见 [本地数据管理](../data-management.md)。
+校验，再按替换语义提交，并在写入失败时尝试恢复原设置、资源和历史。IndexedDB v7 将
+采集会话、列式 100 ms 特征分块、派生评分和重算状态分开存储；原始帧不使用 localStorage
+回退。独立 dB(A) 校准属于 `deviceState`，不进入备份。完整的数据归属、备份内容与清理边界见
+[本地数据管理](../data-management.md)。
 
 ## 模块分层
 

@@ -81,15 +81,15 @@ UI、存储、网络请求和算法混在同一个组件中。
 
 ## 噪音监测与报告
 
-噪音模块包含实时采样、帧处理、切片聚合、评分、历史构建和报告展示。算法和采样细节
-应优先参考专题文档。
+噪音模块包含单 Leader 采集、AudioWorklet 特征提取、原始帧持久化、无基线环境安静评分、
+后台重算、历史构建和报告展示。算法和采样细节应优先参考专题文档。
 
 相关模块：
 
 - `src/components/NoiseMonitor/`：噪音监测入口。
 - `src/components/NoiseSettings/`：实时图表、统计摘要、告警历史。
 - `src/components/NoiseReportModal/`、`src/components/NoiseHistoryModal/`：报告和历史弹窗。
-- `src/services/noise/`：采集、帧处理、环形缓冲、切片聚合和流服务。
+- `src/services/noise/`：采集适配器、特征仓库、Leader 协调、重算 Worker、环形缓冲和流服务。
 - `src/utils/noiseScoreEngine.ts`：评分引擎。
 - `src/utils/noiseSliceService.ts`、`src/utils/noiseHistoryBuilder.ts`：切片存储和历史构建。
 - `docs/noise-technical-spec.md`、`docs/noise-scoring.md`：噪音专题文档。

@@ -142,24 +142,38 @@ describe("tour 守卫式下一步", () => {
     window.removeEventListener("tour:completed", completedListener);
   });
 
-  it("切换监测设置：未切换时点击下一步不会跳步，并触发辅助切换", async () => {
+  it("切换监测设置：自动打开紧凑导航中的噪音面板并继续", async () => {
     vi.useFakeTimers();
     driverMock.mockClear();
     localStorage.clear();
 
-    const monitorTab = document.createElement("button");
-    monitorTab.id = "monitor";
-    monitorTab.setAttribute("aria-selected", "false");
-    monitorTab.addEventListener("click", () => {
-      monitorTab.setAttribute("aria-selected", "true");
+    const visibleRects = [{}] as unknown as DOMRectList;
+    const environmentGroup = document.createElement("button");
+    environmentGroup.setAttribute("data-settings-group", "environment");
+    vi.spyOn(environmentGroup, "getClientRects").mockReturnValue(visibleRects);
+
+    const noisePane = document.createElement("button");
+    noisePane.setAttribute("data-settings-pane", "noise");
+    vi.spyOn(noisePane, "getClientRects").mockReturnValue(visibleRects);
+
+    const studyPanel = document.createElement("div");
+    studyPanel.id = "study-panel";
+    studyPanel.hidden = true;
+    environmentGroup.addEventListener("click", () => document.body.appendChild(noisePane));
+    noisePane.addEventListener("click", () => {
+      studyPanel.hidden = false;
     });
-    document.body.appendChild(monitorTab);
+    const groupClickSpy = vi.spyOn(environmentGroup, "click");
+    const paneClickSpy = vi.spyOn(noisePane, "click");
+    document.body.append(environmentGroup, studyPanel);
 
     const { startTour } = await import("../tour");
     startTour(true);
 
     const config = driverMock.mock.calls[0]?.[0] as Config;
-    const step = config.steps?.find((s) => s.element === "#monitor");
+    const step = config.steps?.find((candidate) => candidate.popover?.title === "监测设置");
+    expect(step?.element).toBeTypeOf("function");
+    expect(typeof step?.element === "function" ? step.element() : null).toBe(environmentGroup);
     expect(step?.popover?.onNextClick).toBeTypeOf("function");
 
     const driverInstance = driverMock.mock.results[0]?.value as Driver;
@@ -171,9 +185,13 @@ describe("tour 守卫式下一步", () => {
       driver: driverInstance,
     });
 
+    expect(groupClickSpy).toHaveBeenCalledTimes(1);
     expect(driverInstance.moveNext).not.toHaveBeenCalled();
-    expect(monitorTab.getAttribute("aria-selected")).toBe("true");
     expect(popoverDom.description.textContent).toContain("已为您执行切换操作");
+
+    await vi.runAllTimersAsync();
+    expect(paneClickSpy).toHaveBeenCalledTimes(1);
+    expect(studyPanel.hidden).toBe(false);
 
     step!.popover!.onNextClick!(undefined, step as DriveStep, {
       config,
@@ -183,71 +201,60 @@ describe("tour 守卫式下一步", () => {
 
     expect(driverInstance.moveNext).toHaveBeenCalledTimes(1);
   });
-
-  it("噪音校准：未操作时不会跳步，并触发辅助点击校准按钮", async () => {
+  it("噪音校准：自动切换子 Tab，但不会自动开始采集", async () => {
     vi.useFakeTimers();
     driverMock.mockClear();
     localStorage.clear();
 
-    const calibrationWrapper = document.createElement("div");
-    calibrationWrapper.setAttribute("data-tour", "noise-calibration");
-
-    const status = document.createElement("div");
-    status.setAttribute("data-tour", "noise-calibration-status");
-    status.textContent = "未校准";
-    calibrationWrapper.appendChild(status);
-
-    const sliderWrapper = document.createElement("div");
-    sliderWrapper.id = "tour-noise-baseline-slider";
-    const slider = document.createElement("input");
-    slider.type = "range";
-    slider.value = "45";
-    sliderWrapper.appendChild(slider);
-    calibrationWrapper.appendChild(sliderWrapper);
-
-    const calibrateBtn = document.createElement("button");
-    calibrateBtn.id = "tour-noise-calibrate-btn";
-    const clickSpy = vi.spyOn(calibrateBtn, "click");
-    calibrateBtn.addEventListener("click", () => {
-      status.textContent = "已校准";
+    const calibrationTab = document.createElement("button");
+    calibrationTab.id = "noise-settings-tabs-tab-calibration";
+    calibrationTab.setAttribute("aria-selected", "false");
+    const tabClickSpy = vi.spyOn(calibrationTab, "click");
+    calibrationTab.addEventListener("click", () => {
+      calibrationTab.setAttribute("aria-selected", "true");
     });
-    calibrationWrapper.appendChild(calibrateBtn);
 
-    document.body.appendChild(calibrationWrapper);
+    const calibrationPanel = document.createElement("div");
+    calibrationPanel.setAttribute("data-tour", "noise-calibration");
+    const calibrateButton = document.createElement("button");
+    calibrateButton.setAttribute("data-tour", "noise-calibrate-button");
+    const calibrateClickSpy = vi.spyOn(calibrateButton, "click");
+    calibrationPanel.appendChild(calibrateButton);
+    document.body.append(calibrationTab, calibrationPanel);
 
     const { startTour } = await import("../tour");
     startTour(true);
 
     const config = driverMock.mock.calls[0]?.[0] as Config;
-    const step = config.steps?.find((s) => s.element === '[data-tour="noise-calibration"]');
-    expect(step?.popover?.onNextClick).toBeTypeOf("function");
+    const tabStep = config.steps?.find(
+      (step) => step.element === "#noise-settings-tabs-tab-calibration"
+    );
+    const panelStep = config.steps?.find(
+      (step) => step.element === '[data-tour="noise-calibration"]'
+    );
+    expect(tabStep?.popover?.onNextClick).toBeTypeOf("function");
+    expect(panelStep?.popover?.onNextClick).toBeUndefined();
 
     const driverInstance = driverMock.mock.results[0]?.value as Driver;
     const popoverDom = createPopoverDom();
-
-    step?.onHighlightStarted?.(undefined as unknown as Element, step as DriveStep, {
+    tabStep!.popover!.onNextClick!(undefined, tabStep as DriveStep, {
       config,
       state: { popover: popoverDom } as State,
       driver: driverInstance,
     });
 
-    step!.popover!.onNextClick!(undefined, step as DriveStep, {
-      config,
-      state: { popover: popoverDom } as State,
-      driver: driverInstance,
-    });
-
-    expect(clickSpy).toHaveBeenCalledTimes(1);
+    expect(tabClickSpy).toHaveBeenCalledTimes(1);
     expect(driverInstance.moveNext).not.toHaveBeenCalled();
-    expect(popoverDom.description.textContent).toContain("已为您触发校准操作");
+    expect(popoverDom.description.textContent).toContain("已为您切换到校准页");
 
-    step!.popover!.onNextClick!(undefined, step as DriveStep, {
+    tabStep!.popover!.onNextClick!(undefined, tabStep as DriveStep, {
       config,
       state: { popover: popoverDom } as State,
       driver: driverInstance,
     });
 
     expect(driverInstance.moveNext).toHaveBeenCalledTimes(1);
+    expect(calibrateClickSpy).not.toHaveBeenCalled();
   });
 
   it("打开历史记录：未打开弹窗时不会跳步，并触发辅助点击入口", async () => {

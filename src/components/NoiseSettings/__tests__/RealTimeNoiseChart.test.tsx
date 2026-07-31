@@ -13,19 +13,20 @@ describe("RealTimeNoiseChart", () => {
   it("renders realtime samples and the warning threshold through the shared chart", () => {
     noiseStreamMock.useNoiseStream.mockReturnValue({
       ringBuffer: [
-        { t: 1_000, displayDb: 42, dbfs: -48 },
-        { t: 1_100, displayDb: 47, dbfs: -43 },
-        { t: 1_200, displayDb: 58, dbfs: -32 },
+        { t: 1_000, quietnessScore: 82, estimatedDbA: null },
+        { t: 1_100, quietnessScore: 76, estimatedDbA: null },
+        { t: 1_200, quietnessScore: 64, estimatedDbA: null },
       ],
-      maxLevelDb: 55,
+      primaryMetric: "quietness-score",
+      scoreAlertThreshold: 70,
       status: "noisy",
     });
 
     const { container } = render(<RealTimeNoiseChart />);
 
-    expect(screen.getByRole("img", { name: "实时噪音折线图" })).toBeInTheDocument();
-    expect(screen.getByText("58.0 dB")).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "实时环境评分折线图" })).toBeInTheDocument();
+    expect(screen.getByText("64.0 分")).toBeInTheDocument();
     expect(container.querySelector('[data-chart-series="realtime-noise"]')).not.toBeNull();
-    expect(container.querySelector('[data-chart-threshold="55"]')).not.toBeNull();
+    expect(container.querySelector('[data-chart-threshold="70"]')).not.toBeNull();
   });
 });

@@ -61,7 +61,7 @@ This document explains Immersive Clock features, operations, and details. Use th
   - Manual location requires entering a city, selecting **Search City**, and choosing an exact Xiaomi candidate. The saved city-center coordinates and `locationKey` are reused directly.
   - The **Updates** tab shows the last success, next refresh, and runtime status, with a manual refresh command. Scheduling and request protection are managed internally.
 - Noise settings:
-  - Microphone calibration and baseline slider.
+  - Optional microphone calibration for estimated dB(A).
   - Auto pop report (on by default), preferences are persisted.
 - Study display:
   - Plan Progress shows today's progress from 00:00 to 24:00 by default.
@@ -93,9 +93,18 @@ the selected target. Changes are persisted only after selecting Save.
 
 ## Noise Monitoring & Reports
 
-- Requires microphone permission; shows current noise level and status.
-- Generates statistical reports before session end: average, peak, alerts count, noisy duration.
-- History dialog with dual-scroll columns and chart threshold lines.
+- Requires microphone permission and uses a baseline-free `0-100` quietness score as the primary metric.
+- Choose the system default or a specific input under Settings → Environment Alerts → Noise Monitoring
+  → Control. “Authorize and refresh” reveals device names; if the preferred device is unavailable,
+  capture temporarily falls back to the system default while preserving the preference.
+- Only one tab captures the microphone; other open tabs follow the leader's feature summaries.
+- Reports include only valid slices and show valid coverage and excluded duration separately.
+- Sustained zero values and suspected audio processing share a single “signal anomaly” state because
+  the application cannot reliably distinguish their cause. Invalid zero-value intervals are still
+  excluded from score coverage, while low non-zero signals are shown as below range.
+- Estimated dB(A) appears only after a stable 10-second calibration against a colocated sound level meter.
+  It is not a certified sound level measurement and becomes invalid when the device or processing
+  configuration changes.
 
 ## Motivational Quotes & Channel Management
 

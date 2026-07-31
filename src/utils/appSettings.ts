@@ -1,12 +1,4 @@
 import {
-  NOISE_ANALYSIS_FRAME_MS,
-  NOISE_ANALYSIS_SLICE_SEC,
-  NOISE_SCORE_MAX_SEGMENTS_PER_MIN,
-  NOISE_SCORE_SEGMENT_MERGE_GAP_MS,
-  NOISE_SCORE_THRESHOLD_DBFS,
-} from "../constants/noise";
-import { DEFAULT_NOISE_REPORT_RETENTION_DAYS } from "../constants/noiseReport";
-import {
   getDefaultQuoteChannels,
   resolveQuoteChannels,
   serializeQuoteChannels,
@@ -24,6 +16,7 @@ import {
   type StudyInfoSource,
 } from "../types";
 import type { AppearanceSettingsV2 } from "../types/appearance";
+import type { NoiseInputDevicePreference } from "../types/noise";
 import type {
   CustomQuoteChannel,
   HitokotoCategory,
@@ -126,27 +119,20 @@ export interface AppSettings {
   };
 
   noiseControl: {
-    maxLevelDb: number;
-    baselineDb: number;
-    showRealtimeDb: boolean;
-    avgWindowSec: number;
-    sliceSec: number;
-    frameMs: number;
-    scoreThresholdDbfs: number;
-    segmentMergeGapMs: number;
-    maxSegmentsPerMin: number;
-    // 新增字段
-    baselineDisplayDb: number;
-    baselineRms: number;
+    monitoringEnabled: boolean;
+    historyEnabled: boolean;
+    preferredInputDevice: NoiseInputDevicePreference | null;
+    primaryMetric: "quietness-score" | "estimated-dba";
+    showRealtimeValue: boolean;
+    scoreAlertThreshold: number;
     reportAutoPopup: boolean;
-    reportRetentionDays: number;
     alertSoundEnabled: boolean;
   };
 }
 
 export const APP_SETTINGS_KEY = "AppSettings";
 export const APP_SETTINGS_QUARANTINE_KEY = "immersive-clock:quarantine:app-settings";
-export const CURRENT_SETTINGS_VERSION = 8;
+export const CURRENT_SETTINGS_VERSION = 10;
 
 /** 中央信息轮播的硬上限，配置与运行时都应遵守该值。 */
 export const MAX_STUDY_INFO_ITEMS = 20;
@@ -819,19 +805,13 @@ const DEFAULT_SETTINGS: AppSettings = {
     },
   },
   noiseControl: {
-    maxLevelDb: 55,
-    baselineDb: 40,
-    showRealtimeDb: true,
-    avgWindowSec: 1,
-    sliceSec: NOISE_ANALYSIS_SLICE_SEC,
-    frameMs: NOISE_ANALYSIS_FRAME_MS,
-    scoreThresholdDbfs: NOISE_SCORE_THRESHOLD_DBFS,
-    segmentMergeGapMs: NOISE_SCORE_SEGMENT_MERGE_GAP_MS,
-    maxSegmentsPerMin: NOISE_SCORE_MAX_SEGMENTS_PER_MIN,
-    baselineDisplayDb: 40,
-    baselineRms: 0.000414581087327115,
+    monitoringEnabled: true,
+    historyEnabled: true,
+    preferredInputDevice: null,
+    primaryMetric: "quietness-score",
+    showRealtimeValue: true,
+    scoreAlertThreshold: 70,
     reportAutoPopup: true,
-    reportRetentionDays: DEFAULT_NOISE_REPORT_RETENTION_DAYS,
     alertSoundEnabled: false,
   },
 };
@@ -863,6 +843,14 @@ function normalizeStudyDisplaySettings(value: unknown): StudyDisplaySettings {
     showTime: typeof source.showTime === "boolean" ? source.showTime : defaults.showTime,
     showDate: typeof source.showDate === "boolean" ? source.showDate : defaults.showDate,
   };
+}
+
+function normalizeNoiseInputDevicePreference(value: unknown): NoiseInputDevicePreference | null {
+  if (!isRecord(value)) return null;
+  const deviceId = typeof value.deviceId === "string" ? value.deviceId.trim() : "";
+  const label = typeof value.label === "string" ? value.label.trim() : "";
+  if (!deviceId || !label || deviceId === "default" || deviceId === "communications") return null;
+  return { deviceId, label };
 }
 
 export function getDefaultAppSettings(): AppSettings {
@@ -1055,9 +1043,42 @@ export function normalizeAppSettings(value: unknown): AppSettings {
       background: { ...DEFAULT_SETTINGS.study.background, ...parsedStudyBackground },
     } as AppSettings["study"],
     noiseControl: {
-      ...DEFAULT_SETTINGS.noiseControl,
-      ...parsedNoiseControl,
-    } as AppSettings["noiseControl"],
+      monitoringEnabled:
+        typeof parsedNoiseControl.monitoringEnabled === "boolean"
+          ? parsedNoiseControl.monitoringEnabled
+          : storedVersion <= 8 && typeof parsedDisplay.showNoiseMonitor === "boolean"
+            ? parsedDisplay.showNoiseMonitor
+            : DEFAULT_SETTINGS.noiseControl.monitoringEnabled,
+      historyEnabled:
+        typeof parsedNoiseControl.historyEnabled === "boolean"
+          ? parsedNoiseControl.historyEnabled
+          : DEFAULT_SETTINGS.noiseControl.historyEnabled,
+      preferredInputDevice:
+        storedVersion >= 10
+          ? normalizeNoiseInputDevicePreference(parsedNoiseControl.preferredInputDevice)
+          : null,
+      primaryMetric:
+        parsedNoiseControl.primaryMetric === "estimated-dba" ? "estimated-dba" : "quietness-score",
+      showRealtimeValue:
+        typeof parsedNoiseControl.showRealtimeValue === "boolean"
+          ? parsedNoiseControl.showRealtimeValue
+          : typeof parsedNoiseControl.showRealtimeDb === "boolean"
+            ? parsedNoiseControl.showRealtimeDb
+            : DEFAULT_SETTINGS.noiseControl.showRealtimeValue,
+      scoreAlertThreshold:
+        typeof parsedNoiseControl.scoreAlertThreshold === "number" &&
+        Number.isFinite(parsedNoiseControl.scoreAlertThreshold)
+          ? Math.max(0, Math.min(100, parsedNoiseControl.scoreAlertThreshold))
+          : DEFAULT_SETTINGS.noiseControl.scoreAlertThreshold,
+      reportAutoPopup:
+        typeof parsedNoiseControl.reportAutoPopup === "boolean"
+          ? parsedNoiseControl.reportAutoPopup
+          : DEFAULT_SETTINGS.noiseControl.reportAutoPopup,
+      alertSoundEnabled:
+        typeof parsedNoiseControl.alertSoundEnabled === "boolean"
+          ? parsedNoiseControl.alertSoundEnabled
+          : DEFAULT_SETTINGS.noiseControl.alertSoundEnabled,
+    },
   };
 }
 
@@ -1170,7 +1191,20 @@ export function updateAppSettings(
       };
     }
     if (updates.noiseControl) {
-      nextSettings.noiseControl = { ...current.noiseControl, ...updates.noiseControl };
+      const noiseUpdates = updates.noiseControl;
+      nextSettings.noiseControl = {
+        ...current.noiseControl,
+        ...noiseUpdates,
+        preferredInputDevice:
+          noiseUpdates.preferredInputDevice === undefined
+            ? current.noiseControl.preferredInputDevice
+            : noiseUpdates.preferredInputDevice === null
+              ? null
+              : normalizeNoiseInputDevicePreference({
+                  ...current.noiseControl.preferredInputDevice,
+                  ...noiseUpdates.preferredInputDevice,
+                }),
+      };
     }
     if (updates.appearance) {
       nextSettings.appearance = normalizeAppearance({

@@ -11,6 +11,7 @@ vi.mock("../weatherService", () => ({
 describe("weatherAlertRuntime", () => {
   beforeEach(() => {
     vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-17T10:00:00+08:00"));
     vi.resetModules();
     mocks.fetchWeatherAlertsByCoords.mockReset();
   });

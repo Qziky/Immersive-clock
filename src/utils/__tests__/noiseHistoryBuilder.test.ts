@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { DEFAULT_NOISE_REPORT_RETENTION_DAYS } from "../../constants/noiseReport";
+import { createNoiseSliceFixture } from "../../test/noiseFixtures";
 import type { NoiseSliceSummary } from "../../types/noise";
 import type { StudyPeriod } from "../../types/studySchedule";
 import { buildNoiseHistoryListItems } from "../noiseHistoryBuilder";
@@ -9,38 +10,18 @@ import { buildNoiseHistoryListItems } from "../noiseHistoryBuilder";
  * 构造测试切片（函数级注释：生成最小可用的 NoiseSliceSummary 结构用于历史聚合测试）
  */
 function makeSlice(params: { start: number; end: number; score: number }): NoiseSliceSummary {
-  return {
+  return createNoiseSliceFixture({
+    id: `test:${params.start}`,
     start: params.start,
     end: params.end,
-    frames: 1,
-    raw: {
-      avgDbfs: -40,
-      maxDbfs: -20,
-      p50Dbfs: -40,
-      p95Dbfs: -25,
-      overRatioDbfs: 0,
-      segmentCount: 0,
-    },
-    display: {
-      avgDb: 40,
-      p95Db: 50,
-    },
     score: params.score,
-    scoreDetail: {
-      sustainedPenalty: 0,
-      timePenalty: 0,
-      segmentPenalty: 0,
-      thresholdsUsed: {
-        scoreThresholdDbfs: -35,
-        segmentMergeGapMs: 5000,
-        maxSegmentsPerMin: 6,
-      },
-      sustainedLevelDbfs: -40,
-      overRatioDbfs: 0,
-      segmentCount: 0,
-      minutes: 1,
+    detail: {
+      ...createNoiseSliceFixture().detail,
+      durationMs: params.end - params.start,
+      sampledDurationMs: params.end - params.start,
+      coverageRatio: 1,
     },
-  };
+  });
 }
 
 describe("noiseHistoryBuilder", () => {

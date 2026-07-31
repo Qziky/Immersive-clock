@@ -2,6 +2,8 @@ import { useCallback, useEffect, useState } from "react";
 
 import type { NoiseStreamSnapshot } from "../services/noise/noiseStreamService";
 import {
+  calibrateNoiseStream,
+  clearNoiseStreamCalibration,
   getNoiseStreamSnapshot,
   restartNoiseStream,
   subscribeNoiseStream,
@@ -11,7 +13,11 @@ import {
  * 订阅环境噪音数据流的 Hook
  * @returns 包含噪音快照数据和重试函数的对象
  */
-export function useNoiseStream(): NoiseStreamSnapshot & { retry: () => void } {
+export function useNoiseStream(): NoiseStreamSnapshot & {
+  retry: () => void;
+  calibrate: (referenceDbA: number) => Promise<void>;
+  clearCalibration: () => Promise<void>;
+} {
   const [snap, setSnap] = useState<NoiseStreamSnapshot>(() => getNoiseStreamSnapshot());
 
   useEffect(() => {
@@ -32,5 +38,10 @@ export function useNoiseStream(): NoiseStreamSnapshot & { retry: () => void } {
     void restartNoiseStream();
   }, []);
 
-  return { ...snap, retry };
+  return {
+    ...snap,
+    retry,
+    calibrate: calibrateNoiseStream,
+    clearCalibration: clearNoiseStreamCalibration,
+  };
 }

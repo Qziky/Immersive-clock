@@ -2,7 +2,7 @@ import { type CSSProperties, useEffect, useId, useMemo, useRef, useState } from 
 
 import styles from "./Chart.module.css";
 
-export type ChartTone = "accent" | "info" | "warning" | "danger" | "neutral";
+export type ChartTone = "accent" | "success" | "info" | "warning" | "danger" | "neutral";
 export type ChartSize = "compact" | "default";
 export type ChartCurve = "linear" | "smooth";
 
@@ -91,6 +91,7 @@ const MIN_CHART_WIDTH = 240;
 
 const TONE_COLOR: Record<ChartTone, string> = {
   accent: "var(--ui-color-accent)",
+  success: "var(--ui-color-success)",
   info: "var(--ui-color-info)",
   warning: "var(--ui-color-warning)",
   danger: "var(--ui-color-danger)",

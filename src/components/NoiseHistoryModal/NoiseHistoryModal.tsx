@@ -14,7 +14,6 @@ import {
 } from "../../ui";
 import { formatDateTimeLocal, parseDateTimeLocal } from "../../utils/dateTimeLocal";
 import { buildNoiseHistoryListItems } from "../../utils/noiseHistoryBuilder";
-import { getNoiseReportSettings } from "../../utils/noiseReportSettings";
 import { readNoiseSlices, subscribeNoiseSlicesUpdated } from "../../utils/noiseSliceService";
 import { readStudySchedule } from "../../utils/studyScheduleStorage";
 import type { NoiseReportPeriod } from "../NoiseReportModal/NoiseReportModal";
@@ -78,10 +77,7 @@ const NoiseHistoryModal: React.FC<NoiseHistoryModalProps> = ({ isOpen, onClose, 
     setCustomOpen(false);
   }, [isOpen]);
 
-  const retentionDays = useMemo(() => {
-    if (!isOpen) return DEFAULT_NOISE_REPORT_RETENTION_DAYS;
-    return getNoiseReportSettings().retentionDays;
-  }, [isOpen]);
+  const retentionDays = DEFAULT_NOISE_REPORT_RETENTION_DAYS;
 
   const maxCustomRangeMs = Math.max(1, Math.round(retentionDays)) * DAY_MS;
 

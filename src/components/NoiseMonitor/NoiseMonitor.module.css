@@ -21,6 +21,7 @@
   justify-content: center;
   line-height: 1;
   min-height: 0;
+  min-width: 0;
   padding: 0;
   transition:
     background 0.22s ease,
@@ -56,12 +57,16 @@
   grid-row: 1 / -1;
   letter-spacing: 0;
   line-height: 1;
+  min-width: 0;
+  overflow: hidden;
   padding: 0;
+  text-overflow: ellipsis;
   transition:
     color 0.24s ease,
     opacity 0.24s ease,
     transform 0.24s ease;
   user-select: none;
+  white-space: nowrap;
 }
 
 .statusText:focus-visible {
@@ -80,11 +85,12 @@
   font-weight: 500;
   grid-column: 2;
   grid-row: 2;
-  inline-size: 6ch;
+  inline-size: auto;
   justify-content: flex-end;
   justify-self: end;
   line-height: 1;
   margin: 0;
+  min-inline-size: 6ch;
   padding: 0;
   white-space: nowrap;
 }
@@ -113,7 +119,7 @@
   cursor: default;
 }
 
-.statusText.calibrating {
+.statusText.signal-anomaly {
   animation: pulse 1s ease-in-out infinite;
   color: #f2c46d;
   cursor: not-allowed;
@@ -150,7 +156,7 @@
   width: var(--study-status-dot-size, 0.625rem);
 }
 
-.breathingLight:hover:not(.calibrating):not(.initializing)::before {
+.breathingLight:hover:not(.signal-anomaly):not(.initializing)::before {
   transform: scale(1.18);
 }
 
@@ -194,11 +200,11 @@
   background-color: var(--appearance-indicator-color, rgba(248, 247, 240, 0.54));
 }
 
-.breathingLight.calibrating {
+.breathingLight.signal-anomaly {
   cursor: not-allowed;
 }
 
-.breathingLight.calibrating::before {
+.breathingLight.signal-anomaly::before {
   animation: breatheCalibrating var(--ui-motion-duration-ambient-fast) var(--ui-motion-ease-ambient)
     infinite;
   background-color: var(--appearance-indicator-color, #f2c46d);
@@ -332,7 +338,7 @@
   .breathingLight.noisy::before,
   .breathingLight.error::before,
   .breathingLight.initializing::before,
-  .breathingLight.calibrating::before {
+  .breathingLight.signal-anomaly::before {
     animation: none;
     transition: none;
   }

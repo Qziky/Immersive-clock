@@ -4,6 +4,11 @@ declare module "*.css" {
   export default classes;
 }
 
+declare module "*?worker&url" {
+  const workerUrl: string;
+  export default workerUrl;
+}
+
 /** 全局类型声明 */
 declare const __ENABLE_PWA__: boolean;
 

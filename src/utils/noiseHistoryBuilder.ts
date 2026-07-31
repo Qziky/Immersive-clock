@@ -51,6 +51,7 @@ function computeAvgScoreForRange(
   let totalMs = 0;
   let sumScore = 0;
   for (const s of slices) {
+    if (s.score === null) continue;
     const overlapStart = Math.max(startTs, s.start);
     const overlapEnd = Math.min(endTs, s.end);
     const overlapMs = overlapEnd - overlapStart;
@@ -59,8 +60,7 @@ function computeAvgScoreForRange(
     const sliceMs = Math.max(1, s.end - s.start);
     const ratio = overlapMs / sliceMs;
 
-    // 使用采样有效时长（sampledDurationMs）进行加权，若不存在则回退至物理时长
-    const effectiveMs = (s.raw.sampledDurationMs ?? sliceMs) * ratio;
+    const effectiveMs = sliceMs * s.coverageRatio * ratio;
 
     totalMs += effectiveMs;
     sumScore += s.score * effectiveMs;

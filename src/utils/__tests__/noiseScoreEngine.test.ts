@@ -1,133 +1,114 @@
 import { describe, expect, it } from "vitest";
 
-import { computeNoiseSliceScore } from "../noiseScoreEngine";
+import type { NoiseFeatureFrame } from "../../types/noise";
+import { computeFrameActivity, computeSpectralActivityScore } from "../noiseScoreEngine";
 
-describe("noiseScoreEngine", () => {
-  it("安静切片应得到高分", () => {
-    const { score, scoreDetail } = computeNoiseSliceScore(
-      {
-        avgDbfs: -55,
-        maxDbfs: -45,
-        p50Dbfs: -55,
-        p95Dbfs: -48,
-        overRatioDbfs: 0,
-        segmentCount: 0,
-      },
-      20_000
-    );
+const SAMPLE_RATE = 48_000;
+const FRAME_SAMPLES = 4_800;
 
-    expect(score).toBeGreaterThanOrEqual(95);
-    expect(scoreDetail.sustainedPenalty).toBe(0);
-    expect(scoreDetail.timePenalty).toBe(0);
-    expect(scoreDetail.segmentPenalty).toBe(0);
+function frame(index: number, activity: "quiet" | "noisy" | "silent" = "quiet"): NoiseFeatureFrame {
+  return {
+    frameSequence: index + 1,
+    startSample: index * FRAME_SAMPLES,
+    rmsDbfs: -40,
+    aWeightedDbfs: activity === "noisy" ? -40 : -50,
+    sampleP01Dbfs: -60,
+    zeroRatio: activity === "silent" ? 1 : 0,
+    clippedRatio: 0,
+  };
+}
+
+function minute(select: (second: number) => "quiet" | "noisy" | "silent") {
+  return Array.from({ length: 600 }, (_, index) => frame(index, select(Math.floor(index / 10))));
+}
+
+function score(frames: NoiseFeatureFrame[]) {
+  return computeSpectralActivityScore(frames, {
+    sampleRate: SAMPLE_RATE,
+    frameSamples: FRAME_SAMPLES,
+    endSample: SAMPLE_RATE * 60,
+    processingDisabled: true,
+  });
+}
+
+describe("spectral-activity-v2", () => {
+  it("只使用 A 加权在 RMS 与 P01 之间的位置计算活动度", () => {
+    expect(computeFrameActivity(frame(0, "quiet"))).toBe(0);
+    expect(computeFrameActivity(frame(0, "noisy"))).toBe(1);
   });
 
-  it("持续吵闹（p50Dbfs 高）应明显扣分", () => {
-    const quiet = computeNoiseSliceScore(
-      {
-        avgDbfs: -55,
-        maxDbfs: -45,
-        p50Dbfs: -55,
-        p95Dbfs: -48,
-        overRatioDbfs: 0,
-        segmentCount: 0,
-      },
-      20_000
-    );
-
-    const sustainedNoisy = computeNoiseSliceScore(
-      {
-        avgDbfs: -25,
-        maxDbfs: -20,
-        p50Dbfs: -25,
-        p95Dbfs: -22,
-        overRatioDbfs: 1,
-        segmentCount: 1,
-      },
-      20_000
-    );
-
-    expect(sustainedNoisy.score).toBeLessThan(quiet.score);
-    expect(sustainedNoisy.scoreDetail.sustainedPenalty).toBeGreaterThan(0.8);
+  it("对 K 的 0.68 到 0.90 区间使用 smoothstep", () => {
+    const midpoint = frame(0);
+    midpoint.aWeightedDbfs =
+      midpoint.sampleP01Dbfs + (midpoint.rmsDbfs - midpoint.sampleP01Dbfs) * 0.79;
+    expect(computeFrameActivity(midpoint)).toBeCloseTo(0.5, 6);
   });
 
-  it("同等持续性下，事件段数更多应更低分", () => {
-    const baseRaw = {
-      avgDbfs: -34,
-      maxDbfs: -20,
-      p50Dbfs: -34,
-      p95Dbfs: -28,
-      overRatioDbfs: 0.2,
-      segmentCount: 0,
-    };
+  it("对中等声学活动保持低灵敏度", () => {
+    const moderate = frame(0);
+    moderate.aWeightedDbfs =
+      moderate.sampleP01Dbfs + (moderate.rmsDbfs - moderate.sampleP01Dbfs) * 0.7;
+    expect(computeFrameActivity(moderate)).toBeLessThan(0.03);
+  });
 
-    const fewSegments = computeNoiseSliceScore({ ...baseRaw, segmentCount: 1 }, 60_000, {
-      maxSegmentsPerMin: 6,
+  it("安静分钟为 100 分且完全不需要基线", () => {
+    const result = score(minute(() => "quiet"));
+    expect(result.score).toBe(100);
+    expect(result.detail).toMatchObject({
+      activityMean: 0,
+      activityFloor: 0,
+      eventCount: 0,
+      validSecondCount: 60,
+      coverageRatio: 1,
     });
-    const manySegments = computeNoiseSliceScore({ ...baseRaw, segmentCount: 20 }, 60_000, {
-      maxSegmentsPerMin: 6,
-    });
-
-    expect(manySegments.score).toBeLessThan(fewSegments.score);
-    expect(manySegments.scoreDetail.segmentPenalty).toBeGreaterThan(
-      fewSegments.scoreDetail.segmentPenalty
-    );
   });
 
-  it("存在采样覆盖信息时，应使用有效采样时长计算事件密度", () => {
-    const baseRaw = {
-      avgDbfs: -34,
-      maxDbfs: -20,
-      p50Dbfs: -34,
-      p95Dbfs: -28,
-      overRatioDbfs: 0.2,
-      segmentCount: 2,
-    };
-
-    const full = computeNoiseSliceScore(baseRaw, 60_000, { maxSegmentsPerMin: 6 });
-    const partial = computeNoiseSliceScore({ ...baseRaw, sampledDurationMs: 10_000 }, 60_000, {
-      maxSegmentsPerMin: 6,
-    });
-
-    expect(partial.score).toBeLessThan(full.score);
-    expect(partial.scoreDetail.coverageRatio).toBeDefined();
-    expect(partial.scoreDetail.coverageRatio!).toBeCloseTo(10_000 / 60_000, 5);
+  it("持续活动按 E、C、F 权重扣分", () => {
+    const result = score(minute(() => "noisy"));
+    expect(result.detail.activityMean).toBe(1);
+    expect(result.detail.activityFloor).toBe(1);
+    expect(result.detail.eventCount).toBe(1);
+    expect(result.score).toBe(9.3);
   });
 
-  it("评分应保留1位小数", () => {
-    const { score } = computeNoiseSliceScore(
-      {
-        avgDbfs: -44.4,
-        maxDbfs: -30,
-        p50Dbfs: -44.4,
-        p95Dbfs: -40,
-        overRatioDbfs: 0,
-        segmentCount: 0,
-      },
-      60_000,
-      { scoreThresholdDbfs: -45 }
-    );
-
-    expect(score).toBeCloseTo(95.5, 6);
-    expect(score * 10).toBeCloseTo(Math.round(score * 10), 8);
+  it("有效秒不足 48 秒时不生成分数", () => {
+    const result = score(minute((second) => (second < 47 ? "quiet" : "silent")));
+    expect(result.detail.validSecondCount).toBe(47);
+    expect(result.score).toBeNull();
+    expect(result.signalHealth).toBe("insufficient-coverage");
   });
 
-  it("异常低值 p50Dbfs 应被限制在有效范围内", () => {
-    const { score, scoreDetail } = computeNoiseSliceScore(
-      {
-        avgDbfs: -135,
-        maxDbfs: -100,
-        p50Dbfs: -135,
-        p95Dbfs: -120,
-        overRatioDbfs: 0,
-        segmentCount: 0,
-      },
-      30_000
-    );
+  it("每秒至少需要 8 帧有效帧", () => {
+    const frames = minute(() => "quiet");
+    for (let index = 0; index < 3; index += 1) frames[index]!.rmsDbfs = Number.NaN;
+    const result = score(frames);
+    expect(result.secondActivities[0]).toBeNull();
+    expect(result.detail.validSecondCount).toBe(59);
+  });
 
-    expect(scoreDetail.sustainedLevelDbfs).toBeGreaterThanOrEqual(-100);
-    expect(scoreDetail.sustainedLevelDbfs).toBeLessThanOrEqual(0);
-    expect(score).toBeGreaterThanOrEqual(0);
-    expect(score).toBeLessThanOrEqual(100);
+  it("不足 3 秒的高零比例保留，连续 3 秒后整段按异常零信号排除", () => {
+    const shortSilence = score(minute((second) => (second < 2 ? "silent" : "quiet")));
+    expect(shortSilence.detail.validSecondCount).toBe(60);
+
+    const anomalousSignal = score(minute((second) => (second < 3 ? "silent" : "quiet")));
+    expect(anomalousSignal.detail.validSecondCount).toBe(57);
+    expect(anomalousSignal.signalHealth).toBe("signal-anomaly");
+  });
+
+  it("两秒退出并合并三秒内的事件间隔", () => {
+    const result = score(
+      minute((second) =>
+        (second >= 2 && second <= 4) || (second >= 8 && second <= 10) ? "noisy" : "quiet"
+      )
+    );
+    expect(result.detail.eventCount).toBe(1);
+  });
+
+  it("削波只降低质量，不修改评分公式", () => {
+    const frames = minute(() => "quiet");
+    frames[200]!.clippedRatio = 0.01;
+    const result = score(frames);
+    expect(result.score).toBe(100);
+    expect(result.detail.quality).toBe("low");
   });
 });

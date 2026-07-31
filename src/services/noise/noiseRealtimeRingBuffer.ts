@@ -1,8 +1,6 @@
-export interface NoiseRealtimePoint {
-  t: number;
-  dbfs: number;
-  displayDb: number;
-}
+import type { NoiseRealtimePoint } from "../../types/noise";
+
+export type { NoiseRealtimePoint } from "../../types/noise";
 
 export interface NoiseRealtimeRingBuffer {
   push: (point: NoiseRealtimePoint) => void;
@@ -10,18 +8,12 @@ export interface NoiseRealtimeRingBuffer {
   clear: () => void;
 }
 
-/**
- * 创建实时噪音数据的环形缓冲区
- * @param params 包含保留时长 (retentionMs) 和容量 (capacity) 的对象
- * @returns 返回包含 push, snapshot, clear 方法的对象
- */
 export function createNoiseRealtimeRingBuffer(params: {
   retentionMs: number;
   capacity: number;
 }): NoiseRealtimeRingBuffer {
   const retentionMs = Math.max(1, Math.round(params.retentionMs));
   const capacity = Math.max(16, Math.round(params.capacity));
-
   const data: NoiseRealtimePoint[] = new Array(capacity);
   let start = 0;
   let length = 0;
@@ -37,9 +29,9 @@ export function createNoiseRealtimeRingBuffer(params: {
 
   const push = (point: NoiseRealtimePoint) => {
     prune(point.t - retentionMs);
-    const idx = (start + length) % capacity;
+    const index = (start + length) % capacity;
     if (length < capacity) {
-      data[idx] = point;
+      data[index] = point;
       length += 1;
       return;
     }
@@ -48,12 +40,11 @@ export function createNoiseRealtimeRingBuffer(params: {
   };
 
   const snapshot = () => {
-    const out: NoiseRealtimePoint[] = [];
-    out.length = length;
-    for (let i = 0; i < length; i++) {
-      out[i] = data[(start + i) % capacity]!;
+    const output: NoiseRealtimePoint[] = [];
+    for (let index = 0; index < length; index += 1) {
+      output.push(data[(start + index) % capacity]!);
     }
-    return out;
+    return output;
   };
 
   const clear = () => {

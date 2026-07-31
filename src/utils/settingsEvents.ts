@@ -9,8 +9,6 @@ export const SETTINGS_EVENTS = {
   SettingsSaved: "settingsSaved",
   SettingsPanelClosed: "settingsPanelClosed",
   NoiseControlSettingsUpdated: "noiseControlSettingsUpdated",
-  NoiseBaselineUpdated: "noiseBaselineUpdated",
-  NoiseReportSettingsUpdated: "noiseReportSettingsUpdated",
   StudyScheduleUpdated: "studyScheduleUpdated",
   WeatherSettingsUpdated: "weatherSettingsUpdated",
 } as const;

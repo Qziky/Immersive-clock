@@ -45,6 +45,7 @@ import {
   validateNoiseSlicesForReplacement,
 } from "../utils/noiseSliceService";
 
+import { inspectNoiseFeatureData } from "./noise/noiseFeatureRepository";
 import {
   LEGACY_QUOTE_RUNTIME_STORAGE_KEYS,
   QUOTE_RUNTIME_STORAGE_KEY,
@@ -102,7 +103,7 @@ export const MAX_FONT_BYTES = 50 * 1024 * 1024;
 
 const SETTINGS_SCHEMA_VERSION = 1;
 const ASSETS_SCHEMA_VERSION = 1;
-const NOISE_HISTORY_SCHEMA_VERSION = 1;
+const NOISE_HISTORY_SCHEMA_VERSION = 4;
 const CACHE_SCHEMA_VERSION = 1;
 const DIAGNOSTICS_SCHEMA_VERSION = 1;
 const DEVICE_STATE_SCHEMA_VERSION = 1;
@@ -924,14 +925,20 @@ const noiseHistoryDomain: DataDomain<NoiseSliceSummary[]> = {
   schemaVersion: NOISE_HISTORY_SCHEMA_VERSION,
   includedInBackup: true,
   async inspect() {
-    const inspection = await inspectNoiseSlices();
+    const [inspection, featureInspection] = await Promise.all([
+      inspectNoiseSlices(),
+      inspectNoiseFeatureData(),
+    ]);
     return makeInspection(
       this.id,
       this.schemaVersion,
-      inspection.count,
-      inspection.bytes,
+      inspection.count +
+        featureInspection.sessionCount +
+        featureInspection.chunkCount +
+        featureInspection.frameCount,
+      inspection.bytes + featureInspection.bytes,
       this.includedInBackup,
-      inspection.updatedAt ?? undefined
+      Math.max(inspection.updatedAt ?? 0, featureInspection.newestAt ?? 0) || undefined
     );
   },
   async export() {
@@ -953,8 +960,11 @@ const noiseHistoryDomain: DataDomain<NoiseSliceSummary[]> = {
     };
   },
   async migrate(value, fromSchemaVersion) {
-    if (fromSchemaVersion > this.schemaVersion) {
-      throw new DataManagementError("UNSUPPORTED_BACKUP_VERSION", "噪声历史域版本过高");
+    if (fromSchemaVersion !== this.schemaVersion) {
+      throw new DataManagementError(
+        "UNSUPPORTED_BACKUP_VERSION",
+        `不支持噪声历史域版本 v${String(fromSchemaVersion)}，仅支持 v${this.schemaVersion}`
+      );
     }
     return this.validate(value);
   },
@@ -1076,6 +1086,7 @@ const deviceStateDomain = createLocalStorageOnlyDomain("deviceState", DEVICE_STA
   TOUR_STORAGE_KEY,
   HITOKOTO_DEVICE_SEED_KEY,
   NOISE_REPORT_CHART_PREFERENCE_KEY,
+  "immersive-clock:noise-device-profiles:v1",
 ]);
 
 export const dataDomainRegistry: Readonly<Record<DataDomainId, DataDomain<unknown>>> = {

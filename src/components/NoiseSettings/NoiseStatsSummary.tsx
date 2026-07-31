@@ -1,55 +1,40 @@
 import React, { useEffect, useMemo, useState } from "react";
 
-import {
-  getNoiseStreamSnapshot,
-  subscribeNoiseStream,
-} from "../../services/noise/noiseStreamService";
-import type { NoiseSliceSummary } from "../../types/noise";
+import { useNoiseStream } from "../../hooks/useNoiseStream";
+import type { NoiseSignalHealth, NoiseSliceSummary } from "../../types/noise";
 import { Card, MetricCard, SettingGrid } from "../../ui";
-import { getNoiseControlSettings } from "../../utils/noiseControlSettings";
 import { readNoiseSlices, subscribeNoiseSlicesUpdated } from "../../utils/noiseSliceService";
-import { subscribeSettingsEvent, SETTINGS_EVENTS } from "../../utils/settingsEvents";
 
 import styles from "./NoiseSettings.module.css";
 
 function formatDuration(ms: number) {
-  const sec = Math.round(ms / 1000);
-  const m = Math.floor(sec / 60);
-  const s = sec % 60;
-  return `${m}分${s}秒`;
-}
-
-function formatTimeHMS(d: Date) {
-  return d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  const seconds = Math.round(ms / 1000);
+  return `${Math.floor(seconds / 60)}分${seconds % 60}秒`;
 }
 
 function formatTimeRange(start: number, end: number) {
-  return `${formatTimeHMS(new Date(start))} - ${formatTimeHMS(new Date(end))}`;
+  const options: Intl.DateTimeFormatOptions = {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  };
+  return `${new Date(start).toLocaleTimeString(undefined, options)} - ${new Date(end).toLocaleTimeString(undefined, options)}`;
 }
 
-function formatPercent01(v: number) {
-  return `${Math.round(Math.max(0, Math.min(1, v)) * 100)}%`;
-}
-
-function clampFiniteNumber(v: number, fallback: number) {
-  return Number.isFinite(v) ? v : fallback;
+function formatSignalHealth(health: NoiseSignalHealth): string {
+  return health === "signal-anomaly" ? "信号异常" : health;
 }
 
 export const NoiseStatsSummary: React.FC = () => {
-  const [settingsTick, setSettingsTick] = useState(0);
+  const { latestSlice } = useNoiseStream();
   const [storedLatestSlice, setStoredLatestSlice] = useState<NoiseSliceSummary | null>(null);
-  const [latestSlice, setLatestSlice] = useState<NoiseSliceSummary | null>(null);
 
   useEffect(() => {
     let active = true;
     const refresh = () => {
-      void readNoiseSlices({ direction: "desc", limit: 1 })
-        .then((slices) => {
-          if (active) setStoredLatestSlice(slices[0] ?? null);
-        })
-        .catch(() => {
-          if (active) setStoredLatestSlice(null);
-        });
+      void readNoiseSlices({ direction: "desc", limit: 1 }).then((slices) => {
+        if (active) setStoredLatestSlice(slices[0] ?? null);
+      });
     };
     const unsubscribe = subscribeNoiseSlicesUpdated(refresh);
     refresh();
@@ -59,102 +44,54 @@ export const NoiseStatsSummary: React.FC = () => {
     };
   }, []);
 
-  useEffect(() => {
-    const off = subscribeSettingsEvent(SETTINGS_EVENTS.NoiseControlSettingsUpdated, () =>
-      setSettingsTick((tick) => tick + 1)
-    );
-    return off;
-  }, []);
-
-  useEffect(() => {
-    const updateLatestSlice = () => {
-      const next = getNoiseStreamSnapshot().latestSlice;
-      setLatestSlice((prev) => {
-        if (!next && !prev) return prev;
-        if (!next || !prev) return next;
-        if (prev.start === next.start && prev.end === next.end) return prev;
-        return next;
-      });
-    };
-    const unsubscribe = subscribeNoiseStream(updateLatestSlice);
-    updateLatestSlice();
-    return unsubscribe;
-  }, []);
-
-  const displaySlice = useMemo(() => {
-    if (latestSlice) return latestSlice;
-    return storedLatestSlice;
-  }, [latestSlice, storedLatestSlice]);
-
-  const thresholdDb = useMemo(() => {
-    void settingsTick;
-    return getNoiseControlSettings().maxLevelDb;
-  }, [settingsTick]);
+  const slice = useMemo(() => latestSlice ?? storedLatestSlice, [latestSlice, storedLatestSlice]);
 
   return (
     <>
       <div className={styles.sourceNote} aria-live="polite">
-        数据来源时间：
-        {displaySlice ? formatTimeRange(displaySlice.start, displaySlice.end) : "暂无切片数据"}
-        {`（显示阈值：${thresholdDb.toFixed(0)} dB）`}
+        数据来源时间：{slice ? formatTimeRange(slice.start, slice.end) : "暂无有效切片数据"}
+        {slice ? `（模型 ${slice.modelVersion}）` : ""}
       </div>
-
-      {displaySlice ? (
+      {slice ? (
         <Card className={styles.sliceItem} data-slice="latest">
           <div className={styles.sliceHeaderRow}>
             <div className={styles.sliceTitle}>
-              最近切片 · {formatDuration(Math.max(0, displaySlice.end - displaySlice.start))} ·{" "}
-              {clampFiniteNumber(displaySlice.score, 0).toFixed(1)}分
+              最近切片 · {formatDuration(slice.end - slice.start)} ·{" "}
+              {slice.score?.toFixed(1) ?? "—"}分
             </div>
-            <div className={styles.sliceTime}>
-              {formatTimeRange(displaySlice.start, displaySlice.end)}
-            </div>
+            <div className={styles.sliceTime}>{formatTimeRange(slice.start, slice.end)}</div>
           </div>
-
           <SettingGrid columns="auto">
             <MetricCard
-              label="显示分贝"
-              value={`平均 ${clampFiniteNumber(displaySlice.display.avgDb, 0).toFixed(1)} dB / 95分位 ${clampFiniteNumber(displaySlice.display.p95Db, 0).toFixed(1)} dB`}
+              label="活动度"
+              value={`平均 ${Math.round(slice.detail.activityMean * 100)}% / 持续底 ${Math.round(slice.detail.activityFloor * 100)}%`}
             />
             <MetricCard
-              label="评分原始 (dBFS)"
-              value={`p50 ${clampFiniteNumber(displaySlice.raw.p50Dbfs, 0).toFixed(1)} / p95 ${clampFiniteNumber(displaySlice.raw.p95Dbfs, 0).toFixed(1)} / max ${clampFiniteNumber(displaySlice.raw.maxDbfs, 0).toFixed(1)}`}
+              label="估算声级"
+              value={
+                slice.estimated
+                  ? `平均 ${slice.estimated.avgDbA.toFixed(1)} / P95 ${slice.estimated.p95DbA.toFixed(1)} dB(A)`
+                  : "未进行外部参考校准"
+              }
             />
             <MetricCard
-              label="超阈"
+              label="有效覆盖"
+              tone={slice.coverageRatio >= 0.8 ? "success" : "warning"}
+              value={`${Math.round(slice.coverageRatio * 100)}% · ${slice.confidence}`}
+            />
+            <MetricCard
+              label="事件频度"
               tone="warning"
-              value={`${formatPercent01(displaySlice.raw.overRatioDbfs)} · ${formatDuration(
-                clampFiniteNumber(displaySlice.raw.overRatioDbfs, 0) *
-                  clampFiniteNumber(
-                    typeof displaySlice.raw.sampledDurationMs === "number" &&
-                      Number.isFinite(displaySlice.raw.sampledDurationMs)
-                      ? Math.max(0, displaySlice.raw.sampledDurationMs)
-                      : Math.max(0, displaySlice.end - displaySlice.start),
-                    Math.max(0, displaySlice.end - displaySlice.start)
-                  )
-              )}`}
-            />
-            <MetricCard
-              label="事件段"
-              value={clampFiniteNumber(displaySlice.raw.segmentCount, 0).toFixed(0)}
+              value={`${Math.round(slice.detail.eventFactor * 100)}% · ${slice.detail.eventCount} 次`}
             />
           </SettingGrid>
-
-          {displaySlice.scoreDetail?.thresholdsUsed ? (
-            <div className={styles.sliceFootnote}>
-              阈值(dBFS)：{displaySlice.scoreDetail.thresholdsUsed.scoreThresholdDbfs.toFixed(0)}
-              ；合并间隔：{displaySlice.scoreDetail.thresholdsUsed.segmentMergeGapMs.toFixed(0)}
-              ms；频率上限：
-              {displaySlice.scoreDetail.thresholdsUsed.maxSegmentsPerMin.toFixed(0)}
-              段/分钟；扣分：持续
-              {clampFiniteNumber(displaySlice.scoreDetail.sustainedPenalty, 0).toFixed(1)} / 时长
-              {clampFiniteNumber(displaySlice.scoreDetail.timePenalty, 0).toFixed(1)} / 事件
-              {clampFiniteNumber(displaySlice.scoreDetail.segmentPenalty, 0).toFixed(1)}
-            </div>
-          ) : null}
+          <div className={styles.sliceFootnote}>
+            有效秒 {slice.detail.validSecondCount}/{slice.detail.totalSecondCount}；质量{" "}
+            {slice.detail.quality}；信号状态 {formatSignalHealth(slice.signalHealth)}
+          </div>
         </Card>
       ) : (
-        <div className={styles.empty}>暂无切片数据</div>
+        <div className={styles.empty}>暂无有效切片数据</div>
       )}
     </>
   );

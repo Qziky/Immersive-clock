@@ -304,6 +304,64 @@ describe("appSettings", () => {
     });
   });
 
+  it("v8 噪音设置兼容迁移，并用 HUD 可见性初始化采集开关", () => {
+    const hidden = normalizeAppSettings({
+      version: 8,
+      study: { display: { showNoiseMonitor: false } },
+      noiseControl: {
+        maxLevelDb: 55,
+        baselineRms: 0.01,
+        showRealtimeDb: false,
+        alertSoundEnabled: true,
+      },
+    });
+    const visible = normalizeAppSettings({
+      version: 8,
+      study: { display: { showNoiseMonitor: true } },
+    });
+
+    expect(hidden.version).toBe(CURRENT_SETTINGS_VERSION);
+    expect(hidden.noiseControl).toMatchObject({
+      monitoringEnabled: false,
+      historyEnabled: true,
+      primaryMetric: "quietness-score",
+      showRealtimeValue: false,
+      scoreAlertThreshold: 70,
+      alertSoundEnabled: true,
+    });
+    expect(hidden.noiseControl).not.toHaveProperty("maxLevelDb");
+    expect(hidden.noiseControl).not.toHaveProperty("baselineRms");
+    expect(visible.noiseControl.monitoringEnabled).toBe(true);
+  });
+
+  it("v9 噪音设置迁移到 v10，并规范化麦克风设备偏好", () => {
+    const migrated = normalizeAppSettings({
+      version: 9,
+      noiseControl: {
+        monitoringEnabled: true,
+        preferredInputDevice: { deviceId: "legacy-mic", label: "旧麦克风" },
+      },
+    });
+    const selected = normalizeAppSettings({
+      version: 10,
+      noiseControl: {
+        preferredInputDevice: { deviceId: "  usb-mic  ", label: "  USB 麦克风  " },
+      },
+    });
+    const invalid = normalizeAppSettings({
+      version: 10,
+      noiseControl: { preferredInputDevice: { deviceId: "default", label: "默认设备" } },
+    });
+
+    expect(migrated.version).toBe(10);
+    expect(migrated.noiseControl.preferredInputDevice).toBeNull();
+    expect(selected.noiseControl.preferredInputDevice).toEqual({
+      deviceId: "usb-mic",
+      label: "USB 麦克风",
+    });
+    expect(invalid.noiseControl.preferredInputDevice).toBeNull();
+  });
+
   it("v4 迁移只清理分钟降水弹窗字段，不改变降雨轮播配置", () => {
     localStorage.setItem(
       APP_SETTINGS_KEY,

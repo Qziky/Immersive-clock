@@ -44,6 +44,18 @@ protocol.registerSchemesAsPrivileged([
 // app.disableHardwareAcceleration();
 
 let mainWindow: BrowserWindow | null = null;
+const hasSingleInstanceLock = app.requestSingleInstanceLock();
+
+if (!hasSingleInstanceLock) {
+  app.quit();
+} else {
+  app.on("second-instance", () => {
+    if (!mainWindow) return;
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.show();
+    mainWindow.focus();
+  });
+}
 
 /**
  * 解析 preload 脚本路径（函数级注释：兼容不同构建环境输出的 preload 扩展名，避免加载到旧产物或加载失败）
@@ -205,6 +217,7 @@ function createWindow() {
 
 // 当 Electron 完成初始化时创建窗口
 app.whenReady().then(async () => {
+  if (!hasSingleInstanceLock) return;
   await registerAppProtocol();
   registerTimeSyncIpc();
 

@@ -5,7 +5,12 @@ import type { PresentationAttributes } from "../PresentationContent";
 
 import styles from "./NoiseMonitor.module.css";
 
-export type NoisePresentationState = "calibrating" | "error" | "initializing" | "noisy" | "quiet";
+export type NoisePresentationState =
+  | "error"
+  | "initializing"
+  | "noisy"
+  | "quiet"
+  | "signal-anomaly";
 
 interface NoisePresentationProps {
   indicatorAttributes?: PresentationAttributes<ButtonHTMLAttributes<HTMLButtonElement>>;
@@ -33,7 +38,11 @@ export function NoisePresentation({
   const stateClassName = styles[state];
 
   return (
-    <div {...rootProps} className={classNames(styles.noiseMonitor, rootClassName)}>
+    <div
+      {...rootProps}
+      className={classNames(styles.noiseMonitor, rootClassName)}
+      data-noise-state={state}
+    >
       <div className={styles.statusContainer}>
         {/* eslint-disable-next-line react/forbid-elements -- 呼吸灯是噪音领域状态表面，不是公共图标按钮。 */}
         <button

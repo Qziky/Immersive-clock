@@ -1,129 +1,156 @@
-export type NoiseCaptureStatus =
-  | "idle"
-  | "initializing"
-  | "running"
-  | "permission-denied"
-  | "error";
+import { NOISE_FRAMES_PER_SECOND } from "../../constants/noise";
+import type { NoiseFeatureFrame, NoiseSignalHealth, NoiseTrackMetadata } from "../../types/noise";
+
+// eslint-disable-next-line import/no-unresolved -- Vite resolves this AudioWorklet URL at build time.
+import workletUrl from "./noiseAudioWorklet.ts?worker&url";
+import { createNoiseDeviceIdentity } from "./noiseDeviceProfileService";
+import { openNoiseInputStream } from "./noiseInputDeviceService";
 
 export interface NoiseCaptureOptions {
-  highpassHz?: number;
-  lowpassHz?: number;
-  analyserFftSize?: number;
+  preferredInputDeviceId?: string;
+  onFeature: (feature: NoiseFeatureFrame) => void;
+  onCaptureStateChange?: (
+    health: Extract<NoiseSignalHealth, "track-muted" | "track-ended" | "audio-context-suspended">
+  ) => void;
+}
+
+export interface NoiseCaptureAdapter {
+  start: (options: NoiseCaptureOptions) => Promise<NoiseCaptureSession>;
+  stop: (session: NoiseCaptureSession | null | undefined) => Promise<void>;
 }
 
 export interface NoiseCaptureSession {
-  status: NoiseCaptureStatus;
   audioContext: AudioContext;
-  analyser: AnalyserNode;
   stream: MediaStream;
   source: MediaStreamAudioSourceNode;
-  highpass: BiquadFilterNode;
-  lowpass: BiquadFilterNode;
+  worklet: AudioWorkletNode;
+  silentOutput: GainNode;
+  metadata: NoiseTrackMetadata;
 }
 
-const DEFAULT_OPTIONS: Required<NoiseCaptureOptions> = {
-  highpassHz: 80,
-  lowpassHz: 8000,
-  analyserFftSize: 2048,
-};
+function readBooleanSetting(settings: MediaTrackSettings, key: string): boolean | undefined {
+  const value = (settings as Record<string, unknown>)[key];
+  return typeof value === "boolean" ? value : undefined;
+}
 
-/**
- * 启动环境噪音采集
- * @param options 采集配置选项
- * @returns 返回包含音频上下文和分析器的会话对象
- */
 export async function startNoiseCapture(
-  options?: NoiseCaptureOptions
+  options: NoiseCaptureOptions
 ): Promise<NoiseCaptureSession> {
-  const opt = { ...DEFAULT_OPTIONS, ...(options ?? {}) };
   const AudioContextImpl =
     window.AudioContext ??
     (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-  if (!AudioContextImpl) {
-    throw new Error("AudioContext not supported");
-  }
-  const audioContext = new AudioContextImpl();
+  if (!AudioContextImpl) throw new Error("AudioContext not supported");
 
+  const audioContext = new AudioContextImpl();
   try {
-    const stream = await navigator.mediaDevices.getUserMedia({
-      audio: {
-        echoCancellation: false,
-        noiseSuppression: false,
-        autoGainControl: false,
-      },
-      video: false,
+    const stream = await openNoiseInputStream(options.preferredInputDeviceId);
+    const track = stream.getAudioTracks()[0];
+    if (!track) throw new Error("No microphone audio track");
+    const settings = track.getSettings();
+    const identity = await createNoiseDeviceIdentity(settings, track.label);
+    const processingValues = [
+      readBooleanSetting(settings, "echoCancellation"),
+      readBooleanSetting(settings, "noiseSuppression"),
+      readBooleanSetting(settings, "autoGainControl"),
+    ];
+    const processingDisabled = processingValues.every((value) => value === false);
+    const processingRequestedOff = true;
+    const sampleRate = audioContext.sampleRate;
+    const channelCount = settings.channelCount ?? 1;
+    const processingSignature = JSON.stringify({
+      autoGainControl: processingValues[2] ?? null,
+      channelCount,
+      echoCancellation: processingValues[0] ?? null,
+      noiseSuppression: processingValues[1] ?? null,
+      sampleRate,
     });
 
+    await audioContext.audioWorklet.addModule(workletUrl);
     const source = audioContext.createMediaStreamSource(stream);
-    const highpass = audioContext.createBiquadFilter();
-    highpass.type = "highpass";
-    highpass.frequency.value = opt.highpassHz;
+    const worklet = new AudioWorkletNode(audioContext, "immersive-clock-noise-feature-v2", {
+      numberOfInputs: 1,
+      numberOfOutputs: 1,
+      outputChannelCount: [1],
+    });
+    const silentOutput = audioContext.createGain();
+    silentOutput.gain.value = 0;
+    worklet.port.addEventListener("message", (event: MessageEvent<NoiseFeatureFrame>) => {
+      options.onFeature(event.data);
+    });
+    worklet.port.start();
+    source.connect(worklet);
+    worklet.connect(silentOutput);
+    silentOutput.connect(audioContext.destination);
 
-    const lowpass = audioContext.createBiquadFilter();
-    lowpass.type = "lowpass";
-    lowpass.frequency.value = opt.lowpassHz;
-
-    const analyser = audioContext.createAnalyser();
-    analyser.fftSize = opt.analyserFftSize;
-    analyser.smoothingTimeConstant = 0;
-
-    source.connect(highpass);
-    highpass.connect(lowpass);
-    lowpass.connect(analyser);
-
-    if (audioContext.state === "suspended") {
-      await audioContext.resume();
-    }
+    track.addEventListener("mute", () => options.onCaptureStateChange?.("track-muted"));
+    track.addEventListener("ended", () => options.onCaptureStateChange?.("track-ended"));
+    if (audioContext.state === "suspended") await audioContext.resume();
+    audioContext.addEventListener("statechange", () => {
+      if (audioContext.state === "suspended") {
+        options.onCaptureStateChange?.("audio-context-suspended");
+      }
+    });
 
     return {
-      status: "running",
       audioContext,
-      analyser,
       stream,
       source,
-      highpass,
-      lowpass,
+      worklet,
+      silentOutput,
+      metadata: {
+        deviceKey: identity.deviceKey,
+        persistentDeviceKey: identity.persistent,
+        sampleRate,
+        frameSamples: Math.max(1, Math.round(sampleRate / NOISE_FRAMES_PER_SECOND)),
+        channelCount,
+        processingSignature,
+        processingRequestedOff,
+        processingDisabled,
+        channelMixMode: "arithmetic-mean",
+        inputSettingsSampleRate: settings.sampleRate ?? null,
+      },
     };
-  } catch (e) {
+  } catch (error) {
     await stopNoiseCapture({ audioContext });
-    const name = ((): string | undefined => {
-      if (!e || typeof e !== "object") return undefined;
-      const record = e as Record<string, unknown>;
-      return typeof record.name === "string" ? record.name : undefined;
-    })();
+    const name =
+      error && typeof error === "object" && "name" in error
+        ? String((error as { name?: unknown }).name)
+        : undefined;
     if (name === "NotAllowedError" || name === "SecurityError") {
-      throw Object.assign(new Error("Microphone permission denied"), { code: "permission-denied" });
+      throw Object.assign(new Error("Microphone permission denied"), {
+        code: "permission-denied",
+      });
     }
-    throw e;
+    throw error;
   }
 }
 
-/**
- * 停止噪音采集并释放资源
- * @param session 需要停止的采集会话或包含资源的局部对象
- */
 export async function stopNoiseCapture(
   session:
     | NoiseCaptureSession
-    | {
-        audioContext?: AudioContext | null;
-        stream?: MediaStream | null;
-      }
+    | { audioContext?: AudioContext | null; stream?: MediaStream | null }
     | null
     | undefined
 ): Promise<void> {
   try {
-    session?.stream?.getTracks().forEach((t) => t.stop());
+    session?.stream?.getTracks().forEach((track) => track.stop());
   } catch {
-    /* 忽略错误 */
+    // Resource cleanup is best effort.
+  }
+  try {
+    const context = session?.audioContext;
+    if (context && context.state !== "closed") await context.close();
+  } catch {
+    // Resource cleanup is best effort.
+  }
+}
+
+export class BrowserAudioWorkletCaptureAdapter implements NoiseCaptureAdapter {
+  start(options: NoiseCaptureOptions): Promise<NoiseCaptureSession> {
+    return startNoiseCapture(options);
   }
 
-  try {
-    const ctx = session?.audioContext;
-    if (ctx && ctx.state !== "closed") {
-      await ctx.close();
-    }
-  } catch {
-    /* 忽略错误 */
+  stop(session: NoiseCaptureSession | null | undefined): Promise<void> {
+    return stopNoiseCapture(session);
   }
 }

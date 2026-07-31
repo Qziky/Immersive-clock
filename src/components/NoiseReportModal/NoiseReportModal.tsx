@@ -7,8 +7,8 @@ import {
   MetricCard,
   Modal,
   RadioGroup,
-  type ChartBarSeries,
   type ChartLineSeries,
+  type ChartTick,
 } from "../../ui";
 import { getNoiseControlSettings } from "../../utils/noiseControlSettings";
 import { readNoiseSlices, subscribeNoiseSlicesUpdated } from "../../utils/noiseSliceService";
@@ -29,52 +29,51 @@ interface NoiseReportModalProps {
   period: NoiseReportPeriod | null;
 }
 
-const CHART_HEIGHT = 140;
-const SMALL_CHART_HEIGHT = 100;
-const CHART_PADDING = 24;
+type ReportMetric = "quietness-score" | "estimated-dba";
 
-/**
- * 格式化持续时间
- * @param ms 毫秒数
- */
-function formatDuration(ms: number) {
-  const sec = Math.round(ms / 1000);
-  const m = Math.floor(sec / 60);
-  const s = sec % 60;
-  return `${m}分${s}秒`;
+const COLORS = {
+  excellent: "var(--ui-color-accent)",
+  good: "var(--ui-color-info)",
+  fair: "var(--ui-color-warning)",
+  poor: "var(--ui-color-danger)",
+  sustained: "var(--ui-color-warning)",
+  time: "var(--ui-color-info)",
+  segment: "var(--ui-color-danger)",
+} as const;
+
+function formatDuration(durationMs: number): string {
+  const seconds = Math.round(durationMs / 1000);
+  const minutes = Math.floor(seconds / 60);
+  return `${minutes}分${seconds % 60}秒`;
 }
 
-/**
- * 格式化分钟
- * @param ms 毫秒数
- */
-function formatMinutes(ms: number) {
-  const m = Math.round(ms / 60_000);
-  return `${m} 分钟`;
-}
-
-/**
- * 格式化时间为 HH:MM
- * @param d 日期对象
- */
-function formatTimeHHMM(d: Date) {
-  return d.toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" });
-}
-
-/**
- * 获取得分等级文本
- * @param score 分数
- */
-function getScoreLevelText(score: number) {
+function getScoreLevelText(score: number): string {
   if (score >= 90) return "优秀";
   if (score >= 75) return "良好";
   if (score >= 60) return "一般";
   return "较差";
 }
 
-/**
- * 噪音统计报告弹窗组件
- */
+function createSegmentedData(
+  slices: NoiseSliceSummary[],
+  valueOf: (slice: NoiseSliceSummary) => number | null
+): Array<{ x: number; y: number } | null> {
+  const data: Array<{ x: number; y: number } | null> = [];
+  let previous: NoiseSliceSummary | null = null;
+  for (const slice of slices) {
+    const value = valueOf(slice);
+    if (value === null || !Number.isFinite(value)) {
+      previous = null;
+      continue;
+    }
+    const typicalDurationMs = Math.max(1, slice.end - slice.start);
+    if (previous && slice.start - previous.end > typicalDurationMs * 2) data.push(null);
+    data.push({ x: slice.end, y: value });
+    previous = slice;
+  }
+  return data;
+}
+
 export const NoiseReportModal: React.FC<NoiseReportModalProps> = ({
   isOpen,
   onClose,
@@ -82,34 +81,8 @@ export const NoiseReportModal: React.FC<NoiseReportModalProps> = ({
   period,
 }) => {
   const chartContainerRef = useRef<HTMLDivElement>(null);
-  const [chartWidth, setChartWidth] = useState(860);
-  const [isGridSingleColumn, setIsGridSingleColumn] = useState(false);
   const [slices, setSlices] = useState<NoiseSliceSummary[]>([]);
-  const [isMainChartCombined, setIsMainChartCombined] = useState(() => {
-    try {
-      const saved = localStorage.getItem("noise-report.is-main-chart-combined");
-      return saved === "true";
-    } catch {
-      return false;
-    }
-  });
-
-  useEffect(() => {
-    localStorage.setItem("noise-report.is-main-chart-combined", String(isMainChartCombined));
-  }, [isMainChartCombined]);
-
-  useEffect(() => {
-    const measure = () => {
-      const w = chartContainerRef.current?.clientWidth || 860;
-      setChartWidth(w);
-      setIsGridSingleColumn(window.innerWidth <= 768);
-    };
-    measure();
-    window.addEventListener("resize", measure);
-    return () => {
-      window.removeEventListener("resize", measure);
-    };
-  }, [isOpen]);
+  const [metric, setMetric] = useState<ReportMetric>("quietness-score");
 
   useEffect(() => {
     if (!isOpen || !period) {
@@ -135,497 +108,136 @@ export const NoiseReportModal: React.FC<NoiseReportModalProps> = ({
     };
   }, [isOpen, period]);
 
-  const periodDurationMs = useMemo(() => {
-    if (!period) return 0;
-    return Math.max(0, period.end.getTime() - period.start.getTime());
-  }, [period]);
-
   const report = useMemo(() => {
     if (!period) return null;
     const startTs = period.start.getTime();
     const endTs = period.end.getTime();
-    const thresholdDb = getNoiseControlSettings().maxLevelDb;
-
+    const periodDurationMs = Math.max(0, endTs - startTs);
     const periodSlices = slices
-      .filter((s) => s.end >= startTs && s.start <= endTs)
-      .sort((a, b) => a.start - b.start);
+      .filter((slice) => slice.end >= startTs && slice.start <= endTs)
+      .sort((left, right) => left.start - right.start);
+    const validSlices = periodSlices.filter(
+      (slice): slice is NoiseSliceSummary & { score: number } => slice.score !== null
+    );
 
-    let totalMs = 0;
-    let sumAvgDb = 0;
-    let maxDb = -Infinity;
-    let sumScore = 0;
-    let overDurationMs = 0;
+    let validDurationMs = 0;
+    let weightedScore = 0;
+    let weightedActivityMean = 0;
+    let weightedActivityFloor = 0;
+    let weightedEventFactor = 0;
+    let estimatedDurationMs = 0;
+    let weightedEstimatedDbA = 0;
+    let maxEstimatedDbA = -Infinity;
     let segmentCount = 0;
-    let sumP50 = 0;
-    let sumP95 = 0;
-    let sumSustainedPenalty = 0;
-    let sumTimePenalty = 0;
-    let sumSegmentPenalty = 0;
+    const distribution = { excellent: 0, good: 0, fair: 0, poor: 0 };
 
-    const distribution = {
-      quiet: 0, // < 45
-      normal: 0, // 45-60
-      loud: 0, // 60-75
-      severe: 0, // > 75
-    };
+    for (const slice of validSlices) {
+      const overlapStart = Math.max(startTs, slice.start);
+      const overlapEnd = Math.min(endTs, slice.end);
+      const overlapMs = Math.max(0, overlapEnd - overlapStart);
+      const sliceDurationMs = Math.max(1, slice.end - slice.start);
+      const overlapRatio = overlapMs / sliceDurationMs;
+      const sampledDurationMs = Math.min(overlapMs, slice.detail.sampledDurationMs * overlapRatio);
+      if (sampledDurationMs <= 0) continue;
 
-    // 与 UI 语义色保持一致，避免报告形成独立配色体系。
-    const COLORS = {
-      quiet: "var(--ui-color-accent)",
-      normal: "var(--ui-color-info)",
-      loud: "var(--ui-color-warning)",
-      severe: "var(--ui-color-danger)",
-      sustained: "var(--ui-color-warning)",
-      time: "var(--ui-color-info)",
-      segment: "var(--ui-color-danger)",
-      score: "var(--ui-color-info)",
-      event: "var(--ui-color-danger)",
-    };
+      validDurationMs += sampledDurationMs;
+      weightedScore += slice.score * sampledDurationMs;
+      weightedActivityMean += slice.detail.activityMean * sampledDurationMs;
+      weightedActivityFloor += slice.detail.activityFloor * sampledDurationMs;
+      weightedEventFactor += slice.detail.eventFactor * sampledDurationMs;
+      segmentCount += Math.round(slice.detail.eventCount * overlapRatio);
 
-    const series: { t: number; start: number; v: number; score: number; events: number }[] = [];
+      if (slice.score >= 90) distribution.excellent += sampledDurationMs;
+      else if (slice.score >= 75) distribution.good += sampledDurationMs;
+      else if (slice.score >= 60) distribution.fair += sampledDurationMs;
+      else distribution.poor += sampledDurationMs;
 
-    for (const s of periodSlices) {
-      const overlapStart = Math.max(startTs, s.start);
-      const overlapEnd = Math.min(endTs, s.end);
-      const overlapMs = overlapEnd - overlapStart;
-      const sliceMs = Math.max(1, s.end - s.start);
-      if (overlapMs <= 0) continue;
-
-      const ratio = overlapMs / sliceMs;
-      // 使用有效采样时长（sampledDurationMs）作为权重基准，排除采集间隙
-      const effectiveOverlapMs = (s.raw.sampledDurationMs ?? sliceMs) * ratio;
-
-      totalMs += effectiveOverlapMs;
-      sumAvgDb += s.display.avgDb * effectiveOverlapMs;
-      sumScore += s.score * effectiveOverlapMs;
-      sumP50 += s.raw.p50Dbfs * effectiveOverlapMs;
-      sumP95 += s.raw.p95Dbfs * effectiveOverlapMs;
-      if (s.display.p95Db > maxDb) maxDb = s.display.p95Db;
-
-      overDurationMs += s.raw.overRatioDbfs * effectiveOverlapMs;
-      segmentCount += Math.round(s.raw.segmentCount * ratio);
-
-      sumSustainedPenalty += s.scoreDetail.sustainedPenalty * effectiveOverlapMs;
-      sumTimePenalty += s.scoreDetail.timePenalty * effectiveOverlapMs;
-      sumSegmentPenalty += s.scoreDetail.segmentPenalty * effectiveOverlapMs;
-
-      // 分布统计
-      const db = s.display.avgDb;
-      if (db < 45) distribution.quiet += effectiveOverlapMs;
-      else if (db < 60) distribution.normal += effectiveOverlapMs;
-      else if (db < 75) distribution.loud += effectiveOverlapMs;
-      else distribution.severe += effectiveOverlapMs;
-
-      series.push({
-        t: Math.min(Math.max(s.end, startTs), endTs),
-        start: Math.max(s.start, startTs),
-        v: s.display.avgDb,
-        score: s.score,
-        events: s.raw.segmentCount,
-      });
+      if (slice.estimated) {
+        estimatedDurationMs += sampledDurationMs;
+        weightedEstimatedDbA += slice.estimated.avgDbA * sampledDurationMs;
+        maxEstimatedDbA = Math.max(maxEstimatedDbA, slice.estimated.p95DbA);
+      }
     }
 
-    const avgDb = totalMs > 0 ? sumAvgDb / totalMs : 0;
-    const avgScore = totalMs > 0 ? sumScore / totalMs : 0;
-    const p50Dbfs = totalMs > 0 ? sumP50 / totalMs : 0;
-    const p95Dbfs = totalMs > 0 ? sumP95 / totalMs : 0;
-    const sustainedPenalty = totalMs > 0 ? sumSustainedPenalty / totalMs : 0;
-    const timePenalty = totalMs > 0 ? sumTimePenalty / totalMs : 0;
-    const segmentPenalty = totalMs > 0 ? sumSegmentPenalty / totalMs : 0;
-
-    const scoreText =
-      avgScore >= 90
-        ? "整体纪律良好，环境稳定。"
-        : avgScore >= 70
-          ? "整体尚可，存在一定噪音干扰。"
-          : "纪律偏弱，建议关注持续吵闹与频繁事件段。";
-
+    const averageScore = validDurationMs > 0 ? weightedScore / validDurationMs : null;
+    const hasEstimated = estimatedDurationMs > 0;
     return {
-      thresholdDb,
-      totalMs,
-      avgDb,
-      maxDb: maxDb === -Infinity ? 0 : maxDb,
-      avgScore,
-      overDurationMs,
+      activityMean: validDurationMs > 0 ? weightedActivityMean / validDurationMs : 0,
+      activityFloor: validDurationMs > 0 ? weightedActivityFloor / validDurationMs : 0,
+      averageEstimatedDbA: hasEstimated ? weightedEstimatedDbA / estimatedDurationMs : null,
+      averageScore,
+      excludedDurationMs: Math.max(0, periodDurationMs - validDurationMs),
+      hasEstimated,
+      maxEstimatedDbA: hasEstimated ? maxEstimatedDbA : null,
+      periodDurationMs,
+      scoreAlertThreshold: getNoiseControlSettings().scoreAlertThreshold,
       segmentCount,
-      p50Dbfs,
-      p95Dbfs,
-      sustainedPenalty,
-      timePenalty,
-      segmentPenalty,
+      slices: validSlices,
+      eventFactor: validDurationMs > 0 ? weightedEventFactor / validDurationMs : 0,
+      validDurationMs,
       distribution:
-        totalMs > 0
+        validDurationMs > 0
           ? {
-              quiet: distribution.quiet / totalMs,
-              normal: distribution.normal / totalMs,
-              loud: distribution.loud / totalMs,
-              severe: distribution.severe / totalMs,
+              excellent: distribution.excellent / validDurationMs,
+              good: distribution.good / validDurationMs,
+              fair: distribution.fair / validDurationMs,
+              poor: distribution.poor / validDurationMs,
             }
-          : { quiet: 0, normal: 0, loud: 0, severe: 0 },
-      series,
-      scoreText,
-      COLORS,
+          : { excellent: 0, good: 0, fair: 0, poor: 0 },
     };
   }, [period, slices]);
 
+  useEffect(() => {
+    if (!report?.hasEstimated && metric === "estimated-dba") setMetric("quietness-score");
+  }, [metric, report?.hasEstimated]);
+
   const chart = useMemo(() => {
-    const width = chartWidth;
-    const height = CHART_HEIGHT;
-    const padding = CHART_PADDING;
-
-    if (!period || !report || report.series.length < 2) {
-      return {
-        width,
-        height,
-        padding,
-        maskRects: [] as { x: number; w: number }[],
-        pts: [] as { x: number; y: number; scoreY: number; events: number }[],
-        eventRateBuckets: [] as { x: number; rate: number; count: number }[],
-        maxBucketEventRate: 1,
-        xTicks: [] as { x: number; label: string }[],
-        yTicks: [] as { y: number; label: string }[],
-        thresholdY: 0,
-      };
-    }
-
-    const minDb = 0;
-    const maxDb = 80;
-    const startTs = period.start.getTime();
-    const endTs = period.end.getTime();
-    const span = Math.max(1, endTs - startTs);
-    const mapX = (t: number) => padding + ((t - startTs) / span) * (width - padding * 2);
-    const mapY = (v: number) =>
-      height - padding - ((v - minDb) / (maxDb - minDb)) * (height - padding * 2);
-    const mapScoreY = (v: number) =>
-      height - padding - (Math.max(0, Math.min(100, v)) / 100) * (height - padding * 2) * 0.5;
-
-    const sortedSeries = report.series.slice().sort((a, b) => a.t - b.t);
-    const pts = sortedSeries.map((p, i) => {
-      // 增加滑动平均滤波 (Moving Average)，进一步平滑原始数据的剧烈抖动
-      // 窗口大小为 7，可显著减少毛刺感
-      const windowSize = 7;
-      const startIdx = Math.max(0, i - Math.floor(windowSize / 2));
-      const endIdx = Math.min(sortedSeries.length, i + Math.ceil(windowSize / 2));
-      const window = sortedSeries.slice(startIdx, endIdx);
-
-      const avgV = window.reduce((sum, n) => sum + n.v, 0) / window.length;
-      const avgScore = window.reduce((sum, n) => sum + n.score, 0) / window.length;
-
-      return {
-        t: p.t,
-        start: p.start,
-        x: mapX(p.t),
-        y: mapY(avgV),
-        scoreY: mapScoreY(avgScore),
-        events: p.events,
-      };
-    });
-
-    // 将点分为连续的段
-    const segments: (typeof pts)[] = [];
-    if (pts.length > 0) {
-      const sortedDurations = pts.map((p) => Math.max(1, p.t - p.start)).sort((a, b) => a - b);
-      const typicalSliceMs =
-        sortedDurations.length > 0 ? sortedDurations[Math.floor(sortedDurations.length / 2)] : 0;
-      const breakToleranceMs = Math.max(2000, typicalSliceMs * 2);
-      let currentSeg = [pts[0]];
-      for (let i = 1; i < pts.length; i++) {
-        const prev = pts[i - 1];
-        const curr = pts[i];
-        // 如果当前点开始时间 > 前一点结束时间 + 容差，则视为断开
-        if (curr.start > prev.t + breakToleranceMs) {
-          segments.push(currentSeg);
-          currentSeg = [curr];
-        } else {
-          currentSeg.push(curr);
-        }
-      }
-      segments.push(currentSeg);
-    }
-
-    // 生成遮罩矩形，用于隐藏无数据区域
-    // 为了防止线宽被裁剪，矩形宽度稍微向两端扩展
-    const maskRects = segments
-      .map((seg) => {
-        if (seg.length === 0) return null;
-        const first = seg[0];
-        const last = seg[seg.length - 1];
-        // 扩展 2px 以覆盖线帽
-        const x = first.x - 2;
-        const w = Math.max(0, last.x - first.x) + 4;
-        return { x, w };
-      })
-      .filter(Boolean) as { x: number; w: number }[];
-
-    const xTickTs = [startTs, startTs + span / 3, startTs + (span * 2) / 3, endTs].map((t) =>
-      Math.round(t)
+    if (!period || !report) return null;
+    const scoreMode = metric === "quietness-score";
+    const data = createSegmentedData(report.slices, (slice) =>
+      scoreMode ? slice.score : (slice.estimated?.avgDbA ?? null)
     );
-    const xTicks = xTickTs.map((t) => ({
-      x: mapX(t),
-      label: formatTimeHHMM(new Date(t)),
-    }));
-    const yTickVals = [20, 40, 60, 80];
-    const yTicks = yTickVals.map((v) => ({
-      y: mapY(v),
-      label: String(v),
-    }));
-
-    const thresholdY = mapY(report.thresholdDb);
-
-    const bucketWidth = 4;
-    const numBuckets = Math.max(1, Math.floor((width - padding * 2) / bucketWidth));
-    const eventRateBuckets = Array.from({ length: numBuckets }, (_, i) => ({
-      x: padding + i * bucketWidth + bucketWidth / 2,
-      rate: 0,
-      count: 0,
-    }));
-
-    pts.forEach((p) => {
-      const durationMs = Math.max(1, p.t - p.start);
-      const rate = p.events / Math.max(0.1, durationMs / 60_000);
-      const bucketIdx = Math.min(
-        numBuckets - 1,
-        Math.floor(((p.x - padding) / (width - padding * 2)) * numBuckets)
-      );
-      if (bucketIdx >= 0) {
-        eventRateBuckets[bucketIdx].rate += rate;
-        eventRateBuckets[bucketIdx].count++;
-      }
-    });
-
-    eventRateBuckets.forEach((b) => {
-      if (b.count > 0) b.rate = b.rate / b.count;
-    });
-
-    const maxBucketEventRate = Math.max(1, ...eventRateBuckets.map((b) => b.rate));
-
-    return {
-      width,
-      height,
-      padding,
-      maskRects,
-      pts,
-      eventRateBuckets,
-      maxBucketEventRate,
-      xTicks,
-      yTicks,
-      thresholdY,
-    };
-  }, [period, report, chartWidth]);
-
-  const mainChartLayers = useMemo(() => {
-    const createSegmentedData = (
-      getY: (point: (typeof chart.pts)[number]) => number
-    ): ChartLineSeries["data"] =>
-      chart.maskRects.flatMap((mask, maskIndex) => {
-        const segment = chart.pts
-          .filter((point) => point.x >= mask.x && point.x <= mask.x + mask.w)
-          .map((point) => ({ x: point.x, y: getY(point) }));
-        return maskIndex < chart.maskRects.length - 1 ? [...segment, null] : segment;
-      });
-
+    const values = data.flatMap((point) => (point ? [point.y] : []));
+    const yDomain: readonly [number, number] = scoreMode
+      ? [0, 100]
+      : values.length > 0
+        ? [Math.floor(Math.min(...values) - 5), Math.ceil(Math.max(...values) + 5)]
+        : [30, 80];
+    const yTicks: ChartTick[] = scoreMode
+      ? [0, 20, 40, 60, 80, 100].map((value) => ({ value, label: String(value) }))
+      : Array.from({ length: 6 }, (_, index) => {
+          const value = yDomain[0] + ((yDomain[1] - yDomain[0]) * index) / 5;
+          return { value, label: value.toFixed(0) };
+        });
     const series: ChartLineSeries[] = [
       {
-        id: "noise",
-        label: "平均噪音",
-        data: createSegmentedData((point) => chart.height - point.y),
+        id: scoreMode ? "quietness-score" : "estimated-dba",
+        label: scoreMode ? "环境安静评分" : "估算 dB(A)",
+        data,
         tone: "accent",
         area: true,
-        colorAbove: { value: chart.height - chart.thresholdY, tone: "danger" },
+        curve: "smooth",
       },
     ];
-    const bars: ChartBarSeries[] = [];
-
-    if (isMainChartCombined) {
-      series.push({
-        id: "score",
-        label: "纪律评分",
-        data: createSegmentedData((point) => chart.height - point.scoreY),
-        tone: "info",
-        opacity: 0.78,
-        strokeWidth: 1.75,
-      });
-      bars.push({
-        id: "events",
-        label: "打断密度",
-        data: chart.eventRateBuckets
-          .filter((bucket) => bucket.count > 0 && bucket.rate > 0)
-          .map((bucket) => ({ x: bucket.x, y: bucket.rate })),
-        tone: "danger",
-        yDomain: [0, chart.maxBucketEventRate],
-        opacity: 0.38,
-        width: 3,
-        maxHeightRatio: 0.7,
-      });
-    }
-
-    return { series, bars };
-  }, [chart, isMainChartCombined]);
-
-  const smallChart = useMemo(() => {
-    const containerPadding = 24;
-    const gridGap = 12;
-
-    const width = isGridSingleColumn
-      ? chartWidth - containerPadding
-      : (chartWidth - gridGap) / 2 - containerPadding;
-
-    const height = SMALL_CHART_HEIGHT;
-    const padding = CHART_PADDING;
-
-    if (!period || !report || report.series.length < 2) {
-      return {
-        width,
-        height,
-        padding,
-        maskRects: [] as { x: number; w: number }[],
-        pts: [] as { x: number; scoreY: number; events: number }[],
-        eventBuckets: [] as { x: number; events: number; count: number }[],
-        maxBucketEvents: 1,
-        xTicks: [] as { x: number; label: string }[],
-        yTicks: [] as { y: number; label: string }[],
-        eventTicks: [] as { y: number; label: string }[],
-      };
-    }
-
-    const startTs = period.start.getTime();
-    const endTs = period.end.getTime();
-    const span = Math.max(1, endTs - startTs);
-    const mapX = (t: number) => padding + ((t - startTs) / span) * (width - padding * 2);
-    const mapScoreY = (v: number) =>
-      height - padding - (Math.max(0, Math.min(100, v)) / 100) * (height - padding * 2);
-
-    const sortedSeries = report.series.slice().sort((a, b) => a.t - b.t);
-    const pts = sortedSeries.map((p, i) => {
-      const windowSize = 7;
-      const startIdx = Math.max(0, i - Math.floor(windowSize / 2));
-      const endIdx = Math.min(sortedSeries.length, i + Math.ceil(windowSize / 2));
-      const window = sortedSeries.slice(startIdx, endIdx);
-      const avgScore = window.reduce((sum, n) => sum + n.score, 0) / window.length;
-
-      return {
-        t: p.t,
-        start: p.start,
-        x: mapX(p.t),
-        scoreY: mapScoreY(avgScore),
-        events: p.events,
-      };
-    });
-
-    const segments: (typeof pts)[] = [];
-    if (pts.length > 0) {
-      let currentSeg = [pts[0]];
-      for (let i = 1; i < pts.length; i++) {
-        const prev = pts[i - 1];
-        const curr = pts[i];
-        if (curr.start > prev.t + 2000) {
-          segments.push(currentSeg);
-          currentSeg = [curr];
-        } else {
-          currentSeg.push(curr);
-        }
-      }
-      segments.push(currentSeg);
-    }
-
-    const maskRects = segments
-      .map((seg) => {
-        if (seg.length === 0) return null;
-        const first = seg[0];
-        const last = seg[seg.length - 1];
-        const x = first.x - 2;
-        const w = Math.max(0, last.x - first.x) + 4;
-        return { x, w };
-      })
-      .filter(Boolean) as { x: number; w: number }[];
-
-    const bucketWidth = 5;
-    const numBuckets = Math.max(1, Math.floor((width - padding * 2) / bucketWidth));
-    const eventBuckets = Array.from({ length: numBuckets }, (_, i) => ({
-      x: padding + i * bucketWidth + bucketWidth / 2,
-      events: 0,
-      count: 0,
-    }));
-
-    pts.forEach((p) => {
-      const bucketIdx = Math.min(
-        numBuckets - 1,
-        Math.floor(((p.x - padding) / (width - padding * 2)) * numBuckets)
-      );
-      if (bucketIdx >= 0) {
-        eventBuckets[bucketIdx].events += p.events;
-        eventBuckets[bucketIdx].count++;
-      }
-    });
-
-    const maxBucketEvents = Math.max(1, ...eventBuckets.map((b) => b.events));
-
-    const xTickTs = [startTs, endTs].map((t) => Math.round(t));
-    const xTicks = xTickTs.map((t) => ({
-      x: mapX(t),
-      label: formatTimeHHMM(new Date(t)),
-    }));
-
-    const yTickVals = [0, 50, 100];
-    const yTicks = yTickVals.map((v) => ({
-      y: mapScoreY(v),
-      label: String(v),
-    }));
-
-    const maxEvents = Math.max(1, ...report.series.map((s) => s.events));
-    const eventTickVals = [0, maxEvents / 2, maxEvents];
-    const eventTicks = eventTickVals.map((v) => ({
-      y: height - padding - (v / maxEvents) * (height - padding * 2),
-      label: Math.round(v).toString(),
-    }));
-
     return {
-      width,
-      height,
-      padding,
-      maskRects,
-      pts: pts.map((p) => ({ x: p.x, scoreY: p.scoreY, events: p.events })),
-      eventBuckets,
-      maxBucketEvents,
-      xTicks,
+      scoreMode,
+      series,
+      xDomain: [period.start.getTime(), period.end.getTime()] as const,
+      yDomain,
       yTicks,
-      eventTicks,
     };
-  }, [period, report, chartWidth, isGridSingleColumn]);
-
-  const scoreChartData = useMemo<ChartLineSeries["data"]>(
-    () =>
-      smallChart.maskRects.flatMap((mask, maskIndex) => {
-        const segment = smallChart.pts
-          .filter((point) => point.x >= mask.x && point.x <= mask.x + mask.w)
-          .map((point) => ({ x: point.x, y: smallChart.height - point.scoreY }));
-        return maskIndex < smallChart.maskRects.length - 1 ? [...segment, null] : segment;
-      }),
-    [smallChart]
-  );
-
-  const scoreInfo = useMemo(() => {
-    if (!report) return null;
-    const s = Math.round(report.avgScore);
-    return { score: s, level: getScoreLevelText(s) };
-  }, [report]);
+  }, [metric, period, report]);
 
   const modalTitle = period ? `${period.name} 统计报告` : "统计报告";
   const modalFooter = (
     <div className={styles.footer}>
-      {onBack ? (
-        <FormButton variant="primary" size="sm" onClick={onBack}>
-          返回
-        </FormButton>
-      ) : (
-        <FormButton variant="primary" size="sm" onClick={onClose}>
-          关闭
-        </FormButton>
-      )}
+      <FormButton variant="primary" size="sm" onClick={onBack ?? onClose}>
+        {onBack ? "返回" : "关闭"}
+      </FormButton>
     </div>
   );
 
-  if (!report || report.totalMs <= 0) {
+  if (!report || report.validDurationMs <= 0 || report.averageScore === null) {
     return (
       <Modal
         isOpen={isOpen}
@@ -637,12 +249,16 @@ export const NoiseReportModal: React.FC<NoiseReportModalProps> = ({
         footer={modalFooter}
       >
         <div className={styles.empty} role="status">
-          <strong>该时段暂无噪音数据</strong>
-          <span>生成有效的噪音切片后，这里将显示评分与趋势。</span>
+          <strong>该时段暂无有效噪音评分</strong>
+          <span>信号恢复且有效覆盖率达到 80% 后，报告才会纳入对应切片。</span>
         </div>
       </Modal>
     );
   }
+
+  const score = Math.round(report.averageScore);
+  const coveragePercent =
+    report.periodDurationMs > 0 ? (report.validDurationMs / report.periodDurationMs) * 100 : 0;
 
   return (
     <Modal
@@ -655,319 +271,175 @@ export const NoiseReportModal: React.FC<NoiseReportModalProps> = ({
       footer={modalFooter}
     >
       <div className={`${styles.container} ${styles.reportContent}`}>
-        <div className={styles.section}>
+        <section className={styles.section}>
           <h4 className={styles.sectionTitle}>报告概览</h4>
           <div className={styles.overviewGrid}>
             <MetricCard
               className={styles.card}
-              label="时长"
-              value={report ? formatMinutes(report.totalMs) : "—"}
+              label="有效覆盖"
+              value={formatDuration(report.validDurationMs)}
             />
             <MetricCard
               className={styles.card}
               label="表现"
-              meta={scoreInfo ? `${scoreInfo.level} · ${report.scoreText}` : report.scoreText}
+              meta={`${getScoreLevelText(score)} · 仅统计有效切片`}
               tone="accent"
-              value={scoreInfo ? `${scoreInfo.score} 分` : "—"}
+              value={`${score} 分`}
             />
             <MetricCard
               className={styles.card}
-              label="峰值"
-              value={report ? `${report.maxDb.toFixed(1)} dB` : "—"}
+              label="排除时长"
+              value={formatDuration(report.excludedDurationMs)}
             />
             <MetricCard
               className={styles.card}
-              label="平均"
-              value={report ? `${report.avgDb.toFixed(1)} dB` : "—"}
+              label="平均活动度"
+              value={`${(report.activityMean * 100).toFixed(0)}%`}
             />
             <MetricCard
               className={styles.card}
-              label="超阈时长"
-              value={report ? formatDuration(report.overDurationMs) : "—"}
+              label="持续活动底"
+              value={`${(report.activityFloor * 100).toFixed(0)}%`}
             />
-            <MetricCard className={styles.card} label="打断次数" value={report.segmentCount} />
+            <MetricCard className={styles.card} label="噪音事件" value={report.segmentCount} />
           </div>
-        </div>
+        </section>
 
-        <div className={styles.section}>
-          <h4 className={styles.sectionTitle}>噪音走势</h4>
-          {report && report.series.length >= 2 ? (
-            <div>
-              <div ref={chartContainerRef} className={styles.chartWrap}>
-                <LineChart
-                  ariaLabel="噪音走势"
-                  description="展示所选时段内的平均噪音、报警阈值以及可选的评分和打断密度。"
-                  series={mainChartLayers.series}
-                  bars={mainChartLayers.bars}
-                  xDomain={[chart.padding, chart.width - chart.padding]}
-                  yDomain={[chart.padding, chart.height - chart.padding]}
-                  xTicks={chart.xTicks.map((tick) => ({ value: tick.x, label: tick.label }))}
-                  yTicks={chart.yTicks.map((tick) => ({
-                    value: chart.height - tick.y,
-                    label: tick.label,
-                  }))}
-                  thresholds={[
-                    {
-                      value: chart.height - chart.thresholdY,
-                      label: `${report.thresholdDb.toFixed(0)} dB`,
-                      tone: "danger",
-                    },
-                  ]}
-                  showLegend
-                />
-              </div>
-
-              <div className={styles.rangeText}>
-                <div className={styles.rangeInfo}>
-                  统计范围：
-                  {period
-                    ? `${period.start.toLocaleString()} - ${period.end.toLocaleString()}`
-                    : "—"}
-                  ； 噪音报警阈值：{report.thresholdDb.toFixed(1)} dB ； 覆盖率：
-                  {periodDurationMs > 0
-                    ? ((report.totalMs / periodDurationMs) * 100).toFixed(1)
-                    : "0.0"}
-                  %
-                </div>
-
-                <RadioGroup
-                  className={styles.chartSwitch}
-                  ariaLabel="主图绘制模式"
-                  value={isMainChartCombined ? "combined" : "single"}
-                  options={[
-                    { value: "single", label: "单图" },
-                    { value: "combined", label: "三图" },
-                  ]}
-                  onChange={(value) => setIsMainChartCombined(value === "combined")}
-                />
-              </div>
+        <section className={styles.section}>
+          <div className={styles.sectionHeader}>
+            <h4 className={styles.sectionTitle}>环境趋势</h4>
+            <RadioGroup
+              className={styles.chartSwitch}
+              ariaLabel="报告主指标"
+              value={metric}
+              options={[
+                { value: "quietness-score", label: "评分" },
+                ...(report.hasEstimated ? [{ value: "estimated-dba", label: "估算 dB(A)" }] : []),
+              ]}
+              onChange={(value) => setMetric(value as ReportMetric)}
+            />
+          </div>
+          {chart && chart.series[0].data.length >= 2 ? (
+            <div ref={chartContainerRef} className={styles.chartWrap}>
+              <LineChart
+                ariaLabel={chart.scoreMode ? "环境安静评分走势" : "估算 dB(A) 走势"}
+                description={
+                  chart.scoreMode
+                    ? "所选时段内有效窗口的环境安静评分。"
+                    : "所选时段内带有效校准快照的估算 dB(A)。"
+                }
+                series={chart.series}
+                xDomain={chart.xDomain}
+                yDomain={chart.yDomain}
+                yTicks={chart.yTicks}
+                thresholds={
+                  chart.scoreMode
+                    ? [
+                        {
+                          value: report.scoreAlertThreshold,
+                          label: `${report.scoreAlertThreshold.toFixed(0)} 分`,
+                          tone: "danger",
+                        },
+                      ]
+                    : []
+                }
+                showLegend
+              />
             </div>
           ) : (
             <div className={`${styles.empty} ${styles.chartEmpty}`}>趋势样本不足</div>
           )}
-        </div>
+          <div className={styles.rangeInfo}>
+            有效覆盖率 {coveragePercent.toFixed(1)}%；未校准切片只参与评分，不生成估算 dB(A)。
+          </div>
+        </section>
 
-        <div className={styles.section}>
-          <h4 className={styles.sectionTitle}>更多统计</h4>
-          {report ? (
-            <div className={styles.chartGrid}>
-              <div className={styles.chartContainer}>
-                <div className={styles.chartTitle}>评分走势 (0-100)</div>
-                <LineChart
-                  ariaLabel="评分走势"
-                  description="展示所选时段内零到一百分的评分变化。"
-                  series={[
-                    {
-                      id: "score-detail",
-                      label: "纪律评分",
-                      data: scoreChartData,
-                      tone: "info",
-                      area: true,
-                    },
-                  ]}
-                  xDomain={[smallChart.padding, smallChart.width - smallChart.padding]}
-                  yDomain={[smallChart.padding, smallChart.height - smallChart.padding]}
-                  xTicks={smallChart.xTicks.map((tick) => ({
-                    value: tick.x,
-                    label: tick.label,
-                  }))}
-                  yTicks={smallChart.yTicks.map((tick) => ({
-                    value: smallChart.height - tick.y,
-                    label: tick.label,
-                  }))}
-                  size="compact"
-                />
-              </div>
-
-              <div className={styles.chartContainer}>
-                <div className={styles.chartTitle}>打断次数密度 (次/分)</div>
-                <svg
-                  className={styles.eventChart}
-                  width={smallChart.width}
-                  height={smallChart.height}
-                  viewBox={`0 0 ${smallChart.width} ${smallChart.height}`}
-                  role="img"
-                  aria-labelledby="event-density-title event-density-description"
-                >
-                  <title id="event-density-title">打断次数密度</title>
-                  <desc id="event-density-description">展示所选时段内每分钟打断次数的分布。</desc>
-                  {smallChart.eventTicks.map((t) => (
-                    <line
-                      key={`ey-${t.label}`}
-                      x1={smallChart.padding}
-                      x2={smallChart.width - smallChart.padding}
-                      y1={t.y}
-                      y2={t.y}
-                      className={styles.gridLine}
+        <section className={styles.section}>
+          <h4 className={styles.sectionTitle}>评分构成</h4>
+          <div className={styles.chartGrid}>
+            <div className={styles.chartContainer}>
+              <div className={styles.chartTitle}>评分分布</div>
+              <div className={styles.distributionChart}>
+                <div className={styles.distributionBar}>
+                  {(
+                    [
+                      ["excellent", COLORS.excellent],
+                      ["good", COLORS.good],
+                      ["fair", COLORS.fair],
+                      ["poor", COLORS.poor],
+                    ] as const
+                  ).map(([key, color]) => (
+                    <div
+                      key={key}
+                      className={styles.distributionSegment}
+                      style={{
+                        width: `${report.distribution[key] * 100}%`,
+                        backgroundColor: color,
+                      }}
                     />
                   ))}
-
-                  {smallChart.eventBuckets.map((p, i) => {
-                    if (p.events === 0) return null;
-
-                    const barHeight =
-                      (p.events / Math.max(1, smallChart.maxBucketEvents)) *
-                      (smallChart.height - smallChart.padding * 2);
-                    const y = smallChart.height - smallChart.padding - barHeight;
-                    const barWidth = 3.5;
-
-                    return (
-                      <rect
-                        key={i}
-                        x={p.x - barWidth / 2}
-                        y={y}
-                        width={barWidth}
-                        height={barHeight}
-                        fill={report.COLORS.event}
-                        opacity={0.8}
-                        shapeRendering="crispEdges"
-                      />
-                    );
-                  })}
-
-                  {smallChart.xTicks.map((t, idx) => (
-                    <text
-                      key={`ex-${idx}`}
-                      x={t.x}
-                      y={smallChart.height - 10}
-                      textAnchor={
-                        idx === 0
-                          ? "start"
-                          : idx === smallChart.xTicks.length - 1
-                            ? "end"
-                            : "middle"
-                      }
-                      className={styles.axisLabel}
-                    >
-                      {t.label}
-                    </text>
-                  ))}
-                </svg>
-              </div>
-
-              <div className={styles.chartContainer}>
-                <div className={styles.chartTitle}>噪音等级分布</div>
-                <div className={styles.distributionChart}>
-                  <div className={styles.distributionBar}>
-                    <div
-                      className={styles.distributionSegment}
-                      style={{
-                        width: `${report.distribution.quiet * 100}%`,
-                        backgroundColor: report.COLORS.quiet,
-                      }}
-                    />
-                    <div
-                      className={styles.distributionSegment}
-                      style={{
-                        width: `${report.distribution.normal * 100}%`,
-                        backgroundColor: report.COLORS.normal,
-                      }}
-                    />
-                    <div
-                      className={styles.distributionSegment}
-                      style={{
-                        width: `${report.distribution.loud * 100}%`,
-                        backgroundColor: report.COLORS.loud,
-                      }}
-                    />
-                    <div
-                      className={styles.distributionSegment}
-                      style={{
-                        width: `${report.distribution.severe * 100}%`,
-                        backgroundColor: report.COLORS.severe,
-                      }}
-                    />
-                  </div>
-                </div>
-                <div className={styles.legend}>
-                  <div className={styles.legendItem}>
-                    <div
-                      className={styles.legendColor}
-                      style={{ background: report.COLORS.quiet }}
-                    />
-                    安静 ({(report.distribution.quiet * 100).toFixed(0)}%)
-                  </div>
-                  <div className={styles.legendItem}>
-                    <div
-                      className={styles.legendColor}
-                      style={{ background: report.COLORS.normal }}
-                    />
-                    正常 ({(report.distribution.normal * 100).toFixed(0)}%)
-                  </div>
-                  <div className={styles.legendItem}>
-                    <div
-                      className={styles.legendColor}
-                      style={{ background: report.COLORS.loud }}
-                    />
-                    吵闹 ({(report.distribution.loud * 100).toFixed(0)}%)
-                  </div>
-                  <div className={styles.legendItem}>
-                    <div
-                      className={styles.legendColor}
-                      style={{ background: report.COLORS.severe }}
-                    />
-                    极吵 ({(report.distribution.severe * 100).toFixed(0)}%)
-                  </div>
                 </div>
               </div>
-
-              <div className={styles.chartContainer}>
-                <div className={styles.chartTitle}>扣分归因 (越长扣分越多)</div>
-                <div className={styles.penaltyList}>
-                  <div className={styles.penaltyItem}>
-                    <div className={styles.penaltyLabel}>持续</div>
-                    <div className={styles.penaltyBarTrack}>
-                      <div
-                        className={styles.penaltyBarFill}
-                        style={{
-                          width: `${report.sustainedPenalty * 100}%`,
-                          backgroundColor: report.COLORS.sustained,
-                        }}
-                      />
-                    </div>
-                    <div className={styles.penaltyValue}>
-                      {(report.sustainedPenalty * 100).toFixed(0)}%
-                    </div>
+              <div className={styles.legend}>
+                {(
+                  [
+                    ["excellent", "优秀", COLORS.excellent],
+                    ["good", "良好", COLORS.good],
+                    ["fair", "一般", COLORS.fair],
+                    ["poor", "较差", COLORS.poor],
+                  ] as const
+                ).map(([key, label, color]) => (
+                  <div className={styles.legendItem} key={key}>
+                    <span className={styles.legendColor} style={{ background: color }} />
+                    {label} ({(report.distribution[key] * 100).toFixed(0)}%)
                   </div>
-
-                  <div className={styles.penaltyItem}>
-                    <div className={styles.penaltyLabel}>时长</div>
-                    <div className={styles.penaltyBarTrack}>
-                      <div
-                        className={styles.penaltyBarFill}
-                        style={{
-                          width: `${report.timePenalty * 100}%`,
-                          backgroundColor: report.COLORS.time,
-                        }}
-                      />
-                    </div>
-                    <div className={styles.penaltyValue}>
-                      {(report.timePenalty * 100).toFixed(0)}%
-                    </div>
-                  </div>
-
-                  <div className={styles.penaltyItem}>
-                    <div className={styles.penaltyLabel}>打断</div>
-                    <div className={styles.penaltyBarTrack}>
-                      <div
-                        className={styles.penaltyBarFill}
-                        style={{
-                          width: `${report.segmentPenalty * 100}%`,
-                          backgroundColor: report.COLORS.segment,
-                        }}
-                      />
-                    </div>
-                    <div className={styles.penaltyValue}>
-                      {(report.segmentPenalty * 100).toFixed(0)}%
-                    </div>
-                  </div>
-                </div>
+                ))}
               </div>
             </div>
-          ) : (
-            <div className={styles.empty}>暂无更多数据</div>
-          )}
-        </div>
+
+            <div className={styles.chartContainer}>
+              <div className={styles.chartTitle}>平均评分构成</div>
+              <div className={styles.penaltyList}>
+                {(
+                  [
+                    ["平均活动度", report.activityMean, COLORS.sustained],
+                    ["持续活动底", report.activityFloor, COLORS.time],
+                    ["事件频度", report.eventFactor, COLORS.segment],
+                  ] as const
+                ).map(([label, value, color]) => (
+                  <div className={styles.penaltyItem} key={label}>
+                    <span className={styles.penaltyLabel}>{label}</span>
+                    <span className={styles.penaltyBarTrack}>
+                      <span
+                        className={styles.penaltyBarFill}
+                        style={{ width: `${value * 100}%`, backgroundColor: color }}
+                      />
+                    </span>
+                    <span className={styles.penaltyValue}>{(value * 100).toFixed(0)}%</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {report.hasEstimated && (
+          <section className={styles.section}>
+            <h4 className={styles.sectionTitle}>校准读数</h4>
+            <div className={styles.calibrationSummary}>
+              <MetricCard
+                className={styles.card}
+                label="平均估算 dB(A)"
+                value={`${report.averageEstimatedDbA?.toFixed(1) ?? "—"} dB(A)`}
+              />
+              <MetricCard
+                className={styles.card}
+                label="P95 估算 dB(A)"
+                value={`${report.maxEstimatedDbA?.toFixed(1) ?? "—"} dB(A)`}
+              />
+            </div>
+          </section>
+        )}
       </div>
     </Modal>
   );

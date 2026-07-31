@@ -25,7 +25,28 @@ const dataManagementMocks = vi.hoisted(() => ({
   restoreBackup: vi.fn(),
 }));
 
+const noiseDataMocks = vi.hoisted(() => ({
+  exportArchive: vi.fn(),
+  importArchive: vi.fn(),
+  preflightArchive: vi.fn(),
+  inspectFeatures: vi.fn(),
+  getRescoreState: vi.fn(),
+  subscribeRescoreState: vi.fn(() => () => {}),
+}));
+
 vi.mock("../../../services/dataManagement", () => dataManagementMocks);
+vi.mock("../../../services/noise/noiseFeatureArchiveService", () => ({
+  exportNoiseFeatureArchive: noiseDataMocks.exportArchive,
+  importNoiseFeatureArchive: noiseDataMocks.importArchive,
+  preflightNoiseFeatureArchive: noiseDataMocks.preflightArchive,
+}));
+vi.mock("../../../services/noise/noiseFeatureRepository", () => ({
+  inspectNoiseFeatureData: noiseDataMocks.inspectFeatures,
+}));
+vi.mock("../../../services/noise/noiseRescoreService", () => ({
+  getNoiseRescoreState: noiseDataMocks.getRescoreState,
+  subscribeNoiseRescoreState: noiseDataMocks.subscribeRescoreState,
+}));
 
 const overview = {
   domains: [
@@ -48,7 +69,7 @@ const overview = {
     {
       id: "noiseHistory",
       label: "噪声历史",
-      schemaVersion: 1,
+      schemaVersion: 4,
       itemCount: 3,
       bytes: 1024,
       includedInBackup: true,
@@ -93,12 +114,12 @@ const backup = {
   manifest: [
     { id: "settings", schemaVersion: 1, itemCount: 1, bytes: 1024 },
     { id: "assets", schemaVersion: 1, itemCount: 2, bytes: 1024 },
-    { id: "noiseHistory", schemaVersion: 1, itemCount: 3, bytes: 1024 },
+    { id: "noiseHistory", schemaVersion: 4, itemCount: 3, bytes: 1024 },
   ],
   domains: {
     settings: { schemaVersion: 1, data: {} },
     assets: { schemaVersion: 1, data: [] },
-    noiseHistory: { schemaVersion: 1, data: [] },
+    noiseHistory: { schemaVersion: 4, data: [] },
   },
 } as const;
 
@@ -123,6 +144,16 @@ const preparedBackup = {
     warnings: [],
   },
 } as const;
+
+const noiseArchivePreview = {
+  sessionCount: 2,
+  chunkCount: 3,
+  frameCount: 1_200,
+  requiredBytes: 33_600,
+  additionalBytes: 16_800,
+  startAt: new Date("2026-07-10T00:00:00.000Z").getTime(),
+  endAt: new Date("2026-07-10T00:02:00.000Z").getTime(),
+};
 
 interface RenderPanelOptions {
   hasUnsavedAppearanceChanges?: boolean;
@@ -174,6 +205,21 @@ describe("DataSettingsPanel", () => {
       itemCount: 8,
       bytesFreed: 4096,
     });
+    noiseDataMocks.inspectFeatures.mockResolvedValue({
+      sessionCount: 2,
+      chunkCount: 3,
+      frameCount: 1_200,
+      bytes: 33_600,
+      oldestAt: noiseArchivePreview.startAt,
+      newestAt: noiseArchivePreview.endAt,
+    });
+    noiseDataMocks.getRescoreState.mockResolvedValue(null);
+    noiseDataMocks.subscribeRescoreState.mockImplementation(() => () => {});
+    noiseDataMocks.preflightArchive.mockResolvedValue(noiseArchivePreview);
+    noiseDataMocks.importArchive.mockResolvedValue(noiseArchivePreview);
+    noiseDataMocks.exportArchive.mockResolvedValue(
+      new Blob(["archive"], { type: "application/x-immersive-clock-noise-features" })
+    );
     vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:data-backup");
     vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => {});
     vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
@@ -191,7 +237,9 @@ describe("DataSettingsPanel", () => {
     fireEvent.click(screen.getByRole("radio", { name: "设置与资源" }));
     expect(screen.getByText(/备份文件为明文.*位置、课程安排和语录，不包含噪音历史/)).toBeVisible();
 
-    const nativeFileInput = container.querySelector<HTMLInputElement>('input[type="file"]');
+    const nativeFileInput = container.querySelector<HTMLInputElement>(
+      'input[accept=".json,application/json"]'
+    );
     expect(nativeFileInput).not.toBeNull();
     expect(nativeFileInput?.className).toMatch(/fileInput/);
     expect(nativeFileInput).toHaveAttribute("accept", ".json,application/json");
@@ -237,7 +285,9 @@ describe("DataSettingsPanel", () => {
     const { container, onReloadRequired } = renderPanel();
     await screen.findByText("4.0 KB");
     const file = new File(["{}"], "clock-backup.json", { type: "application/json" });
-    const nativeFileInput = container.querySelector<HTMLInputElement>('input[type="file"]');
+    const nativeFileInput = container.querySelector<HTMLInputElement>(
+      'input[accept=".json,application/json"]'
+    );
 
     fireEvent.change(nativeFileInput!, { target: { files: [file] } });
 
@@ -270,6 +320,70 @@ describe("DataSettingsPanel", () => {
     await waitFor(() => expect(dataManagementMocks.clearDataScope).toHaveBeenCalledWith("cache"));
     expect(dataManagementMocks.inspectData).toHaveBeenCalledTimes(2);
     expect(await screen.findByText("临时缓存已清理")).toBeInTheDocument();
+  });
+
+  it("清理噪音历史前明确说明完整数据边界并刷新原始数据概览", async () => {
+    dataManagementMocks.clearDataScope.mockResolvedValueOnce({
+      affectedDomains: ["noiseHistory"],
+      itemCount: 1_206,
+      bytesFreed: 34_624,
+    });
+    renderPanel();
+    await screen.findByText("4.0 KB");
+
+    expect(
+      screen.getByText(
+        "删除采集会话、100 ms 原始帧、派生评分和重算状态；保留监测设置与 dB(A) 校准。"
+      )
+    ).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "清理噪音历史" }));
+    const dialog = await screen.findByRole("dialog", { name: "清理噪音历史" });
+    expect(
+      within(dialog).getByText(
+        "采集会话、100 ms 原始帧、派生评分和重算状态将被永久删除；监测设置与 dB(A) 校准会保留。此操作无法撤销。"
+      )
+    ).toBeVisible();
+    fireEvent.click(within(dialog).getByRole("button", { name: "删除历史" }));
+
+    await waitFor(() =>
+      expect(dataManagementMocks.clearDataScope).toHaveBeenCalledWith("noiseHistory")
+    );
+    await waitFor(() => expect(noiseDataMocks.inspectFeatures).toHaveBeenCalledTimes(2));
+  });
+
+  it("预检 .icnoise 后确认导入并显示后台重算状态", async () => {
+    noiseDataMocks.getRescoreState.mockResolvedValue({
+      modelVersion: "spectral-activity-v2",
+      configDigest: "digest",
+      status: "running",
+      sessionId: "capture-a",
+      chunkSequence: 1,
+      completedSessionIds: ["capture-a"],
+      completedSessionCount: 1,
+      totalSessionCount: 2,
+      updatedAt: 1,
+      error: null,
+    });
+    const { container } = renderPanel();
+    await screen.findByText("33 KB");
+    const file = new File(["archive"], "noise.icnoise", {
+      type: "application/x-immersive-clock-noise-features",
+    });
+
+    fireEvent.change(container.querySelector('input[accept^=".icnoise"]')!, {
+      target: { files: [file] },
+    });
+
+    expect(await screen.findByLabelText("原始监测数据预检摘要")).toBeInTheDocument();
+    expect(noiseDataMocks.preflightArchive).toHaveBeenCalledWith(file);
+    expect(screen.getByText("16 KB")).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "导入并重算" }));
+    const dialog = await screen.findByRole("dialog", { name: "导入原始监测数据" });
+    expect(within(dialog).getByText(/预计新增 16 KB/)).toBeVisible();
+    fireEvent.click(within(dialog).getByRole("button", { name: "导入并重算" }));
+
+    await waitFor(() => expect(noiseDataMocks.importArchive).toHaveBeenCalledWith(file));
+    expect(await screen.findByText("原始监测数据已导入")).toBeVisible();
   });
 
   it("数据操作期间同步上报忙碌状态并设置数据区域语义", async () => {
@@ -345,7 +459,7 @@ describe("DataSettingsPanel", () => {
     await screen.findByText("4.0 KB");
     const file = new File(["bad"], "bad.json", { type: "application/json" });
 
-    fireEvent.change(container.querySelector('input[type="file"]')!, {
+    fireEvent.change(container.querySelector('input[accept=".json,application/json"]')!, {
       target: { files: [file] },
     });
 

@@ -1,92 +1,264 @@
 import {
-  NOISE_SCORE_MAX_SEGMENTS_PER_MIN,
-  NOISE_SCORE_SEGMENT_MERGE_GAP_MS,
-  NOISE_SCORE_THRESHOLD_DBFS,
+  NOISE_MIN_VALID_FRAMES_PER_SECOND,
+  NOISE_MIN_VALID_SECONDS,
+  NOISE_SCORE_DEFAULTS,
+  NOISE_SCORE_WINDOW_SEC,
 } from "../constants/noise";
-import type { NoiseScoreBreakdown, NoiseSliceRawStats } from "../types/noise";
+import type {
+  NoiseConfidence,
+  NoiseFeatureFrame,
+  NoiseScoreDetail,
+  NoiseScoreQuality,
+  NoiseSignalHealth,
+} from "../types/noise";
 
-export interface ComputeNoiseScoreOptions {
-  scoreThresholdDbfs: number;
-  segmentMergeGapMs: number;
-  maxSegmentsPerMin: number;
+export interface NoiseScoreSessionGeometry {
+  sampleRate: number;
+  frameSamples: number;
+  startSample?: number;
+  endSample?: number;
+  processingDisabled?: boolean;
 }
 
-export const DEFAULT_NOISE_SCORE_OPTIONS: ComputeNoiseScoreOptions = {
-  scoreThresholdDbfs: NOISE_SCORE_THRESHOLD_DBFS,
-  segmentMergeGapMs: NOISE_SCORE_SEGMENT_MERGE_GAP_MS,
-  maxSegmentsPerMin: NOISE_SCORE_MAX_SEGMENTS_PER_MIN,
-};
-
-/** DBFS 物理最小可表示值 */
-const DBFS_MIN_POSSIBLE = -100;
-/** DBFS 物理最大可表示值 */
-const DBFS_MAX_POSSIBLE = 0;
-
-function clamp01(value: number): number {
-  return Math.max(0, Math.min(1, value));
+export interface SpectralActivityOptions {
+  windowSeconds?: number;
+  coverageRequired?: number;
+  minValidFramesPerSecond?: number;
+  minValidSeconds?: number;
 }
 
-/**
- * 将 DBFS 值限制在有效范围内
- * @param dbfs 原始 DBFS 值
- * @returns 限制后的 DBFS 值
- */
-function clampDbfs(dbfs: number): number {
-  return Math.max(DBFS_MIN_POSSIBLE, Math.min(DBFS_MAX_POSSIBLE, dbfs));
+export interface NoiseScoreComputation {
+  score: number | null;
+  detail: NoiseScoreDetail;
+  secondActivities: Array<number | null>;
+  validFrameCount: number;
+  frameActivity: number | null;
+  signalHealth: NoiseSignalHealth;
+  confidence: NoiseConfidence;
 }
 
-/**
- * 计算噪音切片评分
- * 基于持续电平、时间占比和波动频率进行综合评估
- */
-export function computeNoiseSliceScore(
-  raw: NoiseSliceRawStats,
-  durationMs: number,
-  options?: Partial<ComputeNoiseScoreOptions>
-): { score: number; scoreDetail: NoiseScoreBreakdown } {
-  const opt: ComputeNoiseScoreOptions = { ...DEFAULT_NOISE_SCORE_OPTIONS, ...(options ?? {}) };
-  const sampledDurationMs =
-    typeof raw.sampledDurationMs === "number" && Number.isFinite(raw.sampledDurationMs)
-      ? Math.max(0, raw.sampledDurationMs)
+function clamp(value: number, min = 0, max = 1): number {
+  return Math.max(min, Math.min(max, value));
+}
+
+export function quantile(values: readonly number[], percentile: number): number {
+  if (values.length === 0) return 0;
+  const sorted = [...values].sort((left, right) => left - right);
+  const position = (sorted.length - 1) * clamp(percentile);
+  const low = Math.floor(position);
+  const high = Math.ceil(position);
+  if (low === high) return sorted[low] ?? 0;
+  const weight = position - low;
+  return (sorted[low] ?? 0) * (1 - weight) + (sorted[high] ?? 0) * weight;
+}
+
+/** Maps the relative position of A-weighted energy between P01 and RMS to activity. */
+export function computeFrameActivity(frame: NoiseFeatureFrame): number | null {
+  const values = [
+    frame.rmsDbfs,
+    frame.aWeightedDbfs,
+    frame.sampleP01Dbfs,
+    frame.zeroRatio,
+    frame.clippedRatio,
+  ];
+  if (!values.every(Number.isFinite)) return null;
+  const denominator = frame.rmsDbfs - frame.sampleP01Dbfs;
+  if (denominator <= Number.EPSILON) return 0;
+  const k = clamp((frame.aWeightedDbfs - frame.sampleP01Dbfs) / denominator);
+  const x = clamp((k - NOISE_SCORE_DEFAULTS.activityStartK) / NOISE_SCORE_DEFAULTS.activityRangeK);
+  return x * x * (3 - 2 * x);
+}
+
+function findInvalidZeroSignalFrames(
+  frames: readonly NoiseFeatureFrame[],
+  geometry: NoiseScoreSessionGeometry
+): Set<NoiseFeatureFrame> {
+  const invalidFrames = new Set<NoiseFeatureFrame>();
+  const ordered = [...frames].sort((left, right) => left.startSample - right.startSample);
+  let run: NoiseFeatureFrame[] = [];
+  const commit = () => {
+    const first = run[0];
+    const last = run[run.length - 1];
+    if (
+      first &&
+      last &&
+      last.startSample + geometry.frameSamples - first.startSample >= geometry.sampleRate * 3
+    ) {
+      run.forEach((frame) => invalidFrames.add(frame));
+    }
+    run = [];
+  };
+  for (const frame of ordered) {
+    const previous = run[run.length - 1];
+    if (
+      frame.zeroRatio >= 0.95 &&
+      (!previous || frame.startSample - previous.startSample <= geometry.frameSamples * 1.5)
+    ) {
+      run.push(frame);
+    } else {
+      commit();
+      if (frame.zeroRatio >= 0.95) run.push(frame);
+    }
+  }
+  commit();
+  return invalidFrames;
+}
+
+function isClipped(frame: NoiseFeatureFrame): boolean {
+  return frame.clippedRatio > 0.001;
+}
+
+function eventCount(secondActivities: readonly (number | null)[]): number {
+  let count = 0;
+  let inEvent = false;
+  let lowRun = 0;
+  let lastEventEnd = -Infinity;
+
+  for (let index = 0; index < secondActivities.length; index += 1) {
+    const activity = secondActivities[index];
+    if (activity !== null && activity >= NOISE_SCORE_DEFAULTS.activityEnter) {
+      if (!inEvent) {
+        if (index - lastEventEnd > NOISE_SCORE_DEFAULTS.eventMergeGapSec) count += 1;
+        inEvent = true;
+      }
+      lowRun = 0;
+      continue;
+    }
+    if (!inEvent) continue;
+    if (activity === null) {
+      inEvent = false;
+      lastEventEnd = index - 1;
+      lowRun = 0;
+      continue;
+    }
+    if (activity < NOISE_SCORE_DEFAULTS.activityExit) lowRun += 1;
+    else lowRun = 0;
+    if (lowRun >= 2) {
+      inEvent = false;
+      lastEventEnd = index - 1;
+      lowRun = 0;
+    }
+  }
+  return count;
+}
+
+function getQuality(
+  frames: readonly NoiseFeatureFrame[],
+  validSeconds: number,
+  totalSeconds: number,
+  processingDisabled: boolean | undefined
+): NoiseScoreQuality {
+  if (validSeconds < totalSeconds * NOISE_SCORE_DEFAULTS.coverageRequired) return "insufficient";
+  if (!processingDisabled || frames.some(isClipped)) return "low";
+  if (frames.some((frame) => frame.zeroRatio > 0.2)) return "medium";
+  return "high";
+}
+
+function healthFor(
+  hasSignalAnomaly: boolean,
+  validSeconds: number,
+  totalSeconds: number
+): NoiseSignalHealth {
+  if (validSeconds < totalSeconds * NOISE_SCORE_DEFAULTS.coverageRequired) {
+    return "insufficient-coverage";
+  }
+  return hasSignalAnomaly ? "signal-anomaly" : "healthy";
+}
+
+export function computeSpectralActivityScore(
+  frames: readonly NoiseFeatureFrame[],
+  geometry: NoiseScoreSessionGeometry,
+  options: SpectralActivityOptions = {}
+): NoiseScoreComputation {
+  const totalSeconds = Math.max(1, Math.round(options.windowSeconds ?? NOISE_SCORE_WINDOW_SEC));
+  const minFrames = Math.max(
+    1,
+    Math.round(options.minValidFramesPerSecond ?? NOISE_MIN_VALID_FRAMES_PER_SECOND)
+  );
+  const minSeconds = Math.max(
+    1,
+    Math.round(options.minValidSeconds ?? Math.min(NOISE_MIN_VALID_SECONDS, totalSeconds))
+  );
+  const coverageRequired = clamp(options.coverageRequired ?? NOISE_SCORE_DEFAULTS.coverageRequired);
+  const sampleRate = Math.max(1, geometry.sampleRate);
+  const windowSamples = sampleRate * totalSeconds;
+  const firstSample =
+    geometry.endSample !== undefined
+      ? geometry.endSample - windowSamples
+      : frames.length > 0
+        ? (frames[0]?.startSample ?? 0)
+        : 0;
+  const buckets: number[][] = Array.from({ length: totalSeconds }, () => []);
+  let validFrameCount = 0;
+  let latestActivity: number | null = null;
+  const invalidZeroSignalFrames = findInvalidZeroSignalFrames(frames, geometry);
+
+  for (const frame of frames) {
+    if (invalidZeroSignalFrames.has(frame)) continue;
+    const activity = computeFrameActivity(frame);
+    if (activity === null) continue;
+    const bucket = Math.floor((frame.startSample - firstSample) / sampleRate);
+    if (bucket < 0 || bucket >= totalSeconds) continue;
+    buckets[bucket]!.push(activity);
+    validFrameCount += 1;
+    latestActivity = activity;
+  }
+
+  const secondActivities = buckets.map((values) =>
+    values.length >= minFrames ? quantile(values, 0.5) : null
+  );
+  const validSeconds = secondActivities.filter((value): value is number => value !== null).length;
+  const coverageRatio = validSeconds / totalSeconds;
+  const usableActivities = secondActivities.filter((value): value is number => value !== null);
+  const activityMean =
+    usableActivities.length > 0
+      ? usableActivities.reduce((sum, value) => sum + value, 0) / usableActivities.length
+      : 0;
+  const activityFloor = quantile(usableActivities, 0.2);
+  const segments = eventCount(secondActivities);
+  const eventFactor = clamp(segments / NOISE_SCORE_DEFAULTS.eventCountAtMax);
+  const score =
+    validSeconds >= minSeconds && coverageRatio >= coverageRequired
+      ? 100 * clamp(1 - 0.65 * activityMean - 0.25 * activityFloor - 0.1 * eventFactor)
       : null;
-  const effectiveDurationMs =
-    sampledDurationMs && sampledDurationMs > 0 ? sampledDurationMs : durationMs;
-  const minutes = Math.max(1e-6, effectiveDurationMs / 60_000);
-  const segmentsPerMin = raw.segmentCount / minutes;
-
-  const clampedP50Dbfs = clampDbfs(raw.p50Dbfs);
-  const sustainedLevelDbfs = clampedP50Dbfs;
-  const sustainedOver = Math.max(0, sustainedLevelDbfs - opt.scoreThresholdDbfs);
-  const sustainedPenalty = clamp01(sustainedOver / 6);
-
-  const timePenalty = clamp01(raw.overRatioDbfs / 0.3);
-  const segmentPenalty = clamp01(segmentsPerMin / Math.max(1e-6, opt.maxSegmentsPerMin));
-
-  const penalty = 0.45 * sustainedPenalty + 0.25 * timePenalty + 0.3 * segmentPenalty;
-  const rawScore = 100 * (1 - penalty);
-  const score = Math.max(0, Math.min(100, Math.round(rawScore * 10) / 10));
+  const quality = getQuality(frames, validSeconds, totalSeconds, geometry.processingDisabled);
+  const detail: NoiseScoreDetail = {
+    activityMean,
+    activityFloor,
+    eventFactor,
+    eventCount: segments,
+    durationMs: totalSeconds * 1000,
+    sampledDurationMs: validSeconds * 1000,
+    coverageRatio,
+    validSecondCount: validSeconds,
+    totalSecondCount: totalSeconds,
+    quality,
+    thresholdsUsed: {
+      activityEnter: NOISE_SCORE_DEFAULTS.activityEnter,
+      activityExit: NOISE_SCORE_DEFAULTS.activityExit,
+      eventMergeGapSec: NOISE_SCORE_DEFAULTS.eventMergeGapSec,
+      coverageRequired,
+    },
+  };
 
   return {
-    score,
-    scoreDetail: {
-      sustainedPenalty,
-      timePenalty,
-      segmentPenalty,
-      thresholdsUsed: {
-        scoreThresholdDbfs: opt.scoreThresholdDbfs,
-        segmentMergeGapMs: opt.segmentMergeGapMs,
-        maxSegmentsPerMin: opt.maxSegmentsPerMin,
-      },
-      sustainedLevelDbfs,
-      overRatioDbfs: raw.overRatioDbfs,
-      segmentCount: raw.segmentCount,
-      minutes,
-      durationMs,
-      sampledDurationMs: sampledDurationMs ?? undefined,
-      coverageRatio:
-        sampledDurationMs && sampledDurationMs > 0
-          ? clamp01(sampledDurationMs / Math.max(1, durationMs))
-          : undefined,
-    },
+    score: score === null ? null : Math.round(score * 10) / 10,
+    detail,
+    secondActivities,
+    validFrameCount,
+    frameActivity: latestActivity,
+    signalHealth: healthFor(
+      invalidZeroSignalFrames.size > 0 || quality === "low",
+      validSeconds,
+      totalSeconds
+    ),
+    confidence:
+      quality === "high"
+        ? "high"
+        : quality === "medium"
+          ? "medium"
+          : quality === "low"
+            ? "low"
+            : "none",
   };
 }

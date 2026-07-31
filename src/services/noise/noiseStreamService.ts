@@ -1,437 +1,511 @@
-import { NOISE_REALTIME_CHART_SLICE_COUNT } from "../../constants/noise";
-import type { NoiseSliceSummary } from "../../types/noise";
-import { getAppSettings } from "../../utils/appSettings";
+import {
+  NOISE_FRAMES_PER_SECOND,
+  NOISE_REALTIME_WINDOW_SEC,
+  NOISE_SCORE_WINDOW_SEC,
+} from "../../constants/noise";
+import type {
+  NoiseCaptureDiagnostics,
+  NoiseMonitoringSnapshot,
+  NoiseRealtimePoint,
+} from "../../types/noise";
 import { getNoiseControlSettings } from "../../utils/noiseControlSettings";
-import { DEFAULT_NOISE_SCORE_OPTIONS } from "../../utils/noiseScoreEngine";
 import { writeNoiseSlice } from "../../utils/noiseSliceService";
-import { subscribeSettingsEvent, SETTINGS_EVENTS } from "../../utils/settingsEvents";
+import { SETTINGS_EVENTS, subscribeSettingsEvent } from "../../utils/settingsEvents";
 
-import { startNoiseCapture, stopNoiseCapture } from "./noiseCapture";
-import { createNoiseFrameProcessor } from "./noiseFrameProcessor";
-import type { NoiseRealtimePoint } from "./noiseRealtimeRingBuffer";
+import { NoiseCaptureRuntime, type NoiseRuntimeUpdate } from "./noiseCaptureRuntime";
+import { NoiseCoordinator, type NoiseLeadershipContext } from "./noiseCoordinator";
 import { createNoiseRealtimeRingBuffer } from "./noiseRealtimeRingBuffer";
-import { createNoiseSliceAggregator } from "./noiseSliceAggregator";
+import {
+  broadcastNoiseSyncMessage,
+  createNoiseSyncMessage,
+  getNoiseSyncSenderId,
+  subscribeNoiseSync,
+  type NoiseSharedSnapshot,
+  type NoiseSyncMessage,
+} from "./noiseSyncChannel";
 
-export type NoiseStreamStatus = "initializing" | "quiet" | "noisy" | "permission-denied" | "error";
-
-export interface NoiseStreamSnapshot {
-  status: NoiseStreamStatus;
-  realtimeDisplayDb: number;
-  realtimeDbfs: number;
-  maxLevelDb: number;
-  showRealtimeDb: boolean;
-  alertSoundEnabled: boolean;
-  ringBuffer: NoiseRealtimePoint[];
-  latestSlice: NoiseSliceSummary | null;
-}
-
+export type NoiseStreamSnapshot = NoiseMonitoringSnapshot;
 type Listener = () => void;
 
 const STOP_DEBOUNCE_MS = 400;
-
-/**
- * 计算实时噪音曲线的保留时长（毫秒）
- * 规则：固定为“3 个切片长度”，用于控制曲线窗口与内存占用。
- */
-function computeRealtimeRetentionMs(sliceSec: number): number {
-  return Math.max(1000, Math.round(sliceSec * NOISE_REALTIME_CHART_SLICE_COUNT * 1000));
-}
-
-/**
- * 从 RMS 计算显示的分贝值
- * @param params 包含当前 RMS、基准 RMS 和基准分贝的对象
- * @returns 显示的分贝值，范围限制在 20 到 100 dB
- */
-function computeDisplayDbFromRms(params: {
-  rms: number;
-  baselineRms: number;
-  displayBaselineDb: number;
-}): number {
-  const safeRms = Math.max(1e-12, params.rms);
-  let displayDb: number;
-  if (params.baselineRms > 0) {
-    displayDb =
-      params.displayBaselineDb + 20 * Math.log10(safeRms / Math.max(1e-12, params.baselineRms));
-  } else {
-    displayDb = 20 * Math.log10(safeRms / 1e-3) + 60;
-  }
-  return Math.max(20, Math.min(100, displayDb));
-}
-
-/**
- * 计算时间加权平均值
- * @param windowArr 包含时间戳和值的数组
- * @param now 当前时间戳
- * @returns 加权平均值
- */
-function computeTimeWeightedAverage(windowArr: { t: number; v: number }[], now: number): number {
-  if (!windowArr.length) return 0;
-  let sum = 0;
-  let total = 0;
-  for (let i = 0; i < windowArr.length; i++) {
-    const t0 = windowArr[i].t;
-    const t1 = i < windowArr.length - 1 ? windowArr[i + 1].t : now;
-    const dt = Math.max(0, t1 - t0);
-    sum += windowArr[i].v * dt;
-    total += dt;
-  }
-  return total > 0 ? sum / total : windowArr[windowArr.length - 1].v;
-}
+const SNAPSHOT_BROADCAST_MS = 250;
+const HEARTBEAT_MS = 1000;
+const REMOTE_STALE_MS = 3000;
+const COMMAND_TIMEOUT_MS = 20_000;
 
 const listeners = new Set<Listener>();
-
-/** 噪音流快照数据 */
-let snapshot: NoiseStreamSnapshot = {
-  status: "initializing",
-  realtimeDisplayDb: 0,
-  realtimeDbfs: 0,
-  maxLevelDb: getNoiseControlSettings().maxLevelDb,
-  showRealtimeDb: getNoiseControlSettings().showRealtimeDb,
-  alertSoundEnabled: getNoiseControlSettings().alertSoundEnabled ?? false,
-  ringBuffer: [],
-  latestSlice: null,
-};
-
-let stopTimer: number | null = null;
-
-let running = false;
-let stopped = false;
-
-/** 预热帧计数器：麦克风启动后丢弃前几帧不稳定数据 */
-let warmupFramesRemaining = 0;
-/** 预热帧数：约 500ms 的数据（按 50ms/帧 = 10 帧） */
-const WARMUP_FRAME_COUNT = 10;
-
-let captureCleanup: (() => Promise<void>) | null = null;
-let processorStop: (() => void) | null = null;
-let aggregatorFlush: (() => NoiseSliceSummary | null) | null = null;
-
-let windowSamples: { t: number; v: number }[] = [];
-
-let baselineRms = getAppSettings().noiseControl.baselineRms;
-let displayBaselineDb = getNoiseControlSettings().baselineDb ?? 40;
-let avgWindowSec = Math.max(0.2, getNoiseControlSettings().avgWindowSec);
-
-let frameMs = getNoiseControlSettings().frameMs;
-let sliceSec = getNoiseControlSettings().sliceSec;
-let scoreThresholdDbfs =
-  getNoiseControlSettings().scoreThresholdDbfs ?? DEFAULT_NOISE_SCORE_OPTIONS.scoreThresholdDbfs;
-let segmentMergeGapMs =
-  getNoiseControlSettings().segmentMergeGapMs ?? DEFAULT_NOISE_SCORE_OPTIONS.segmentMergeGapMs;
-let maxSegmentsPerMin =
-  getNoiseControlSettings().maxSegmentsPerMin ?? DEFAULT_NOISE_SCORE_OPTIONS.maxSegmentsPerMin;
-
-const initialRetentionMs = computeRealtimeRetentionMs(sliceSec);
-let ringBuffer = createNoiseRealtimeRingBuffer({
-  retentionMs: initialRetentionMs,
-  capacity: Math.ceil(initialRetentionMs / Math.max(10, Math.round(frameMs))) + 32,
+let debugSessionCount = 0;
+const followerRingBuffer = createNoiseRealtimeRingBuffer({
+  retentionMs: NOISE_REALTIME_WINDOW_SEC * 1000,
+  capacity: NOISE_REALTIME_WINDOW_SEC * NOISE_FRAMES_PER_SECOND + 16,
 });
+const pendingCommands = new Map<
+  string,
+  { resolve: () => void; reject: (error: Error) => void; timeout: number }
+>();
 
-let settingsUnsubscribe: (() => void) | null = null;
-let baselineUnsubscribe: (() => void) | null = null;
-
-/** 触发监听器更新 */
-function emit() {
-  snapshot = {
-    ...snapshot,
-    ringBuffer: ringBuffer.snapshot(),
-  };
-  listeners.forEach((fn) => fn());
+function readSettings() {
+  return getNoiseControlSettings();
 }
 
-/** 更新快照并触发更新 */
-function setSnapshot(patch: Partial<NoiseStreamSnapshot>) {
-  snapshot = { ...snapshot, ...patch };
-  listeners.forEach((fn) => fn());
+function shouldMonitor(): boolean {
+  return readSettings().monitoringEnabled || debugSessionCount > 0;
 }
 
-/** 停止噪音流采集 */
-async function hardStop() {
-  if (!running) return;
-  running = false;
-  stopped = true;
-
-  try {
-    processorStop?.();
-  } catch {
-    /* 忽略错误 */
-  }
-  processorStop = null;
-
-  try {
-    const last = aggregatorFlush?.();
-    if (last) await writeNoiseSlice(last);
-  } catch {
-    /* 忽略错误 */
-  }
-  aggregatorFlush = null;
-
-  try {
-    await captureCleanup?.();
-  } catch {
-    /* 忽略错误 */
-  }
-  captureCleanup = null;
-}
-
-/** 启动噪音流采集 */
-async function hardStart() {
-  if (running) return;
-  running = true;
-  stopped = false;
-  warmupFramesRemaining = WARMUP_FRAME_COUNT;
-
-  windowSamples = [];
-  const retentionMs = computeRealtimeRetentionMs(sliceSec);
-  ringBuffer = createNoiseRealtimeRingBuffer({
-    retentionMs,
-    capacity: Math.ceil(retentionMs / Math.max(10, Math.round(frameMs))) + 32,
-  });
-
-  setSnapshot({ status: "initializing", latestSlice: snapshot.latestSlice, ringBuffer: [] });
-
-  try {
-    const capture = await startNoiseCapture({
-      analyserFftSize: 2048,
-      highpassHz: 80,
-      lowpassHz: 8000,
-    });
-    captureCleanup = () => stopNoiseCapture(capture);
-
-    const aggregator = createNoiseSliceAggregator({
-      sliceSec,
-      frameMs,
-      score: { scoreThresholdDbfs, segmentMergeGapMs, maxSegmentsPerMin },
-      baselineRms,
-      displayBaselineDb,
-      ringBuffer,
-    });
-    aggregatorFlush = aggregator.flush;
-
-    const processor = createNoiseFrameProcessor({
-      analyser: capture.analyser,
-      frameMs,
-      onFrame: (frame) => {
-        if (stopped) return;
-
-        if (warmupFramesRemaining > 0) {
-          warmupFramesRemaining -= 1;
-          return;
-        }
-
-        const displayDb = computeDisplayDbFromRms({
-          rms: frame.rms,
-          baselineRms,
-          displayBaselineDb,
-        });
-        const now = frame.t;
-        windowSamples.push({ t: now, v: displayDb });
-        const cutoff = now - Math.max(200, Math.round(avgWindowSec * 1000));
-        while (windowSamples.length && windowSamples[0].t < cutoff) windowSamples.shift();
-        const avgDisplay = computeTimeWeightedAverage(windowSamples, now);
-
-        const nextStatus: NoiseStreamStatus = avgDisplay >= snapshot.maxLevelDb ? "noisy" : "quiet";
-        snapshot = {
-          ...snapshot,
-          status: nextStatus,
-          realtimeDisplayDb: avgDisplay,
-          realtimeDbfs: frame.dbfs,
-        };
-
-        const slice = aggregator.onFrame(frame);
-        if (slice) {
-          void Promise.resolve(writeNoiseSlice(slice)).catch(() => {
-            /* 单次持久化失败不应中断实时采集。 */
-          });
-          snapshot = { ...snapshot, latestSlice: slice };
-        }
-
-        emit();
+function createInitialSnapshot(): NoiseMonitoringSnapshot {
+  const settings = readSettings();
+  return {
+    role: "none",
+    status: settings.monitoringEnabled ? "electing" : "disabled",
+    signalHealth: "warming-up",
+    confidence: "none",
+    quietnessScore: null,
+    estimatedDbA: null,
+    realtimeDbfsA: null,
+    showRealtimeValue: settings.showRealtimeValue,
+    primaryMetric: settings.primaryMetric,
+    scoreAlertThreshold: settings.scoreAlertThreshold,
+    alertSoundEnabled: settings.alertSoundEnabled,
+    leaderEpoch: null,
+    captureSessionId: null,
+    ringBuffer: [],
+    latestSlice: null,
+    calibrationAvailable: false,
+    calibration: { status: "idle", progress: 0, error: null },
+    diagnostics: {
+      track: null,
+      latestFeature: null,
+      persistence: {
+        enabled: settings.historyEnabled,
+        available: settings.historyEnabled,
+        pendingFrames: 0,
+        retainedBytes: null,
+        error: null,
       },
-    });
-    processorStop = processor.stop;
-    processor.start();
-  } catch (e) {
-    if (e && typeof e === "object") {
-      const record = e as Record<string, unknown>;
-      if (record.code === "permission-denied") {
-        setSnapshot({ status: "permission-denied" });
-        return;
-      }
-    }
-    setSnapshot({ status: "error" });
-  }
+      scoring: {
+        requiredSeconds: NOISE_SCORE_WINDOW_SEC,
+        collectedSeconds: 0,
+        progress: 0,
+        validSecondCount: 0,
+        coverageRatio: 0,
+      },
+    },
+  };
 }
 
-/** 确保设置监听器已注册 */
-function ensureSettingsListeners() {
-  if (settingsUnsubscribe || baselineUnsubscribe) return;
+function normalizeDiagnostics(
+  diagnostics: Partial<NoiseCaptureDiagnostics> | null | undefined
+): NoiseCaptureDiagnostics {
+  return {
+    track: diagnostics?.track ?? null,
+    latestFeature: diagnostics?.latestFeature ?? null,
+    persistence: diagnostics?.persistence ?? {
+      enabled: false,
+      available: false,
+      pendingFrames: 0,
+      retainedBytes: null,
+      error: null,
+    },
+    scoring: diagnostics?.scoring ?? {
+      requiredSeconds: NOISE_SCORE_WINDOW_SEC,
+      collectedSeconds: 0,
+      progress: 0,
+      validSecondCount: 0,
+      coverageRatio: 0,
+    },
+  };
+}
 
-  settingsUnsubscribe = subscribeSettingsEvent(
-    SETTINGS_EVENTS.NoiseControlSettingsUpdated,
-    (evt: CustomEvent) => {
-      try {
-        const detail = evt.detail as { settings?: unknown } | undefined;
-        const next =
-          detail?.settings && typeof detail.settings === "object"
-            ? (detail.settings as Record<string, unknown>)
-            : null;
-        const fallback = getNoiseControlSettings();
+let snapshot = createInitialSnapshot();
+let coordinator: NoiseCoordinator | null = null;
+let runtime: NoiseCaptureRuntime | null = null;
+let syncUnsubscribe: (() => void) | null = null;
+let settingsUnsubscribe: (() => void) | null = null;
+let stopTimer: number | null = null;
+let staleTimer: number | null = null;
+let heartbeatTimer: number | null = null;
+let snapshotTimer: number | null = null;
+let latestRuntimeUpdate: NoiseRuntimeUpdate | null = null;
+let remoteEpoch: string | null = null;
+let remoteSequence = -1;
+let lastRemoteHeartbeatAt = 0;
+let outgoingSequence = 0;
 
-        const nextMaxLevelDb =
-          typeof next?.maxLevelDb === "number" && Number.isFinite(next.maxLevelDb)
-            ? next.maxLevelDb
-            : fallback.maxLevelDb;
-        const nextShowRealtimeDb =
-          typeof next?.showRealtimeDb === "boolean" ? next.showRealtimeDb : fallback.showRealtimeDb;
-        const nextAvgWindowSec =
-          typeof next?.avgWindowSec === "number" && Number.isFinite(next.avgWindowSec)
-            ? Math.max(0.2, next.avgWindowSec)
-            : Math.max(0.2, fallback.avgWindowSec);
-        const nextAlertSoundEnabled =
-          typeof next?.alertSoundEnabled === "boolean"
-            ? next.alertSoundEnabled
-            : (fallback.alertSoundEnabled ?? false);
-        const nextDisplayBaselineDb =
-          typeof next?.baselineDb === "number" && Number.isFinite(next.baselineDb)
-            ? next.baselineDb
-            : (fallback.baselineDb ?? 40);
+function emit(): void {
+  listeners.forEach((listener) => listener());
+}
 
-        const nextFrameMs =
-          typeof next?.frameMs === "number" && Number.isFinite(next.frameMs)
-            ? next.frameMs
-            : fallback.frameMs;
-        const nextSliceSec =
-          typeof next?.sliceSec === "number" && Number.isFinite(next.sliceSec)
-            ? next.sliceSec
-            : fallback.sliceSec;
-        const nextScoreThresholdDbfs =
-          typeof next?.scoreThresholdDbfs === "number" && Number.isFinite(next.scoreThresholdDbfs)
-            ? next.scoreThresholdDbfs
-            : (fallback.scoreThresholdDbfs ?? DEFAULT_NOISE_SCORE_OPTIONS.scoreThresholdDbfs);
-        const nextSegmentMergeGapMs =
-          typeof next?.segmentMergeGapMs === "number" && Number.isFinite(next.segmentMergeGapMs)
-            ? next.segmentMergeGapMs
-            : (fallback.segmentMergeGapMs ?? DEFAULT_NOISE_SCORE_OPTIONS.segmentMergeGapMs);
-        const nextMaxSegmentsPerMin =
-          typeof next?.maxSegmentsPerMin === "number" && Number.isFinite(next.maxSegmentsPerMin)
-            ? next.maxSegmentsPerMin
-            : (fallback.maxSegmentsPerMin ?? DEFAULT_NOISE_SCORE_OPTIONS.maxSegmentsPerMin);
+function patchSnapshot(patch: Partial<NoiseMonitoringSnapshot>): void {
+  snapshot = { ...snapshot, ...patch };
+  emit();
+}
 
-        snapshot = {
-          ...snapshot,
-          maxLevelDb: nextMaxLevelDb,
-          showRealtimeDb: nextShowRealtimeDb,
-          alertSoundEnabled: nextAlertSoundEnabled,
-        };
+function pointToSnapshot(point: NoiseRealtimePoint | null): Partial<NoiseMonitoringSnapshot> {
+  return {
+    quietnessScore: point?.quietnessScore ?? null,
+    estimatedDbA: point?.estimatedDbA ?? null,
+    realtimeDbfsA: point?.dbfsA ?? null,
+  };
+}
 
-        avgWindowSec = nextAvgWindowSec;
-        displayBaselineDb = nextDisplayBaselineDb;
+function clearTimer(timer: number | null): void {
+  if (timer !== null) window.clearTimeout(timer);
+}
 
-        const shouldRestart =
-          nextFrameMs !== frameMs ||
-          nextSliceSec !== sliceSec ||
-          nextScoreThresholdDbfs !== scoreThresholdDbfs ||
-          nextSegmentMergeGapMs !== segmentMergeGapMs ||
-          nextMaxSegmentsPerMin !== maxSegmentsPerMin;
+function cleanupSettingsSubscriptionIfIdle(): void {
+  if (listeners.size > 0 || debugSessionCount > 0) return;
+  settingsUnsubscribe?.();
+  settingsUnsubscribe = null;
+}
 
-        frameMs = nextFrameMs;
-        sliceSec = nextSliceSec;
-        scoreThresholdDbfs = nextScoreThresholdDbfs;
-        segmentMergeGapMs = nextSegmentMergeGapMs;
-        maxSegmentsPerMin = nextMaxSegmentsPerMin;
-
-        if (shouldRestart && running) {
-          void restartNoiseStream();
-          return;
-        }
-
-        listeners.forEach((fn) => fn());
-      } catch {
-        const s = getNoiseControlSettings();
-        snapshot = {
-          ...snapshot,
-          maxLevelDb: s.maxLevelDb,
-          showRealtimeDb: s.showRealtimeDb,
-          alertSoundEnabled: s.alertSoundEnabled ?? false,
-        };
-        avgWindowSec = Math.max(0.2, s.avgWindowSec);
-        displayBaselineDb = s.baselineDb ?? 40;
-        frameMs = s.frameMs;
-        sliceSec = s.sliceSec;
-        scoreThresholdDbfs = s.scoreThresholdDbfs ?? DEFAULT_NOISE_SCORE_OPTIONS.scoreThresholdDbfs;
-        segmentMergeGapMs = s.segmentMergeGapMs ?? DEFAULT_NOISE_SCORE_OPTIONS.segmentMergeGapMs;
-        maxSegmentsPerMin = s.maxSegmentsPerMin ?? DEFAULT_NOISE_SCORE_OPTIONS.maxSegmentsPerMin;
-        listeners.forEach((fn) => fn());
-      }
-    }
-  );
-
-  baselineUnsubscribe = subscribeSettingsEvent(
-    SETTINGS_EVENTS.NoiseBaselineUpdated,
-    (evt: CustomEvent) => {
-      try {
-        const detail = evt.detail as { baselineRms?: unknown; baselineDb?: unknown } | undefined;
-        if (typeof detail?.baselineRms === "number") baselineRms = detail.baselineRms;
-        if (typeof detail?.baselineDb === "number") displayBaselineDb = detail.baselineDb;
-      } catch {
-        baselineRms = getAppSettings().noiseControl.baselineRms;
-      }
-    }
+function sendHeartbeat(epoch: string): void {
+  outgoingSequence += 1;
+  broadcastNoiseSyncMessage(
+    createNoiseSyncMessage({
+      type: "heartbeat",
+      leaderEpoch: epoch,
+      sequence: outgoingSequence,
+    })
   );
 }
 
-/** 清除停止定时器 */
-function clearStopTimer() {
-  if (stopTimer != null) {
-    window.clearTimeout(stopTimer);
-    stopTimer = null;
+function sendSharedSnapshot(epoch: string): void {
+  if (!latestRuntimeUpdate) return;
+  outgoingSequence += 1;
+  const payload: NoiseSharedSnapshot = {
+    status: latestRuntimeUpdate.status,
+    signalHealth: latestRuntimeUpdate.signalHealth,
+    confidence: latestRuntimeUpdate.confidence,
+    point: latestRuntimeUpdate.point,
+    latestSlice: latestRuntimeUpdate.latestSlice,
+    captureSessionId: latestRuntimeUpdate.captureSessionId,
+    calibrationAvailable: latestRuntimeUpdate.calibrationAvailable,
+    calibration: latestRuntimeUpdate.calibration,
+    diagnostics: latestRuntimeUpdate.diagnostics,
+  };
+  broadcastNoiseSyncMessage(
+    createNoiseSyncMessage({
+      type: "snapshot",
+      leaderEpoch: epoch,
+      sequence: outgoingSequence,
+      payload,
+    })
+  );
+}
+
+function scheduleSharedSnapshot(epoch: string): void {
+  if (snapshotTimer !== null) return;
+  snapshotTimer = window.setTimeout(() => {
+    snapshotTimer = null;
+    sendSharedSnapshot(epoch);
+  }, SNAPSHOT_BROADCAST_MS);
+}
+
+async function runAsLeader(context: NoiseLeadershipContext): Promise<void> {
+  followerRingBuffer.clear();
+  outgoingSequence = 0;
+  const settings = readSettings();
+  const nextRuntime = new NoiseCaptureRuntime({
+    leaderEpoch: context.epoch,
+    producerId: getNoiseSyncSenderId(),
+    preferredInputDeviceId: settings.preferredInputDevice?.deviceId,
+    scoreAlertThreshold: settings.scoreAlertThreshold,
+    historyEnabled: settings.monitoringEnabled && settings.historyEnabled,
+    onUpdate: (update) => {
+      if (!context.ownsLeadership()) return;
+      latestRuntimeUpdate = update;
+      patchSnapshot({
+        role: "leader",
+        status: update.status,
+        signalHealth: update.signalHealth,
+        confidence: update.confidence,
+        ...pointToSnapshot(update.point),
+        leaderEpoch: context.epoch,
+        captureSessionId: update.captureSessionId,
+        ringBuffer: update.ringBuffer,
+        latestSlice: update.latestSlice,
+        calibrationAvailable: update.calibrationAvailable,
+        calibration: update.calibration,
+        diagnostics: update.diagnostics,
+      });
+      scheduleSharedSnapshot(context.epoch);
+    },
+    onSlice: async (slice) => {
+      if (!context.ownsLeadership() || slice.leaderEpoch !== context.epoch) return;
+      await writeNoiseSlice(slice);
+    },
+    onFatalTrackState: () => coordinator?.releaseLeadership(),
+  });
+  runtime = nextRuntime;
+  heartbeatTimer = window.setInterval(() => sendHeartbeat(context.epoch), HEARTBEAT_MS);
+  sendHeartbeat(context.epoch);
+  try {
+    await nextRuntime.start();
+  } catch {
+    // Runtime already published the specific permission/error state; wait for retry or teardown.
+  }
+  await new Promise<void>((resolve) => {
+    if (context.signal.aborted) resolve();
+    else context.signal.addEventListener("abort", () => resolve(), { once: true });
+  });
+  clearTimer(snapshotTimer);
+  snapshotTimer = null;
+  if (heartbeatTimer !== null) window.clearInterval(heartbeatTimer);
+  heartbeatTimer = null;
+  await nextRuntime.stop();
+  if (runtime === nextRuntime) runtime = null;
+  latestRuntimeUpdate = null;
+  broadcastNoiseSyncMessage(
+    createNoiseSyncMessage({ type: "leader-release", leaderEpoch: context.epoch })
+  );
+}
+
+function applySettings(restartLeader: boolean): void {
+  const settings = readSettings();
+  patchSnapshot({
+    showRealtimeValue: settings.showRealtimeValue,
+    primaryMetric: settings.primaryMetric,
+    scoreAlertThreshold: settings.scoreAlertThreshold,
+    alertSoundEnabled: settings.alertSoundEnabled,
+  });
+  if (!shouldMonitor()) {
+    void stopClient("disabled");
+    return;
+  }
+  if (!coordinator) startClient();
+  else if (restartLeader && snapshot.role === "leader") coordinator.releaseLeadership();
+}
+
+function acceptRemoteEpoch(message: Extract<NoiseSyncMessage, { type: "heartbeat" | "snapshot" }>) {
+  if (snapshot.role === "leader") return false;
+  const now = Date.now();
+  if (remoteEpoch !== message.leaderEpoch) {
+    if (remoteEpoch && now - lastRemoteHeartbeatAt <= REMOTE_STALE_MS) return false;
+    remoteEpoch = message.leaderEpoch;
+    remoteSequence = -1;
+    followerRingBuffer.clear();
+  }
+  if (message.sequence <= remoteSequence) return false;
+  remoteSequence = message.sequence;
+  lastRemoteHeartbeatAt = now;
+  return true;
+}
+
+async function handleCommand(message: Extract<NoiseSyncMessage, { type: "command" }>) {
+  if (message.command === "settings-updated") {
+    applySettings(true);
+    return;
+  }
+  if (snapshot.role !== "leader" || !runtime) return;
+  try {
+    if (message.command === "retry") {
+      broadcastNoiseSyncMessage(
+        createNoiseSyncMessage({ type: "command-result", requestId: message.requestId, ok: true })
+      );
+      coordinator?.releaseLeadership();
+      return;
+    }
+    if (message.command === "calibrate") {
+      await runtime.calibrate(message.referenceDbA ?? Number.NaN);
+    } else {
+      runtime.clearCalibration();
+    }
+    broadcastNoiseSyncMessage(
+      createNoiseSyncMessage({ type: "command-result", requestId: message.requestId, ok: true })
+    );
+  } catch (error) {
+    broadcastNoiseSyncMessage(
+      createNoiseSyncMessage({
+        type: "command-result",
+        requestId: message.requestId,
+        ok: false,
+        error: error instanceof Error ? error.message : "操作失败",
+      })
+    );
   }
 }
 
-/**
- * 订阅噪音数据流
- * @param listener 监听器函数
- * @returns 取消订阅的函数
- */
+function handleSyncMessage(message: NoiseSyncMessage): void {
+  if (message.type === "command") {
+    void handleCommand(message);
+    return;
+  }
+  if (message.type === "command-result") {
+    const pending = pendingCommands.get(message.requestId);
+    if (!pending) return;
+    window.clearTimeout(pending.timeout);
+    pendingCommands.delete(message.requestId);
+    if (message.ok) pending.resolve();
+    else pending.reject(new Error(message.error ?? "操作失败"));
+    return;
+  }
+  if (message.type === "leader-release") {
+    if (message.leaderEpoch === remoteEpoch) {
+      lastRemoteHeartbeatAt = 0;
+      patchSnapshot({ status: "electing", leaderEpoch: null, captureSessionId: null });
+    }
+    return;
+  }
+  if (!acceptRemoteEpoch(message)) return;
+  if (message.type === "heartbeat") {
+    patchSnapshot({ role: "follower", leaderEpoch: message.leaderEpoch });
+    return;
+  }
+  const point = message.payload.point;
+  if (point) followerRingBuffer.push(point);
+  patchSnapshot({
+    role: "follower",
+    status: message.payload.status,
+    signalHealth: message.payload.signalHealth,
+    confidence: message.payload.confidence,
+    ...pointToSnapshot(point),
+    leaderEpoch: message.leaderEpoch,
+    captureSessionId: message.payload.captureSessionId,
+    ringBuffer: followerRingBuffer.snapshot(),
+    latestSlice: message.payload.latestSlice,
+    calibrationAvailable: message.payload.calibrationAvailable,
+    calibration: message.payload.calibration,
+    diagnostics: normalizeDiagnostics(message.payload.diagnostics),
+  });
+}
+
+function startClient(): void {
+  if (coordinator || !shouldMonitor()) return;
+  syncUnsubscribe = subscribeNoiseSync(handleSyncMessage);
+  coordinator = new NoiseCoordinator({
+    onRoleChange: (role, epoch) => {
+      patchSnapshot({
+        role,
+        status: role === "none" ? "disabled" : role === "follower" ? "electing" : "initializing",
+        leaderEpoch: epoch,
+      });
+    },
+    runAsLeader,
+  });
+  coordinator.start();
+  staleTimer = window.setInterval(() => {
+    if (
+      snapshot.role === "follower" &&
+      lastRemoteHeartbeatAt > 0 &&
+      Date.now() - lastRemoteHeartbeatAt > REMOTE_STALE_MS
+    ) {
+      patchSnapshot({ status: "electing", leaderEpoch: null, captureSessionId: null });
+    }
+  }, HEARTBEAT_MS);
+}
+
+async function stopClient(status: "disabled" | "electing" = "electing"): Promise<void> {
+  const activeCoordinator = coordinator;
+  coordinator = null;
+  await activeCoordinator?.stop();
+  syncUnsubscribe?.();
+  syncUnsubscribe = null;
+  if (staleTimer !== null) window.clearInterval(staleTimer);
+  staleTimer = null;
+  followerRingBuffer.clear();
+  patchSnapshot({
+    ...createInitialSnapshot(),
+    status,
+    role: "none",
+    ringBuffer: [],
+  });
+}
+
+function sendCommand(
+  command: "retry" | "calibrate" | "clear-calibration",
+  referenceDbA?: number
+): Promise<void> {
+  const requestId = crypto.randomUUID?.() ?? `${Date.now()}:${Math.random()}`;
+  return new Promise((resolve, reject) => {
+    const timeout = window.setTimeout(() => {
+      pendingCommands.delete(requestId);
+      reject(new Error("未能连接到正在采集的标签页"));
+    }, COMMAND_TIMEOUT_MS);
+    pendingCommands.set(requestId, { resolve, reject, timeout });
+    broadcastNoiseSyncMessage(
+      createNoiseSyncMessage({
+        type: "command",
+        requestId,
+        command,
+        ...(typeof referenceDbA === "number" ? { referenceDbA } : {}),
+      })
+    );
+  });
+}
+
 export function subscribeNoiseStream(listener: Listener): () => void {
-  ensureSettingsListeners();
   listeners.add(listener);
-
-  clearStopTimer();
-  if (!running) {
-    void hardStart();
+  if (!settingsUnsubscribe) {
+    settingsUnsubscribe = subscribeSettingsEvent(SETTINGS_EVENTS.NoiseControlSettingsUpdated, () =>
+      applySettings(true)
+    );
   }
-
+  clearTimer(stopTimer);
+  stopTimer = null;
+  if (shouldMonitor()) startClient();
+  else patchSnapshot({ status: "disabled", role: "none" });
   return () => {
     listeners.delete(listener);
     if (listeners.size > 0) return;
-
-    clearStopTimer();
     stopTimer = window.setTimeout(() => {
       stopTimer = null;
-      if (listeners.size === 0) {
-        void hardStop();
+      if (listeners.size === 0 && debugSessionCount === 0) {
+        void stopClient(readSettings().monitoringEnabled ? "electing" : "disabled");
+        cleanupSettingsSubscriptionIfIdle();
       }
     }, STOP_DEBOUNCE_MS);
   };
 }
 
-/**
- * 获取噪音流当前快照
- * @returns 噪音流快照
- */
 export function getNoiseStreamSnapshot(): NoiseStreamSnapshot {
-  return { ...snapshot };
+  return {
+    ...snapshot,
+    ringBuffer: snapshot.ringBuffer.slice(),
+    diagnostics: normalizeDiagnostics(snapshot.diagnostics),
+  };
 }
 
-/**
- * 重启噪音采集流
- */
+export function acquireNoiseDebugSession(): () => void {
+  debugSessionCount += 1;
+  clearTimer(stopTimer);
+  stopTimer = null;
+  startClient();
+
+  let released = false;
+  return () => {
+    if (released) return;
+    released = true;
+    debugSessionCount = Math.max(0, debugSessionCount - 1);
+    if (!shouldMonitor()) {
+      void stopClient("disabled").finally(cleanupSettingsSubscriptionIfIdle);
+    }
+  };
+}
+
 export async function restartNoiseStream(): Promise<void> {
-  clearStopTimer();
-  await hardStop();
-  if (listeners.size > 0) {
-    await hardStart();
+  if (!shouldMonitor()) {
+    applySettings(false);
+    return;
   }
+  if (snapshot.role === "leader") {
+    coordinator?.releaseLeadership();
+    return;
+  }
+  await sendCommand("retry");
+}
+
+export async function calibrateNoiseStream(referenceDbA: number): Promise<void> {
+  if (snapshot.role === "leader" && runtime) {
+    await runtime.calibrate(referenceDbA);
+    return;
+  }
+  await sendCommand("calibrate", referenceDbA);
+}
+
+export async function clearNoiseStreamCalibration(): Promise<void> {
+  if (snapshot.role === "leader" && runtime) {
+    runtime.clearCalibration();
+    return;
+  }
+  await sendCommand("clear-calibration");
 }

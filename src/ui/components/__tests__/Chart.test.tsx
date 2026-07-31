@@ -31,6 +31,15 @@ describe("LineChart", () => {
             area: true,
             colorAbove: { value: 50, tone: "danger" },
           },
+          {
+            id: "focus",
+            label: "专注度",
+            data: [
+              { x: 0, y: 52 },
+              { x: 2, y: 48 },
+            ],
+            tone: "success",
+          },
         ]}
         bars={[
           {
@@ -48,6 +57,10 @@ describe("LineChart", () => {
     const chart = screen.getByRole("img", { name: "专注环境走势" });
     expect(chart).toHaveAccessibleDescription("两分钟内的环境噪音与打断次数。");
     expect(container.querySelectorAll('[data-chart-series="noise"]')).toHaveLength(2);
+    expect(container.querySelector('[data-chart-series="focus"]')).toHaveAttribute(
+      "stroke",
+      "var(--ui-color-success)"
+    );
     expect(container.querySelector('[data-chart-bar-series="events"]')).not.toBeNull();
     expect(container.querySelector('[data-chart-threshold="50"]')).not.toBeNull();
     expect(screen.getByLabelText("图表图例")).toHaveTextContent("噪音");

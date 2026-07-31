@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from "react";
-import { Routes, Route } from "react-router-dom";
+import React, { lazy, Suspense, useEffect, useState } from "react";
+import { Route, Routes, useLocation } from "react-router-dom";
 
 import styles from "./App.module.css";
 import AnnouncementModal from "./components/AnnouncementModal";
@@ -9,12 +9,18 @@ import { DesignSystemPage } from "./pages/DesignSystem";
 import { shouldShowAnnouncement } from "./utils/announcementStorage";
 import { hasSeenTour } from "./utils/tour";
 
+const AudioDebugPage = lazy(() =>
+  import("./pages/Debug/AudioDebugPage").then((module) => ({ default: module.AudioDebugPage }))
+);
+
 /**
  * 主应用组件
  * 设置路由并渲染主要的时钟页面
  * 包含首次访问时的进入动画和公告弹窗
  */
 export function App() {
+  const location = useLocation();
+  const isDebugRoute = location.pathname.startsWith("/debug/");
   const [showEnterAnimation, setShowEnterAnimation] = useState(false);
   const [showAnnouncement, setShowAnnouncement] = useState(false);
   const [showTourConfetti, setShowTourConfetti] = useState(false);
@@ -24,6 +30,13 @@ export function App() {
    * 在组件首次挂载时触发
    */
   useEffect(() => {
+    if (isDebugRoute) {
+      setShowEnterAnimation(false);
+      setShowAnnouncement(false);
+      setShowTourConfetti(false);
+      return undefined;
+    }
+
     // 直接触发进入动画
     setShowEnterAnimation(true);
 
@@ -31,6 +44,8 @@ export function App() {
     const timer = setTimeout(() => {
       setShowEnterAnimation(false);
     }, 1000); // 1秒动画时长
+    let announcementTimer: number | null = null;
+    let pendingTourEndListener: (() => void) | null = null;
 
     // 检查是否需要显示公告
     const checkAnnouncement = () => {
@@ -40,13 +55,15 @@ export function App() {
           const onTourEnd = () => {
             setShowAnnouncement(true);
             window.removeEventListener("tour:end", onTourEnd);
+            pendingTourEndListener = null;
           };
+          pendingTourEndListener = onTourEnd;
           window.addEventListener("tour:end", onTourEnd);
           return;
         }
 
         // 延迟显示公告，等待进入动画完成
-        setTimeout(() => {
+        announcementTimer = window.setTimeout(() => {
           setShowAnnouncement(true);
         }, 1200); // 在进入动画完成后200ms显示
       }
@@ -70,10 +87,14 @@ export function App() {
 
     return () => {
       clearTimeout(timer);
+      if (announcementTimer !== null) window.clearTimeout(announcementTimer);
+      if (pendingTourEndListener) {
+        window.removeEventListener("tour:end", pendingTourEndListener);
+      }
       window.removeEventListener("tour:start", onTourStart);
       window.removeEventListener("tour:completed", onTourCompleted);
     };
-  }, []); // 空依赖数组确保只在组件挂载时执行一次
+  }, [isDebugRoute]);
 
   return (
     <div
@@ -87,17 +108,33 @@ export function App() {
         <Route path="/stopwatch" element={<ClockPage />} />
         <Route path="/study" element={<ClockPage />} />
         <Route path="/design-system" element={<DesignSystemPage />} />
+        <Route
+          path="/debug/audio"
+          element={
+            <Suspense
+              fallback={
+                <div className={styles.routeLoading} role="status">
+                  正在加载音频诊断…
+                </div>
+              }
+            >
+              <AudioDebugPage />
+            </Suspense>
+          }
+        />
         <Route path="*" element={<ClockPage />} />
       </Routes>
 
-      {showTourConfetti && <Confetti />}
+      {!isDebugRoute && showTourConfetti && <Confetti />}
 
       {/* 公告弹窗 */}
-      <AnnouncementModal
-        isOpen={showAnnouncement}
-        onClose={() => setShowAnnouncement(false)}
-        initialTab="announcement"
-      />
+      {!isDebugRoute && (
+        <AnnouncementModal
+          isOpen={showAnnouncement}
+          onClose={() => setShowAnnouncement(false)}
+          initialTab="announcement"
+        />
+      )}
     </div>
   );
 }

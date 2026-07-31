@@ -16,7 +16,6 @@ import { AppIcon } from "../ui";
 const TOUR_STORAGE_KEY = "immersive-clock:has-seen-tour";
 
 let currentDriver: Driver | null = null;
-let calibrationBaselineAtEnter: number | null = null;
 let closeIconRoot: Root | null = null;
 
 /**
@@ -99,36 +98,50 @@ const isSettingsPanelOpen = () => {
   return !!panel && (typeof panel.isConnected !== "boolean" || panel.isConnected);
 };
 
-/**
- * 判断设置面板顶部分类 Tab 是否已激活
- */
-const isSettingsCategoryActive = (key: "basic" | "monitor") => {
-  const tab = document.getElementById(key);
-  if (!tab) return false;
-  return tab.getAttribute("aria-selected") === "true";
+/** 返回当前可交互的设置导航元素，兼容桌面侧栏与移动紧凑导航。 */
+const getVisibleSettingsElement = (selector: string): HTMLElement | null => {
+  const elements = Array.from(document.querySelectorAll<HTMLElement>(selector));
+  return (
+    elements.find(
+      (element) =>
+        element.getClientRects().length > 0 &&
+        !element.closest('[hidden], [aria-hidden="true"], [inert]')
+    ) ?? null
+  );
 };
 
-/**
- * 读取“基准噪音值”滑块当前值（用于判断用户是否已手动修正）
- */
-const getNoiseBaselineSliderValue = () => {
-  const input = document.querySelector(
-    '#tour-noise-baseline-slider input[type="range"]'
-  ) as HTMLInputElement | null;
-  if (!input) return null;
-  const v = Number.parseFloat(input.value);
-  return Number.isFinite(v) ? v : null;
+/** 判断噪音设置面板已挂载且当前可见。 */
+const isNoiseSettingsPanelActive = () => {
+  const panel = document.getElementById("study-panel");
+  return !!panel && !panel.closest('[hidden], [aria-hidden="true"], [inert]');
 };
 
-/**
- * 判断噪音是否已校准（通过校准状态 DOM 文案判断）
- */
-const isNoiseCalibrated = () => {
-  const el = document.querySelector('[data-tour="noise-calibration-status"]');
-  const text = el?.textContent ?? "";
-  return text.includes("已校准");
+/** 打开设置中的分组和目标面板。 */
+const activateSettingsPane = (group: string, pane: string) => {
+  const paneSelector = `[data-settings-pane="${pane}"]`;
+  const clickPane = () => {
+    const paneElement = getVisibleSettingsElement(paneSelector);
+    if (!paneElement) return false;
+    paneElement.click();
+    return true;
+  };
+
+  if (clickPane()) return;
+  getVisibleSettingsElement(`[data-settings-group="${group}"]`)?.click();
+
+  let attempts = 0;
+  const retry = () => {
+    if (clickPane() || attempts >= 12) return;
+    attempts += 1;
+    setTimeout(retry, 60);
+  };
+  setTimeout(retry, 0);
 };
 
+/** 判断校准子 Tab 是否已激活。 */
+const isNoiseCalibrationTabActive = () =>
+  document.getElementById("noise-settings-tabs-tab-calibration")?.getAttribute("aria-selected") ===
+  "true";
 /**
  * 判断噪音历史记录弹窗是否已打开
  */
@@ -371,7 +384,6 @@ export const startTour = (force = false, options?: TourOptions) => {
     return;
   }
 
-  calibrationBaselineAtEnter = null;
   let isDoneClicked = false;
 
   // 指引开始时立即执行回调（显示 HUD）
@@ -488,53 +500,52 @@ export const startTour = (force = false, options?: TourOptions) => {
         },
       },
       {
-        element: "#monitor",
+        element: () =>
+          getVisibleSettingsElement('[data-settings-group="environment"]') ?? document.body,
         popover: {
           title: "监测设置",
-          description: "上方可以切换各种类型的设置分类，比如这里可以配置噪音监测功能。",
+          description: "打开环境提醒分组后，选择噪音监测即可配置噪音与校准。",
           side: "bottom",
           align: "center",
           onPopoverRender: composeTourPopoverRender(),
           onNextClick: createAutoNextClick({
-            check: () => isSettingsCategoryActive("monitor"),
-            action: () => tryClickElement("#monitor"),
+            check: isNoiseSettingsPanelActive,
+            action: () => activateSettingsPane("environment", "noise"),
             hint: "已为您执行切换操作",
           }),
         },
       },
 
       {
-        element: '[data-tour="noise-calibration"]',
+        element: "#noise-settings-tabs-tab-calibration",
         popover: {
-          title: "校准噪音值",
-          description: "这里是噪音校准功能，校准完成后你会获得更精确的分贝显示。",
-          side: "top",
+          title: "打开校准设置",
+          description: "校准位于独立子页。点击“下一步”会为您切换到校准页。",
+          side: "bottom",
           align: "center",
           onPopoverRender: composeTourPopoverRender(),
           onNextClick: createAutoNextClick({
-            check: () => {
-              const baselineValue = getNoiseBaselineSliderValue();
-              const baselineChanged =
-                baselineValue !== null &&
-                calibrationBaselineAtEnter !== null &&
-                Math.abs(baselineValue - calibrationBaselineAtEnter) >= 0.5;
-              return isNoiseCalibrated() || baselineChanged;
-            },
-            action: () => {
-              // 移除 calibrationAttemptedInTour = true;
-              tryClickElement("#tour-noise-calibrate-btn");
-            },
-            hint: "已为您触发校准操作",
-            timeoutMs: 8000,
+            check: isNoiseCalibrationTabActive,
+            action: () => tryClickElement("#noise-settings-tabs-tab-calibration"),
+            hint: "已为您切换到校准页",
           }),
         },
+      },
+      {
+        element: '[data-tour="noise-calibration"]',
+        popover: {
+          title: "校准噪音值",
+          description:
+            "输入旁置声级计的 dB(A) 读数后，可以手动开始十秒采集。引导不会自动启动麦克风校准。",
+          side: "top",
+          align: "center",
+          onPopoverRender: composeTourPopoverRender(),
+        },
         onHighlightStarted: () => {
-          const baselineValue = getNoiseBaselineSliderValue();
-          calibrationBaselineAtEnter = baselineValue;
-          const el = document.querySelector(
+          const element = document.querySelector(
             '[data-tour="noise-calibration"]'
           ) as HTMLElement | null;
-          el?.scrollIntoView?.({ block: "center", inline: "nearest", behavior: "smooth" });
+          element?.scrollIntoView?.({ block: "center", inline: "nearest", behavior: "smooth" });
         },
       },
       {

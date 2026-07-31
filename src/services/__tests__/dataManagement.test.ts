@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { createNoiseSliceFixture } from "../../test/noiseFixtures";
 import type { AppearanceBackupAsset, ImmersiveClockBackupV1 } from "../../types/dataManagement";
 import type { NoiseSliceSummary } from "../../types/noise";
 import {
@@ -30,6 +31,14 @@ import {
 const dataState = vi.hoisted(() => ({
   assets: [] as AppearanceBackupAsset[],
   noise: [] as NoiseSliceSummary[],
+  noiseFeatures: {
+    sessionCount: 0,
+    chunkCount: 0,
+    frameCount: 0,
+    bytes: 0,
+    oldestAt: null as number | null,
+    newestAt: null as number | null,
+  },
   failNoiseReplaceCount: 0,
 }));
 
@@ -70,9 +79,21 @@ vi.mock("../../utils/db", () => ({
   },
 }));
 
+vi.mock("../../services/noise/noiseFeatureRepository", () => ({
+  inspectNoiseFeatureData: vi.fn(async () => structuredClone(dataState.noiseFeatures)),
+}));
+
 vi.mock("../../utils/noiseSliceService", () => ({
   clearNoiseSlices: vi.fn(async () => {
     dataState.noise = [];
+    dataState.noiseFeatures = {
+      sessionCount: 0,
+      chunkCount: 0,
+      frameCount: 0,
+      bytes: 0,
+      oldestAt: null,
+      newestAt: null,
+    };
   }),
   exportNoiseSlices: vi.fn(async () => structuredClone(dataState.noise)),
   inspectNoiseSlices: vi.fn(async () => ({
@@ -89,7 +110,7 @@ vi.mock("../../utils/noiseSliceService", () => ({
       !!value &&
       typeof value === "object" &&
       typeof (value as { start?: unknown }).start === "number" &&
-      typeof (value as { scoreDetail?: unknown }).scoreDetail === "object"
+      typeof (value as { detail?: unknown }).detail === "object"
   ),
   validateNoiseSlicesForReplacement: vi.fn((value: unknown) => {
     if (!Array.isArray(value)) throw new TypeError("invalid noise history");
@@ -138,35 +159,18 @@ function fontAsset(id: string, payload = "AA=="): AppearanceBackupAsset {
 }
 
 function noiseSlice(start = 1_000): NoiseSliceSummary {
-  return {
+  return createNoiseSliceFixture({
+    id: `capture-backup:${start}`,
     start,
     end: start + 60_000,
-    frames: 10,
-    raw: {
-      avgDbfs: -40,
-      maxDbfs: -20,
-      p50Dbfs: -42,
-      p95Dbfs: -25,
-      overRatioDbfs: 0.1,
-      segmentCount: 1,
+    featureCount: 600,
+    detail: {
+      ...createNoiseSliceFixture().detail,
+      durationMs: 60_000,
+      sampledDurationMs: 60_000,
+      coverageRatio: 1,
     },
-    display: { avgDb: 45, p95Db: 60 },
-    score: 90,
-    scoreDetail: {
-      sustainedPenalty: 1,
-      timePenalty: 2,
-      segmentPenalty: 3,
-      thresholdsUsed: {
-        scoreThresholdDbfs: -30,
-        segmentMergeGapMs: 500,
-        maxSegmentsPerMin: 10,
-      },
-      sustainedLevelDbfs: -35,
-      overRatioDbfs: 0.1,
-      segmentCount: 1,
-      minutes: 1,
-    },
-  };
+  });
 }
 
 function settingsWithBackground(assetId?: string) {
@@ -178,11 +182,16 @@ function settingsWithBackground(assetId?: string) {
 function backupWith(
   settings: Record<string, unknown>,
   assets: AppearanceBackupAsset[],
-  noise?: NoiseSliceSummary[]
+  noise?: NoiseSliceSummary[],
+  noiseSchemaVersion = 4
 ): ImmersiveClockBackupV1 {
-  const summary = (id: "settings" | "assets" | "noiseHistory", data: unknown) => ({
+  const summary = (
+    id: "settings" | "assets" | "noiseHistory",
+    data: unknown,
+    schemaVersion = 1
+  ) => ({
     id,
-    schemaVersion: 1,
+    schemaVersion,
     itemCount: Array.isArray(data) ? data.length : 1,
     bytes: new TextEncoder().encode(JSON.stringify(data)).byteLength,
   });
@@ -195,12 +204,12 @@ function backupWith(
     manifest: [
       summary("settings", settings),
       summary("assets", assets),
-      ...(noise ? [summary("noiseHistory", noise)] : []),
+      ...(noise ? [summary("noiseHistory", noise, noiseSchemaVersion)] : []),
     ],
     domains: {
       settings: { schemaVersion: 1, data: settings },
       assets: { schemaVersion: 1, data: assets },
-      ...(noise ? { noiseHistory: { schemaVersion: 1, data: noise } } : {}),
+      ...(noise ? { noiseHistory: { schemaVersion: noiseSchemaVersion, data: noise } } : {}),
     },
   };
 }
@@ -211,6 +220,14 @@ describe("dataManagement", () => {
     sessionStorage.clear();
     dataState.assets = [];
     dataState.noise = [];
+    dataState.noiseFeatures = {
+      sessionCount: 0,
+      chunkCount: 0,
+      frameCount: 0,
+      bytes: 0,
+      oldestAt: null,
+      newestAt: null,
+    };
     dataState.failNoiseReplaceCount = 0;
   });
 
@@ -274,8 +291,26 @@ describe("dataManagement", () => {
     expect(backup.manifest.map((entry) => entry.id)).toEqual(["settings", "assets"]);
   });
 
-  it("备份恢复会保留中央信息轮播与自定义消息", async () => {
+  it.each([1, 2, 3])("预检拒绝 schema v%s 的旧噪声历史", async (schemaVersion) => {
+    const legacy = backupWith(
+      settingsWithBackground() as unknown as Record<string, unknown>,
+      [],
+      [noiseSlice()],
+      schemaVersion
+    );
+
+    await expect(prepareBackup(JSON.stringify(legacy))).rejects.toMatchObject({
+      code: "UNSUPPORTED_BACKUP_VERSION",
+      message: expect.stringContaining(`v${schemaVersion}`),
+    });
+  });
+
+  it("备份恢复会保留中央信息轮播、自定义消息与麦克风偏好", async () => {
     const settings = settingsWithBackground();
+    settings.noiseControl.preferredInputDevice = {
+      deviceId: "usb-mic",
+      label: "USB 麦克风",
+    };
     settings.study.infoCarousel = {
       intervalSec: 12,
       items: [
@@ -332,6 +367,10 @@ describe("dataManagement", () => {
         expect.objectContaining({ id: "rain-default", backgroundProgressKind: "schedule" }),
         expect.objectContaining({ id: "custom-review", text: "完成今日复盘" }),
       ]),
+    });
+    expect(getAppSettings().noiseControl.preferredInputDevice).toEqual({
+      deviceId: "usb-mic",
+      label: "USB 麦克风",
     });
   });
 
@@ -605,6 +644,35 @@ describe("dataManagement", () => {
     await restoreBackup(prepared);
 
     expect(dataState.assets).toEqual([retainedBackground]);
+  });
+
+  it("清理噪音历史时合并评分、会话、分块和原始帧统计", async () => {
+    const score = noiseSlice();
+    dataState.noise = [score];
+    dataState.noiseFeatures = {
+      sessionCount: 2,
+      chunkCount: 3,
+      frameCount: 1_200,
+      bytes: 33_600,
+      oldestAt: score.start - 1_000,
+      newestAt: score.end + 1_000,
+    };
+    const scoreBytes = JSON.stringify(dataState.noise).length * 2;
+
+    const result = await clearDataScope("noiseHistory");
+
+    expect(result).toEqual({
+      affectedDomains: ["noiseHistory"],
+      itemCount: 1_206,
+      bytesFreed: scoreBytes + 33_600,
+    });
+    expect(dataState.noise).toEqual([]);
+    expect(dataState.noiseFeatures).toMatchObject({
+      sessionCount: 0,
+      chunkCount: 0,
+      frameCount: 0,
+      bytes: 0,
+    });
   });
 
   it("缓存清理仅命中白名单并保留设备种子和未知同源数据", async () => {

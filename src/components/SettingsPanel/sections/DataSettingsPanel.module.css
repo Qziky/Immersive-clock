@@ -11,6 +11,33 @@
   min-width: 0;
 }
 
+.archiveGroup {
+  border-top: 1px solid var(--ui-color-border);
+  display: grid;
+  gap: var(--ui-space-3);
+  min-width: 0;
+  padding-top: var(--ui-space-4);
+}
+
+.archiveGroup > strong,
+.rescoreProgress span {
+  color: var(--ui-color-text);
+  font-size: var(--ui-font-size-sm);
+}
+
+.dateRange {
+  display: grid;
+  gap: var(--ui-space-3);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  min-width: 0;
+}
+
+.rescoreProgress {
+  display: grid;
+  gap: var(--ui-space-2);
+  min-width: 0;
+}
+
 .domainSummary {
   display: flex;
   flex-wrap: wrap;
@@ -76,6 +103,10 @@
 }
 
 @media (max-width: 520px) {
+  .dateRange {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   .domainSummary {
     display: grid;
   }

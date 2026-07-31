@@ -624,7 +624,7 @@ test("天气设置：移除分钟降水弹窗并在天气数据保留完整数�
     };
   });
   expect(migrated).toMatchObject({
-    version: 8,
+    version: 10,
     hasSchedule: false,
     hasLegacyField: false,
     rain: {
@@ -752,6 +752,74 @@ test("定位设置：手动城市必须搜索并选择小米候选", async ({ pa
         },
       },
     });
+});
+
+test("噪音设置：选择麦克风只在保存后持久化，并在重开后恢复", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("immersive-clock:has-seen-tour", "true");
+    localStorage.setItem(
+      "AppSettings",
+      JSON.stringify({
+        version: 10,
+        general: {
+          announcement: {
+            hideUntil: Date.now() + 7 * 24 * 60 * 60 * 1000,
+            version: "3.13.3",
+          },
+        },
+        noiseControl: {
+          monitoringEnabled: false,
+          preferredInputDevice: null,
+        },
+      })
+    );
+    Object.defineProperty(navigator, "mediaDevices", {
+      configurable: true,
+      value: {
+        enumerateDevices: async () => [
+          { kind: "audioinput", deviceId: "default", label: "默认设备", groupId: "" },
+          { kind: "audioinput", deviceId: "built-in", label: "内置麦克风", groupId: "" },
+          { kind: "audioinput", deviceId: "usb-mic", label: "USB 麦克风", groupId: "" },
+          { kind: "videoinput", deviceId: "camera", label: "摄像头", groupId: "" },
+        ],
+      },
+    });
+  });
+  await page.goto("/");
+
+  let dialog = await openStudySettings(page);
+  await openEnvironmentSettingsPage(page, dialog, "噪音监测");
+  const microphoneDropdown = dialog.getByRole("button", {
+    name: "麦克风设备",
+    exact: true,
+  });
+  await expect(microphoneDropdown).toContainText("系统默认");
+  await microphoneDropdown.click();
+  const microphoneOptions = page.getByRole("listbox").getByRole("option");
+  await expect(microphoneOptions).toHaveText(["系统默认", "内置麦克风", "USB 麦克风"]);
+
+  await page.getByRole("option", { name: "USB 麦克风" }).click();
+  expect(
+    await page.evaluate(() => JSON.parse(localStorage.getItem("AppSettings") ?? "{}").noiseControl)
+  ).toMatchObject({ preferredInputDevice: null });
+
+  await dialog.getByRole("button", { name: "保存" }).click();
+  await expect(dialog).toBeHidden();
+  expect(
+    await page.evaluate(() => {
+      const settings = JSON.parse(localStorage.getItem("AppSettings") ?? "{}");
+      return { version: settings.version, preference: settings.noiseControl?.preferredInputDevice };
+    })
+  ).toEqual({
+    version: 10,
+    preference: { deviceId: "usb-mic", label: "USB 麦克风" },
+  });
+
+  dialog = await openStudySettings(page);
+  await openEnvironmentSettingsPage(page, dialog, "噪音监测");
+  await expect(dialog.getByRole("button", { name: "麦克风设备", exact: true })).toContainText(
+    "USB 麦克风"
+  );
 });
 
 for (const viewport of [

@@ -34,7 +34,7 @@ test.describe("弹层重设计", () => {
 
     const modeTabs = page.getByRole("tablist", { name: "选择时钟模式" });
     await modeTabs.getByRole("tab", { name: /自习/ }).click();
-    await page.getByRole("button", { name: /查看历史记录/ }).click();
+    await page.getByRole("button", { name: "查看噪音历史" }).click();
 
     const historyDialog = page.getByRole("dialog", { name: "历史记录管理" });
     await expect(historyDialog).toBeVisible();
@@ -42,6 +42,8 @@ test.describe("弹层重设计", () => {
 
     await historyDialog.getByText("自定义时间段报告").click();
     await expect(historyDialog.getByLabel("报告名称")).toBeVisible();
+    const notificationClose = page.getByRole("button", { name: "关闭通知" });
+    if (await notificationClose.count()) await notificationClose.last().click();
     const startInput = historyDialog.getByLabel("开始时间");
     const endInput = historyDialog.getByLabel("结束时间");
     const validEndValue = await endInput.inputValue();
@@ -53,53 +55,61 @@ test.describe("弹层重设计", () => {
     await historyDialog.getByRole("button", { name: "查看报告" }).click();
 
     const reportDialog = page.getByRole("dialog", { name: "自定义报告 统计报告" });
-    await expect(reportDialog.getByText("该时段暂无噪音数据")).toBeVisible();
+    await expect(reportDialog.getByText("该时段暂无有效噪音评分")).toBeVisible();
     await expect(reportDialog.locator("svg[role='img']")).toHaveCount(0);
     await reportDialog.getByRole("button", { name: "返回" }).click();
     const reopenedHistory = page.getByRole("dialog", { name: "历史记录管理" });
     await expect(reopenedHistory).toBeVisible();
 
-    await page.evaluate(() => {
+    await page.evaluate(async () => {
       const now = Date.now();
-      const values = [44, 51, 63, 57];
-      const slices = values.map((avgDb, index) => {
+      const scores = [94, 86, 78, 70];
+      const slices = scores.map((score, index) => {
         const start = now - (50 - index * 12) * 60_000;
-        const end = start + 8 * 60_000;
+        const end = start + 60_000;
         return {
+          schemaVersion: 1 as const,
+          id: `spectral-activity-v2:modal-e2e:${(index + 1) * 50}`,
+          modelVersion: "spectral-activity-v2" as const,
+          captureSessionId: "modal-e2e",
+          leaderEpoch: "modal-e2e-epoch",
+          windowSequence: index + 1,
+          sourceStartFrameSequence: index * 50 + 1,
+          sourceEndFrameSequence: (index + 1) * 50,
+          sourceStartSample: index * 2_880_000,
+          sourceEndSample: (index + 1) * 2_880_000,
           start,
           end,
-          frames: 480,
-          raw: {
-            avgDbfs: -48 + index * 5,
-            maxDbfs: -22,
-            p50Dbfs: -50 + index * 5,
-            p95Dbfs: -28 + index * 3,
-            overRatioDbfs: 0.08 + index * 0.07,
-            segmentCount: index + 1,
-            sampledDurationMs: end - start,
-          },
-          display: { avgDb, p95Db: avgDb + 10 },
-          score: 94 - index * 8,
-          scoreDetail: {
-            sustainedPenalty: 0.04 + index * 0.04,
-            timePenalty: 0.03 + index * 0.03,
-            segmentPenalty: 0.02 + index * 0.04,
-            thresholdsUsed: {
-              scoreThresholdDbfs: -32,
-              segmentMergeGapMs: 1000,
-              maxSegmentsPerMin: 8,
-            },
-            sustainedLevelDbfs: -48 + index * 5,
-            overRatioDbfs: 0.08 + index * 0.07,
-            segmentCount: index + 1,
-            minutes: 8,
+          featureCount: 600,
+          coverageRatio: 1,
+          signalHealth: "healthy" as const,
+          confidence: "high" as const,
+          estimated: null,
+          score,
+          detail: {
+            activityMean: 0.05 + index * 0.1,
+            activityFloor: 0.02 + index * 0.08,
+            eventFactor: 0.1 + index * 0.1,
+            eventCount: index + 1,
             durationMs: end - start,
             sampledDurationMs: end - start,
             coverageRatio: 1,
+            validSecondCount: 60,
+            totalSecondCount: 60,
+            quality: "high" as const,
+            thresholdsUsed: {
+              activityEnter: 0.78,
+              activityExit: 0.4,
+              eventMergeGapSec: 3,
+              coverageRequired: 0.8,
+            },
           },
+          sourceAvailable: false,
         };
       });
-      localStorage.setItem("noise-slices", JSON.stringify(slices));
+      // eslint-disable-next-line import/no-unresolved -- This module is loaded by the Vite page runtime.
+      const service = await import("/src/utils/noiseSliceService.ts");
+      await service.replaceNoiseSlices(slices);
     });
 
     await page.reload();
@@ -108,14 +118,14 @@ test.describe("弹层重设计", () => {
       .getByRole("tablist", { name: "选择时钟模式" })
       .getByRole("tab", { name: /自习/ })
       .click();
-    await page.getByRole("button", { name: /查看历史记录/ }).click();
+    await page.getByRole("button", { name: "查看噪音历史" }).click();
     await expect(reopenedHistory).toBeVisible();
-    await expect.poll(() => page.evaluate(() => localStorage.getItem("noise-slices"))).toBeNull();
-
+    const reopenedNotificationClose = page.getByRole("button", { name: "关闭通知" });
+    if (await reopenedNotificationClose.count()) await reopenedNotificationClose.last().click();
     await reopenedHistory.getByText("自定义时间段报告").click();
     await reopenedHistory.getByRole("button", { name: "查看报告" }).click();
     const populatedReport = page.getByRole("dialog", { name: "自定义报告 统计报告" });
-    await expect(populatedReport.locator("svg[role='img']")).toHaveCount(3);
+    await expect(populatedReport.locator("svg[role='img']")).toHaveCount(1);
     expect(
       await populatedReport
         .locator("svg[role='img']")

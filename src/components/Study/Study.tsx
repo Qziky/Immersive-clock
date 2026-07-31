@@ -2,6 +2,7 @@ import React, { useState, useCallback, useEffect, useRef, useMemo } from "react"
 
 import { useAppState } from "../../contexts/AppContext";
 import { useAppearance, useComponentAppearance } from "../../contexts/AppearanceContext";
+import { useNoiseStream } from "../../hooks/useNoiseStream";
 import { useTimer } from "../../hooks/useTimer";
 import { CountdownItem, type StudyDisplaySettings } from "../../types";
 import { DEFAULT_SCHEDULE, StudyPeriod } from "../../types/studySchedule";
@@ -29,6 +30,7 @@ import { StudyTopDockPresentation } from "./StudyTopDockPresentation";
  * 显示当前时间和倒计时轮播
  */
 export function Study() {
+  useNoiseStream();
   const { study } = useAppState();
   const { getBackgroundImage, resolveBackground, resolveStyle } = useAppearance();
   const [currentTime, setCurrentTime] = useState<Date>(getAdjustedDate());

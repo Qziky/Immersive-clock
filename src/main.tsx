@@ -6,6 +6,7 @@ import { BrowserRouter } from "react-router-dom";
 import { App } from "./App";
 import { AppContextProvider } from "./contexts/AppContext";
 import { AppearanceProvider } from "./contexts/AppearanceContext";
+import { initializeNoiseDataMaintenance } from "./services/noise/noiseDataMaintenance";
 import { FeedbackProvider } from "./ui";
 import { initializeAppearanceResources } from "./utils/appearanceSettings";
 import { getAppSettings } from "./utils/appSettings";
@@ -34,6 +35,7 @@ function initAnalytics(): void {
 async function bootstrap(): Promise<void> {
   initAnalytics();
   initializeStorage();
+  initializeNoiseDataMaintenance();
   await initializeAppearanceResources();
   setErrorCenterMode(getAppSettings().study.alerts.errorCenterMode);
   initErrorCenterGlobalCapture();

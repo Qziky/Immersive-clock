@@ -3076,6 +3076,32 @@
 }
 
 @media (max-width: 480px) {
+  .fieldLabelRow {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: var(--ui-space-1);
+  }
+
+  .hint {
+    overflow-wrap: anywhere;
+  }
+
+  .filePicker {
+    align-items: stretch;
+    flex-direction: column;
+    padding: var(--ui-space-2);
+  }
+
+  .filePickerName {
+    overflow-wrap: anywhere;
+    padding: 2px var(--ui-space-1);
+    white-space: normal;
+  }
+
+  .filePicker > .button {
+    width: 100%;
+  }
+
   .modalBackdrop:not(.modalBackdropFullscreen):not(.modalBackdropLeft) {
     padding: max(var(--ui-space-2), env(safe-area-inset-top))
       max(var(--ui-space-2), env(safe-area-inset-right))

@@ -3,24 +3,13 @@ import React, { useEffect, useMemo, useState } from "react";
 import { DEFAULT_NOISE_REPORT_RETENTION_DAYS } from "../../constants/noiseReport";
 import type { NoiseSliceSummary } from "../../types/noise";
 import { FormSection } from "../../ui";
-import { getNoiseReportSettings } from "../../utils/noiseReportSettings";
 import { readNoiseSlices, subscribeNoiseSlicesUpdated } from "../../utils/noiseSliceService";
-import { SETTINGS_EVENTS, subscribeSettingsEvent } from "../../utils/settingsEvents";
 
 import styles from "./NoiseSettings.module.css";
 
 export const NoiseAlertHistory: React.FC = () => {
   const [slices, setSlices] = useState<NoiseSliceSummary[]>([]);
-  const [settingsTick, setSettingsTick] = useState(0);
-
-  const retentionDays = useMemo(() => {
-    void settingsTick;
-    try {
-      return getNoiseReportSettings().retentionDays;
-    } catch {
-      return DEFAULT_NOISE_REPORT_RETENTION_DAYS;
-    }
-  }, [settingsTick]);
+  const retentionDays = DEFAULT_NOISE_REPORT_RETENTION_DAYS;
 
   useEffect(() => {
     let active = true;
@@ -42,26 +31,19 @@ export const NoiseAlertHistory: React.FC = () => {
     };
   }, [retentionDays]);
 
-  useEffect(() => {
-    const off = subscribeSettingsEvent(SETTINGS_EVENTS.NoiseReportSettingsUpdated, () => {
-      setSettingsTick((t) => t + 1);
-    });
-    return off;
-  }, []);
-
   const { items, totalSegments } = useMemo(() => {
     try {
       const rows = slices
-        .filter((s) => s.raw.segmentCount > 0 || s.raw.overRatioDbfs > 0)
+        .filter((s) => s.detail.eventCount > 0 || s.detail.eventFactor > 0)
         .slice(0, 60)
         .map((s) => ({
           time: new Date(s.end).toLocaleString(),
-          segments: s.raw.segmentCount,
-          overRatio: s.raw.overRatioDbfs,
+          segments: s.detail.eventCount,
+          eventFactor: s.detail.eventFactor,
           score: s.score,
         }));
 
-      const totalSegments = slices.reduce((acc, s) => acc + (s.raw.segmentCount || 0), 0);
+      const totalSegments = slices.reduce((acc, s) => acc + s.detail.eventCount, 0);
       return { items: rows, totalSegments };
     } catch {
       return { items: [], totalSegments: 0 };
@@ -83,7 +65,8 @@ export const NoiseAlertHistory: React.FC = () => {
             <div key={idx} className={styles.alertItem}>
               <span className={styles.alertTime}>{it.time}</span>
               <span className={styles.alertValue}>
-                段{it.segments} / {(it.overRatio * 100).toFixed(0)}% / {it.score.toFixed(1)}分
+                事件 {it.segments} / 频度 {(it.eventFactor * 100).toFixed(0)}% /{" "}
+                {it.score?.toFixed(1) ?? "—"}分
               </span>
             </div>
           ))

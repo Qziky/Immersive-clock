@@ -247,6 +247,7 @@ export function SettingsShell<TValue extends string = string, TGroupValue extend
                     type="button"
                     aria-controls={groupRegionId}
                     aria-expanded={expanded}
+                    data-settings-group={group.value}
                     disabled={disabled || group.disabled}
                     onClick={() => handleGroupToggle(group)}
                   >
@@ -287,6 +288,7 @@ export function SettingsShell<TValue extends string = string, TGroupValue extend
                             key={item.value}
                             type="button"
                             aria-current={itemActive ? "page" : undefined}
+                            data-settings-pane={item.value}
                             disabled={disabled || group.disabled || item.disabled}
                             onClick={() => handleItemChange(group, item)}
                           >

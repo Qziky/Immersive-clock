@@ -269,8 +269,8 @@ export const APPEARANCE_COMPONENTS: readonly AppearanceComponentDefinition[] = [
         defaultStyle: { color: "#ff9b9b", opacity: 0.76 },
       },
       {
-        id: "calibrating",
-        label: "校准中",
+        id: "signal-anomaly",
+        label: "信号异常",
         slotIds: ["status", "subtext", "indicator"],
         defaultStyle: { color: "#f2c46d", opacity: 1 },
       },

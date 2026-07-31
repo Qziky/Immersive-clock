@@ -6,6 +6,23 @@
   min-width: 0;
 }
 
+.inputDeviceItem {
+  grid-column: 1 / -1;
+}
+
+.inputDeviceControls {
+  align-items: flex-end;
+}
+
+.inputDeviceSelect {
+  flex: 1 1 280px;
+  min-width: 0;
+}
+
+.inputDeviceRefresh {
+  flex: 0 0 auto;
+}
+
 .monitoringSections {
   display: grid;
   gap: var(--ui-space-6);
@@ -19,5 +36,10 @@
 @media (max-width: 520px) {
   .noiseSettingsGrid {
     --ui-setting-columns: minmax(0, 1fr) !important;
+  }
+
+  .inputDeviceRefresh,
+  .inputDeviceSelect {
+    width: 100%;
   }
 }

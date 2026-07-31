@@ -32,7 +32,7 @@ Playwright 默认使用系统 Edge 项目。若需要 Playwright 自带浏览器
 - 设置与持久化：`appSettings.ts`、`storageInitializer.ts`。
 - 天气：`weatherService.ts`、`weatherStorage.ts`、`weatherAlert.ts`。
 - 时间同步：`timeSync.ts` 和 Electron/NTP 相关客户端。
-- 噪音：切片服务、评分引擎、历史构建、帧处理和流服务。
+- 噪音：AudioWorklet 特征、列式原始帧、无基线评分、后台重算、Leader 协调和流服务。
 - 公告、新手引导、日志、时间格式化等通用工具。
 - 组件工具，例如 Dropdown 工具函数。
 

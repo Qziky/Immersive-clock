@@ -57,6 +57,15 @@
   animation: appEnter 1s ease-out forwards;
 }
 
+.routeLoading {
+  display: grid;
+  flex: 1 1 auto;
+  place-items: center;
+  color: var(--ui-color-text-muted);
+  font-family: var(--ui-font-sans);
+  font-size: var(--ui-font-size-sm);
+}
+
 /* 进入动画关键帧 */
 @keyframes appEnter {
   0% {

@@ -1,337 +1,172 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { DEFAULT_NOISE_REPORT_RETENTION_DAYS } from "../../constants/noiseReport";
-import type { NoiseSliceSummary } from "../../types/noise";
+import { createNoiseSliceFixture } from "../../test/noiseFixtures";
+import type { NoiseCaptureSession, NoiseSliceSummary } from "../../types/noise";
+import * as service from "../noiseSliceService";
 
-interface FakeStoredSlice extends NoiseSliceSummary {
-  id: string;
-}
-
-interface FakeQuery {
-  endFrom?: number;
-  endTo?: number;
-  direction?: "asc" | "desc";
-  limit?: number;
-}
-
-let records = new Map<string, FakeStoredSlice>();
-
-const list = vi.fn(async (query: FakeQuery = {}) => {
-  const direction = query.direction === "desc" ? -1 : 1;
-  const limit = query.limit ?? Infinity;
-  return [...records.values()]
-    .filter(
-      (slice) =>
-        (query.endFrom === undefined || slice.end >= query.endFrom) &&
-        (query.endTo === undefined || slice.end <= query.endTo)
-    )
-    .sort((first, second) => (first.end - second.end) * direction)
-    .slice(0, limit);
-});
-const put = vi.fn(async (record: FakeStoredSlice) => {
-  records.set(record.id, structuredClone(record));
-});
-const putAll = vi.fn(async (nextRecords: FakeStoredSlice[]) => {
-  const next = new Map(records);
-  nextRecords.forEach((record) => next.set(record.id, structuredClone(record)));
-  records = next;
-});
-const replaceAll = vi.fn(async (nextRecords: FakeStoredSlice[]) => {
-  records = new Map(nextRecords.map((record) => [record.id, structuredClone(record)] as const));
-});
-const deleteEndedBefore = vi.fn(async (cutoff: number) => {
-  records.forEach((record, id) => {
-    if (record.end < cutoff) records.delete(id);
-  });
-});
-const clear = vi.fn(async () => {
-  records.clear();
-});
-
-const fakeNoiseHistoryDb = { list, put, putAll, replaceAll, deleteEndedBefore, clear };
-
-function resetFakeDb(): void {
-  records.clear();
-  list.mockClear();
-  put.mockClear();
-  putAll.mockClear();
-  replaceAll.mockClear();
-  deleteEndedBefore.mockClear();
-  clear.mockClear();
-}
-
-async function loadService() {
-  vi.resetModules();
-  vi.doMock("../db", () => ({ noiseHistoryDb: fakeNoiseHistoryDb }));
-  return import("../noiseSliceService");
-}
-
-function makeSlice(params: { start: number; end: number; score: number }): NoiseSliceSummary {
+const backend = vi.hoisted(() => {
+  const records = new Map<string, NoiseSliceSummary>();
+  const sessions: NoiseCaptureSession[] = [];
   return {
-    start: params.start,
-    end: params.end,
-    frames: 1,
-    raw: {
-      avgDbfs: -40,
-      maxDbfs: -20,
-      p50Dbfs: -40,
-      p95Dbfs: -25,
-      overRatioDbfs: 0,
-      segmentCount: 0,
+    records,
+    sessions,
+    db: {
+      list: vi.fn(async () => Array.from(records.values()).map((value) => structuredClone(value))),
+      put: vi.fn(
+        async (record: NoiseSliceSummary) => void records.set(record.id, structuredClone(record))
+      ),
+      replaceAll: vi.fn(async (next: NoiseSliceSummary[]) => {
+        records.clear();
+        next.forEach((record) => records.set(record.id, structuredClone(record)));
+      }),
+      deleteEndedBefore: vi.fn().mockResolvedValue(undefined),
+      clear: vi.fn(async () => records.clear()),
     },
-    display: {
-      avgDb: 40,
-      p95Db: 50,
-    },
-    score: params.score,
-    scoreDetail: {
-      sustainedPenalty: 0,
-      timePenalty: 0,
-      segmentPenalty: 0,
-      thresholdsUsed: {
-        scoreThresholdDbfs: -35,
-        segmentMergeGapMs: 5000,
-        maxSegmentsPerMin: 6,
-      },
-      sustainedLevelDbfs: -40,
-      overRatioDbfs: 0,
-      segmentCount: 0,
-      minutes: 1,
-    },
+    clearRescore: vi.fn().mockResolvedValue(undefined),
+    clearCapture: vi.fn().mockResolvedValue(undefined),
+    cleanupExpiredCapture: vi.fn().mockResolvedValue(0),
+    overlapWarning: vi.fn(),
+  };
+});
+
+vi.mock("../db", () => ({
+  noiseHistoryDb: backend.db,
+  noiseRescoreStateDb: { clear: backend.clearRescore },
+}));
+
+vi.mock("../../services/noise/noiseFeatureRepository", () => ({
+  clearNoiseCaptureData: backend.clearCapture,
+  deleteNoiseCaptureDataBefore: backend.cleanupExpiredCapture,
+  listNoiseCaptureSessions: vi.fn(async () => structuredClone(backend.sessions)),
+}));
+
+vi.mock("../../services/noise/noiseHistoryLock", () => ({
+  withNoiseHistoryWriteLock: async <T>(operation: () => Promise<T>) => operation(),
+}));
+
+vi.mock("../errorCenter", () => ({
+  pushErrorCenterRecord: backend.overlapWarning,
+}));
+
+function createSession(id: string, startedAt: number): NoiseCaptureSession {
+  return {
+    schemaVersion: 1,
+    id,
+    captureSessionId: id,
+    leaderEpoch: `epoch-${id}`,
+    producerId: `producer-${id}`,
+    startedAt,
+    endedAt: startedAt + 120_000,
+    endReason: "stopped",
+    sampleRate: 1_000,
+    frameSamples: 100,
+    featureSchemaVersion: 1,
+    extractorVersion: "spectral-features-v1",
+    deviceKey: `device-${id}`,
+    persistentDeviceKey: true,
+    channelCount: 1,
+    channelMixMode: "arithmetic-mean",
+    processingSignature: "off",
+    processingRequestedOff: true,
+    processingDisabled: true,
+    inputSettingsSampleRate: 1_000,
+    lastFrameSequence: 1_200,
+    lastStartSample: 119_900,
   };
 }
 
-describe("noiseSliceService", () => {
+function sliceFor(
+  sessionId: string,
+  coverageRatio: number,
+  quality: NoiseSliceSummary["detail"]["quality"]
+): NoiseSliceSummary {
+  const base = createNoiseSliceFixture({
+    id: `spectral-activity-v2:${sessionId}:600`,
+    captureSessionId: sessionId,
+    coverageRatio,
+  });
+  return {
+    ...base,
+    detail: { ...base.detail, coverageRatio, quality },
+  };
+}
+
+describe("noiseSliceService spectral-activity-v2", () => {
   beforeEach(() => {
-    vi.restoreAllMocks();
-    vi.spyOn(Date, "now").mockReturnValue(0);
+    backend.records.clear();
+    backend.sessions.length = 0;
     localStorage.clear();
-    resetFakeDb();
+    vi.clearAllMocks();
   });
 
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
-
-  it("首次读取应将旧 localStorage 数据幂等迁移到 IndexedDB", async () => {
-    const legacy = [makeSlice({ start: 1, end: 2, score: 90 })];
-    localStorage.setItem("noise-slices", JSON.stringify(legacy));
-
-    let service = await loadService();
-    expect(await service.readNoiseSlices()).toEqual(legacy);
-    expect(localStorage.getItem("noise-slices")).toBeNull();
-    expect(records.size).toBe(1);
-
-    localStorage.setItem("noise-slices", JSON.stringify(legacy));
-    service = await loadService();
-    expect(await service.readNoiseSlices()).toEqual(legacy);
-    expect(records.size).toBe(1);
-  });
-
-  it("迁移事务失败时应保留旧键并回退到 localStorage", async () => {
-    const legacy = [makeSlice({ start: 1, end: 2, score: 90 })];
-    localStorage.setItem("noise-slices", JSON.stringify(legacy));
-    putAll.mockRejectedValueOnce(new Error("transaction failed"));
-
-    const service = await loadService();
-    expect(await service.readNoiseSlices()).toEqual(legacy);
-    expect(localStorage.getItem("noise-slices")).not.toBeNull();
-  });
-
-  it("迁移时应按当前时间裁剪过期记录", async () => {
-    const dayMs = 24 * 60 * 60 * 1000;
-    const now = DEFAULT_NOISE_REPORT_RETENTION_DAYS * dayMs + 10_000;
-    vi.mocked(Date.now).mockReturnValue(now);
-    const expired = makeSlice({ start: 0, end: 1, score: 90 });
-    const recent = makeSlice({ start: now - 2, end: now - 1, score: 80 });
-    localStorage.setItem("noise-slices", JSON.stringify([expired, recent]));
-
-    const service = await loadService();
-
-    expect(await service.readNoiseSlices()).toEqual([recent]);
-    expect(deleteEndedBefore).toHaveBeenCalledWith(
-      now - DEFAULT_NOISE_REPORT_RETENTION_DAYS * dayMs
-    );
-  });
-
-  it("主路径追加单条记录，不应重写完整历史数组", async () => {
-    const service = await loadService();
-    await service.readNoiseSlices();
-    list.mockClear();
-
-    const slice = makeSlice({ start: 1, end: 2, score: 90 });
+  it("只使用 IndexedDB 保存版本化派生评分，不提供 localStorage 回退", async () => {
+    const slice = createNoiseSliceFixture();
     await service.writeNoiseSlice(slice);
-
-    expect(put).toHaveBeenCalledTimes(1);
-    expect(deleteEndedBefore).toHaveBeenCalledTimes(1);
-    expect(list).not.toHaveBeenCalled();
     expect(await service.readNoiseSlices()).toEqual([slice]);
+    expect(localStorage.getItem("noise-slices-v2")).toBeNull();
+    expect(localStorage.getItem("noise-score-slices-v3")).toBeNull();
   });
 
-  it("默认应只保留最近指定天数的切片摘要", async () => {
-    const service = await loadService();
-    const dayMs = 24 * 60 * 60 * 1000;
-    await service.writeNoiseSlice(makeSlice({ start: 0, end: 1, score: 90 }));
-    vi.mocked(Date.now).mockReturnValue(DEFAULT_NOISE_REPORT_RETENTION_DAYS * dayMs + 3);
-    await service.writeNoiseSlice(
-      makeSlice({
-        start: DEFAULT_NOISE_REPORT_RETENTION_DAYS * dayMs + 2,
-        end: DEFAULT_NOISE_REPORT_RETENTION_DAYS * dayMs + 3,
-        score: 80,
-      })
+  it("严格校验当前模型并拒绝重复主键", () => {
+    const slice = createNoiseSliceFixture();
+    expect(service.isNoiseSliceSummary(slice)).toBe(true);
+    expect(() => service.validateNoiseSlicesForReplacement([{ end: 3 }])).toThrow(
+      "spectral-activity-v2"
     );
-
-    const history = await service.readNoiseSlices();
-    expect(history).toHaveLength(1);
-    expect(history[0].end).toBe(DEFAULT_NOISE_REPORT_RETENTION_DAYS * dayMs + 3);
+    expect(() => service.validateNoiseSlicesForReplacement([slice, slice])).toThrow("重复记录");
   });
 
-  it("切片结束时间等于 cutoff 时应被保留", async () => {
-    const service = await loadService();
-    const dayMs = 24 * 60 * 60 * 1000;
-    await service.writeNoiseSlice(makeSlice({ start: 2, end: 3, score: 90 }));
-    vi.mocked(Date.now).mockReturnValue(DEFAULT_NOISE_REPORT_RETENTION_DAYS * dayMs + 3);
-    await service.writeNoiseSlice(
-      makeSlice({
-        start: DEFAULT_NOISE_REPORT_RETENTION_DAYS * dayMs + 2,
-        end: DEFAULT_NOISE_REPORT_RETENTION_DAYS * dayMs + 3,
-        score: 80,
-      })
-    );
-
-    expect(await service.readNoiseSlices()).toHaveLength(2);
+  it("备份恢复的派生结果标记为不可重算", async () => {
+    const slice = createNoiseSliceFixture();
+    await service.replaceNoiseSlices([slice]);
+    expect((await service.readNoiseSlices())[0]?.sourceAvailable).toBe(false);
   });
 
-  it("保存天数设置为 1 天时应按 1 天裁剪", async () => {
-    localStorage.setItem(
-      "AppSettings",
-      JSON.stringify({
-        noiseControl: {
-          reportRetentionDays: 1,
-        },
-      })
-    );
-    const service = await loadService();
-    const dayMs = 24 * 60 * 60 * 1000;
-    await service.writeNoiseSlice(makeSlice({ start: 0, end: 1, score: 90 }));
-    vi.mocked(Date.now).mockReturnValue(dayMs + 3);
-    await service.writeNoiseSlice(makeSlice({ start: dayMs + 2, end: dayMs + 3, score: 80 }));
-
-    const history = await service.readNoiseSlices();
-    expect(history).toHaveLength(1);
-    expect(history[0].end).toBe(dayMs + 3);
+  it("写入时执行保留期清理", async () => {
+    await service.writeNoiseSlice(createNoiseSliceFixture());
+    expect(backend.db.deleteEndedBefore).toHaveBeenCalledWith(expect.any(Number));
   });
 
-  it("应支持索引范围、倒序和数量限制查询", async () => {
-    const service = await loadService();
-    await service.replaceNoiseSlices([
-      makeSlice({ start: 0, end: 1, score: 90 }),
-      makeSlice({ start: 1, end: 2, score: 80 }),
-      makeSlice({ start: 2, end: 3, score: 70 }),
-    ]);
-
-    const history = await service.readNoiseSlices({ endFrom: 2, direction: "desc", limit: 1 });
-    expect(history.map((slice) => slice.end)).toEqual([3]);
+  it("清理监测数据会同时删除派生评分、重算状态和原始帧", async () => {
+    await service.writeNoiseSlice(createNoiseSliceFixture());
+    await service.clearNoiseSlices();
+    expect(backend.db.clear).toHaveBeenCalled();
+    expect(backend.clearRescore).toHaveBeenCalled();
+    expect(backend.clearCapture).toHaveBeenCalled();
   });
 
-  it("恢复备份时会严格替换全部历史，不按当前保留期限裁剪", async () => {
-    localStorage.setItem(
-      "AppSettings",
-      JSON.stringify({ noiseControl: { reportRetentionDays: 1 } })
-    );
-    const service = await loadService();
-    const dayMs = 24 * 60 * 60 * 1000;
-    const archived = makeSlice({ start: 0, end: 1, score: 90 });
-    const recent = makeSlice({ start: dayMs * 10, end: dayMs * 10 + 1, score: 80 });
-
-    await service.replaceNoiseSlices([archived, recent]);
-
-    expect(await service.exportNoiseSlices()).toEqual([archived, recent]);
-  });
-
-  it("替换前应完整校验，失败时保留原记录", async () => {
-    const service = await loadService();
-    const original = makeSlice({ start: 1, end: 2, score: 90 });
-    await service.replaceNoiseSlices([original]);
-
-    await expect(service.replaceNoiseSlices([{ end: 3 }])).rejects.toThrow("有效的切片数组");
-    expect(await service.exportNoiseSlices()).toEqual([original]);
-    expect(replaceAll).toHaveBeenCalledTimes(1);
-  });
-
-  it("规范化后 ID 相同的切片应在写入前拒绝", async () => {
-    const service = await loadService();
-    const first = makeSlice({ start: 1.2, end: 2.2, score: 90 });
-    const duplicate = makeSlice({ start: 1.4, end: 2.4, score: 90 });
-
-    expect(() => service.validateNoiseSlicesForReplacement([first, duplicate])).toThrow("重复切片");
-    await expect(service.replaceNoiseSlices([first, duplicate])).rejects.toThrow("重复切片");
-    expect(replaceAll).not.toHaveBeenCalled();
-  });
-
-  it("IndexedDB 替换事务失败时应保留原记录", async () => {
-    const service = await loadService();
-    const original = makeSlice({ start: 1, end: 2, score: 90 });
-    await service.replaceNoiseSlices([original]);
-    replaceAll.mockRejectedValueOnce(new Error("quota exceeded"));
-
-    await expect(
-      service.replaceNoiseSlices([makeSlice({ start: 3, end: 4, score: 70 })])
-    ).rejects.toThrow("quota exceeded");
-    expect(await service.exportNoiseSlices()).toEqual([original]);
-  });
-
-  it("检查、写入和清空应返回正确元数据并持续发送更新事件", async () => {
-    const service = await loadService();
+  it("跨标签更新事件在写入后触发", async () => {
     const listener = vi.fn();
     const unsubscribe = service.subscribeNoiseSlicesUpdated(listener);
-
-    await service.writeNoiseSlice(makeSlice({ start: 1, end: 2, score: 90 }));
-    const inspection = await service.inspectNoiseSlices();
-    expect(inspection.count).toBe(1);
-    expect(inspection.itemCount).toBe(1);
-    expect(inspection.bytes).toBeGreaterThan(0);
-    expect(inspection.updatedAt).toBe(2);
-
-    localStorage.setItem("unrelated-sentinel", "keep");
-    await service.clearNoiseSlices();
-    expect(await service.readNoiseSlices()).toEqual([]);
-    expect(localStorage.getItem("unrelated-sentinel")).toBe("keep");
-    expect(listener).toHaveBeenCalledTimes(2);
+    await service.writeNoiseSlice(createNoiseSliceFixture());
+    expect(listener).toHaveBeenCalled();
     unsubscribe();
   });
 
-  it("IndexedDB 不可用时应保留 localStorage 兼容路径", async () => {
-    list.mockRejectedValueOnce(new Error("IndexedDB unavailable"));
-    const service = await loadService();
-    const slice = makeSlice({ start: 1, end: 2, score: 90 });
-
-    await service.writeNoiseSlice(slice);
-    expect(JSON.parse(localStorage.getItem("noise-slices") ?? "[]")).toEqual([slice]);
-    expect(await service.readNoiseSlices()).toEqual([slice]);
-
-    await service.clearNoiseSlices();
-    expect(localStorage.getItem("noise-slices")).toBeNull();
-  });
-
-  it("localStorage 回退替换遇配额错误时应抛错并保留原历史", async () => {
-    const original = makeSlice({ start: 1, end: 2, score: 90 });
-    localStorage.setItem("noise-slices", JSON.stringify([original]));
-    list.mockRejectedValueOnce(new Error("IndexedDB unavailable"));
-    const service = await loadService();
-    expect(await service.readNoiseSlices()).toEqual([original]);
-
-    const nativeSetItem = Storage.prototype.setItem;
-    vi.spyOn(Storage.prototype, "setItem").mockImplementation(function (this: Storage, key, value) {
-      if (key === "noise-slices") {
-        throw new DOMException("quota exceeded", "QuotaExceededError");
-      }
-      return nativeSetItem.call(this, key, value);
+  it("极端重叠会话按覆盖率、质量和开始时间选择单一报告来源", async () => {
+    const candidates = [
+      { id: "capture-a", startedAt: 1_000, coverage: 0.95, quality: "high" as const },
+      { id: "capture-b", startedAt: 2_000, coverage: 0.96, quality: "low" as const },
+      { id: "capture-c", startedAt: 3_000, coverage: 0.96, quality: "high" as const },
+      { id: "capture-d", startedAt: 4_000, coverage: 0.96, quality: "high" as const },
+    ];
+    candidates.forEach((candidate) => {
+      backend.sessions.push(createSession(candidate.id, candidate.startedAt));
+      const slice = sliceFor(candidate.id, candidate.coverage, candidate.quality);
+      backend.records.set(slice.id, slice);
     });
 
-    await expect(
-      service.replaceNoiseSlices([makeSlice({ start: 3, end: 4, score: 70 })])
-    ).rejects.toMatchObject({ name: "QuotaExceededError" });
-    expect(JSON.parse(localStorage.getItem("noise-slices") ?? "[]")).toEqual([original]);
+    const result = await service.readNoiseSlices();
+
+    expect(result.map((slice) => slice.captureSessionId)).toEqual(["capture-c"]);
+    expect(backend.overlapWarning).toHaveBeenCalledWith(
+      expect.objectContaining({
+        level: "warn",
+        extra: {
+          selectedSessionId: "capture-c",
+          ignoredSessionIds: ["capture-a", "capture-b", "capture-d"],
+        },
+      })
+    );
   });
 });

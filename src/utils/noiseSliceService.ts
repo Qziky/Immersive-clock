@@ -1,22 +1,31 @@
 import { DEFAULT_NOISE_REPORT_RETENTION_DAYS } from "../constants/noiseReport";
-import type { NoiseSliceSummary } from "../types/noise";
+import {
+  clearNoiseCaptureData,
+  deleteNoiseCaptureDataBefore,
+  listNoiseCaptureSessions,
+} from "../services/noise/noiseFeatureRepository";
+import { withNoiseHistoryWriteLock } from "../services/noise/noiseHistoryLock";
+import {
+  NOISE_SCORE_MODEL_VERSION,
+  NOISE_SCORE_SCHEMA_VERSION,
+  type NoiseConfidence,
+  type NoiseScoreQuality,
+  type NoiseSignalHealth,
+  type NoiseSliceSummary,
+  NoiseCaptureSession,
+} from "../types/noise";
 
-import { getAppSettings } from "./appSettings";
-import { noiseHistoryDb, type NoiseHistoryQuery, type NoiseHistoryRecord } from "./db";
+import { noiseHistoryDb, noiseRescoreStateDb, type NoiseHistoryQuery } from "./db";
+import { pushErrorCenterRecord } from "./errorCenter";
 
-const STORAGE_KEY = "noise-slices";
-export const NOISE_SLICE_STORAGE_KEY = STORAGE_KEY;
-export const NOISE_SLICES_UPDATED_EVENT = "noise-slices-updated";
+const HISTORY_CHANNEL_NAME = "immersive-clock:noise-history:v4";
+const HISTORY_SYNC_STORAGE_KEY = "immersive-clock:noise-history-message:v4";
 const DAY_MS = 24 * 60 * 60 * 1000;
-const DEFAULT_RETENTION_DAYS = DEFAULT_NOISE_REPORT_RETENTION_DAYS;
+const EXTREME_SESSION_OVERLAP_RATIO = 0.8;
 
-export interface NoiseSliceListOptions {
-  endFrom?: number;
-  endTo?: number;
-  direction?: "asc" | "desc";
-  limit?: number;
-}
+export const NOISE_SLICES_UPDATED_EVENT = "noise-slices-updated";
 
+export interface NoiseSliceListOptions extends NoiseHistoryQuery {}
 export interface NoiseSliceInspection {
   count: number;
   itemCount: number;
@@ -24,406 +33,311 @@ export interface NoiseSliceInspection {
   updatedAt?: number;
 }
 
-interface StoredNoiseSlice extends NoiseSliceSummary, NoiseHistoryRecord {}
+let historyChannel: BroadcastChannel | null = null;
+let historyListenerCount = 0;
+const reportedOverlapGroups = new Set<string>();
+const healthValues = new Set<NoiseSignalHealth>([
+  "warming-up",
+  "healthy",
+  "below-range",
+  "signal-anomaly",
+  "track-muted",
+  "track-ended",
+  "audio-context-suspended",
+  "insufficient-coverage",
+]);
+const confidenceValues = new Set<NoiseConfidence>(["high", "medium", "low", "none"]);
+const qualityValues = new Set<NoiseScoreQuality>(["high", "medium", "low", "insufficient"]);
 
-type NoiseHistoryBackend = "indexeddb" | "localStorage";
-
-let backendPromise: Promise<NoiseHistoryBackend> | null = null;
-let cachedQuotaBytes: number | null = null;
-let quotaEstimateStarted = false;
-
-function ensureQuotaEstimated(): void {
-  if (quotaEstimateStarted) return;
-  quotaEstimateStarted = true;
-  try {
-    if (!("storage" in navigator) || typeof navigator.storage.estimate !== "function") return;
-    void navigator.storage
-      .estimate()
-      .then((estimate) => {
-        const quota = typeof estimate.quota === "number" ? estimate.quota : undefined;
-        if (typeof quota === "number" && Number.isFinite(quota) && quota > 0) {
-          cachedQuotaBytes = quota;
-        }
-      })
-      .catch(() => {});
-  } catch {
-    // StorageManager 在部分 WebView 中不可用，localStorage 回退仍可继续工作。
-  }
-}
-
-function getRetentionMs(): number {
-  try {
-    const raw = getAppSettings().noiseControl.reportRetentionDays;
-    const days =
-      typeof raw === "number" && Number.isFinite(raw) && raw > 0
-        ? Math.round(raw)
-        : DEFAULT_RETENTION_DAYS;
-    return Math.max(1, days) * DAY_MS;
-  } catch {
-    return DEFAULT_RETENTION_DAYS * DAY_MS;
-  }
-}
-
-function getRetentionCutoff(): number {
-  return Date.now() - getRetentionMs();
-}
-
-function estimateStringBytes(value: string): number {
-  try {
-    return new TextEncoder().encode(value).byteLength;
-  } catch {
-    return value.length * 2;
-  }
-}
-
-function trimByMaxBytes(list: NoiseSliceSummary[], maxBytes: number): NoiseSliceSummary[] {
-  if (!Number.isFinite(maxBytes) || maxBytes <= 0) return list;
-  let trimmed = list;
-  let serialized = JSON.stringify(trimmed);
-  while (trimmed.length > 0 && estimateStringBytes(serialized) > maxBytes) {
-    trimmed = trimmed.slice(1);
-    serialized = JSON.stringify(trimmed);
-  }
-  return trimmed;
-}
-
-function isFiniteNumber(value: unknown): value is number {
+function finite(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value);
 }
 
-function isOptionalFiniteNumber(value: unknown): boolean {
-  return value === undefined || isFiniteNumber(value);
+function object(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
-export function isNoiseSliceSummary(value: unknown): value is NoiseSliceSummary {
-  if (!value || typeof value !== "object") return false;
+function isPersistedNoiseSliceSummary(value: unknown): value is NoiseSliceSummary {
+  if (!object(value)) return false;
   const slice = value as Partial<NoiseSliceSummary>;
-  const raw = slice.raw as unknown;
-  const display = slice.display as unknown;
-  const detail = slice.scoreDetail as unknown;
-  const rawObject = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : null;
-  const displayObject =
-    display && typeof display === "object" ? (display as Record<string, unknown>) : null;
-  const detailObject =
-    detail && typeof detail === "object" ? (detail as Record<string, unknown>) : null;
-  const thresholds = detailObject?.thresholdsUsed;
-  const thresholdObject =
-    thresholds && typeof thresholds === "object" ? (thresholds as Record<string, unknown>) : null;
-
+  const validHealth =
+    typeof slice.signalHealth === "string" &&
+    healthValues.has(slice.signalHealth as NoiseSignalHealth);
   return (
-    isFiniteNumber(slice.start) &&
-    isFiniteNumber(slice.end) &&
-    slice.end >= slice.start &&
-    isFiniteNumber(slice.frames) &&
-    !!rawObject &&
-    isFiniteNumber(rawObject.avgDbfs) &&
-    isFiniteNumber(rawObject.maxDbfs) &&
-    isFiniteNumber(rawObject.p50Dbfs) &&
-    isFiniteNumber(rawObject.p95Dbfs) &&
-    isFiniteNumber(rawObject.overRatioDbfs) &&
-    isFiniteNumber(rawObject.segmentCount) &&
-    isOptionalFiniteNumber(rawObject.sampledDurationMs) &&
-    isOptionalFiniteNumber(rawObject.gapCount) &&
-    isOptionalFiniteNumber(rawObject.maxGapMs) &&
-    !!displayObject &&
-    isFiniteNumber(displayObject.avgDb) &&
-    isFiniteNumber(displayObject.p95Db) &&
-    isFiniteNumber(slice.score) &&
-    !!detailObject &&
-    isFiniteNumber(detailObject.sustainedPenalty) &&
-    isFiniteNumber(detailObject.timePenalty) &&
-    isFiniteNumber(detailObject.segmentPenalty) &&
-    isFiniteNumber(detailObject.sustainedLevelDbfs) &&
-    isFiniteNumber(detailObject.overRatioDbfs) &&
-    isFiniteNumber(detailObject.segmentCount) &&
-    isFiniteNumber(detailObject.minutes) &&
-    isOptionalFiniteNumber(detailObject.durationMs) &&
-    isOptionalFiniteNumber(detailObject.sampledDurationMs) &&
-    isOptionalFiniteNumber(detailObject.coverageRatio) &&
-    !!thresholdObject &&
-    isFiniteNumber(thresholdObject.scoreThresholdDbfs) &&
-    isFiniteNumber(thresholdObject.segmentMergeGapMs) &&
-    isFiniteNumber(thresholdObject.maxSegmentsPerMin)
+    slice.schemaVersion === NOISE_SCORE_SCHEMA_VERSION &&
+    slice.modelVersion === NOISE_SCORE_MODEL_VERSION &&
+    typeof slice.id === "string" &&
+    typeof slice.captureSessionId === "string" &&
+    typeof slice.leaderEpoch === "string" &&
+    finite(slice.start) &&
+    finite(slice.end) &&
+    (slice.score === null || finite(slice.score)) &&
+    object(slice.detail) &&
+    finite(slice.detail.activityMean) &&
+    finite(slice.detail.activityFloor) &&
+    finite(slice.detail.eventFactor) &&
+    finite(slice.detail.eventCount) &&
+    finite(slice.detail.coverageRatio) &&
+    Boolean(slice.detail.quality && qualityValues.has(slice.detail.quality)) &&
+    validHealth &&
+    Boolean(slice.confidence && confidenceValues.has(slice.confidence))
   );
 }
 
-function round(value: number, digits: number): number {
-  const factor = 10 ** digits;
-  return Math.round(value * factor) / factor;
+export function isNoiseSliceSummary(value: unknown): value is NoiseSliceSummary {
+  return isPersistedNoiseSliceSummary(value);
 }
 
-function normalizeSlice(slice: NoiseSliceSummary): NoiseSliceSummary {
-  const sampledDurationMs = isFiniteNumber(slice.raw.sampledDurationMs)
-    ? Math.max(0, Math.round(slice.raw.sampledDurationMs))
-    : undefined;
-  const gapCount = isFiniteNumber(slice.raw.gapCount)
-    ? Math.max(0, Math.round(slice.raw.gapCount))
-    : undefined;
-  const maxGapMs = isFiniteNumber(slice.raw.maxGapMs)
-    ? Math.max(0, Math.round(slice.raw.maxGapMs))
-    : undefined;
-
+function normalize(slice: NoiseSliceSummary): NoiseSliceSummary {
+  const detail = structuredClone(slice.detail);
   return {
-    start: Math.round(slice.start),
-    end: Math.round(slice.end),
-    frames: Math.max(0, Math.round(slice.frames)),
-    raw: {
-      avgDbfs: round(slice.raw.avgDbfs, 3),
-      maxDbfs: round(slice.raw.maxDbfs, 3),
-      p50Dbfs: round(slice.raw.p50Dbfs, 3),
-      p95Dbfs: round(slice.raw.p95Dbfs, 3),
-      overRatioDbfs: round(slice.raw.overRatioDbfs, 4),
-      segmentCount: Math.max(0, Math.round(slice.raw.segmentCount)),
-      sampledDurationMs,
-      gapCount,
-      maxGapMs,
-    },
-    display: {
-      avgDb: round(slice.display.avgDb, 2),
-      p95Db: round(slice.display.p95Db, 2),
-    },
-    score: Math.max(0, Math.min(100, round(slice.score, 1))),
-    scoreDetail: {
-      ...slice.scoreDetail,
-      thresholdsUsed: { ...slice.scoreDetail.thresholdsUsed },
-    },
+    ...structuredClone(slice),
+    score:
+      slice.score === null ? null : Math.max(0, Math.min(100, Math.round(slice.score * 10) / 10)),
+    detail,
+    signalHealth: slice.signalHealth,
+    coverageRatio: Math.max(0, Math.min(1, detail.coverageRatio)),
   };
 }
 
-function hashText(value: string): string {
-  let hash = 0x811c9dc5;
-  for (let index = 0; index < value.length; index += 1) {
-    hash ^= value.charCodeAt(index);
-    hash = Math.imul(hash, 0x01000193);
-  }
-  return (hash >>> 0).toString(16).padStart(8, "0");
+function retentionCutoff(): number {
+  return Date.now() - DEFAULT_NOISE_REPORT_RETENTION_DAYS * DAY_MS;
 }
 
-function toStoredSlice(slice: NoiseSliceSummary): StoredNoiseSlice {
-  const normalized = normalizeSlice(slice);
+function estimateBytes(value: unknown): number {
+  return new Blob([JSON.stringify(value)]).size;
+}
+
+function dispatchLocalUpdate(): void {
+  window.dispatchEvent(new CustomEvent(NOISE_SLICES_UPDATED_EVENT));
+}
+
+function broadcastUpdate(): void {
+  dispatchLocalUpdate();
+  const message = JSON.stringify({ id: crypto.randomUUID?.() ?? Date.now(), sentAt: Date.now() });
+  historyChannel?.postMessage(message);
+  try {
+    localStorage.setItem(HISTORY_SYNC_STORAGE_KEY, message);
+  } catch {
+    // IndexedDB is authoritative; cross-tab notification failure is non-fatal.
+  }
+}
+
+function ensureHistoryChannel(): void {
+  if (historyChannel || typeof BroadcastChannel === "undefined") return;
+  historyChannel = new BroadcastChannel(HISTORY_CHANNEL_NAME);
+  historyChannel.addEventListener("message", dispatchLocalUpdate);
+}
+
+function onHistoryStorage(event: StorageEvent): void {
+  if (event.key === HISTORY_SYNC_STORAGE_KEY && event.newValue) dispatchLocalUpdate();
+}
+
+interface SessionCandidate {
+  session: NoiseCaptureSession;
+  slices: NoiseSliceSummary[];
+  coverage: number;
+  quality: number;
+}
+
+export interface NoiseSessionOverlapWarning {
+  selectedSessionId: string;
+  ignoredSessionIds: string[];
+}
+
+const QUALITY_RANK: Record<NoiseScoreQuality, number> = {
+  high: 3,
+  medium: 2,
+  low: 1,
+  insufficient: 0,
+};
+
+function average(values: readonly number[]): number {
+  if (values.length === 0) return 0;
+  return values.reduce((sum, value) => sum + value, 0) / values.length;
+}
+
+function overlapsExtremely(left: NoiseCaptureSession, right: NoiseCaptureSession): boolean {
+  const leftEnd = left.endedAt ?? left.startedAt;
+  const rightEnd = right.endedAt ?? right.startedAt;
+  const leftDuration = Math.max(0, leftEnd - left.startedAt);
+  const rightDuration = Math.max(0, rightEnd - right.startedAt);
+  const shorterDuration = Math.min(leftDuration, rightDuration);
+  if (shorterDuration <= 0) return false;
+  const overlap = Math.max(
+    0,
+    Math.min(leftEnd, rightEnd) - Math.max(left.startedAt, right.startedAt)
+  );
+  return overlap / shorterDuration >= EXTREME_SESSION_OVERLAP_RATIO;
+}
+
+function compareCandidates(left: SessionCandidate, right: SessionCandidate): number {
+  if (left.coverage !== right.coverage) return right.coverage - left.coverage;
+  if (left.quality !== right.quality) return right.quality - left.quality;
+  if (left.session.startedAt !== right.session.startedAt) {
+    return left.session.startedAt - right.session.startedAt;
+  }
+  return left.session.captureSessionId.localeCompare(right.session.captureSessionId);
+}
+
+export function resolveOverlappingNoiseSessions(
+  slices: readonly NoiseSliceSummary[],
+  sessions: readonly NoiseCaptureSession[]
+): { slices: NoiseSliceSummary[]; warnings: NoiseSessionOverlapWarning[] } {
+  const slicesBySession = new Map<string, NoiseSliceSummary[]>();
+  slices.forEach((slice) => {
+    const sessionSlices = slicesBySession.get(slice.captureSessionId) ?? [];
+    sessionSlices.push(slice);
+    slicesBySession.set(slice.captureSessionId, sessionSlices);
+  });
+  const candidates = sessions
+    .filter((session) => slicesBySession.has(session.captureSessionId))
+    .map((session): SessionCandidate => {
+      const sessionSlices = slicesBySession.get(session.captureSessionId)!;
+      return {
+        session,
+        slices: sessionSlices,
+        coverage: average(sessionSlices.map((slice) => slice.coverageRatio)),
+        quality: average(sessionSlices.map((slice) => QUALITY_RANK[slice.detail.quality])),
+      };
+    });
+  const visited = new Set<string>();
+  const ignored = new Set<string>();
+  const warnings: NoiseSessionOverlapWarning[] = [];
+
+  for (const candidate of candidates) {
+    const candidateId = candidate.session.captureSessionId;
+    if (visited.has(candidateId)) continue;
+    const component: SessionCandidate[] = [];
+    const queue = [candidate];
+    visited.add(candidateId);
+    while (queue.length > 0) {
+      const current = queue.shift()!;
+      component.push(current);
+      for (const other of candidates) {
+        const otherId = other.session.captureSessionId;
+        if (visited.has(otherId) || !overlapsExtremely(current.session, other.session)) continue;
+        visited.add(otherId);
+        queue.push(other);
+      }
+    }
+    if (component.length < 2) continue;
+    const ranked = component.slice().sort(compareCandidates);
+    const selected = ranked[0]!;
+    const ignoredSessionIds = ranked
+      .slice(1)
+      .map((item) => item.session.captureSessionId)
+      .sort();
+    ignoredSessionIds.forEach((sessionId) => ignored.add(sessionId));
+    warnings.push({
+      selectedSessionId: selected.session.captureSessionId,
+      ignoredSessionIds,
+    });
+  }
+
   return {
-    ...normalized,
-    id: `${normalized.start}:${normalized.end}:${hashText(JSON.stringify(normalized))}`,
+    slices: slices.filter((slice) => !ignored.has(slice.captureSessionId)),
+    warnings,
   };
 }
 
-function fromStoredSlice(record: StoredNoiseSlice): NoiseSliceSummary {
-  return normalizeSlice(record);
+function reportOverlapWarnings(warnings: readonly NoiseSessionOverlapWarning[]): void {
+  warnings.forEach((warning) => {
+    const fingerprint = `${warning.selectedSessionId}:${warning.ignoredSessionIds.join(",")}`;
+    if (reportedOverlapGroups.has(fingerprint)) return;
+    reportedOverlapGroups.add(fingerprint);
+    pushErrorCenterRecord({
+      level: "warn",
+      source: "noise",
+      title: "检测到重叠的音频采集会话",
+      message: `报告采用会话 ${warning.selectedSessionId}，忽略 ${warning.ignoredSessionIds.length} 个重复来源。`,
+      extra: { ...warning },
+    });
+  });
 }
 
-function dispatchUpdatedEvent(): void {
-  if (typeof window !== "undefined") {
-    window.dispatchEvent(new CustomEvent(NOISE_SLICES_UPDATED_EVENT));
-  }
-}
-
-function readLegacyNoiseSlices(): NoiseSliceSummary[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    const list: unknown = raw ? JSON.parse(raw) : [];
-    if (!Array.isArray(list)) return [];
-    return list.filter(isNoiseSliceSummary).map(normalizeSlice);
-  } catch {
-    return [];
-  }
-}
-
-function applyQuery(
-  list: NoiseSliceSummary[],
-  options: NoiseSliceListOptions
-): NoiseSliceSummary[] {
-  const endFrom = Number.isFinite(options.endFrom) ? options.endFrom : undefined;
-  const endTo = Number.isFinite(options.endTo) ? options.endTo : undefined;
-  const limit =
-    typeof options.limit === "number" && Number.isFinite(options.limit)
-      ? Math.max(0, Math.floor(options.limit))
-      : Infinity;
-  const sorted = list
-    .filter(
-      (slice) =>
-        (endFrom === undefined || slice.end >= endFrom) &&
-        (endTo === undefined || slice.end <= endTo)
-    )
-    .sort((first, second) =>
-      options.direction === "desc" ? second.end - first.end : first.end - second.end
-    );
-  return sorted.slice(0, limit);
-}
-
-function writeLegacyNoiseSlices(list: NoiseSliceSummary[]): void {
-  let remaining = list;
-  while (remaining.length > 0) {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(remaining));
-      return;
-    } catch {
-      remaining = remaining.slice(1);
-    }
-  }
-  localStorage.setItem(STORAGE_KEY, "[]");
-}
-
-function replaceLegacyNoiseSlices(list: NoiseSliceSummary[]): void {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
-}
-
-async function initializeBackend(): Promise<NoiseHistoryBackend> {
-  try {
-    await noiseHistoryDb.list({ limit: 0 });
-
-    let legacyRaw: string | null = null;
-    try {
-      legacyRaw = localStorage.getItem(STORAGE_KEY);
-    } catch {
-      return "indexeddb";
-    }
-
-    if (legacyRaw !== null) {
-      let parsed: unknown;
-      try {
-        parsed = JSON.parse(legacyRaw);
-      } catch {
-        return "indexeddb";
-      }
-
-      if (Array.isArray(parsed)) {
-        const migrated = parsed.filter(isNoiseSliceSummary).map(toStoredSlice);
-        await noiseHistoryDb.putAll(migrated);
-        if (migrated.length > 0) {
-          try {
-            await noiseHistoryDb.deleteEndedBefore(getRetentionCutoff());
-          } catch {
-            // 迁移数据已提交，保留期裁剪可由下一次追加继续完成。
-          }
-        }
-        try {
-          localStorage.removeItem(STORAGE_KEY);
-        } catch {
-          // 数据已完成事务提交；残留旧键会在下一次启动时按稳定 id 幂等覆盖。
-        }
-      }
-    }
-    return "indexeddb";
-  } catch {
-    return "localStorage";
-  }
-}
-
-function getBackend(): Promise<NoiseHistoryBackend> {
-  if (!backendPromise) backendPromise = initializeBackend();
-  return backendPromise;
-}
-
-/** 按结束时间读取噪音切片；默认升序，查询会使用 IndexedDB 的 end 索引。 */
 export async function listNoiseSlices(
   options: NoiseSliceListOptions = {}
 ): Promise<NoiseSliceSummary[]> {
-  const backend = await getBackend();
-  if (backend === "localStorage") {
-    return applyQuery(readLegacyNoiseSlices(), options);
-  }
-
-  const query: NoiseHistoryQuery = options;
-  const records = await noiseHistoryDb.list<StoredNoiseSlice>(query);
-  return records.filter(isNoiseSliceSummary).map(fromStoredSlice);
+  const [records, sessions] = await Promise.all([
+    noiseHistoryDb.list<NoiseSliceSummary>(options),
+    listNoiseCaptureSessions(),
+  ]);
+  const normalized = records.filter(isPersistedNoiseSliceSummary).map(normalize);
+  const resolved = resolveOverlappingNoiseSessions(normalized, sessions);
+  reportOverlapWarnings(resolved.warnings);
+  return resolved.slices;
 }
 
-/** 兼容原调用名；接口现为异步。 */
 export const readNoiseSlices = listNoiseSlices;
 
-/** 追加单个切片，并按当前保留天数删除过期记录。 */
 export async function appendNoiseSlice(slice: NoiseSliceSummary): Promise<NoiseSliceSummary> {
-  if (!isNoiseSliceSummary(slice)) throw new TypeError("无效的噪音切片记录");
-  const normalized = normalizeSlice(slice);
-  const backend = await getBackend();
-
-  if (backend === "localStorage") {
-    ensureQuotaEstimated();
-    const cutoff = getRetentionCutoff();
-    const retained = [...readLegacyNoiseSlices(), normalized].filter((item) => item.end >= cutoff);
-    retained.sort((first, second) => first.end - second.end);
-    const maxBytes = cachedQuotaBytes ? cachedQuotaBytes * 0.9 : null;
-    writeLegacyNoiseSlices(maxBytes ? trimByMaxBytes(retained, maxBytes) : retained);
-    dispatchUpdatedEvent();
-    return normalized;
-  }
-
-  await noiseHistoryDb.put(toStoredSlice(normalized));
-  try {
-    await noiseHistoryDb.deleteEndedBefore(getRetentionCutoff());
-  } finally {
-    dispatchUpdatedEvent();
-  }
+  if (!isNoiseSliceSummary(slice)) throw new TypeError("无效的 spectral-activity-v2 评分记录");
+  const normalized = normalize(slice);
+  await withNoiseHistoryWriteLock(async () => {
+    await noiseHistoryDb.put(normalized);
+    await noiseHistoryDb.deleteEndedBefore(retentionCutoff());
+  });
+  await deleteNoiseCaptureDataBefore(retentionCutoff());
+  broadcastUpdate();
   return normalized;
 }
 
-/** 兼容原调用名；接口现为异步。 */
 export const writeNoiseSlice = appendNoiseSlice;
 
-/** 清空全部噪音切片历史。 */
 export async function clearNoiseSlices(): Promise<void> {
-  const backend = await getBackend();
-  if (backend === "indexeddb") {
+  await withNoiseHistoryWriteLock(async () => {
     await noiseHistoryDb.clear();
-  }
-  try {
-    localStorage.removeItem(STORAGE_KEY);
-  } finally {
-    dispatchUpdatedEvent();
-  }
+    await noiseRescoreStateDb.clear();
+  });
+  await clearNoiseCaptureData();
+  broadcastUpdate();
 }
 
-/** 返回噪音历史的条数、序列化大小和最近更新时间。 */
 export async function inspectNoiseSlices(): Promise<NoiseSliceInspection> {
   const slices = await listNoiseSlices();
   return {
     count: slices.length,
     itemCount: slices.length,
-    bytes: estimateStringBytes(JSON.stringify(slices)),
+    bytes: estimateBytes(slices),
     ...(slices.length > 0 ? { updatedAt: Math.max(...slices.map((slice) => slice.end)) } : {}),
   };
 }
 
-/** 导出不含 IndexedDB 内部 id 的规范化切片。 */
 export async function exportNoiseSlices(): Promise<NoiseSliceSummary[]> {
   return listNoiseSlices();
 }
 
 export function validateNoiseSlicesForReplacement(value: unknown): NoiseSliceSummary[] {
-  if (!Array.isArray(value) || !value.every(isNoiseSliceSummary)) {
-    throw new TypeError("噪音历史必须是有效的切片数组");
+  if (!Array.isArray(value) || !value.every(isPersistedNoiseSliceSummary)) {
+    throw new TypeError("评分历史必须是有效的 spectral-activity-v2 记录数组");
   }
-
-  const normalized = value.map(normalizeSlice);
-  const stored = normalized.map(toStoredSlice);
-  if (new Set(stored.map((slice) => slice.id)).size !== stored.length) {
-    throw new TypeError("噪音历史包含重复切片");
+  const normalized = value.map((slice) => normalize({ ...slice, sourceAvailable: false }));
+  if (new Set(normalized.map((slice) => slice.id)).size !== normalized.length) {
+    throw new TypeError("评分历史包含重复记录");
   }
   return normalized;
 }
 
-/** 完整校验并原子替换噪音历史；任一记录无效时不会写入。 */
 export async function replaceNoiseSlices(value: unknown): Promise<void> {
   const normalized = validateNoiseSlicesForReplacement(value);
-  const stored = normalized.map(toStoredSlice);
-
-  const backend = await getBackend();
-
-  if (backend === "localStorage") {
-    replaceLegacyNoiseSlices(normalized);
-  } else {
-    await noiseHistoryDb.replaceAll(stored);
-    try {
-      localStorage.removeItem(STORAGE_KEY);
-    } catch {
-      // IndexedDB 已原子替换成功，旧键残留不影响当前后端。
-    }
-  }
-  dispatchUpdatedEvent();
+  await withNoiseHistoryWriteLock(async () => {
+    await noiseHistoryDb.replaceAll(normalized);
+  });
+  broadcastUpdate();
 }
 
-/** 订阅噪音切片更新事件。 */
 export function subscribeNoiseSlicesUpdated(handler: () => void): () => void {
+  historyListenerCount += 1;
+  ensureHistoryChannel();
+  if (historyListenerCount === 1) window.addEventListener("storage", onHistoryStorage);
   window.addEventListener(NOISE_SLICES_UPDATED_EVENT, handler);
-  return () => window.removeEventListener(NOISE_SLICES_UPDATED_EVENT, handler);
+  return () => {
+    window.removeEventListener(NOISE_SLICES_UPDATED_EVENT, handler);
+    historyListenerCount = Math.max(0, historyListenerCount - 1);
+    if (historyListenerCount > 0) return;
+    window.removeEventListener("storage", onHistoryStorage);
+    historyChannel?.close();
+    historyChannel = null;
+  };
 }

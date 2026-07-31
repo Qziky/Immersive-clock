@@ -141,8 +141,8 @@ function resolveNoisePreviewContent(stateId?: string): NoisePreviewContent {
       return { state: "noisy", statusText: "吵闹", subtext: "68 dB" };
     case "error":
       return { state: "error", statusText: "--" };
-    case "calibrating":
-      return { state: "initializing", statusText: "初始化中..." };
+    case "signal-anomaly":
+      return { state: "signal-anomaly", statusText: "信号异常", subtext: "检查麦克风信号" };
     case "quiet":
     default:
       return { state: "quiet", statusText: "安静", subtext: "42 dB" };

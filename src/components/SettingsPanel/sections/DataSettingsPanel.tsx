@@ -19,6 +19,21 @@ import {
   type UnusedAssetInspection,
 } from "../../../services/dataManagement";
 import {
+  exportNoiseFeatureArchive,
+  importNoiseFeatureArchive,
+  preflightNoiseFeatureArchive,
+  type NoiseFeatureArchivePreview,
+} from "../../../services/noise/noiseFeatureArchiveService";
+import {
+  inspectNoiseFeatureData,
+  type NoiseFeatureRepositoryInspection,
+} from "../../../services/noise/noiseFeatureRepository";
+import {
+  getNoiseRescoreState,
+  subscribeNoiseRescoreState,
+  type NoiseRescoreState,
+} from "../../../services/noise/noiseRescoreService";
+import {
   Button,
   Checkbox,
   FormSection,
@@ -26,6 +41,7 @@ import {
   Inline,
   Input,
   MetricCard,
+  Progress,
   RadioGroup,
   SettingGrid,
   SettingItem,
@@ -42,6 +58,9 @@ type DataOperation =
   | "backup"
   | "prepare"
   | "restore"
+  | "noiseExport"
+  | "noisePrepare"
+  | "noiseImport"
   | "cache"
   | "noiseHistory"
   | "diagnostics"
@@ -88,9 +107,10 @@ const CLEANUP_ITEMS: Array<{
   {
     scope: "noiseHistory",
     title: "噪音历史",
-    description: "删除本地噪音切片和报告历史，保留噪音监测参数。",
+    description: "删除采集会话、100 ms 原始帧、派生评分和重算状态；保留监测设置与 dB(A) 校准。",
     confirmTitle: "清理噪音历史",
-    confirmDescription: "历史报告数据将被永久删除，此操作无法撤销。",
+    confirmDescription:
+      "采集会话、100 ms 原始帧、派生评分和重算状态将被永久删除；监测设置与 dB(A) 校准会保留。此操作无法撤销。",
     confirmLabel: "删除历史",
     buttonLabel: "清理噪音历史",
     tone: "danger",
@@ -169,6 +189,41 @@ function downloadQuarantinedSettings(raw: string, fileName: string): void {
   URL.revokeObjectURL(url);
 }
 
+function downloadNoiseArchive(blob: Blob): void {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  const date = new Date().toISOString().slice(0, 10);
+  link.href = url;
+  link.download = `immersive-clock-noise-${date}.icnoise`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+function dateBoundary(value: string, endOfDay = false): number | undefined {
+  if (!value) return undefined;
+  const time = new Date(`${value}T${endOfDay ? "23:59:59.999" : "00:00:00"}`).getTime();
+  return Number.isFinite(time) ? time : undefined;
+}
+
+function rescoreStatusLabel(state: NoiseRescoreState | null): string {
+  switch (state?.status) {
+    case "queued":
+      return "等待重算";
+    case "running":
+      return "正在重算";
+    case "paused":
+      return "重算已暂停";
+    case "complete":
+      return "评分已是最新";
+    case "error":
+      return "重算失败";
+    default:
+      return "暂无重算任务";
+  }
+}
+
 export function DataSettingsPanel({
   hasUnsavedAppearanceChanges,
   onBusyChange,
@@ -188,6 +243,20 @@ export function DataSettingsPanel({
   const [preparedBackup, setPreparedBackup] = useState<PreparedBackup | null>(null);
   const [fileError, setFileError] = useState("");
   const [includeNoiseHistory, setIncludeNoiseHistory] = useState(false);
+  const [noiseFeatureData, setNoiseFeatureData] = useState<NoiseFeatureRepositoryInspection | null>(
+    null
+  );
+  const [noiseDataError, setNoiseDataError] = useState("");
+  const [persistentStorage, setPersistentStorage] = useState<boolean | null>(null);
+  const [noiseArchiveStart, setNoiseArchiveStart] = useState("");
+  const [noiseArchiveEnd, setNoiseArchiveEnd] = useState("");
+  const [selectedNoiseArchive, setSelectedNoiseArchive] = useState<File | null>(null);
+  const [noiseArchiveInputRevision, setNoiseArchiveInputRevision] = useState(0);
+  const [noiseArchivePreview, setNoiseArchivePreview] = useState<NoiseFeatureArchivePreview | null>(
+    null
+  );
+  const [noiseArchiveError, setNoiseArchiveError] = useState("");
+  const [rescoreState, setRescoreState] = useState<NoiseRescoreState | null>(null);
   const isBusy = operation !== null;
 
   useEffect(() => {
@@ -207,6 +276,16 @@ export function DataSettingsPanel({
     setOverviewError("");
   }, []);
 
+  const refreshNoiseData = useCallback(async () => {
+    const [inspection, isPersistent] = await Promise.all([
+      inspectNoiseFeatureData(),
+      navigator.storage?.persisted?.().catch(() => false) ?? Promise.resolve(false),
+    ]);
+    setNoiseFeatureData(inspection);
+    setPersistentStorage(isPersistent);
+    setNoiseDataError("");
+  }, []);
+
   useEffect(() => {
     let active = true;
     void refreshOverview()
@@ -221,6 +300,31 @@ export function DataSettingsPanel({
       active = false;
     };
   }, [refreshOverview]);
+
+  useEffect(() => {
+    let active = true;
+    void refreshNoiseData().catch((error: unknown) => {
+      if (!active) return;
+      setNoiseDataError(error instanceof Error ? error.message : "无法读取原始监测数据");
+    });
+    return () => {
+      active = false;
+    };
+  }, [refreshNoiseData]);
+
+  useEffect(() => {
+    let active = true;
+    const unsubscribe = subscribeNoiseRescoreState((state) => {
+      if (active) setRescoreState(state);
+    });
+    void getNoiseRescoreState().then((state) => {
+      if (active) setRescoreState(state);
+    });
+    return () => {
+      active = false;
+      unsubscribe();
+    };
+  }, []);
 
   const domainLabels = useMemo(
     () => new Map(overview?.domains.map((domain) => [domain.id, domain.label]) ?? []),
@@ -371,6 +475,97 @@ export function DataSettingsPanel({
     }
   }, [confirm, includeNoiseHistory, isBusy, notify, onReloadRequired, preparedBackup, reportError]);
 
+  const handleExportNoiseArchive = useCallback(async () => {
+    if (isBusy) return;
+    const startAt = dateBoundary(noiseArchiveStart);
+    const endAt = dateBoundary(noiseArchiveEnd, true);
+    if (startAt !== undefined && endAt !== undefined && startAt > endAt) {
+      reportError("导出范围无效", new Error("开始日期不能晚于结束日期"));
+      return;
+    }
+    setOperation("noiseExport");
+    try {
+      const archive = await exportNoiseFeatureArchive({ startAt, endAt });
+      downloadNoiseArchive(archive);
+      notify({
+        variant: "success",
+        title: "原始监测数据已导出",
+        description: `${formatBytes(archive.size)} · 不包含 PCM 音频`,
+      });
+    } catch (error) {
+      reportError("导出原始监测数据失败", error);
+    } finally {
+      setOperation(null);
+    }
+  }, [isBusy, noiseArchiveEnd, noiseArchiveStart, notify, reportError]);
+
+  const handleNoiseArchiveFile = useCallback(
+    async (file: File | null) => {
+      if (isBusy) return;
+      setSelectedNoiseArchive(file);
+      setNoiseArchivePreview(null);
+      setNoiseArchiveError("");
+      setNoiseArchiveInputRevision((current) => current + 1);
+      if (!file) return;
+      setOperation("noisePrepare");
+      try {
+        setNoiseArchivePreview(await preflightNoiseFeatureArchive(file));
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "无法读取 .icnoise 文件";
+        setNoiseArchiveError(message);
+        reportError("原始监测数据预检失败", error);
+      } finally {
+        setOperation(null);
+      }
+    },
+    [isBusy, reportError]
+  );
+
+  const handleImportNoiseArchive = useCallback(async () => {
+    if (!selectedNoiseArchive || !noiseArchivePreview || isBusy) return;
+    const accepted = await confirm({
+      title: "导入原始监测数据",
+      description: (
+        <div className={styles.confirmCopy}>
+          <p>
+            将写入 {noiseArchivePreview.sessionCount} 个会话、
+            {noiseArchivePreview.frameCount.toLocaleString()} 帧特征数据。
+          </p>
+          <p>
+            预计新增 {formatBytes(noiseArchivePreview.additionalBytes)}
+            ，导入后将自动重算环境安静评分。
+          </p>
+        </div>
+      ),
+      confirmLabel: "导入并重算",
+    });
+    if (!accepted) return;
+
+    setOperation("noiseImport");
+    try {
+      const result = await importNoiseFeatureArchive(selectedNoiseArchive);
+      setNoiseArchivePreview(result);
+      await refreshNoiseData();
+      notify({
+        variant: "success",
+        title: "原始监测数据已导入",
+        description: `${result.sessionCount} 个会话已写入，评分重算将在后台继续。`,
+      });
+    } catch (error) {
+      reportError("导入原始监测数据失败", error);
+    } finally {
+      setOperation(null);
+    }
+  }, [
+    confirm,
+    isBusy,
+    noiseArchivePreview,
+    notify,
+    refreshNoiseData,
+    reportError,
+    selectedNoiseArchive,
+  ]);
+
   const handleClearScope = useCallback(
     async (scope: DataClearScope) => {
       if (isBusy) return;
@@ -394,13 +589,22 @@ export function DataSettingsPanel({
           description: resultDescription(result),
         });
         await refreshOverview();
+        if (scope === "noiseHistory") await refreshNoiseData();
       } catch (error) {
         reportError(`清理${item.title}失败`, error);
       } finally {
         setOperation(null);
       }
     },
-    [confirm, hasUnsavedAppearanceChanges, isBusy, notify, refreshOverview, reportError]
+    [
+      confirm,
+      hasUnsavedAppearanceChanges,
+      isBusy,
+      notify,
+      refreshNoiseData,
+      refreshOverview,
+      reportError,
+    ]
   );
 
   const handleResetPreferences = useCallback(async () => {
@@ -478,6 +682,16 @@ export function DataSettingsPanel({
   const preview = preparedBackup?.preview;
   const storageUsage = overview?.storageEstimate.usage;
   const storageQuota = overview?.storageEstimate.quota;
+  const rescoreCompleted = rescoreState?.completedSessionCount ?? 0;
+  const rescoreTotal = rescoreState?.totalSessionCount ?? 0;
+  const rescoreTone =
+    rescoreState?.status === "error"
+      ? "danger"
+      : rescoreState?.status === "running" || rescoreState?.status === "queued"
+        ? "info"
+        : rescoreState?.status === "paused"
+          ? "warning"
+          : "success";
 
   return (
     <div id="data-settings-panel" className={styles.panel} aria-busy={isBusy || undefined}>
@@ -561,6 +775,169 @@ export function DataSettingsPanel({
             </Inline>
           </InfoPanel>
         ) : null}
+      </FormSection>
+
+      <FormSection
+        title="原始监测数据"
+        variant="plain"
+        description="管理可重算环境安静评分的 100 ms 特征帧。"
+      >
+        <SettingGrid>
+          <MetricCard
+            icon="feature.storage"
+            label="原始帧占用"
+            value={formatBytes(noiseFeatureData?.bytes)}
+            meta={`${noiseFeatureData?.frameCount.toLocaleString() ?? "--"} 帧`}
+          />
+          <MetricCard
+            icon="feature.noiseHistory"
+            label="采集会话"
+            value={noiseFeatureData?.sessionCount ?? "--"}
+            meta={`${noiseFeatureData?.chunkCount ?? "--"} 个分块`}
+          />
+          <MetricCard
+            icon="feature.storage"
+            label="持久存储"
+            value={persistentStorage === null ? "未知" : persistentStorage ? "已启用" : "未启用"}
+            meta={persistentStorage ? "浏览器不会主动回收" : "可能受浏览器空间回收影响"}
+            tone={persistentStorage ? "success" : "warning"}
+          />
+          <MetricCard
+            icon="feature.data"
+            label="派生评分"
+            value={rescoreStatusLabel(rescoreState)}
+            meta={
+              rescoreTotal > 0
+                ? `${rescoreCompleted}/${rescoreTotal} 个会话`
+                : "spectral-activity-v2"
+            }
+            tone={rescoreTone}
+          />
+        </SettingGrid>
+
+        {noiseDataError ? (
+          <InfoPanel tone="warning" title="原始监测数据暂不可用" role="status">
+            {noiseDataError}
+          </InfoPanel>
+        ) : null}
+
+        {rescoreState?.status === "running" || rescoreState?.status === "queued" ? (
+          <div className={styles.rescoreProgress} role="status">
+            <Inline justify="space-between">
+              <span>后台重算进度</span>
+              <span>
+                {rescoreCompleted}/{rescoreTotal}
+              </span>
+            </Inline>
+            <Progress
+              label="环境安静评分重算进度"
+              value={rescoreCompleted}
+              max={Math.max(1, rescoreTotal)}
+            />
+          </div>
+        ) : null}
+
+        {rescoreState?.status === "error" ? (
+          <InfoPanel tone="danger" title="评分重算失败" role="alert">
+            {rescoreState.error ?? "未知错误"}
+          </InfoPanel>
+        ) : null}
+
+        <div className={styles.archiveGroup}>
+          <strong>导出范围</strong>
+          <div className={styles.dateRange}>
+            <Input
+              type="date"
+              label="开始日期"
+              value={noiseArchiveStart}
+              disabled={isBusy}
+              onChange={(event) => setNoiseArchiveStart(event.target.value)}
+            />
+            <Input
+              type="date"
+              label="结束日期"
+              value={noiseArchiveEnd}
+              disabled={isBusy}
+              onChange={(event) => setNoiseArchiveEnd(event.target.value)}
+            />
+          </div>
+          <Inline align="left">
+            <Button
+              icon="action.download"
+              loading={operation === "noiseExport"}
+              disabled={isBusy}
+              onClick={handleExportNoiseArchive}
+            >
+              导出 .icnoise
+            </Button>
+          </Inline>
+        </div>
+
+        <div className={styles.archiveGroup}>
+          <Input
+            key={noiseArchiveInputRevision}
+            type="file"
+            label="导入原始监测数据"
+            hint="仅支持 .icnoise v1；确认前不会写入任何数据"
+            accept=".icnoise,application/x-immersive-clock-noise-features"
+            buttonText="选择 .icnoise 文件"
+            fileName={selectedNoiseArchive?.name}
+            error={noiseArchiveError}
+            disabled={isBusy}
+            onFileChange={handleNoiseArchiveFile}
+          />
+
+          {operation === "noisePrepare" ? (
+            <InfoPanel tone="info" role="status">
+              正在检查文件、存储配额和数据冲突...
+            </InfoPanel>
+          ) : null}
+
+          {noiseArchivePreview ? (
+            <div className={styles.preview} aria-label="原始监测数据预检摘要">
+              <SettingGrid>
+                <MetricCard
+                  icon="feature.noiseHistory"
+                  label="会话与分块"
+                  value={`${noiseArchivePreview.sessionCount} / ${noiseArchivePreview.chunkCount}`}
+                  meta="会话 / 分块"
+                />
+                <MetricCard
+                  icon="feature.data"
+                  label="特征帧"
+                  value={noiseArchivePreview.frameCount.toLocaleString()}
+                  meta={formatBytes(noiseArchivePreview.requiredBytes)}
+                />
+                <MetricCard
+                  icon="feature.storage"
+                  label="预计新增"
+                  value={formatBytes(noiseArchivePreview.additionalBytes)}
+                  meta={
+                    noiseArchivePreview.additionalBytes === 0
+                      ? "本地已有相同数据"
+                      : "已通过配额检查"
+                  }
+                  tone={noiseArchivePreview.additionalBytes === 0 ? "neutral" : "success"}
+                />
+              </SettingGrid>
+              <InfoPanel tone="neutral">
+                {formatDate(noiseArchivePreview.startAt ?? undefined)} 至{" "}
+                {formatDate(noiseArchivePreview.endAt ?? undefined)}
+              </InfoPanel>
+              <Inline align="left">
+                <Button
+                  variant="primary"
+                  icon="action.upload"
+                  loading={operation === "noiseImport"}
+                  disabled={isBusy}
+                  onClick={handleImportNoiseArchive}
+                >
+                  导入并重算
+                </Button>
+              </Inline>
+            </div>
+          ) : null}
+        </div>
       </FormSection>
 
       <FormSection
