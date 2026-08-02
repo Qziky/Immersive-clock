@@ -343,6 +343,7 @@ describe("AudioDebugPage", () => {
     renderPage(createCalibrationReadySnapshot());
 
     const referenceInput = screen.getByRole("spinbutton", { name: "参考声级" });
+    expect(referenceInput).toHaveValue(40);
     await user.clear(referenceInput);
     await user.type(referenceInput, "125");
     await user.click(screen.getByRole("button", { name: "开始校准" }));

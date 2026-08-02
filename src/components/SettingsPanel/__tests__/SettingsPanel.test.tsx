@@ -39,7 +39,14 @@ vi.mock("../sections/BasicSettingsPanel", () => ({
 }));
 
 vi.mock("../sections/AppearanceSettingsPanel", () => ({
-  AppearanceSettingsPanel: function AppearanceSettingsPanelMock({ section }: { section: string }) {
+  AppearanceSettingsPanel: function AppearanceSettingsPanelMock({
+    section,
+    onRegisterSave,
+  }: {
+    section: string;
+    onRegisterSave?: (save: () => void) => void;
+  }) {
+    useEffect(() => onRegisterSave?.(() => saveCalls.push("appearance")), [onRegisterSave]);
     return <div data-testid="appearance-panel" data-section={section} />;
   },
 }));
@@ -151,6 +158,12 @@ function renderSettings(onClose = vi.fn()) {
     </AppContextProvider>
   );
   return onClose;
+}
+
+function finishGroupExpansion(group: HTMLElement) {
+  fireEvent.transitionEnd(group.parentElement as HTMLElement, {
+    propertyName: "grid-template-rows",
+  });
 }
 
 function ReopenSettingsHarness() {
@@ -273,11 +286,13 @@ describe("SettingsPanel", () => {
     fireEvent.click(navigation.getByRole("button", { name: /视觉外观/ }));
     fireEvent.click(navigation.getByRole("button", { name: "整体样式" }));
     fireEvent.click(navigation.getByRole("button", { name: /常用工作台/ }));
+    finishGroupExpansion(navigation.getByRole("group", { name: "常用工作台" }));
 
     expect(screen.getByTestId("basic-panel")).toHaveAttribute("data-section", "schedule");
     expect(screen.getByLabelText("课程草稿")).toHaveValue("晚间自习");
 
     fireEvent.click(navigation.getByRole("button", { name: /视觉外观/ }));
+    finishGroupExpansion(navigation.getByRole("group", { name: "视觉外观" }));
     expect(screen.getByTestId("appearance-panel")).toHaveAttribute("data-section", "overview");
   });
 
@@ -315,6 +330,7 @@ describe("SettingsPanel", () => {
     await user.click(navigation.getByRole("button", { name: /环境提醒/ }));
 
     const environmentPanes = navigation.getByRole("group", { name: "环境提醒" });
+    finishGroupExpansion(environmentPanes);
     expect(
       within(environmentPanes)
         .getAllByRole("button")
@@ -367,14 +383,26 @@ describe("SettingsPanel", () => {
     const dialog = screen.getByRole("dialog", { name: "设置" });
     const navigation = within(within(dialog).getByRole("complementary", { name: "设置导航" }));
 
+    fireEvent.click(navigation.getByRole("button", { name: /视觉外观/ }));
+    finishGroupExpansion(navigation.getByRole("group", { name: "视觉外观" }));
     fireEvent.click(navigation.getByRole("button", { name: /环境提醒/ }));
+    finishGroupExpansion(navigation.getByRole("group", { name: "环境提醒" }));
     fireEvent.click(navigation.getByRole("button", { name: "天气服务" }));
     fireEvent.click(navigation.getByRole("button", { name: /内容语录/ }));
+    finishGroupExpansion(navigation.getByRole("group", { name: "内容语录" }));
     fireEvent.click(navigation.getByRole("button", { name: /系统数据/ }));
+    finishGroupExpansion(navigation.getByRole("group", { name: "系统数据" }));
     fireEvent.click(navigation.getByRole("button", { name: "项目信息" }));
 
     fireEvent.click(within(dialog).getByRole("button", { name: "保存" }));
-    expect(saveCalls).toEqual(["basic:已保存课程", "weather", "monitor", "quotes", "about"]);
+    expect(saveCalls).toEqual([
+      "appearance",
+      "basic:已保存课程",
+      "weather",
+      "monitor",
+      "quotes",
+      "about",
+    ]);
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 

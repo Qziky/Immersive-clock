@@ -1,5 +1,14 @@
 import type { CSSProperties, ReactNode } from "react";
-import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
+import {
+  startTransition,
+  useCallback,
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 import { classNames } from "../../utils/classNames";
 import { AppIcon, type AppIconName } from "../icons/AppIcon";
@@ -56,6 +65,7 @@ export interface SettingsShellProps<
 }
 
 const FLAT_GROUP_VALUE = "__settings-flat-group__";
+const GROUP_NAVIGATION_FALLBACK_MS = 240;
 
 function findFirstEnabledItem<TValue extends string, TGroupValue extends string>(
   group: SettingsNavGroup<TValue, TGroupValue>
@@ -87,6 +97,11 @@ export function SettingsShell<TValue extends string = string, TGroupValue extend
   const compactTriggerRefs = useRef(new Map<TGroupValue, HTMLButtonElement>());
   const compactFocusRestoreGroupRef = useRef<TGroupValue | null>(null);
   const lastItemByGroupRef = useRef(new Map<TGroupValue, TValue>());
+  const pendingGroupNavigationRef = useRef<{
+    group: TGroupValue;
+    item: TValue;
+  } | null>(null);
+  const pendingGroupNavigationTimerRef = useRef<number | null>(null);
   const normalizedGroups = useMemo<ReadonlyArray<SettingsNavGroup<TValue, TGroupValue>>>(() => {
     if (groups?.length) return groups;
     if (!items?.length) return [];
@@ -126,11 +141,32 @@ export function SettingsShell<TValue extends string = string, TGroupValue extend
   const resolvedContentTitle = contentTitle ?? activeItemConfig?.label;
   const resolvedContentDescription = contentDescription ?? activeItemConfig?.description;
 
+  const cancelPendingGroupNavigation = useCallback(() => {
+    pendingGroupNavigationRef.current = null;
+    if (pendingGroupNavigationTimerRef.current !== null) {
+      window.clearTimeout(pendingGroupNavigationTimerRef.current);
+      pendingGroupNavigationTimerRef.current = null;
+    }
+  }, []);
+
+  const commitPendingGroupNavigation = useCallback(
+    (group: TGroupValue) => {
+      const pendingNavigation = pendingGroupNavigationRef.current;
+      if (!pendingNavigation || pendingNavigation.group !== group) return;
+
+      cancelPendingGroupNavigation();
+      startTransition(() => onItemChange(pendingNavigation.item));
+    },
+    [cancelPendingGroupNavigation, onItemChange]
+  );
+
   useEffect(() => {
     if (!activeGroupValue) return;
     lastItemByGroupRef.current.set(activeGroupValue, activeItem);
     setExpandedGroup(activeGroupValue);
   }, [activeGroupValue, activeItem]);
+
+  useEffect(() => cancelPendingGroupNavigation, [cancelPendingGroupNavigation]);
 
   useEffect(() => {
     contentRef.current?.scrollTo?.({ top: 0 });
@@ -162,6 +198,7 @@ export function SettingsShell<TValue extends string = string, TGroupValue extend
 
   const handleGroupToggle = (group: SettingsNavGroup<TValue, TGroupValue>) => {
     if (disabled || group.disabled) return;
+    cancelPendingGroupNavigation();
     if (expandedGroup === group.value) {
       setExpandedGroup(null);
       return;
@@ -173,7 +210,20 @@ export function SettingsShell<TValue extends string = string, TGroupValue extend
       (item) => item.value === rememberedValue && !item.disabled
     );
     const nextItem = rememberedItem ?? findFirstEnabledItem(group);
-    if (nextItem && nextItem.value !== activeItem) onItemChange(nextItem.value);
+    if (!nextItem || nextItem.value === activeItem) return;
+    if (!shouldAnimateCompactMenu) {
+      onItemChange(nextItem.value);
+      return;
+    }
+
+    pendingGroupNavigationRef.current = {
+      group: group.value,
+      item: nextItem.value,
+    };
+    pendingGroupNavigationTimerRef.current = window.setTimeout(
+      () => commitPendingGroupNavigation(group.value),
+      GROUP_NAVIGATION_FALLBACK_MS
+    );
   };
 
   const handleItemChange = (
@@ -181,6 +231,7 @@ export function SettingsShell<TValue extends string = string, TGroupValue extend
     item: SettingsNavItem<TValue>
   ) => {
     if (disabled || group.disabled || item.disabled) return;
+    cancelPendingGroupNavigation();
     const shouldRestoreCompactTrigger = compactMenuGroup === group.value;
     lastItemByGroupRef.current.set(group.value, item.value);
     if (item.value !== activeItem) onItemChange(item.value);
@@ -275,6 +326,14 @@ export function SettingsShell<TValue extends string = string, TGroupValue extend
                     id={groupRegionId}
                     aria-hidden={!expanded}
                     inert={expanded ? undefined : true}
+                    onTransitionEnd={(event) => {
+                      if (
+                        event.target === event.currentTarget &&
+                        event.propertyName === "grid-template-rows"
+                      ) {
+                        commitPendingGroupNavigation(group.value);
+                      }
+                    }}
                   >
                     <div className={styles.settingsItems} role="group" aria-label={group.label}>
                       {group.items.map((item) => {

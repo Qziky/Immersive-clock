@@ -91,6 +91,9 @@ and appearance resources. **Time Display** groups Clock, Countdown, Stopwatch, a
 Countdown. Each component has a deterministic preview that reflects the current draft and highlights
 the selected target. Changes are persisted only after selecting Save.
 
+Under **Time Display**, Clock and Study Time each provide an independent **Show seconds** switch.
+Turning one off changes that current-time view to `HH:MM`; Countdown and Stopwatch remain unchanged.
+
 ## Noise Monitoring & Reports
 
 - Requires microphone permission and uses a baseline-free `0-100` quietness score as the primary metric.
@@ -98,7 +101,9 @@ the selected target. Changes are persisted only after selecting Save.
   → Control. “Authorize and refresh” reveals device names; if the preferred device is unavailable,
   capture temporarily falls back to the system default while preserving the preference.
 - Only one tab captures the microphone; other open tabs follow the leader's feature summaries.
-- Reports include only valid slices and show valid coverage and excluded duration separately.
+- Reports include only valid slices and show valid coverage and excluded duration separately. The score
+  section presents the period's actual deductions and shares, then summarizes overall performance, the
+  primary influence, the lowest record, and the represented data range instead of exposing sampling rules.
 - Sustained zero values and suspected audio processing share a single “signal anomaly” state because
   the application cannot reliably distinguish their cause. Invalid zero-value intervals are still
   excluded from score coverage, while low non-zero signals are shown as below range.

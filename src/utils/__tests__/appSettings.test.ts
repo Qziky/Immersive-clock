@@ -69,6 +69,12 @@ describe("appSettings", () => {
   it("getAppSettings 在无存储时返回默认配置", () => {
     const s = getAppSettings();
     expect(s.version).toBe(CURRENT_SETTINGS_VERSION);
+    expect(s.general.developerModeEnabled).toBe(false);
+    expect(s.general.timeDisplay).toEqual({
+      showClockSeconds: true,
+      showStudySeconds: true,
+    });
+    expect(s.noiseControl.reportAutoCloseMinutes).toBe(10);
     expect(s.general.timeSync.provider).toBe("httpDate");
     expect(s.study.display).not.toHaveProperty("showStatusBar");
     expect(s.study.display).not.toHaveProperty("timeProgressMode");
@@ -334,7 +340,7 @@ describe("appSettings", () => {
     expect(visible.noiseControl.monitoringEnabled).toBe(true);
   });
 
-  it("v9 噪音设置迁移到 v10，并规范化麦克风设备偏好", () => {
+  it("v9 噪音设置迁移到当前版本，并规范化麦克风设备偏好", () => {
     const migrated = normalizeAppSettings({
       version: 9,
       noiseControl: {
@@ -353,13 +359,61 @@ describe("appSettings", () => {
       noiseControl: { preferredInputDevice: { deviceId: "default", label: "默认设备" } },
     });
 
-    expect(migrated.version).toBe(10);
+    expect(migrated.version).toBe(CURRENT_SETTINGS_VERSION);
     expect(migrated.noiseControl.preferredInputDevice).toBeNull();
     expect(selected.noiseControl.preferredInputDevice).toEqual({
       deviceId: "usb-mic",
       label: "USB 麦克风",
     });
     expect(invalid.noiseControl.preferredInputDevice).toBeNull();
+  });
+
+  it("v10 噪音报告设置迁移到 v11，并规范化自动关闭时长", () => {
+    localStorage.setItem(
+      APP_SETTINGS_KEY,
+      JSON.stringify({ version: 10, noiseControl: { reportAutoPopup: true } })
+    );
+
+    const migrated = migrateStoredAppSettings();
+    const persisted = JSON.parse(localStorage.getItem(APP_SETTINGS_KEY) ?? "{}");
+
+    expect(migrated.version).toBe(CURRENT_SETTINGS_VERSION);
+    expect(migrated.noiseControl.reportAutoCloseMinutes).toBe(10);
+    expect(persisted).toMatchObject({
+      version: CURRENT_SETTINGS_VERSION,
+      noiseControl: { reportAutoCloseMinutes: 10 },
+    });
+
+    expect(
+      normalizeAppSettings({
+        version: CURRENT_SETTINGS_VERSION,
+        noiseControl: { reportAutoCloseMinutes: 0 },
+      }).noiseControl.reportAutoCloseMinutes
+    ).toBe(1);
+    expect(
+      normalizeAppSettings({
+        version: CURRENT_SETTINGS_VERSION,
+        noiseControl: { reportAutoCloseMinutes: 60.8 },
+      }).noiseControl.reportAutoCloseMinutes
+    ).toBe(60);
+    expect(
+      normalizeAppSettings({
+        version: CURRENT_SETTINGS_VERSION,
+        noiseControl: { reportAutoCloseMinutes: 9.6 },
+      }).noiseControl.reportAutoCloseMinutes
+    ).toBe(10);
+    expect(
+      normalizeAppSettings({
+        version: CURRENT_SETTINGS_VERSION,
+        noiseControl: { reportAutoCloseMinutes: "15" },
+      }).noiseControl.reportAutoCloseMinutes
+    ).toBe(10);
+    expect(
+      normalizeAppSettings({
+        version: CURRENT_SETTINGS_VERSION,
+        noiseControl: { reportAutoCloseMinutes: Number.NaN },
+      }).noiseControl.reportAutoCloseMinutes
+    ).toBe(10);
   });
 
   it("v4 迁移只清理分钟降水弹窗字段，不改变降雨轮播配置", () => {
@@ -512,6 +566,43 @@ describe("appSettings", () => {
         query: "杭州",
         selected: { locationKey: "weathercn:101210101", name: "杭州市" },
       },
+    });
+  });
+
+  it("开发者模式从旧设置默认关闭，并支持显式持久化", () => {
+    localStorage.setItem(APP_SETTINGS_KEY, JSON.stringify({ version: 10, general: {} }));
+
+    expect(getAppSettings().general.developerModeEnabled).toBe(false);
+
+    updateGeneralSettings({ developerModeEnabled: true });
+
+    expect(getAppSettings().general.developerModeEnabled).toBe(true);
+  });
+
+  it("当前时间显示设置会补齐旧数据、规范化无效值并支持局部更新", () => {
+    localStorage.setItem(
+      APP_SETTINGS_KEY,
+      JSON.stringify({
+        version: CURRENT_SETTINGS_VERSION,
+        general: {
+          timeDisplay: {
+            showClockSeconds: false,
+            showStudySeconds: "invalid",
+          },
+        },
+      })
+    );
+
+    expect(getAppSettings().general.timeDisplay).toEqual({
+      showClockSeconds: false,
+      showStudySeconds: true,
+    });
+
+    updateGeneralSettings({ timeDisplay: { showStudySeconds: false } });
+
+    expect(getAppSettings().general.timeDisplay).toEqual({
+      showClockSeconds: false,
+      showStudySeconds: false,
     });
   });
 

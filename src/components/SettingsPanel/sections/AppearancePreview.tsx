@@ -49,6 +49,8 @@ interface AppearancePreviewProps {
   instanceLabel?: string;
   overview?: boolean;
   selectedSlot?: string;
+  showClockSeconds?: boolean;
+  showStudySeconds?: boolean;
   stateId?: string;
 }
 
@@ -400,6 +402,8 @@ export function AppearancePreview({
   instanceLabel,
   overview = false,
   selectedSlot,
+  showClockSeconds = true,
+  showStudySeconds = true,
   stateId,
 }: AppearancePreviewProps) {
   const { activeAppearance, getBackgroundImage } = useAppearance();
@@ -490,6 +494,7 @@ export function AppearancePreview({
             <StudyPreviewScene
               definition={definition}
               instanceLabel={instanceLabel}
+              showStudySeconds={showStudySeconds}
               stateId={activeState?.id}
               target={target}
             />
@@ -499,6 +504,7 @@ export function AppearancePreview({
                 definition={definition}
                 highlightedSlot={highlightedSlot}
                 overview={overview}
+                showClockSeconds={showClockSeconds}
                 stateId={activeState?.id}
                 target={target}
               />
@@ -523,6 +529,7 @@ interface TimePreviewSceneProps {
   definition: AppearanceComponentDefinition;
   highlightedSlot?: string;
   overview: boolean;
+  showClockSeconds: boolean;
   stateId?: string;
   target: TargetRenderer;
 }
@@ -531,6 +538,7 @@ function TimePreviewScene({
   definition,
   highlightedSlot,
   overview,
+  showClockSeconds,
   stateId,
   target,
 }: TimePreviewSceneProps) {
@@ -545,7 +553,7 @@ function TimePreviewScene({
         dateText="2026年7月13日星期一"
         rootAttributes={{ "data-preview-component": "clock" }}
         timeAttributes={target("clock", "time", "numeric")}
-        timeText="12:45:09"
+        timeText={showClockSeconds ? "12:45:09" : "12:45"}
       />
     );
   }
@@ -600,13 +608,26 @@ function TimePreviewScene({
 interface StudyPreviewSceneProps {
   definition: AppearanceComponentDefinition;
   instanceLabel?: string;
+  showStudySeconds: boolean;
   stateId?: string;
   target: TargetRenderer;
 }
 
-function StudyPreviewScene({ definition, instanceLabel, stateId, target }: StudyPreviewSceneProps) {
+function StudyPreviewScene({
+  definition,
+  instanceLabel,
+  showStudySeconds,
+  stateId,
+  target,
+}: StudyPreviewSceneProps) {
   if (definition.id === "studyTime" || definition.id === "studyQuote") {
-    return <StudyCenterPreview componentId={definition.id} target={target} />;
+    return (
+      <StudyCenterPreview
+        componentId={definition.id}
+        showStudySeconds={showStudySeconds}
+        target={target}
+      />
+    );
   }
   return (
     <StudyTopDockPreview
@@ -620,9 +641,11 @@ function StudyPreviewScene({ definition, instanceLabel, stateId, target }: Study
 
 function StudyCenterPreview({
   componentId,
+  showStudySeconds,
   target,
 }: {
   componentId: "studyQuote" | "studyTime";
+  showStudySeconds: boolean;
   target: TargetRenderer;
 }) {
   const contentAttributes = {
@@ -656,7 +679,7 @@ function StudyCenterPreview({
             primaryAttributes={target("studyTime", "primary", "numeric")}
             primaryText="12:45"
             secondsAttributes={target("studyTime", "seconds", "numeric")}
-            secondsText=":09"
+            secondsText={showStudySeconds ? ":09" : undefined}
           />
         ) : undefined
       }

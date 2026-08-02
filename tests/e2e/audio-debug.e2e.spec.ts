@@ -5,8 +5,11 @@ async function installDeterministicAudioDiagnostics(context: BrowserContext): Pr
     localStorage.setItem(
       "AppSettings",
       JSON.stringify({
-        version: 9,
-        general: { startup: { initialMode: "study" } },
+        version: 11,
+        general: {
+          developerModeEnabled: true,
+          startup: { initialMode: "study" },
+        },
         study: { display: { showNoiseMonitor: false } },
         noiseControl: {
           monitoringEnabled: false,

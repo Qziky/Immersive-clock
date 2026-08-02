@@ -2,11 +2,19 @@ import React, { createContext, useContext, useReducer, ReactNode } from "react";
 
 import { STOPWATCH_TICK_MS } from "../constants/timer";
 import { resolveQuoteChannels } from "../services/quotes/quoteRegistry";
-import { AppState, AppAction, StudyState, QuoteChannelState, QuoteSettingsState } from "../types";
+import {
+  AppState,
+  AppAction,
+  StudyState,
+  QuoteChannelState,
+  QuoteSettingsState,
+  TimeDisplaySettings,
+} from "../types";
 import {
   getAppSettings,
   normalizeStudyInfoCarousel,
   updateAppSettings,
+  updateGeneralSettings,
   updateStudySettings,
 } from "../utils/appSettings";
 import { setErrorCenterMode } from "../utils/errorCenter";
@@ -38,6 +46,13 @@ function loadQuoteChannelState(): QuoteChannelState {
       settings.general.quote.customChannels
     ),
   };
+}
+
+/**
+ * 从本地存储加载当前时间显示设置
+ */
+function loadTimeDisplayState(): TimeDisplaySettings {
+  return getAppSettings().general.timeDisplay;
 }
 
 /**
@@ -80,6 +95,7 @@ function createInitialState(): AppState {
       elapsedTime: 0,
       isActive: false,
     },
+    timeDisplay: loadTimeDisplayState(),
     study: loadStudyState(),
     quoteChannels: loadQuoteChannelState(),
     quoteSettings: loadQuoteSettingsState(),
@@ -223,6 +239,13 @@ function appReducer(state: AppState, action: AppAction): AppState {
           ...state.stopwatch,
           elapsedTime: state.stopwatch.elapsedTime + action.payload * STOPWATCH_TICK_MS,
         },
+      };
+
+    case "SET_TIME_DISPLAY":
+      updateGeneralSettings({ timeDisplay: action.payload });
+      return {
+        ...state,
+        timeDisplay: action.payload,
       };
 
     case "FINISH_COUNTDOWN":

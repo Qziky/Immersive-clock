@@ -1,5 +1,6 @@
 import React, { useState, useCallback } from "react";
 
+import { useAppState } from "../../contexts/AppContext";
 import { useComponentAppearance } from "../../contexts/AppearanceContext";
 import { useTimer } from "../../hooks/useTimer";
 import { formatClock } from "../../utils/formatTime";
@@ -12,6 +13,7 @@ import { ClockPresentation } from "./ClockPresentation";
  * 显示当前系统时间，每秒更新一次
  */
 export function Clock() {
+  const { timeDisplay } = useAppState();
   const [currentTime, setCurrentTime] = useState<Date>(getAdjustedDate());
 
   /**
@@ -24,7 +26,7 @@ export function Clock() {
   // 使用计时器每秒更新时间
   useTimer(updateTime, true, 1000);
 
-  const timeString = formatClock(currentTime);
+  const timeString = formatClock(currentTime, timeDisplay.showClockSeconds);
   const dateString = currentTime.toLocaleDateString("zh-CN", {
     year: "numeric",
     month: "long",

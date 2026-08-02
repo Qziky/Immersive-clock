@@ -58,6 +58,48 @@ async function expectInfoContentIsCentered(statusRoot: Locator) {
   ).toBeLessThan(1);
 }
 
+async function expectInfoTextFitsVertically(statusRoot: Locator) {
+  const textMetrics = await statusRoot.evaluate((root) =>
+    ['[class*="stageText"]', '[class*="remainingTime"]'].map((selector) => {
+      const element = root.querySelector<HTMLElement>(selector);
+      if (!element) return null;
+
+      const textNode = Array.from(element.childNodes).find((node) => node.nodeType === 3);
+      if (!textNode) return null;
+
+      const elementRect = element.getBoundingClientRect();
+      const textRange = document.createRange();
+      textRange.selectNodeContents(textNode);
+      const textRect = textRange.getBoundingClientRect();
+
+      return {
+        elementBottom: elementRect.bottom,
+        elementHeight: elementRect.height,
+        elementTop: elementRect.top,
+        scrollHeight: element.scrollHeight,
+        selector,
+        textBottom: textRect.bottom,
+        textTop: textRect.top,
+      };
+    })
+  );
+
+  for (const metrics of textMetrics) {
+    expect(metrics).not.toBeNull();
+    if (!metrics) continue;
+
+    expect(metrics.textTop, `${metrics.selector} 顶部字形不应被裁切`).toBeGreaterThanOrEqual(
+      metrics.elementTop - 0.5
+    );
+    expect(metrics.textBottom, `${metrics.selector} 底部字形不应被裁切`).toBeLessThanOrEqual(
+      metrics.elementBottom + 0.5
+    );
+    expect(metrics.scrollHeight, `${metrics.selector} 应有足够的垂直行盒`).toBeLessThanOrEqual(
+      Math.ceil(metrics.elementHeight)
+    );
+  }
+}
+
 /** 端到端用例：验证自习模式关键入口可见（函数级注释） */
 test("自习模式：面板与设置入口可见", async ({ page }) => {
   await page.goto("/");
@@ -68,6 +110,37 @@ test("自习模式：面板与设置入口可见", async ({ page }) => {
 
   await expect(page.locator("#study-panel")).toBeVisible();
   await expect(page.getByRole("button", { name: "打开设置" })).toBeVisible();
+});
+
+test.describe("中央信息字体度量", () => {
+  test.use({ deviceScaleFactor: 1.5 });
+
+  for (const viewport of [
+    { width: 1440, height: 900 },
+    { width: 390, height: 844 },
+    { width: 320, height: 568 },
+  ]) {
+    test(`中央信息：DPR 1.5 的 ${viewport.width}×${viewport.height} 混合字体不被垂直裁切`, async ({
+      page,
+    }) => {
+      await page.emulateMedia({ reducedMotion: "reduce" });
+      await page.setViewportSize(viewport);
+      await page.addInitScript(() => {
+        localStorage.setItem("immersive-clock:has-seen-tour", "true");
+      });
+      await page.goto("/study");
+
+      const statusRoot = page.getByRole("progressbar", { name: "今日进度" }).locator("..");
+      await expect(statusRoot.locator('[class*="stageText"]')).toBeVisible();
+      await expect(statusRoot.locator('[class*="remainingTime"]')).toBeVisible();
+
+      await expectInfoTextFitsVertically(statusRoot);
+      await expectStatusColumnsDoNotOverlap(statusRoot);
+      expect(
+        await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)
+      ).toBe(true);
+    });
+  }
 });
 
 test("中央信息：取消不保存，自定义消息保存后可重载", async ({ page }) => {
@@ -418,6 +491,7 @@ test("中央信息：到达降雨开始时间后立即切换为正在下雨", as
 for (const viewport of [
   { width: 1440, height: 900 },
   { width: 390, height: 844 },
+  { width: 320, height: 568 },
 ]) {
   test(`中央信息：${viewport.width}px 长文案省略且切换不改变状态栏高度`, async ({ page }) => {
     const firstText =

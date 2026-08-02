@@ -45,20 +45,48 @@ function makeSlice(options: SliceOptions): NoiseSliceSummary {
 describe("aggregateNoiseSlicesForRange", () => {
   it("滚动窗口只累计超出已覆盖终点的新增区间", () => {
     const slices = [
-      makeSlice({ id: "0-60", start: 0, end: 60_000, score: 60, eventFactor: 0.1 }),
-      makeSlice({ id: "5-65", start: 5_000, end: 65_000, score: 80, eventFactor: 0.5 }),
-      makeSlice({ id: "10-70", start: 10_000, end: 70_000, score: 100, eventFactor: 0.9 }),
+      makeSlice({
+        id: "0-60",
+        start: 0,
+        end: 60_000,
+        score: 68,
+        activityMean: 0.4,
+        activityFloor: 0.2,
+        eventFactor: 0.1,
+      }),
+      makeSlice({
+        id: "5-65",
+        start: 5_000,
+        end: 65_000,
+        score: 79.5,
+        activityMean: 0.2,
+        activityFloor: 0.1,
+        eventFactor: 0.5,
+      }),
+      makeSlice({
+        id: "10-70",
+        start: 10_000,
+        end: 70_000,
+        score: 91,
+        activityMean: 0,
+        activityFloor: 0,
+        eventFactor: 0.9,
+      }),
     ];
 
     const report = aggregateNoiseSlicesForRange(slices, 0, 70_000);
 
     expect(report.validDurationMs).toBe(70_000);
     expect(report.excludedDurationMs).toBe(0);
-    expect(report.averageScore).toBeCloseTo((60 * 60 + 80 * 5 + 100 * 5) / 70, 6);
+    expect(report.averageScore).toBeCloseTo((68 * 60 + 79.5 * 5 + 91 * 5) / 70, 6);
     expect(report.eventFactor).toBeCloseTo((0.1 * 60 + 0.5 * 5 + 0.9 * 5) / 70, 6);
-    expect(report.distribution.fair).toBeCloseTo(60 / 70, 6);
-    expect(report.distribution.good).toBeCloseTo(5 / 70, 6);
-    expect(report.distribution.excellent).toBeCloseTo(5 / 70, 6);
+    expect(report.scoreDeductions.activityMean).toBeCloseTo(((0.4 * 60 + 0.2 * 5) / 70) * 65, 6);
+    expect(report.scoreDeductions.activityFloor).toBeCloseTo(((0.2 * 60 + 0.1 * 5) / 70) * 25, 6);
+    expect(report.scoreDeductions.eventFactor).toBeCloseTo(
+      ((0.1 * 60 + 0.5 * 5 + 0.9 * 5) / 70) * 10,
+      6
+    );
+    expect(report.scoreDeductions.total).toBeCloseTo(100 - (report.averageScore ?? 0), 6);
   });
 
   it("同一终点的重复窗口优先采用覆盖率和质量更高的记录", () => {

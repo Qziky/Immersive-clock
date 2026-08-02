@@ -15,6 +15,7 @@ import {
   StatusPill,
   Switch as FormSwitch,
 } from "../../../ui";
+import { getAppSettings, updateGeneralSettings } from "../../../utils/appSettings";
 import {
   clearErrorCenter,
   ErrorCenterMode,
@@ -50,6 +51,12 @@ const AboutSettingsPanel: React.FC<AboutSettingsPanelProps> = ({ onRegisterSave,
   );
   const [draftErrorCenterMode, setDraftErrorCenterMode] =
     useState<ErrorCenterMode>(appliedErrorCenterMode);
+  const [appliedDeveloperModeEnabled] = useState(
+    () => getAppSettings().general.developerModeEnabled
+  );
+  const [draftDeveloperModeEnabled, setDraftDeveloperModeEnabled] = useState(
+    appliedDeveloperModeEnabled
+  );
 
   useEffect(() => {
     setDraftErrorPopupEnabled(!!study.errorPopupEnabled);
@@ -62,10 +69,17 @@ const AboutSettingsPanel: React.FC<AboutSettingsPanelProps> = ({ onRegisterSave,
   useEffect(() => {
     if (!onRegisterSave) return;
     onRegisterSave(() => {
+      updateGeneralSettings({ developerModeEnabled: draftDeveloperModeEnabled });
       dispatch({ type: "SET_ERROR_POPUP_ENABLED", payload: draftErrorPopupEnabled });
       dispatch({ type: "SET_ERROR_CENTER_MODE", payload: draftErrorCenterMode });
     });
-  }, [onRegisterSave, dispatch, draftErrorPopupEnabled, draftErrorCenterMode]);
+  }, [
+    onRegisterSave,
+    dispatch,
+    draftDeveloperModeEnabled,
+    draftErrorPopupEnabled,
+    draftErrorCenterMode,
+  ]);
 
   useEffect(() => {
     const off = subscribeErrorCenter((next) => {
@@ -191,6 +205,19 @@ const AboutSettingsPanel: React.FC<AboutSettingsPanelProps> = ({ onRegisterSave,
       >
         <SettingGrid columns={2}>
           <SettingItem
+            icon="feature.command"
+            title="开发者模式"
+            description="开启后显示组件规范、音频诊断等独立调试页面入口。"
+            tone={draftDeveloperModeEnabled ? "accent" : "neutral"}
+            control={
+              <FormSwitch
+                checked={draftDeveloperModeEnabled}
+                onCheckedChange={setDraftDeveloperModeEnabled}
+                aria-label="开发者模式"
+              />
+            }
+          />
+          <SettingItem
             icon="status.error"
             title="错误弹窗提示"
             description="出现关键错误时弹出提示。"
@@ -305,6 +332,49 @@ const AboutSettingsPanel: React.FC<AboutSettingsPanelProps> = ({ onRegisterSave,
               })()}
             </InfoPanel>
           </>
+        ) : null}
+      </FormSection>
+
+      <FormSection
+        title="调试页面"
+        variant="plain"
+        description="独立于设置面板运行的开发诊断工具。"
+        hidden={isSectionHidden("debug") || !draftDeveloperModeEnabled}
+      >
+        <SettingGrid>
+          <SettingItem
+            icon="feature.sourceCode"
+            title="组件规范"
+            description="查看 src/ui 公共组件、公开状态、交互示例与组件覆盖清单。"
+            control={
+              <FormButton
+                variant="secondary"
+                aria-label={appliedDeveloperModeEnabled ? "打开组件规范" : "保存后可打开组件规范"}
+                disabled={!appliedDeveloperModeEnabled}
+                onClick={() => window.location.assign("/design-system")}
+              >
+                {appliedDeveloperModeEnabled ? "打开" : "保存后可用"}
+              </FormButton>
+            }
+          />
+          <SettingItem
+            icon="feature.audio"
+            title="音频诊断"
+            description="检查输入设备、采集流程、信号特征、评分、校准与持久化状态。"
+            control={
+              <FormButton
+                variant="secondary"
+                aria-label={appliedDeveloperModeEnabled ? "打开音频诊断" : "保存后可打开音频诊断"}
+                disabled={!appliedDeveloperModeEnabled}
+                onClick={() => window.location.assign("/debug/audio")}
+              >
+                {appliedDeveloperModeEnabled ? "打开" : "保存后可用"}
+              </FormButton>
+            }
+          />
+        </SettingGrid>
+        {!appliedDeveloperModeEnabled ? (
+          <InfoPanel tone="info">保存设置后即可打开这些调试页面。</InfoPanel>
         ) : null}
       </FormSection>
     </Stack>

@@ -8,7 +8,7 @@ import { CountdownItem, type StudyDisplaySettings } from "../../types";
 import { DEFAULT_SCHEDULE, StudyPeriod } from "../../types/studySchedule";
 import { appearanceBackgroundToCss } from "../../utils/appearanceModel";
 import { formatClock } from "../../utils/formatTime";
-import { getAutoPopupSetting } from "../../utils/noiseReportSettings";
+import { getNoiseReportSettings } from "../../utils/noiseReportSettings";
 import { readStudySchedule } from "../../utils/studyScheduleStorage";
 import { getAdjustedDate } from "../../utils/timeSync";
 import { MotivationalQuote } from "../MotivationalQuote";
@@ -31,7 +31,7 @@ import { StudyTopDockPresentation } from "./StudyTopDockPresentation";
  */
 export function Study() {
   useNoiseStream();
-  const { study } = useAppState();
+  const { study, timeDisplay } = useAppState();
   const { getBackgroundImage, resolveBackground, resolveStyle } = useAppearance();
   const [currentTime, setCurrentTime] = useState<Date>(getAdjustedDate());
   const [reportOpen, setReportOpen] = useState(false);
@@ -63,7 +63,7 @@ export function Study() {
     updateTime();
   }, [updateTime]);
 
-  // 自动在本节课结束前1分钟弹出统计报告（不自动关闭；若手动关闭则在该课时结束前不再弹出）
+  // 自动在本节课结束前1分钟弹出统计报告（按设置自动关闭；关闭后本课时不再弹出）
   useEffect(() => {
     let schedule: StudyPeriod[] = DEFAULT_SCHEDULE;
     try {
@@ -100,7 +100,7 @@ export function Study() {
       // 正在本节课内，并且进入结束前1分钟窗口（[end-1min, end)）
       if (nowMin >= startMin && nowMin < endMin && endMin - nowMin <= 1) {
         // 检查是否启用自动弹出设置
-        const autoPopupEnabled = getAutoPopupSetting();
+        const autoPopupEnabled = getNoiseReportSettings().autoPopup;
 
         // 若本课时已经弹出过，或被手动关闭过，或设置中禁用了自动弹出，则不再重复弹出
         const alreadyPopped = lastPopupPeriodIdRef.current === p.id;
@@ -138,7 +138,7 @@ export function Study() {
     return Math.max(0, diffDays);
   }, [study.targetYear]);
 
-  const timeString = formatClock(currentTime);
+  const timeString = formatClock(currentTime, timeDisplay.showStudySeconds);
   const [hours = "00", minutes = "00", seconds = "00"] = timeString.split(":");
   const primaryTime = `${hours}:${minutes}`;
   const dateString = currentTime.toLocaleDateString("zh-CN", {
@@ -274,6 +274,13 @@ export function Study() {
     setReportOpen(false);
   }, [reportPeriod]);
 
+  useEffect(() => {
+    if (!reportOpen || reportFromHistory) return;
+    const { autoCloseMinutes } = getNoiseReportSettings();
+    const timeoutId = window.setTimeout(handleCloseReport, autoCloseMinutes * 60 * 1000);
+    return () => window.clearTimeout(timeoutId);
+  }, [handleCloseReport, reportFromHistory, reportOpen]);
+
   /** 返回历史记录（函数级注释：仅在从历史记录进入报告时提供“返回历史记录”按钮，避免关闭按钮产生隐式跳转） */
   const handleBackToHistory = useCallback(() => {
     if (reportPeriod) {
@@ -393,7 +400,7 @@ export function Study() {
             primaryAttributes={{ style: primaryTimeAppearance }}
             primaryText={primaryTime}
             secondsAttributes={{ style: secondsAppearance }}
-            secondsText={`:${seconds}`}
+            secondsText={timeDisplay.showStudySeconds ? `:${seconds}` : undefined}
           />
         }
       />

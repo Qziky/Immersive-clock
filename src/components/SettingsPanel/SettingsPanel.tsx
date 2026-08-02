@@ -369,6 +369,7 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
   const settingsBusy = dataBusy || reloadPending;
 
   const basicSaveRef = useRef<() => void>(() => {});
+  const appearanceSaveRef = useRef<() => void>(() => {});
   const weatherSaveRef = useRef<() => void>(() => {});
   const monitorSaveRef = useRef<() => void>(() => {});
   const quotesSaveRef = useRef<() => void>(() => {});
@@ -389,6 +390,9 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
 
   const registerBasicSave = useCallback((save: () => void) => {
     basicSaveRef.current = save;
+  }, []);
+  const registerAppearanceSave = useCallback((save: () => void) => {
+    appearanceSaveRef.current = save;
   }, []);
   const registerWeatherSave = useCallback((save: () => void) => {
     weatherSaveRef.current = save;
@@ -432,7 +436,10 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
   const handleSaveAll = useCallback(() => {
     if (settingsBusy) return;
     try {
-      if (visitedPanels.has("appearance")) commitAppearanceDraft();
+      if (visitedPanels.has("appearance")) {
+        commitAppearanceDraft();
+        appearanceSaveRef.current?.();
+      }
       basicSaveRef.current?.();
       if (visitedPanels.has("weather")) weatherSaveRef.current?.();
       if (visitedPanels.has("monitor")) monitorSaveRef.current?.();
@@ -554,6 +561,7 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
             <AppearanceSettingsPanel
               key={`appearance-${draftSession}`}
               section={appearanceSection}
+              onRegisterSave={registerAppearanceSave}
             />
           </div>
         )}

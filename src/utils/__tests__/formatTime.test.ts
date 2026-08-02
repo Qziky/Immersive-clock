@@ -13,8 +13,9 @@ import {
  */
 describe("formatTime utils", () => {
   it("formatClock: formats HH:MM:SS", () => {
-    const d = new Date("2024-01-01T08:09:05Z");
-    expect(formatClock(d)).toMatch(/\d{2}:\d{2}:\d{2}/);
+    const d = new Date(2024, 0, 1, 8, 9, 5);
+    expect(formatClock(d)).toBe("08:09:05");
+    expect(formatClock(d, false)).toBe("08:09");
   });
 
   it("formatTimer: below 1h shows MM:SS", () => {

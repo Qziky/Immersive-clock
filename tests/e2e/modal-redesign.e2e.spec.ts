@@ -63,7 +63,7 @@ test.describe("弹层重设计", () => {
 
     await page.evaluate(async () => {
       const now = Date.now();
-      const scores = [94, 86, 78, 70];
+      const scores = [95.3, 85.8, 76.3, 66.8];
       const slices = scores.map((score, index) => {
         const start = now - (50 - index * 12) * 60_000;
         const end = start + 60_000;
@@ -145,7 +145,18 @@ test.describe("弹层重设计", () => {
         )
     ).toBe(true);
 
-    await populatedReport.getByRole("radio", { name: "估算 dB(A)" }).click();
+    await expect(populatedReport.getByText("平均分达标")).toBeVisible();
+    await expect(populatedReport.getByText("评分构成与解读")).toBeVisible();
+    await expect(populatedReport.getByText("本次评分构成")).toBeVisible();
+    await expect(populatedReport.getByText("本时段解读")).toBeVisible();
+    await expect(populatedReport.getByText("总体表现")).toBeVisible();
+    await expect(populatedReport.getByText("主要影响")).toBeVisible();
+    await expect(populatedReport.getByText("最低记录")).toBeVisible();
+    await expect(populatedReport.getByText("数据范围")).toBeVisible();
+    await expect(populatedReport.getByText("数据如何进入评分")).toHaveCount(0);
+    await expect(populatedReport.getByText("优秀")).toHaveCount(0);
+
+    await populatedReport.getByRole("radio", { name: "分贝" }).click();
     await expect(populatedReport.getByRole("img", { name: "估算 dB(A) 走势" })).toBeVisible();
 
     for (const viewport of [

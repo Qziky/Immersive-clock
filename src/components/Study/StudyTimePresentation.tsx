@@ -13,7 +13,7 @@ interface StudyTimePresentationProps {
   primaryAttributes?: PresentationAttributes<HTMLAttributes<HTMLSpanElement>>;
   primaryText: string;
   secondsAttributes?: PresentationAttributes<HTMLAttributes<HTMLSpanElement>>;
-  secondsText: string;
+  secondsText?: string;
 }
 
 export function StudyTimePresentation({
@@ -37,9 +37,11 @@ export function StudyTimePresentation({
         <span {...primaryProps} className={classNames(styles.timePrimary, primaryClassName)}>
           {primaryText}
         </span>
-        <span {...secondsProps} className={classNames(styles.timeSeconds, secondsClassName)}>
-          {secondsText}
-        </span>
+        {secondsText ? (
+          <span {...secondsProps} className={classNames(styles.timeSeconds, secondsClassName)}>
+            {secondsText}
+          </span>
+        ) : null}
       </div>
       {dateText ? (
         <div {...dateProps} className={classNames(styles.currentDate, dateClassName)}>

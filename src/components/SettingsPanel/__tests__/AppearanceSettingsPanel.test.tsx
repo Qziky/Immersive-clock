@@ -16,6 +16,7 @@ import { AppearanceSettingsPanel } from "../sections/AppearanceSettingsPanel";
 
 const contextMocks = vi.hoisted(() => ({
   useAppearance: vi.fn(),
+  useAppDispatch: vi.fn(),
   useAppState: vi.fn(),
 }));
 
@@ -39,6 +40,7 @@ const fontMocks = vi.hoisted(() => ({
 }));
 
 vi.mock("../../../contexts/AppContext", () => ({
+  useAppDispatch: contextMocks.useAppDispatch,
   useAppState: contextMocks.useAppState,
 }));
 
@@ -118,7 +120,15 @@ describe("AppearanceSettingsPanel", () => {
     assetMocks.listener = null;
     const activeAppearance = createDefaultAppearance();
     activeAppearance.global.background = { type: "image" };
-    contextMocks.useAppState.mockReturnValue({ mode: "clock", study: { countdownItems: [] } });
+    contextMocks.useAppDispatch.mockReturnValue(vi.fn());
+    contextMocks.useAppState.mockReturnValue({
+      mode: "clock",
+      study: { countdownItems: [] },
+      timeDisplay: {
+        showClockSeconds: true,
+        showStudySeconds: true,
+      },
+    });
     contextMocks.useAppearance.mockReturnValue({
       activeAppearance,
       beginAppearancePreview: vi.fn(),
@@ -225,6 +235,51 @@ describe("AppearanceSettingsPanel", () => {
       path: ["scenes", "clock", "components", "clock", "slots", "date"],
     });
     expect(screen.queryByText("子元素")).not.toBeInTheDocument();
+  });
+
+  it("独立预览并保存时钟与自习时间的秒数设置", () => {
+    const dispatch = vi.fn();
+    const registerSave = vi.fn();
+    contextMocks.useAppDispatch.mockReturnValue(dispatch);
+    assetMocks.loadAppearanceAssetCatalog.mockResolvedValue({ backgrounds: [], fonts: [] });
+
+    render(
+      <FeedbackProvider>
+        <AppearanceSettingsPanel section="time" onRegisterSave={registerSave} />
+      </FeedbackProvider>
+    );
+
+    const clockSwitch = screen.getByRole("switch", { name: "时钟显示秒数" });
+    expect(clockSwitch).toBeChecked();
+    fireEvent.click(screen.getByRole("tab", { name: "日期" }));
+    expect(screen.queryByRole("switch", { name: "时钟显示秒数" })).toBeNull();
+    fireEvent.click(screen.getByRole("tab", { name: "主时间" }));
+    fireEvent.click(screen.getByRole("switch", { name: "时钟显示秒数" }));
+    expect(within(screen.getByLabelText("时钟外观预览")).getByText("12:45")).toBeVisible();
+
+    fireEvent.click(screen.getByRole("radio", { name: "自习时间" }));
+    expect(screen.queryByRole("switch", { name: "自习时间显示秒数" })).toBeNull();
+    fireEvent.click(screen.getByRole("tab", { name: "秒钟" }));
+    const studySwitch = screen.getByRole("switch", { name: "自习时间显示秒数" });
+    expect(studySwitch).toBeChecked();
+    fireEvent.click(studySwitch);
+    expect(within(screen.getByLabelText("中央时间外观预览")).queryByText(":09")).toBeNull();
+
+    fireEvent.click(screen.getByRole("radio", { name: "倒计时" }));
+    expect(screen.queryByRole("switch", { name: /显示秒数/ })).toBeNull();
+
+    const save = registerSave.mock.calls[registerSave.mock.calls.length - 1]?.[0] as
+      | (() => void)
+      | undefined;
+    expect(save).toBeTypeOf("function");
+    act(() => save?.());
+    expect(dispatch).toHaveBeenCalledWith({
+      type: "SET_TIME_DISPLAY",
+      payload: {
+        showClockSeconds: false,
+        showStudySeconds: false,
+      },
+    });
   });
 
   it("将组件状态从调整对象中分离并写入状态路径", async () => {

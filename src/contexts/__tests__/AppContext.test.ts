@@ -29,6 +29,10 @@ describe("appReducer", () => {
         elapsedTime: 0,
         isActive: false,
       },
+      timeDisplay: {
+        showClockSeconds: true,
+        showStudySeconds: true,
+      },
       study: {
         targetYear: 2026,
         countdownType: "gaokao",
@@ -75,6 +79,42 @@ describe("appReducer", () => {
 
       expect(newState.mode).toBe("study");
       expect(newState.isHudVisible).toBe(true);
+    });
+  });
+
+  describe("当前时间显示", () => {
+    it("初始化会从 AppSettings 载入时钟与自习页的秒数设置", () => {
+      localStorage.setItem(
+        APP_SETTINGS_KEY,
+        JSON.stringify({
+          version: 11,
+          general: {
+            timeDisplay: {
+              showClockSeconds: false,
+              showStudySeconds: true,
+            },
+          },
+        })
+      );
+
+      expect(getInitialState().timeDisplay).toEqual({
+        showClockSeconds: false,
+        showStudySeconds: true,
+      });
+    });
+
+    it("SET_TIME_DISPLAY 会同步更新状态和持久化设置", () => {
+      const timeDisplay = {
+        showClockSeconds: false,
+        showStudySeconds: false,
+      };
+
+      const newState = appReducer(state, { type: "SET_TIME_DISPLAY", payload: timeDisplay });
+
+      expect(newState.timeDisplay).toEqual(timeDisplay);
+      expect(
+        JSON.parse(localStorage.getItem(APP_SETTINGS_KEY) ?? "{}").general.timeDisplay
+      ).toEqual(timeDisplay);
     });
   });
 

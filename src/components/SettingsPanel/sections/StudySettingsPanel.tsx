@@ -1,6 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 
-import { DEFAULT_NOISE_REPORT_RETENTION_DAYS } from "../../../constants/noiseReport";
+import {
+  DEFAULT_NOISE_REPORT_RETENTION_DAYS,
+  MAX_NOISE_REPORT_AUTO_CLOSE_MINUTES,
+  MIN_NOISE_REPORT_AUTO_CLOSE_MINUTES,
+} from "../../../constants/noiseReport";
 import { useAppState } from "../../../contexts/AppContext";
 import { useNoiseStream } from "../../../hooks/useNoiseStream";
 import {
@@ -31,7 +35,10 @@ import {
   saveNoiseControlSettings,
   type NoiseControlSettings,
 } from "../../../utils/noiseControlSettings";
-import { getNoiseReportSettings, setAutoPopupSetting } from "../../../utils/noiseReportSettings";
+import {
+  getNoiseReportSettings,
+  saveNoiseReportSettings,
+} from "../../../utils/noiseReportSettings";
 import { NoiseStatsSummary } from "../../NoiseSettings/NoiseStatsSummary";
 import { RealTimeNoiseChart } from "../../NoiseSettings/RealTimeNoiseChart";
 
@@ -80,6 +87,9 @@ export const StudySettingsPanel: React.FC<StudySettingsPanelProps> = ({ onRegist
   const [activeTab, setActiveTab] = useState<NoiseSettingsTab>("control");
   const [draft, setDraft] = useState<NoiseControlSettings>(initialControl);
   const [autoPopupReport, setAutoPopupReport] = useState(initialReport.autoPopup);
+  const [reportAutoCloseMinutes, setReportAutoCloseMinutes] = useState(
+    initialReport.autoCloseMinutes
+  );
   const [referenceDbA, setReferenceDbA] = useState("60");
   const [inputDevices, setInputDevices] = useState<NoiseInputDevice[]>([]);
   const [inputDeviceError, setInputDeviceError] = useState<string | null>(null);
@@ -121,9 +131,12 @@ export const StudySettingsPanel: React.FC<StudySettingsPanelProps> = ({ onRegist
   useEffect(() => {
     onRegisterSave?.(() => {
       saveNoiseControlSettings(draft);
-      setAutoPopupSetting(autoPopupReport);
+      saveNoiseReportSettings({
+        autoPopup: autoPopupReport,
+        autoCloseMinutes: reportAutoCloseMinutes,
+      });
     });
-  }, [autoPopupReport, draft, onRegisterSave]);
+  }, [autoPopupReport, draft, onRegisterSave, reportAutoCloseMinutes]);
 
   const updateDraft = <TKey extends keyof NoiseControlSettings>(
     key: TKey,
@@ -402,6 +415,28 @@ export const StudySettingsPanel: React.FC<StudySettingsPanelProps> = ({ onRegist
                 />
               }
             />
+            <SettingItem
+              disabled={!autoPopupReport}
+              icon="feature.time"
+              title="自动关闭时长"
+              description="仅影响课时结束前自动弹出的报告；历史记录详情会保持打开。"
+            >
+              <Slider
+                aria-label="报告自动关闭时长"
+                disabled={!autoPopupReport}
+                value={reportAutoCloseMinutes}
+                min={MIN_NOISE_REPORT_AUTO_CLOSE_MINUTES}
+                max={MAX_NOISE_REPORT_AUTO_CLOSE_MINUTES}
+                step={1}
+                onChange={(value) => setReportAutoCloseMinutes(Math.round(value))}
+                formatValue={(value) => `${Math.round(value)} 分钟`}
+                showRange
+                rangeLabels={[
+                  `${MIN_NOISE_REPORT_AUTO_CLOSE_MINUTES} 分钟`,
+                  `${MAX_NOISE_REPORT_AUTO_CLOSE_MINUTES} 分钟`,
+                ]}
+              />
+            </SettingItem>
             <SettingItem
               icon="feature.noiseHistory"
               title="数据保留期"

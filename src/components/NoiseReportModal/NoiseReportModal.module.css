@@ -270,112 +270,127 @@
 
 .chartSwitch {
   flex: 0 0 auto;
-  width: 176px;
+  max-width: 100%;
+  width: 132px;
 }
 
-.chartGrid {
+.scoringBasisGrid {
   display: grid;
-  gap: 20px 16px;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--ui-space-4);
+  grid-template-columns: minmax(0, 1.15fr) minmax(280px, 0.85fr);
   margin-top: var(--ui-space-3);
 }
 
-.chartContainer {
-  border-top: 1px solid var(--ui-glass-border);
-  display: flex;
-  flex-direction: column;
+.compositionPanel,
+.interpretationPanel {
+  --ui-tone-color: var(--ui-color-text-muted);
+  --ui-tone-soft: var(--ui-color-bg);
+  --ui-tone-border: var(--ui-glass-border);
+  height: 100%;
   min-width: 0;
-  padding-top: 12px;
 }
 
-.chartTitle {
-  color: var(--ui-color-text-muted);
-  font-size: var(--ui-font-size-sm);
-  font-weight: 600;
-  margin-bottom: 9px;
-}
-
-.distributionChart {
-  margin-bottom: 12px;
-  width: 100%;
-}
-
-.distributionBar {
+.scoreComposition {
   background: var(--ui-color-bg-elevated);
   border-radius: var(--ui-radius-md);
   display: flex;
-  height: 20px;
+  height: 22px;
   overflow: hidden;
   width: 100%;
 }
 
-.distributionSegment {
-  height: 100%;
-}
-
-.legend {
-  display: grid;
-  gap: var(--ui-space-2) var(--ui-space-3);
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  margin-top: 2px;
-}
-
-.legendItem {
-  align-items: flex-start;
-  color: var(--ui-color-text-muted);
-  display: flex;
-  font-size: var(--ui-font-size-xs);
-  gap: 5px;
-  line-height: 1.4;
+.compositionSegment {
+  flex-basis: 0;
   min-width: 0;
 }
 
-.legendColor {
-  border-radius: var(--ui-radius-xs);
-  flex: 0 0 auto;
-  height: 9px;
-  margin-top: 3px;
-  width: 9px;
-}
-
-.penaltyList {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  margin-top: 3px;
-}
-
-.penaltyItem {
-  align-items: center;
-  display: flex;
-  font-size: var(--ui-font-size-sm);
-  gap: 10px;
-}
-
-.penaltyLabel {
+.compositionSummary {
   color: var(--ui-color-text-muted);
-  flex: 0 0 84px;
-}
-
-.penaltyBarTrack {
-  background: var(--ui-color-bg-elevated);
-  border-radius: var(--ui-radius-sm);
-  flex: 1;
-  height: 10px;
-  overflow: hidden;
-}
-
-.penaltyBarFill {
-  border-radius: var(--ui-radius-sm);
-  height: 100%;
-}
-
-.penaltyValue {
-  color: var(--ui-color-text-muted);
-  flex: 0 0 38px;
+  display: flex;
   font-family: var(--ui-font-number);
   font-variant-numeric: tabular-nums;
-  text-align: right;
+  gap: var(--ui-space-2);
+  justify-content: space-between;
+  margin-top: var(--ui-space-2);
+}
+
+.deductionList,
+.interpretationList {
+  display: grid;
+  list-style: none;
+  margin: var(--ui-space-3) 0 0;
+  padding: 0;
+}
+
+.deductionItem {
+  align-items: center;
+  border-top: 1px solid var(--ui-glass-border);
+  display: grid;
+  gap: var(--ui-space-2);
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  min-width: 0;
+  padding: var(--ui-space-3) 0;
+}
+
+.deductionItem:last-child {
+  padding-bottom: 0;
+}
+
+.deductionColor {
+  border-radius: var(--ui-radius-xs);
+  height: 10px;
+  width: 10px;
+}
+
+.deductionContent {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.deductionContent strong,
+.interpretationList strong {
+  color: var(--ui-color-text);
+  font-size: var(--ui-font-size-sm);
+}
+
+.deductionContent small {
+  color: var(--ui-color-text-subtle);
+  font-size: var(--ui-font-size-xs);
+}
+
+.deductionValue {
+  color: var(--ui-color-text);
+  font-family: var(--ui-font-number);
+  font-size: var(--ui-font-size-sm);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.interpretationList {
+  margin-top: 0;
+}
+
+.interpretationList li {
+  border-bottom: 1px solid var(--ui-glass-border);
+  display: grid;
+  gap: var(--ui-space-1);
+  padding: var(--ui-space-3) 0;
+}
+
+.interpretationList li:first-child {
+  padding-top: 0;
+}
+
+.interpretationList li:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.interpretationList span {
+  color: var(--ui-color-text-muted);
+  font-size: var(--ui-font-size-sm);
+  line-height: 1.55;
 }
 
 .empty {
@@ -423,7 +438,7 @@
     grid-template-columns: 1fr;
   }
 
-  .chartGrid {
+  .scoringBasisGrid {
     grid-template-columns: 1fr;
   }
 
@@ -455,16 +470,22 @@
     font-size: 40px;
   }
 
-  .chartSwitch {
-    width: 100%;
-  }
-
   .chartNote {
     display: grid;
   }
 
-  .legend {
-    grid-template-columns: 1fr;
+  .compositionSummary {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .deductionItem {
+    align-items: start;
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .deductionValue {
+    grid-column: 2;
   }
 }
 

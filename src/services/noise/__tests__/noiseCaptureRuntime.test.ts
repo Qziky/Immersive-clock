@@ -7,12 +7,14 @@ import type {
   NoiseCaptureSession,
 } from "../noiseCapture";
 import { NoiseCaptureRuntime } from "../noiseCaptureRuntime";
+import type { NoiseScoringResumeWindow } from "../noiseFeatureRepository";
 
 const repository = vi.hoisted(() => ({
   append: vi.fn().mockResolvedValue([]),
   cleanup: vi.fn().mockResolvedValue(0),
   create: vi.fn().mockResolvedValue(undefined),
   finish: vi.fn().mockResolvedValue(undefined),
+  resume: vi.fn().mockResolvedValue(null),
   recover: vi.fn().mockResolvedValue(0),
 }));
 
@@ -21,6 +23,7 @@ vi.mock("../noiseFeatureRepository", () => ({
   createNoiseCaptureSession: repository.create,
   deleteNoiseCaptureDataBefore: repository.cleanup,
   finishNoiseCaptureSession: repository.finish,
+  readNoiseScoringResumeWindow: repository.resume,
   recoverAbandonedNoiseCaptureSessions: repository.recover,
 }));
 
@@ -81,6 +84,26 @@ function createRuntime(adapter: FakeCaptureAdapter, preferredInputDeviceId?: str
     captureAdapter: adapter,
   });
   return { onFatalTrackState, onSlice, onUpdate, runtime };
+}
+
+function resumeWindow(now: number, seconds: number, gapSeconds: number): NoiseScoringResumeWindow {
+  const startedAt = now - (seconds + gapSeconds) * 1000;
+  const frames = Array.from({ length: seconds * 10 }, (_, index) => ({
+    captureSessionId: "capture-before-refresh",
+    capturedAt: startedAt + index * 100,
+    frameSequence: index + 1,
+    startSample: index * 100,
+    rmsDbfs: -40,
+    aWeightedDbfs: -50,
+    sampleP01Dbfs: -60,
+    zeroRatio: 0,
+    clippedRatio: 0,
+  }));
+  return {
+    frames,
+    startedAt,
+    endedAt: startedAt + seconds * 1000,
+  };
 }
 
 describe("NoiseCaptureRuntime", () => {
@@ -165,6 +188,46 @@ describe("NoiseCaptureRuntime", () => {
     expect(onSlice.mock.calls[1]?.[0]).toMatchObject({
       sourceStartFrameSequence: 51,
       sourceEndFrameSequence: 650,
+    });
+    await runtime.stop();
+  });
+
+  it("刷新后恢复最近评分窗口，同时保持新历史切片的会话来源完整", async () => {
+    const now = Date.now();
+    repository.resume.mockResolvedValueOnce(resumeWindow(now, 30, 5));
+    const adapter = new FakeCaptureAdapter(metadata());
+    const { onSlice, onUpdate, runtime } = createRuntime(adapter);
+    await runtime.start();
+
+    adapter.emit(1);
+    expect(onUpdate.mock.calls[onUpdate.mock.calls.length - 1]?.[0]).toMatchObject({
+      point: { quietnessScore: null },
+      diagnostics: {
+        scoring: {
+          collectedSeconds: expect.closeTo(35.1, 1),
+          progress: expect.closeTo(58.5, 1),
+          validSecondCount: 30,
+          coverageRatio: 0.5,
+        },
+      },
+    });
+
+    for (let sequence = 2; sequence <= 250; sequence += 1) adapter.emit(sequence);
+    expect(onUpdate.mock.calls[onUpdate.mock.calls.length - 1]?.[0]).toMatchObject({
+      status: "quiet",
+      point: { quietnessScore: 100 },
+    });
+    expect(onSlice).not.toHaveBeenCalled();
+
+    for (let sequence = 251; sequence <= 600; sequence += 1) adapter.emit(sequence);
+    await vi.waitFor(() => expect(onSlice).toHaveBeenCalledTimes(1));
+    expect(onSlice.mock.calls[0]?.[0]).toMatchObject({
+      captureSessionId: runtime.captureSessionId,
+      sourceStartFrameSequence: 1,
+      sourceEndFrameSequence: 600,
+      sourceStartSample: 0,
+      sourceEndSample: 60_000,
+      featureCount: 600,
     });
     await runtime.stop();
   });

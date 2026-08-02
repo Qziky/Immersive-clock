@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -118,26 +118,50 @@ describe("SettingsShell", () => {
     expect(screen.queryByRole("heading", { name: "启动页面", level: 2 })).toBeNull();
   });
 
-  it("switches groups through their last enabled item and remembers later selections", async () => {
+  it("switches groups after expansion and remembers later selections", async () => {
     const user = userEvent.setup();
     render(<ControlledShell />);
 
     const desktopNavigation = screen.getByRole("navigation", { name: "设置分组" });
-    const appearanceGroup = within(desktopNavigation).getByRole("button", { name: /视觉外观/ });
+    const appearanceGroup = within(desktopNavigation).getByRole("button", {
+      name: /视觉外观/,
+    });
     const workspaceGroup = within(desktopNavigation).getByRole("button", { name: /常用工作台/ });
+    const appearanceRegion = within(desktopNavigation).getByRole("group", {
+      name: "视觉外观",
+      hidden: true,
+    }).parentElement as HTMLElement;
+    const workspaceRegion = within(desktopNavigation).getByRole("group", {
+      name: "常用工作台",
+    }).parentElement as HTMLElement;
 
     await user.click(appearanceGroup);
+    expect(screen.getByText("startup", { selector: "output" })).toBeInTheDocument();
+    fireEvent.transitionEnd(appearanceRegion, { propertyName: "grid-template-rows" });
     expect(screen.getByText("theme", { selector: "output" })).toBeInTheDocument();
     await user.click(within(desktopNavigation).getByRole("button", { name: "高对比度" }));
     expect(screen.getByText("contrast", { selector: "output" })).toBeInTheDocument();
 
     await user.click(workspaceGroup);
+    fireEvent.transitionEnd(workspaceRegion, { propertyName: "grid-template-rows" });
     expect(screen.getByText("startup", { selector: "output" })).toBeInTheDocument();
     await user.click(within(desktopNavigation).getByRole("button", { name: "自习显示" }));
     await user.click(appearanceGroup);
+    fireEvent.transitionEnd(appearanceRegion, { propertyName: "grid-template-rows" });
 
     expect(screen.getByText("contrast", { selector: "output" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "高对比度" })).toBeInTheDocument();
+  });
+
+  it("switches groups immediately when reduced motion is enabled", async () => {
+    mockReducedMotion();
+    const user = userEvent.setup();
+    render(<ControlledShell />);
+
+    const desktopNavigation = screen.getByRole("navigation", { name: "设置分组" });
+    await user.click(within(desktopNavigation).getByRole("button", { name: /视觉外观/ }));
+
+    expect(screen.getByText("theme", { selector: "output" })).toBeInTheDocument();
   });
 
   it("closes the compact submenu with Escape and restores trigger focus", async () => {

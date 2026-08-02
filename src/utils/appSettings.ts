@@ -1,4 +1,9 @@
 import {
+  DEFAULT_NOISE_REPORT_AUTO_CLOSE_MINUTES,
+  MAX_NOISE_REPORT_AUTO_CLOSE_MINUTES,
+  MIN_NOISE_REPORT_AUTO_CLOSE_MINUTES,
+} from "../constants/noiseReport";
+import {
   getDefaultQuoteChannels,
   resolveQuoteChannels,
   serializeQuoteChannels,
@@ -8,6 +13,7 @@ import {
   StudyDisplaySettings,
   CountdownItem,
   AppMode,
+  type TimeDisplaySettings,
   type StudyInfoCarouselSettings,
   type StudyInfoItemConfig,
   type StudyNextScheduleLeadMinutes,
@@ -46,6 +52,8 @@ export interface AppSettings {
   appearance: AppearanceSettingsV2;
 
   general: {
+    developerModeEnabled: boolean;
+    timeDisplay: TimeDisplaySettings;
     startup: {
       initialMode: AppMode;
     };
@@ -126,13 +134,14 @@ export interface AppSettings {
     showRealtimeValue: boolean;
     scoreAlertThreshold: number;
     reportAutoPopup: boolean;
+    reportAutoCloseMinutes: number;
     alertSoundEnabled: boolean;
   };
 }
 
 export const APP_SETTINGS_KEY = "AppSettings";
 export const APP_SETTINGS_QUARANTINE_KEY = "immersive-clock:quarantine:app-settings";
-export const CURRENT_SETTINGS_VERSION = 10;
+export const CURRENT_SETTINGS_VERSION = 11;
 
 /** 中央信息轮播的硬上限，配置与运行时都应遵守该值。 */
 export const MAX_STUDY_INFO_ITEMS = 20;
@@ -140,6 +149,16 @@ export const MIN_STUDY_INFO_INTERVAL_SEC = 3;
 export const MAX_STUDY_INFO_INTERVAL_SEC = 30;
 export const DEFAULT_STUDY_INFO_INTERVAL_SEC = 6;
 export const MAX_STUDY_INFO_TEXT_LENGTH = 80;
+
+export function normalizeNoiseReportAutoCloseMinutes(value: unknown): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return DEFAULT_NOISE_REPORT_AUTO_CLOSE_MINUTES;
+  }
+  return Math.max(
+    MIN_NOISE_REPORT_AUTO_CLOSE_MINUTES,
+    Math.min(MAX_NOISE_REPORT_AUTO_CLOSE_MINUTES, Math.round(value))
+  );
+}
 
 export const STUDY_INFO_BUILTIN_IDS = {
   progressDay: "progress-day-default",
@@ -740,6 +759,11 @@ const DEFAULT_SETTINGS: AppSettings = {
   modifiedAt: Date.now(),
   appearance: createDefaultAppearance(),
   general: {
+    developerModeEnabled: false,
+    timeDisplay: {
+      showClockSeconds: true,
+      showStudySeconds: true,
+    },
     startup: {
       initialMode: "clock",
     },
@@ -812,6 +836,7 @@ const DEFAULT_SETTINGS: AppSettings = {
     showRealtimeValue: true,
     scoreAlertThreshold: 70,
     reportAutoPopup: true,
+    reportAutoCloseMinutes: DEFAULT_NOISE_REPORT_AUTO_CLOSE_MINUTES,
     alertSoundEnabled: false,
   },
 };
@@ -842,6 +867,21 @@ function normalizeStudyDisplaySettings(value: unknown): StudyDisplaySettings {
     showQuote: typeof source.showQuote === "boolean" ? source.showQuote : defaults.showQuote,
     showTime: typeof source.showTime === "boolean" ? source.showTime : defaults.showTime,
     showDate: typeof source.showDate === "boolean" ? source.showDate : defaults.showDate,
+  };
+}
+
+function normalizeTimeDisplaySettings(value: unknown): TimeDisplaySettings {
+  const source = isRecord(value) ? value : {};
+  const defaults = DEFAULT_SETTINGS.general.timeDisplay;
+  return {
+    showClockSeconds:
+      typeof source.showClockSeconds === "boolean"
+        ? source.showClockSeconds
+        : defaults.showClockSeconds,
+    showStudySeconds:
+      typeof source.showStudySeconds === "boolean"
+        ? source.showStudySeconds
+        : defaults.showStudySeconds,
   };
 }
 
@@ -962,6 +1002,7 @@ export function normalizeAppSettings(value: unknown): AppSettings {
     throw new UnsupportedSettingsVersionError(storedVersion);
   }
   const parsedGeneral = isRecord(parsed.general) ? parsed.general : {};
+  const parsedTimeDisplay = isRecord(parsedGeneral.timeDisplay) ? parsedGeneral.timeDisplay : {};
   const parsedStudy = isRecord(parsed.study) ? parsed.study : {};
   const parsedAlerts = isRecord(parsedStudy.alerts) ? parsedStudy.alerts : {};
   const parsedNoiseControl = isRecord(parsed.noiseControl) ? parsed.noiseControl : {};
@@ -1019,6 +1060,11 @@ export function normalizeAppSettings(value: unknown): AppSettings {
     general: {
       ...DEFAULT_SETTINGS.general,
       ...parsedGeneral,
+      developerModeEnabled:
+        typeof parsedGeneral.developerModeEnabled === "boolean"
+          ? parsedGeneral.developerModeEnabled
+          : DEFAULT_SETTINGS.general.developerModeEnabled,
+      timeDisplay: normalizeTimeDisplaySettings(parsedTimeDisplay),
       startup: { ...DEFAULT_SETTINGS.general.startup, ...parsedStartup },
       quote: normalizeQuoteSettings(parsedGeneral.quote, storedVersion),
       announcement: { ...DEFAULT_SETTINGS.general.announcement, ...parsedAnnouncement },
@@ -1074,6 +1120,9 @@ export function normalizeAppSettings(value: unknown): AppSettings {
         typeof parsedNoiseControl.reportAutoPopup === "boolean"
           ? parsedNoiseControl.reportAutoPopup
           : DEFAULT_SETTINGS.noiseControl.reportAutoPopup,
+      reportAutoCloseMinutes: normalizeNoiseReportAutoCloseMinutes(
+        parsedNoiseControl.reportAutoCloseMinutes
+      ),
       alertSoundEnabled:
         typeof parsedNoiseControl.alertSoundEnabled === "boolean"
           ? parsedNoiseControl.alertSoundEnabled
@@ -1128,6 +1177,14 @@ export function updateAppSettings(
       const generalUpdates = updates.general;
       nextSettings.general = {
         ...current.general,
+        developerModeEnabled:
+          generalUpdates.developerModeEnabled ?? current.general.developerModeEnabled,
+        timeDisplay: generalUpdates.timeDisplay
+          ? normalizeTimeDisplaySettings({
+              ...current.general.timeDisplay,
+              ...generalUpdates.timeDisplay,
+            })
+          : current.general.timeDisplay,
         startup: generalUpdates.startup
           ? { ...current.general.startup, ...generalUpdates.startup }
           : current.general.startup,

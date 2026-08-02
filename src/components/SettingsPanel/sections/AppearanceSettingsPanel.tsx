@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState } from "react";
 
-import { useAppState } from "../../../contexts/AppContext";
+import { useAppDispatch, useAppState } from "../../../contexts/AppContext";
 import { useAppearance } from "../../../contexts/AppearanceContext";
+import type { TimeDisplaySettings } from "../../../types";
 import type {
   AppearanceBackground,
   AppearanceComponentId,
@@ -24,6 +25,7 @@ import {
   SettingItem,
   Slider as FormSlider,
   StatusPill,
+  Switch as FormSwitch,
   Tabs,
   useFeedback,
 } from "../../../ui";
@@ -51,7 +53,13 @@ export type AppearanceSettingsSection = "overview" | "time" | AppearanceComponen
 
 interface AppearanceSettingsPanelProps {
   section?: AppearanceSettingsSection;
+  onRegisterSave?: (save: () => void) => void;
 }
+
+const DEFAULT_TIME_DISPLAY: TimeDisplaySettings = {
+  showClockSeconds: true,
+  showStudySeconds: true,
+};
 
 const SCENE_LABELS: Record<AppearanceSceneId, string> = {
   clock: "时钟",
@@ -272,8 +280,12 @@ function BackgroundEditor({
   );
 }
 
-export function AppearanceSettingsPanel({ section = "overview" }: AppearanceSettingsPanelProps) {
-  const { mode, study } = useAppState();
+export function AppearanceSettingsPanel({
+  section = "overview",
+  onRegisterSave,
+}: AppearanceSettingsPanelProps) {
+  const { mode, study, timeDisplay } = useAppState();
+  const dispatch = useAppDispatch();
   const {
     activeAppearance,
     beginAppearancePreview,
@@ -287,6 +299,9 @@ export function AppearanceSettingsPanel({ section = "overview" }: AppearanceSett
   const isTopDock = section === "studyTopDock";
   const [timeView, setTimeView] =
     useState<(typeof TIME_COMPONENT_OPTIONS)[number]["value"]>("clock");
+  const [draftTimeDisplay, setDraftTimeDisplay] = useState<TimeDisplaySettings>(() => ({
+    ...(timeDisplay ?? DEFAULT_TIME_DISPLAY),
+  }));
   const [topDockView, setTopDockView] =
     useState<(typeof TOP_DOCK_COMPONENT_OPTIONS)[number]["value"]>("studyTopDock");
   const componentId: AppearanceComponentId = isOverview
@@ -334,6 +349,16 @@ export function AppearanceSettingsPanel({ section = "overview" }: AppearanceSett
   const [fontAlias, setFontAlias] = useState("");
   const [fontFile, setFontFile] = useState<File | null>(null);
   const countdownItems = study.countdownItems ?? [];
+  const showSeconds =
+    timeView === "clock"
+      ? draftTimeDisplay.showClockSeconds
+      : timeView === "studyTime"
+        ? draftTimeDisplay.showStudySeconds
+        : undefined;
+  const isTimeDisplaySettingSlot =
+    isTime &&
+    ((definition.id === "clock" && slot === "time") ||
+      (definition.id === "studyTime" && slot === "seconds"));
   const selectedSlot = slotOptions.find((item) => item.value === slot) ?? slotOptions[0];
   const kind: AppearanceSlotKind = selectedSlot?.kind ?? "text";
   const currentOverrideStyle = readStyle(
@@ -384,6 +409,12 @@ export function AppearanceSettingsPanel({ section = "overview" }: AppearanceSett
     () => collectAppearanceResourceIds(activeAppearance),
     [activeAppearance]
   );
+
+  useEffect(() => {
+    onRegisterSave?.(() => {
+      dispatch({ type: "SET_TIME_DISPLAY", payload: draftTimeDisplay });
+    });
+  }, [dispatch, draftTimeDisplay, onRegisterSave]);
 
   useEffect(() => {
     beginAppearancePreview(mode);
@@ -632,7 +663,11 @@ export function AppearanceSettingsPanel({ section = "overview" }: AppearanceSett
             description="这里展示所有页面共用的字体与整体背景。"
             variant="plain"
           >
-            <AppearancePreview overview />
+            <AppearancePreview
+              overview
+              showClockSeconds={draftTimeDisplay.showClockSeconds}
+              showStudySeconds={draftTimeDisplay.showStudySeconds}
+            />
           </FormSection>
 
           <FormSection
@@ -868,6 +903,8 @@ export function AppearanceSettingsPanel({ section = "overview" }: AppearanceSett
                   (selectedInstance?.kind === "gaokao" ? "高考" : selectedInstance?.id)
                 }
                 selectedSlot={slot}
+                showClockSeconds={draftTimeDisplay.showClockSeconds}
+                showStudySeconds={draftTimeDisplay.showStudySeconds}
                 stateId={previewStateId}
               />
 
@@ -918,6 +955,34 @@ export function AppearanceSettingsPanel({ section = "overview" }: AppearanceSett
                   }}
                 />
               </div>
+
+              {isTimeDisplaySettingSlot && showSeconds !== undefined ? (
+                <SettingGrid columns={1}>
+                  <SettingItem
+                    icon="feature.time"
+                    title="显示秒数"
+                    description={
+                      timeView === "clock"
+                        ? "关闭后，时钟页只显示小时和分钟。"
+                        : "关闭后，自习页中央时间只显示小时和分钟。"
+                    }
+                    control={
+                      <FormSwitch
+                        checked={showSeconds}
+                        aria-label={`${timeView === "clock" ? "时钟" : "自习时间"}显示秒数`}
+                        onCheckedChange={(checked) =>
+                          setDraftTimeDisplay((current) => ({
+                            ...current,
+                            ...(timeView === "clock"
+                              ? { showClockSeconds: checked }
+                              : { showStudySeconds: checked }),
+                          }))
+                        }
+                      />
+                    }
+                  />
+                </SettingGrid>
+              ) : null}
 
               <div className={styles.overrideStatus}>
                 <StatusPill tone={currentOverrideCount > 0 ? "accent" : "neutral"}>

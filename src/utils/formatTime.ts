@@ -1,11 +1,13 @@
 /**
  * 格式化时钟显示时间
  * @param date 日期对象
- * @returns 格式化的时间字符串 (HH:MM:SS)
+ * @param showSeconds 是否显示秒数
+ * @returns 格式化的时间字符串 (HH:MM:SS 或 HH:MM)
  */
-export function formatClock(date: Date): string {
+export function formatClock(date: Date, showSeconds = true): string {
   const hours = date.getHours().toString().padStart(2, "0");
   const minutes = date.getMinutes().toString().padStart(2, "0");
+  if (!showSeconds) return `${hours}:${minutes}`;
   const seconds = date.getSeconds().toString().padStart(2, "0");
   return `${hours}:${minutes}:${seconds}`;
 }

@@ -2,9 +2,18 @@ import fs from "fs";
 import * as path from "path";
 import { fileURLToPath } from "url";
 
-import { app, BrowserWindow, net, protocol, session, systemPreferences } from "electron";
+import {
+  app,
+  BrowserWindow,
+  net,
+  protocol,
+  session,
+  systemPreferences,
+  type WebContents,
+} from "electron";
 
 import { registerTimeSyncIpc } from "./ipc/registerTimeSyncIpc";
+import { shouldAllowFullscreenPermission } from "./permissionPolicy";
 import { resolveXiaomiWeatherUpstreamUrl } from "./xiaomiWeatherProxy";
 
 // ES 模块中获取 __dirname
@@ -235,13 +244,29 @@ app.whenReady().then(async () => {
   };
 
   /**
+   * 仅允许应用主窗口的顶层页面申请全屏，避免嵌入页面或其他窗口扩大权限范围。
+   */
+  const isAllowedFullscreenRequest = (
+    webContents: WebContents | null,
+    details: { isMainFrame?: boolean }
+  ): boolean => {
+    return shouldAllowFullscreenPermission({
+      isMainWindow: webContents !== null && webContents === mainWindow?.webContents,
+      isMainFrame: details.isMainFrame === true,
+    });
+  };
+
+  /**
    * Electron 权限策略：
-   * - 地理位置与“仅音频采集”允许；
+   * - 地理位置、“仅音频采集”和主窗口顶层页面的全屏请求允许；
    * - 其他权限默认拒绝（更安全）。
    */
   session.defaultSession.setPermissionCheckHandler(
     (webContents, permission, requestingOrigin, details) => {
       if (permission === "geolocation") return true;
+      if (permission === "fullscreen") {
+        return isAllowedFullscreenRequest(webContents, details);
+      }
       if (permission === "media") return isAudioOnlyMediaRequest(details);
       return false;
     }
@@ -251,6 +276,11 @@ app.whenReady().then(async () => {
     async (webContents, permission, callback, details) => {
       if (permission === "geolocation") {
         callback(true);
+        return;
+      }
+
+      if (permission === "fullscreen") {
+        callback(isAllowedFullscreenRequest(webContents, details));
         return;
       }
 

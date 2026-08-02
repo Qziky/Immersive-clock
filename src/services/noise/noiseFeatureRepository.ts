@@ -1,4 +1,4 @@
-import { NOISE_FEATURE_CHUNK_SEC } from "../../constants/noise";
+import { NOISE_FEATURE_CHUNK_SEC, NOISE_SCORE_WINDOW_SEC } from "../../constants/noise";
 import * as noiseTypes from "../../types/noise";
 import {
   commitNoiseFeatureCheckpoint,
@@ -12,6 +12,8 @@ import { withNoiseHistoryWriteLock } from "./noiseHistoryLock";
 type NoiseCaptureSession = noiseTypes.NoiseCaptureSession;
 type NoiseCapturedFeatureFrame = noiseTypes.NoiseCapturedFeatureFrame;
 type NoiseFeatureChunk = noiseTypes.NoiseFeatureChunk;
+type NoiseFeatureFrame = noiseTypes.NoiseFeatureFrame;
+type NoiseTrackMetadata = noiseTypes.NoiseTrackMetadata;
 
 export interface NoiseFeatureRepositoryInspection {
   sessionCount: number;
@@ -22,8 +24,62 @@ export interface NoiseFeatureRepositoryInspection {
   newestAt: number | null;
 }
 
+export interface NoiseScoringResumeFrame extends NoiseFeatureFrame {
+  captureSessionId: string;
+  capturedAt: number;
+}
+
+export interface NoiseScoringResumeWindow {
+  frames: NoiseScoringResumeFrame[];
+  startedAt: number;
+  endedAt: number;
+}
+
 function chunkId(sessionId: string, sequence: number): string {
   return `${sessionId}:${sequence}`;
+}
+
+function isResumeCompatible(session: NoiseCaptureSession, metadata: NoiseTrackMetadata): boolean {
+  return (
+    session.endedAt !== null &&
+    session.lastStartSample >= 0 &&
+    session.sampleRate === metadata.sampleRate &&
+    session.frameSamples === metadata.frameSamples &&
+    session.deviceKey === metadata.deviceKey &&
+    session.channelCount === metadata.channelCount &&
+    session.channelMixMode === (metadata.channelMixMode ?? "arithmetic-mean") &&
+    session.processingSignature === metadata.processingSignature &&
+    session.processingDisabled === metadata.processingDisabled
+  );
+}
+
+function selectResumeSessions(
+  sessions: readonly NoiseCaptureSession[],
+  metadata: NoiseTrackMetadata,
+  now: number,
+  cutoff: number
+): NoiseCaptureSession[] {
+  const frameDurationMs = (metadata.frameSamples / metadata.sampleRate) * 1000;
+  const overlapToleranceMs = frameDurationMs * 2;
+  const candidates = sessions
+    .filter(
+      (session) =>
+        isResumeCompatible(session, metadata) &&
+        session.startedAt < now &&
+        session.endedAt! > cutoff &&
+        session.endedAt! <= now + overlapToleranceMs
+    )
+    .sort((left, right) => right.endedAt! - left.endedAt! || right.startedAt - left.startedAt);
+
+  const selected: NoiseCaptureSession[] = [];
+  let previousBoundary = now;
+  for (const session of candidates) {
+    if (session.endedAt! > previousBoundary + overlapToleranceMs) continue;
+    selected.push(session);
+    previousBoundary = session.startedAt;
+    if (previousBoundary <= cutoff) break;
+  }
+  return selected.reverse();
 }
 
 function assertFrame(frame: NoiseCapturedFeatureFrame, session: NoiseCaptureSession): void {
@@ -275,6 +331,59 @@ export async function readNoiseFeatureFrames(
   if (!session) return [];
   const chunks = await listNoiseFeatureChunks(sessionId);
   return chunks.flatMap((chunk) => unpackNoiseFeatureChunk(chunk, session));
+}
+
+export async function readNoiseScoringResumeWindow(
+  metadata: NoiseTrackMetadata,
+  now = Date.now()
+): Promise<NoiseScoringResumeWindow | null> {
+  const cutoff = now - NOISE_SCORE_WINDOW_SEC * 1000;
+  const sessions = selectResumeSessions(
+    await noiseCaptureSessionDb.list<NoiseCaptureSession>(),
+    metadata,
+    now,
+    cutoff
+  );
+  if (sessions.length === 0) return null;
+
+  const frames = (
+    await Promise.all(
+      sessions.map(async (session) => {
+        const chunks = await noiseFeatureChunkDb.list<NoiseFeatureChunk>({
+          captureSessionId: session.captureSessionId,
+          direction: "desc",
+          limit: 2,
+        });
+        return chunks
+          .sort((left, right) => left.chunkSequence - right.chunkSequence)
+          .flatMap((chunk) => unpackNoiseFeatureChunk(chunk, session))
+          .map(
+            (frame): NoiseScoringResumeFrame => ({
+              ...frame,
+              capturedAt: session.startedAt + (frame.startSample / session.sampleRate) * 1000,
+            })
+          )
+          .filter(
+            (frame) =>
+              frame.capturedAt + (session.frameSamples / session.sampleRate) * 1000 > cutoff &&
+              frame.capturedAt < now
+          );
+      })
+    )
+  )
+    .flat()
+    .sort(
+      (left, right) =>
+        left.capturedAt - right.capturedAt || left.frameSequence - right.frameSequence
+    );
+  if (frames.length === 0) return null;
+
+  const frameDurationMs = (metadata.frameSamples / metadata.sampleRate) * 1000;
+  return {
+    frames,
+    startedAt: frames[0]!.capturedAt,
+    endedAt: frames[frames.length - 1]!.capturedAt + frameDurationMs,
+  };
 }
 
 export async function clearNoiseCaptureData(): Promise<void> {

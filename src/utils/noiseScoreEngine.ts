@@ -2,6 +2,7 @@ import {
   NOISE_MIN_VALID_FRAMES_PER_SECOND,
   NOISE_MIN_VALID_SECONDS,
   NOISE_SCORE_DEFAULTS,
+  NOISE_SCORE_WEIGHTS,
   NOISE_SCORE_WINDOW_SEC,
 } from "../constants/noise";
 import type {
@@ -219,7 +220,13 @@ export function computeSpectralActivityScore(
   const eventFactor = clamp(segments / NOISE_SCORE_DEFAULTS.eventCountAtMax);
   const score =
     validSeconds >= minSeconds && coverageRatio >= coverageRequired
-      ? 100 * clamp(1 - 0.65 * activityMean - 0.25 * activityFloor - 0.1 * eventFactor)
+      ? 100 *
+        clamp(
+          1 -
+            NOISE_SCORE_WEIGHTS.activityMean * activityMean -
+            NOISE_SCORE_WEIGHTS.activityFloor * activityFloor -
+            NOISE_SCORE_WEIGHTS.eventFactor * eventFactor
+        )
       : null;
   const quality = getQuality(frames, validSeconds, totalSeconds, geometry.processingDisabled);
   const detail: NoiseScoreDetail = {

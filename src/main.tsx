@@ -10,6 +10,7 @@ import { initializeNoiseDataMaintenance } from "./services/noise/noiseDataMainte
 import { FeedbackProvider } from "./ui";
 import { initializeAppearanceResources } from "./utils/appearanceSettings";
 import { getAppSettings } from "./utils/appSettings";
+import { applySearchIndexingPolicy } from "./utils/developerPages";
 import { initErrorCenterGlobalCapture, setErrorCenterMode } from "./utils/errorCenter";
 import { logger } from "./utils/logger";
 import { initializeStorage } from "./utils/storageInitializer";
@@ -33,6 +34,7 @@ function initAnalytics(): void {
 }
 
 async function bootstrap(): Promise<void> {
+  applySearchIndexingPolicy(window.location.pathname);
   initAnalytics();
   initializeStorage();
   initializeNoiseDataMaintenance();

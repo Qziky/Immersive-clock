@@ -46,7 +46,9 @@ import {
   createNoiseCaptureSession,
   deleteNoiseCaptureDataBefore,
   finishNoiseCaptureSession,
+  readNoiseScoringResumeWindow,
   recoverAbandonedNoiseCaptureSessions,
+  type NoiseScoringResumeWindow,
 } from "./noiseFeatureRepository";
 import { createNoiseRealtimeRingBuffer } from "./noiseRealtimeRingBuffer";
 import { NoiseSignalHealthMonitor } from "./noiseSignalHealthMonitor";
@@ -87,6 +89,11 @@ interface CalibrationRequest {
   reject: (error: Error) => void;
 }
 
+interface RuntimeScoringFrame extends NoiseFeatureFrame {
+  sourceCaptureSessionId: string;
+  sourceStartSample: number;
+}
+
 function createId(): string {
   return crypto.randomUUID?.() ?? `${Date.now()}:${Math.random().toString(16).slice(2)}`;
 }
@@ -111,7 +118,8 @@ export class NoiseCaptureRuntime {
   private latestScore: number | null = null;
   private latestActivity: number | null = null;
   private scoreWindowSequence = 0;
-  private scoreFrames: NoiseFeatureSample[] = [];
+  private scoreFrames: RuntimeScoringFrame[] = [];
+  private scoringStartedAt = this.startedAt;
   private pendingPersistence: NoiseCapturedFeatureFrame[] = [];
   private persistenceFlush: Promise<void> = Promise.resolve();
   private persistenceWritable: boolean;
@@ -152,6 +160,7 @@ export class NoiseCaptureRuntime {
 
   async start(): Promise<void> {
     this.startedAt = Date.now();
+    this.scoringStartedAt = this.startedAt;
     this.emit("initializing", "warming-up", "none", null);
     try {
       const pendingFrames: NoiseFeatureFrame[] = [];
@@ -209,9 +218,11 @@ export class NoiseCaptureRuntime {
         lastFrameSequence: 0,
         lastStartSample: -1,
       };
+      let scoringResumeWindow: NoiseScoringResumeWindow | null = null;
       if (this.options.historyEnabled) {
         try {
-          await recoverAbandonedNoiseCaptureSessions();
+          await recoverAbandonedNoiseCaptureSessions(this.startedAt);
+          scoringResumeWindow = await readNoiseScoringResumeWindow(this.metadata, this.startedAt);
           await deleteNoiseCaptureDataBefore(
             Date.now() - DEFAULT_NOISE_REPORT_RETENTION_DAYS * 24 * 60 * 60 * 1000
           );
@@ -222,6 +233,7 @@ export class NoiseCaptureRuntime {
           this.markPersistenceUnavailable(error, "无法创建原始帧会话");
         }
       }
+      if (scoringResumeWindow) this.restoreScoringWindow(scoringResumeWindow);
       ready = true;
       pendingFrames.forEach((feature) => this.handleFeature(feature));
       this.emit("collecting", "warming-up", "none", null);
@@ -306,15 +318,21 @@ export class NoiseCaptureRuntime {
       health: health.health,
       confidence: health.confidence,
     };
+    const scoringFrame: RuntimeScoringFrame = {
+      ...sample,
+      startSample: this.toScoringSample(
+        this.startedAt + (normalized.startSample / this.metadata.sampleRate) * 1000
+      ),
+      sourceCaptureSessionId: this.captureSessionId,
+      sourceStartSample: normalized.startSample,
+    };
     this.latestFeature = sample;
     this.collectCalibration(sample);
-    this.scoreFrames.push(sample);
+    this.scoreFrames.push(scoringFrame);
     const endSample = normalized.startSample + this.metadata.frameSamples!;
-    const oldestSample = endSample - this.metadata.sampleRate * NOISE_SCORE_WINDOW_SEC;
-    while (this.scoreFrames.length > 0 && this.scoreFrames[0]!.startSample < oldestSample) {
-      this.scoreFrames.shift();
-    }
-    const progressComputation = this.updateScoringStatus(endSample);
+    const scoringEndSample = scoringFrame.startSample + this.metadata.frameSamples!;
+    this.trimScoringFrames(scoringEndSample);
+    const progressComputation = this.updateScoringStatus(scoringEndSample, sample.t);
     if (this.persistenceWritable) {
       this.pendingPersistence.push(normalized);
       this.persistence.pendingFrames = this.pendingPersistence.length;
@@ -324,7 +342,7 @@ export class NoiseCaptureRuntime {
 
     let slice: NoiseSliceSummary | null = null;
     if (
-      endSample >= this.metadata.sampleRate * NOISE_SCORE_WINDOW_SEC &&
+      this.scoring.collectedSeconds >= NOISE_SCORE_WINDOW_SEC &&
       frameSequence % (NOISE_SCORE_UPDATE_SEC * NOISE_FRAMES_PER_SECOND) === 0
     ) {
       const computation =
@@ -332,14 +350,16 @@ export class NoiseCaptureRuntime {
         computeSpectralActivityScore(this.scoreFrames, {
           sampleRate: this.metadata.sampleRate,
           frameSamples: this.metadata.frameSamples!,
-          endSample,
+          endSample: scoringEndSample,
           processingDisabled: this.metadata.processingDisabled,
         });
       this.latestScore = computation.score;
       this.latestActivity = computation.frameActivity;
-      slice = this.createScoreWindow(computation, endSample);
-      this.latestSlice = slice;
-      if (this.options.historyEnabled) void this.commitSlice(slice);
+      if (endSample >= this.metadata.sampleRate * NOISE_SCORE_WINDOW_SEC) {
+        slice = this.createScoreWindow(computation, endSample);
+        this.latestSlice = slice;
+        if (this.options.historyEnabled) void this.commitSlice(slice);
+      }
     }
 
     const estimatedDbA = this.calibrationProfile
@@ -367,10 +387,11 @@ export class NoiseCaptureRuntime {
   }
 
   private updateScoringStatus(
-    endSample: number
+    endSample: number,
+    endedAt: number
   ): ReturnType<typeof computeSpectralActivityScore> | null {
     const metadata = this.metadata!;
-    const elapsedSeconds = endSample / metadata.sampleRate;
+    const elapsedSeconds = Math.max(0, (endedAt - this.scoringStartedAt) / 1000);
     this.scoring.collectedSeconds = Math.min(NOISE_SCORE_WINDOW_SEC, elapsedSeconds);
     this.scoring.progress = Math.min(
       100,
@@ -396,14 +417,17 @@ export class NoiseCaptureRuntime {
     endSample: number
   ): NoiseSliceSummary {
     const metadata = this.metadata!;
-    const first = this.scoreFrames[0]!;
-    const last = this.scoreFrames[this.scoreFrames.length - 1]!;
+    const sourceFrames = this.scoreFrames.filter(
+      (frame) => frame.sourceCaptureSessionId === this.captureSessionId
+    );
+    const first = sourceFrames[0]!;
+    const last = sourceFrames[sourceFrames.length - 1]!;
     const start =
       this.startedAt +
       ((endSample - metadata.sampleRate * NOISE_SCORE_WINDOW_SEC) / metadata.sampleRate) * 1000;
     const end = this.startedAt + (endSample / metadata.sampleRate) * 1000;
     this.scoreWindowSequence += 1;
-    const aWeighted = this.scoreFrames.map((frame) => frame.aWeightedDbfs);
+    const aWeighted = sourceFrames.map((frame) => frame.aWeightedDbfs);
     const estimated = this.calibrationProfile
       ? {
           calibrationId: this.calibrationProfile.id,
@@ -421,7 +445,7 @@ export class NoiseCaptureRuntime {
       windowSequence: this.scoreWindowSequence,
       sourceStartFrameSequence: first.frameSequence,
       sourceEndFrameSequence: last.frameSequence,
-      sourceStartSample: first.startSample,
+      sourceStartSample: first.sourceStartSample,
       sourceEndSample: endSample,
       start,
       end,
@@ -431,9 +455,42 @@ export class NoiseCaptureRuntime {
       confidence: computation.confidence,
       estimated,
       sourceAvailable: true,
-      featureCount: this.scoreFrames.length,
+      featureCount: sourceFrames.length,
       coverageRatio: computation.detail.coverageRatio,
     };
+  }
+
+  private restoreScoringWindow(window: NoiseScoringResumeWindow): void {
+    if (!this.metadata || window.frames.length === 0) return;
+    this.scoringStartedAt = Math.min(window.startedAt, this.startedAt);
+    this.scoreFrames = window.frames.map((frame) => ({
+      ...frame,
+      startSample: this.toScoringSample(frame.capturedAt),
+      sourceCaptureSessionId: frame.captureSessionId,
+      sourceStartSample: frame.startSample,
+    }));
+    const endSample = this.toScoringSample(this.startedAt);
+    this.trimScoringFrames(endSample);
+    const computation = this.updateScoringStatus(endSample, this.startedAt);
+    if (this.scoring.collectedSeconds < NOISE_SCORE_WINDOW_SEC || !computation) return;
+    this.latestScore = computation.score;
+    this.latestActivity = computation.frameActivity;
+  }
+
+  private toScoringSample(capturedAt: number): number {
+    if (!this.metadata) return 0;
+    return Math.max(
+      0,
+      Math.round(((capturedAt - this.scoringStartedAt) / 1000) * this.metadata.sampleRate)
+    );
+  }
+
+  private trimScoringFrames(endSample: number): void {
+    if (!this.metadata) return;
+    const oldestSample = endSample - this.metadata.sampleRate * NOISE_SCORE_WINDOW_SEC;
+    while (this.scoreFrames.length > 0 && this.scoreFrames[0]!.startSample < oldestSample) {
+      this.scoreFrames.shift();
+    }
   }
 
   private collectCalibration(sample: NoiseFeatureSample): void {

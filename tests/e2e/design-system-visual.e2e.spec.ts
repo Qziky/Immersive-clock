@@ -33,6 +33,15 @@ async function prepareDesignSystemPage(page: Page, viewport: (typeof VIEWPORTS)[
   await page.setViewportSize(viewport);
   await page.clock.setFixedTime(FIXED_TIME);
   await page.emulateMedia({ colorScheme: "dark", reducedMotion: "reduce" });
+  await page.addInitScript(() => {
+    localStorage.setItem(
+      "AppSettings",
+      JSON.stringify({
+        version: 11,
+        general: { developerModeEnabled: true },
+      })
+    );
+  });
   await page.goto("/design-system");
   await page.addStyleTag({
     content: `

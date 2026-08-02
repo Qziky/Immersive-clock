@@ -760,7 +760,7 @@ test("噪音设置：选择麦克风只在保存后持久化，并在重开后�
     localStorage.setItem(
       "AppSettings",
       JSON.stringify({
-        version: 10,
+        version: 11,
         general: {
           announcement: {
             hideUntil: Date.now() + 7 * 24 * 60 * 60 * 1000,
@@ -811,7 +811,7 @@ test("噪音设置：选择麦克风只在保存后持久化，并在重开后�
       return { version: settings.version, preference: settings.noiseControl?.preferredInputDevice };
     })
   ).toEqual({
-    version: 10,
+    version: 11,
     preference: { deviceId: "usb-mic", label: "USB 麦克风" },
   });
 
@@ -820,6 +820,79 @@ test("噪音设置：选择麦克风只在保存后持久化，并在重开后�
   await expect(dialog.getByRole("button", { name: "麦克风设备", exact: true })).toContainText(
     "USB 麦克风"
   );
+});
+
+test("噪音报告：自动关闭时长随统一保存持久化，取消时丢弃草稿", async ({ page }) => {
+  await page.goto("/");
+  await page.evaluate(() => {
+    localStorage.setItem("immersive-clock:has-seen-tour", "true");
+    localStorage.setItem(
+      "AppSettings",
+      JSON.stringify({
+        version: 11,
+        general: {
+          announcement: {
+            hideUntil: Date.now() + 7 * 24 * 60 * 60 * 1000,
+            version: "3.13.3",
+          },
+        },
+        noiseControl: {
+          monitoringEnabled: false,
+          reportAutoPopup: true,
+          reportAutoCloseMinutes: 10,
+        },
+      })
+    );
+  });
+  await page.reload();
+
+  const openReportSettings = async () => {
+    const dialog = await openStudySettings(page);
+    const noiseTabs = dialog.getByRole("tablist", { name: "噪音设置分类" });
+    if (!(await noiseTabs.isVisible())) {
+      await openEnvironmentSettingsPage(page, dialog, "噪音监测");
+    }
+    await noiseTabs.getByRole("tab", { name: "报告" }).click();
+    return dialog;
+  };
+  const setSliderValue = async (dialog: Locator, value: number) => {
+    const slider = dialog.getByRole("slider", { name: "报告自动关闭时长" });
+    await slider.focus();
+    await slider.press("Home");
+    for (let current = 1; current < value; current += 1) {
+      await slider.press("ArrowRight");
+    }
+    await expect(slider).toHaveValue(String(value));
+    return slider;
+  };
+
+  let dialog = await openReportSettings();
+  const autoPopupSwitch = dialog.getByRole("switch", { name: "自动弹出报告" });
+  const draftSlider = await setSliderValue(dialog, 12);
+  await autoPopupSwitch.click();
+  await expect(draftSlider).toBeDisabled();
+  await expect(draftSlider).toHaveValue("12");
+  await dialog.getByRole("button", { name: "取消" }).click();
+
+  dialog = await openReportSettings();
+  await expect(dialog.getByRole("switch", { name: "自动弹出报告" })).toBeChecked();
+  await expect(dialog.getByRole("slider", { name: "报告自动关闭时长" })).toHaveValue("10");
+  await setSliderValue(dialog, 12);
+  await dialog.getByRole("button", { name: "保存" }).click();
+
+  expect(
+    await page.evaluate(() => JSON.parse(localStorage.getItem("AppSettings") ?? "{}").noiseControl)
+  ).toMatchObject({ reportAutoPopup: true, reportAutoCloseMinutes: 12 });
+
+  await page.reload();
+  expect(
+    await page.evaluate(
+      () =>
+        JSON.parse(localStorage.getItem("AppSettings") ?? "{}").noiseControl?.reportAutoCloseMinutes
+    )
+  ).toBe(12);
+  dialog = await openReportSettings();
+  await expect(dialog.getByRole("slider", { name: "报告自动关闭时长" })).toHaveValue("12");
 });
 
 for (const viewport of [
@@ -1386,6 +1459,56 @@ test("错误与调试：记录方式切换延迟到保存", async ({ page }) => 
 
   const afterSave = await page.evaluate(() => localStorage.getItem("error-center.records"));
   expect(afterSave).toBeNull();
+});
+
+test("时间显示：时钟与自习页可独立隐藏秒数并持久化", async ({ page }) => {
+  await page.goto("/");
+  const dialog = await openStudySettings(page);
+  await dialog.getByRole("button", { name: "视觉外观" }).click();
+  await dialog.getByRole("button", { name: "时间显示", exact: true }).click();
+
+  const clockSwitch = dialog.getByRole("switch", { name: "时钟显示秒数" });
+  await expect(clockSwitch).toBeChecked();
+  await clockSwitch.click();
+  await expect(dialog.getByLabel("时钟外观预览").getByText("12:45")).toBeVisible();
+
+  const timeViews = dialog.getByRole("radiogroup", { name: "时间显示类型" });
+  await timeViews.getByRole("radio", { name: "自习时间" }).click();
+  await dialog
+    .getByRole("tablist", { name: "中央时间调整对象" })
+    .getByRole("tab", { name: "秒钟" })
+    .click();
+  const studySwitch = dialog.getByRole("switch", { name: "自习时间显示秒数" });
+  await expect(studySwitch).toBeChecked();
+  await studySwitch.click();
+  await expect(dialog.getByLabel("中央时间外观预览").getByText(":09")).toHaveCount(0);
+
+  await timeViews.getByRole("radio", { name: "倒计时" }).click();
+  await expect(dialog.getByRole("switch", { name: /显示秒数/ })).toHaveCount(0);
+
+  await dialog.getByRole("button", { name: "保存" }).click();
+  await expect(dialog).toBeHidden();
+
+  const currentTime = page.locator('[aria-label^="当前时间："]');
+  await expect(currentTime).toHaveAttribute("aria-label", /^当前时间：\d{2}:\d{2}$/);
+
+  await showHud(page);
+  const modeTabs = page.getByRole("tablist", { name: "选择时钟模式" });
+  await modeTabs.getByRole("tab", { name: /时钟/ }).click();
+  await expect(currentTime).toHaveAttribute("aria-label", /^当前时间：\d{2}:\d{2}$/);
+
+  expect(
+    await page.evaluate(() => {
+      const raw = localStorage.getItem("AppSettings");
+      return raw ? JSON.parse(raw)?.general?.timeDisplay : null;
+    })
+  ).toEqual({ showClockSeconds: false, showStudySeconds: false });
+
+  await page.reload();
+  await expect(currentTime).toHaveAttribute("aria-label", /^当前时间：\d{2}:\d{2}$/);
+  await showHud(page);
+  await modeTabs.getByRole("tab", { name: /自习/ }).click();
+  await expect(currentTime).toHaveAttribute("aria-label", /^当前时间：\d{2}:\d{2}$/);
 });
 
 test.describe("移动端设置抽屉", () => {

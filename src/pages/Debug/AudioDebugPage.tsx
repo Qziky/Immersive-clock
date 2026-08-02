@@ -242,7 +242,7 @@ export function AudioDebugPage() {
   const { confirm, notify } = useFeedback();
   const noise = useNoiseStream();
   const [temporaryCaptureActive, setTemporaryCaptureActive] = useState(false);
-  const [referenceDbA, setReferenceDbA] = useState("60");
+  const [referenceDbA, setReferenceDbA] = useState("40");
   const [calibrationError, setCalibrationError] = useState<string | null>(null);
   const [calibrationSubmitting, setCalibrationSubmitting] = useState(false);
   const [featureHistory, setFeatureHistory] = useState<NoiseFeatureSample[]>([]);

@@ -3,6 +3,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import type { NoiseSliceSummary } from "../../types/noise";
 import {
   Button as FormButton,
+  InfoPanel,
   LineChart,
   MetricCard,
   Modal,
@@ -11,7 +12,6 @@ import {
   StatusPill,
   type ChartLineSeries,
   type ChartTick,
-  type UiTone,
 } from "../../ui";
 import { getNoiseControlSettings } from "../../utils/noiseControlSettings";
 import { aggregateNoiseSlicesForRange } from "../../utils/noiseReportAggregation";
@@ -36,14 +36,18 @@ interface NoiseReportModalProps {
 type ReportMetric = "quietness-score" | "estimated-dba";
 
 const COLORS = {
-  excellent: "var(--ui-color-accent)",
-  good: "var(--ui-color-info)",
-  fair: "var(--ui-color-warning)",
-  poor: "var(--ui-color-danger)",
-  sustained: "var(--ui-color-warning)",
-  time: "var(--ui-color-info)",
-  segment: "var(--ui-color-danger)",
+  score: "var(--ui-color-accent)",
+  activityMean: "var(--ui-color-warning)",
+  activityFloor: "var(--ui-color-info)",
+  eventFactor: "var(--ui-color-danger)",
 } as const;
+
+const MIN_DISPLAYED_DEDUCTION = 0.05;
+const reportTimeFormatter = new Intl.DateTimeFormat("zh-CN", {
+  hour: "2-digit",
+  minute: "2-digit",
+  hour12: false,
+});
 
 function formatDuration(durationMs: number): string {
   const seconds = Math.round(durationMs / 1000);
@@ -77,11 +81,8 @@ function formatPeriodRange(start: Date, end: Date): string {
   return `${dateFormatter.format(start)} ${timeFormatter.format(start)}–${dateFormatter.format(end)} ${timeFormatter.format(end)}`;
 }
 
-function getScoreLevel(score: number): { label: string; tone: UiTone } {
-  if (score >= 90) return { label: "优秀", tone: "success" };
-  if (score >= 75) return { label: "良好", tone: "accent" };
-  if (score >= 60) return { label: "一般", tone: "warning" };
-  return { label: "较差", tone: "danger" };
+function formatReportTime(timestamp: number): string {
+  return reportTimeFormatter.format(new Date(timestamp));
 }
 
 function clampCoverageRatio(value: number): number {
@@ -240,13 +241,13 @@ export const NoiseReportModal: React.FC<NoiseReportModalProps> = ({
       >
         <div className={styles.empty} role="status">
           <strong>该时段暂无有效噪音评分</strong>
-          <span>信号恢复且有效覆盖率达到 80% 后，报告才会纳入对应切片。</span>
+          <span>采集恢复并积累足够有效数据后，将自动生成报告。</span>
         </div>
       </Modal>
     );
   }
 
-  const score = Math.round(report.averageScore);
+  const score = report.averageScore;
   const coveragePercent =
     report.periodDurationMs > 0
       ? Math.min(100, Math.max(0, (report.validDurationMs / report.periodDurationMs) * 100))
@@ -265,9 +266,78 @@ export const NoiseReportModal: React.FC<NoiseReportModalProps> = ({
       ? Math.min(100, Math.max(0, (quietDurationMs / report.validDurationMs) * 100))
       : 0;
   const attentionDurationMs = Math.max(0, report.validDurationMs - quietDurationMs);
-  const scoreLevel = getScoreLevel(score);
+  const scoreMeetsThreshold = score >= report.scoreAlertThreshold;
   const coverageSufficient = coveragePercent >= 80;
   const dataQualitySummary = `数据质量：覆盖 ${coveragePercent.toFixed(1)}% · 有效 ${formatDuration(report.validDurationMs)} · 排除 ${formatDuration(report.excludedDurationMs)}`;
+  const totalDeduction = report.scoreDeductions.total;
+  const hasMeaningfulDeduction = totalDeduction >= MIN_DISPLAYED_DEDUCTION;
+  const deductionItems = [
+    {
+      key: "activityMean",
+      label: "整体声活动",
+      description: "有效时段内声学活动的平均水平。",
+      insight: "说明有效时段内总体声音活动相对更明显。",
+      value: report.scoreDeductions.activityMean,
+      color: COLORS.activityMean,
+    },
+    {
+      key: "activityFloor",
+      label: "持续声活动",
+      description: "较安静片段中仍持续存在的声学活动。",
+      insight: "说明较安静片段中仍存在较多持续声音。",
+      value: report.scoreDeductions.activityFloor,
+      color: COLORS.activityFloor,
+    },
+    {
+      key: "eventFactor",
+      label: "声音事件频度",
+      description: "高活动声音事件在有效时段内的出现频度。",
+      insight: "说明高活动声音事件出现得更频繁。",
+      value: report.scoreDeductions.eventFactor,
+      color: COLORS.eventFactor,
+    },
+  ].map((item) => ({
+    ...item,
+    share: hasMeaningfulDeduction ? (item.value / totalDeduction) * 100 : 0,
+  }));
+  const dominantDeduction = deductionItems.reduce((dominant, item) =>
+    item.value > dominant.value ? item : dominant
+  );
+  const lowestScoreSlice = report.slices.reduce<(typeof report.slices)[number] | null>(
+    (lowest, slice) => {
+      if (!lowest || slice.score < lowest.score) return slice;
+      if (slice.score > lowest.score) return lowest;
+      if (slice.end < lowest.end) return slice;
+      if (slice.end > lowest.end) return lowest;
+      return slice.start < lowest.start ? slice : lowest;
+    },
+    null
+  );
+  const scoreDifference = score - report.scoreAlertThreshold;
+  const scoreComparison =
+    Math.abs(scoreDifference) < MIN_DISPLAYED_DEDUCTION
+      ? `平均 ${score.toFixed(1)} 分，与提醒线持平`
+      : scoreDifference > 0
+        ? `平均 ${score.toFixed(1)} 分，高于提醒线 ${scoreDifference.toFixed(1)} 分`
+        : `平均 ${score.toFixed(1)} 分，低于提醒线 ${Math.abs(scoreDifference).toFixed(1)} 分`;
+  const overallInsight = `${scoreComparison}；有效时段达标率 ${quietRatePercent.toFixed(1)}%，需留意 ${formatDuration(attentionDurationMs)}。`;
+  const dominantInsight = hasMeaningfulDeduction
+    ? `主要扣分来自${dominantDeduction.label}，约扣 ${dominantDeduction.value.toFixed(1)} 分；${dominantDeduction.insight}`
+    : "三项声音活动均未形成明显扣分。";
+  const lowestScoreInsight = lowestScoreSlice
+    ? `最低 ${lowestScoreSlice.score.toFixed(1)} 分，出现在 ${formatReportTime(lowestScoreSlice.end)} 左右。`
+    : "当前有效数据不足以定位最低记录。";
+  const dataRangeInsight = coverageSufficient
+    ? `报告覆盖 ${coveragePercent.toFixed(1)}%，有效 ${formatDuration(report.validDurationMs)}，结果可代表本时段的大部分情况。`
+    : `报告仅覆盖 ${coveragePercent.toFixed(1)}%，结论只代表 ${formatDuration(report.validDurationMs)}有效数据，不代表完整时段。`;
+  const compositionSegments = [
+    { key: "score", label: "保留得分", value: score, color: COLORS.score },
+    ...deductionItems,
+  ].filter((segment) => segment.value > 0);
+  const compositionDescription = [
+    `环境安静评分 ${score.toFixed(1)} 分`,
+    ...deductionItems.map((item) => `${item.label}约扣 ${item.value.toFixed(1)} 分`),
+  ].join("；");
 
   return (
     <Modal
@@ -298,12 +368,15 @@ export const NoiseReportModal: React.FC<NoiseReportModalProps> = ({
             <div className={styles.scoreSummary}>
               <span className={styles.summaryLabel}>环境安静评分</span>
               <div className={styles.scoreRow}>
-                <strong className={styles.scoreValue}>{score}</strong>
+                <strong className={styles.scoreValue}>{score.toFixed(1)}</strong>
                 <span className={styles.scoreUnit}>分</span>
-                <StatusPill tone={scoreLevel.tone}>{scoreLevel.label}</StatusPill>
+                <StatusPill tone={scoreMeetsThreshold ? "success" : "warning"}>
+                  {scoreMeetsThreshold ? "平均分达标" : "平均分需留意"}
+                </StatusPill>
               </div>
               <p className={styles.summaryDescription}>
-                评分越高，环境越安静。仅统计达到单窗口覆盖要求的有效数据。
+                当前提醒线 {report.scoreAlertThreshold.toFixed(0)} 分。评分越高，环境越安静；
+                仅基于当前报告中的有效数据。
               </p>
             </div>
             <div className={styles.qualitySummary} role="group" aria-label="安静达标率摘要">
@@ -344,7 +417,7 @@ export const NoiseReportModal: React.FC<NoiseReportModalProps> = ({
                 value={metric}
                 options={[
                   { value: "quietness-score", label: "评分" },
-                  { value: "estimated-dba", label: "估算 dB(A)" },
+                  { value: "estimated-dba", label: "分贝" },
                 ]}
                 onChange={(value) => setMetric(value as ReportMetric)}
               />
@@ -386,82 +459,81 @@ export const NoiseReportModal: React.FC<NoiseReportModalProps> = ({
             <span>
               {report.hasEstimated
                 ? "可切换查看带校准快照的估算 dB(A)；校准不会改变安静评分。"
-                : "当前报告没有校准读数；有效窗口仍会参与安静评分。"}
+                : "当前报告没有校准读数；安静评分仍可正常查看。"}
             </span>
           </div>
         </section>
 
         <section className={styles.section}>
-          <h3 className={styles.sectionTitle}>评分依据</h3>
+          <h3 className={styles.sectionTitle}>评分构成与解读</h3>
           <p className={styles.sectionDescription}>
-            评分分布展示各等级所占时间，环境特征越低表示对安静评分的影响越小。
+            展示本时段的实际扣分构成，并总结最需要留意的表现。
           </p>
-          <div className={styles.chartGrid}>
-            <div className={styles.chartContainer}>
-              <div className={styles.chartTitle}>评分分布</div>
-              <div className={styles.distributionChart}>
-                <div className={styles.distributionBar}>
-                  {(
-                    [
-                      ["excellent", COLORS.excellent],
-                      ["good", COLORS.good],
-                      ["fair", COLORS.fair],
-                      ["poor", COLORS.poor],
-                    ] as const
-                  ).map(([key, color]) => (
-                    <div
-                      key={key}
-                      className={styles.distributionSegment}
-                      style={{
-                        width: `${report.distribution[key] * 100}%`,
-                        backgroundColor: color,
-                      }}
+          <div className={styles.scoringBasisGrid}>
+            <InfoPanel className={styles.compositionPanel} title="本次评分构成">
+              <div
+                className={styles.scoreComposition}
+                role="img"
+                aria-label={compositionDescription}
+              >
+                {compositionSegments.map((segment) => (
+                  <span
+                    aria-hidden="true"
+                    className={styles.compositionSegment}
+                    key={segment.key}
+                    style={{ backgroundColor: segment.color, flexGrow: segment.value }}
+                  />
+                ))}
+              </div>
+              <div className={styles.compositionSummary}>
+                <span>保留得分 {score.toFixed(1)}</span>
+                <span>
+                  {hasMeaningfulDeduction
+                    ? `共约扣 ${totalDeduction.toFixed(1)} 分`
+                    : "本次未产生明显扣分"}
+                </span>
+              </div>
+              <ul className={styles.deductionList} aria-label="评分扣分构成">
+                {deductionItems.map((item) => (
+                  <li className={styles.deductionItem} key={item.key}>
+                    <span
+                      aria-hidden="true"
+                      className={styles.deductionColor}
+                      style={{ backgroundColor: item.color }}
                     />
-                  ))}
-                </div>
-              </div>
-              <div className={styles.legend}>
-                {(
-                  [
-                    ["excellent", "优秀", "90–100", COLORS.excellent],
-                    ["good", "良好", "75–89", COLORS.good],
-                    ["fair", "一般", "60–74", COLORS.fair],
-                    ["poor", "较差", "低于 60", COLORS.poor],
-                  ] as const
-                ).map(([key, label, range, color]) => (
-                  <div className={styles.legendItem} key={key}>
-                    <span className={styles.legendColor} style={{ background: color }} />
-                    <span>
-                      {label} {range} · {(report.distribution[key] * 100).toFixed(0)}%
+                    <span className={styles.deductionContent}>
+                      <strong>{item.label}</strong>
+                      <span>{item.description}</span>
+                      <small>占本次扣分 {item.share.toFixed(1)}%</small>
                     </span>
-                  </div>
+                    <strong className={styles.deductionValue}>
+                      约扣 {item.value.toFixed(1)} 分
+                    </strong>
+                  </li>
                 ))}
-              </div>
-            </div>
+              </ul>
+            </InfoPanel>
 
-            <div className={styles.chartContainer}>
-              <div className={styles.chartTitle}>影响评分的环境特征</div>
-              <div className={styles.penaltyList}>
-                {(
-                  [
-                    ["整体声活动", report.activityMean, COLORS.sustained],
-                    ["持续背景声", report.activityFloor, COLORS.time],
-                    ["突发声频度", report.eventFactor, COLORS.segment],
-                  ] as const
-                ).map(([label, value, color]) => (
-                  <div className={styles.penaltyItem} key={label}>
-                    <span className={styles.penaltyLabel}>{label}</span>
-                    <span className={styles.penaltyBarTrack}>
-                      <span
-                        className={styles.penaltyBarFill}
-                        style={{ width: `${value * 100}%`, backgroundColor: color }}
-                      />
-                    </span>
-                    <span className={styles.penaltyValue}>{(value * 100).toFixed(0)}%</span>
-                  </div>
-                ))}
-              </div>
-            </div>
+            <InfoPanel className={styles.interpretationPanel} title="本时段解读">
+              <ul className={styles.interpretationList} aria-label="本时段解读">
+                <li>
+                  <strong>总体表现</strong>
+                  <span>{overallInsight}</span>
+                </li>
+                <li>
+                  <strong>主要影响</strong>
+                  <span>{dominantInsight}</span>
+                </li>
+                <li>
+                  <strong>最低记录</strong>
+                  <span>{lowestScoreInsight}</span>
+                </li>
+                <li>
+                  <strong>数据范围</strong>
+                  <span>{dataRangeInsight}</span>
+                </li>
+              </ul>
+            </InfoPanel>
           </div>
         </section>
 

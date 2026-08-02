@@ -21,6 +21,12 @@ export const NOISE_SCORE_DEFAULTS = {
   coverageRequired: NOISE_MIN_COVERAGE_RATIO,
 } as const;
 
+export const NOISE_SCORE_WEIGHTS = {
+  activityMean: 0.65,
+  activityFloor: 0.25,
+  eventFactor: 0.1,
+} as const;
+
 export const NOISE_SCORE_MODEL_CONFIG_DIGEST =
   "spectral-activity-v2:k0.68:r0.22:e0.78:x0.40:g3:n15:c0.80:f8:s48:w60:u5";
 

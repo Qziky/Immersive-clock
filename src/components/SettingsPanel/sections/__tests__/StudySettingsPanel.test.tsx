@@ -1,10 +1,15 @@
-import { act, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import StudySettingsPanel from "../StudySettingsPanel";
 
 const noiseControlMocks = vi.hoisted(() => ({
+  get: vi.fn(),
+  save: vi.fn(),
+}));
+
+const noiseReportMocks = vi.hoisted(() => ({
   get: vi.fn(),
   save: vi.fn(),
 }));
@@ -58,9 +63,8 @@ vi.mock("../../../../utils/noiseControlSettings", () => ({
 }));
 
 vi.mock("../../../../utils/noiseReportSettings", () => ({
-  estimateMaxRetentionDaysByQuota: () => Promise.resolve(365),
-  getNoiseReportSettings: () => ({ autoPopup: true }),
-  setAutoPopupSetting: vi.fn(),
+  getNoiseReportSettings: noiseReportMocks.get,
+  saveNoiseReportSettings: noiseReportMocks.save,
 }));
 
 vi.mock("../../../NoiseSettings/NoiseStatsSummary", () => ({
@@ -83,6 +87,7 @@ describe("StudySettingsPanel", () => {
       scoreAlertThreshold: 70,
       showRealtimeValue: true,
     });
+    noiseReportMocks.get.mockReturnValue({ autoPopup: true, autoCloseMinutes: 10 });
     inputDeviceMocks.list.mockResolvedValue([
       { deviceId: "built-in", label: "内置麦克风" },
       { deviceId: "usb-mic", label: "USB 麦克风" },
@@ -133,6 +138,37 @@ describe("StudySettingsPanel", () => {
     expect(panel).toHaveAttribute("aria-labelledby", controlTab.id);
     expect(screen.getByRole("heading", { name: "噪音控制" })).toBeVisible();
     expect(screen.getByRole("switch", { name: "显示实时数值" })).not.toBeChecked();
+  });
+
+  it("自动关闭时长保留为统一保存草稿，并随自动弹出开关禁用", async () => {
+    const user = userEvent.setup();
+    let saveHandler: (() => void) | undefined;
+    render(
+      <StudySettingsPanel
+        onRegisterSave={(handler) => {
+          saveHandler = handler;
+        }}
+      />
+    );
+
+    await user.click(screen.getByRole("tab", { name: "报告" }));
+    const autoPopupSwitch = screen.getByRole("switch", { name: "自动弹出报告" });
+    const autoCloseSlider = screen.getByRole("slider", { name: "报告自动关闭时长" });
+
+    expect(autoCloseSlider).toHaveValue("10");
+    fireEvent.change(autoCloseSlider, { target: { value: "12" } });
+    expect(autoCloseSlider).toHaveValue("12");
+    expect(noiseReportMocks.save).not.toHaveBeenCalled();
+
+    await user.click(autoPopupSwitch);
+    expect(autoCloseSlider).toBeDisabled();
+    expect(autoCloseSlider).toHaveValue("12");
+
+    act(() => saveHandler?.());
+    expect(noiseReportMocks.save).toHaveBeenCalledWith({
+      autoPopup: false,
+      autoCloseMinutes: 12,
+    });
   });
 
   it("为校准引导暴露真实标签、区域、状态和开始按钮标记", async () => {

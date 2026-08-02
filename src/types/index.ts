@@ -103,6 +103,14 @@ export interface StopwatchState {
   isActive: boolean;
 }
 
+/** 当前时间显示设置。倒计时与秒表始终保留秒数。 */
+export interface TimeDisplaySettings {
+  /** 时钟页是否显示秒数 */
+  showClockSeconds: boolean;
+  /** 自习页当前时间是否显示秒数 */
+  showStudySeconds: boolean;
+}
+
 /** 自习页顶部可用的进度快照类型。 */
 export type StudyProgressKind = "day" | "schedule";
 
@@ -247,6 +255,8 @@ export interface AppState {
   countdown: CountdownState;
   /** 秒表状态 */
   stopwatch: StopwatchState;
+  /** 当前时间显示设置 */
+  timeDisplay: TimeDisplaySettings;
   /** 自习状态 */
   study: StudyState;
   /** 语录渠道管理状态 */
@@ -277,6 +287,7 @@ export type AppAction =
   | { type: "RESET_STOPWATCH" }
   | { type: "TICK_STOPWATCH" }
   | { type: "TICK_STOPWATCH_BY"; payload: number }
+  | { type: "SET_TIME_DISPLAY"; payload: TimeDisplaySettings }
   | { type: "SET_TARGET_YEAR"; payload: number }
   | { type: "SET_COUNTDOWN_TYPE"; payload: "gaokao" | "custom" }
   | { type: "SET_CUSTOM_COUNTDOWN"; payload: { name: string; date: string } }

@@ -1,5 +1,5 @@
 import React, { lazy, Suspense, useEffect, useState } from "react";
-import { Route, Routes, useLocation } from "react-router-dom";
+import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 
 import styles from "./App.module.css";
 import AnnouncementModal from "./components/AnnouncementModal";
@@ -7,6 +7,8 @@ import { Confetti } from "./components/Confetti/Confetti";
 import { ClockPage } from "./pages/ClockPage/ClockPage";
 import { DesignSystemPage } from "./pages/DesignSystem";
 import { shouldShowAnnouncement } from "./utils/announcementStorage";
+import { getAppSettings } from "./utils/appSettings";
+import { applySearchIndexingPolicy, isDeveloperPagePath } from "./utils/developerPages";
 import { hasSeenTour } from "./utils/tour";
 
 const AudioDebugPage = lazy(() =>
@@ -20,7 +22,8 @@ const AudioDebugPage = lazy(() =>
  */
 export function App() {
   const location = useLocation();
-  const isDebugRoute = location.pathname.startsWith("/debug/");
+  const isDeveloperPageRoute = isDeveloperPagePath(location.pathname);
+  const developerModeEnabled = getAppSettings().general.developerModeEnabled;
   const [showEnterAnimation, setShowEnterAnimation] = useState(false);
   const [showAnnouncement, setShowAnnouncement] = useState(false);
   const [showTourConfetti, setShowTourConfetti] = useState(false);
@@ -30,7 +33,7 @@ export function App() {
    * 在组件首次挂载时触发
    */
   useEffect(() => {
-    if (isDebugRoute) {
+    if (isDeveloperPageRoute) {
       setShowEnterAnimation(false);
       setShowAnnouncement(false);
       setShowTourConfetti(false);
@@ -94,7 +97,9 @@ export function App() {
       window.removeEventListener("tour:start", onTourStart);
       window.removeEventListener("tour:completed", onTourCompleted);
     };
-  }, [isDebugRoute]);
+  }, [isDeveloperPageRoute]);
+
+  useEffect(() => applySearchIndexingPolicy(location.pathname), [location.pathname]);
 
   return (
     <div
@@ -107,28 +112,35 @@ export function App() {
         <Route path="/countdown" element={<ClockPage />} />
         <Route path="/stopwatch" element={<ClockPage />} />
         <Route path="/study" element={<ClockPage />} />
-        <Route path="/design-system" element={<DesignSystemPage />} />
+        <Route
+          path="/design-system"
+          element={developerModeEnabled ? <DesignSystemPage /> : <Navigate to="/" replace />}
+        />
         <Route
           path="/debug/audio"
           element={
-            <Suspense
-              fallback={
-                <div className={styles.routeLoading} role="status">
-                  正在加载音频诊断…
-                </div>
-              }
-            >
-              <AudioDebugPage />
-            </Suspense>
+            developerModeEnabled ? (
+              <Suspense
+                fallback={
+                  <div className={styles.routeLoading} role="status">
+                    正在加载音频诊断…
+                  </div>
+                }
+              >
+                <AudioDebugPage />
+              </Suspense>
+            ) : (
+              <Navigate to="/" replace />
+            )
           }
         />
         <Route path="*" element={<ClockPage />} />
       </Routes>
 
-      {!isDebugRoute && showTourConfetti && <Confetti />}
+      {!isDeveloperPageRoute && showTourConfetti && <Confetti />}
 
       {/* 公告弹窗 */}
-      {!isDebugRoute && (
+      {!isDeveloperPageRoute && (
         <AnnouncementModal
           isOpen={showAnnouncement}
           onClose={() => setShowAnnouncement(false)}

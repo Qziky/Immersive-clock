@@ -11,6 +11,7 @@ import {
   deleteNoiseCaptureDataBefore,
   finishNoiseCaptureSession,
   readNoiseFeatureFrames,
+  readNoiseScoringResumeWindow,
   recoverAbandonedNoiseCaptureSessions,
 } from "../noiseFeatureRepository";
 
@@ -109,6 +110,21 @@ function frame(sequence: number): NoiseCapturedFeatureFrame {
   };
 }
 
+function metadata() {
+  return {
+    deviceKey: "device-a",
+    persistentDeviceKey: true,
+    sampleRate: 1_000,
+    frameSamples: 100,
+    channelCount: 1,
+    channelMixMode: "arithmetic-mean" as const,
+    processingSignature: "off",
+    processingRequestedOff: true,
+    processingDisabled: true,
+    inputSettingsSampleRate: 1_000,
+  };
+}
+
 describe("noiseFeatureRepository", () => {
   beforeEach(() => {
     stores.sessions.clear();
@@ -164,6 +180,51 @@ describe("noiseFeatureRepository", () => {
     expect(stores.sessions.get("capture-a")).toMatchObject({
       endedAt: 1_200,
       endReason: "recovered-after-crash",
+    });
+  });
+
+  it("从同设备的相邻会话恢复最近 60 秒评分帧，并保留真实刷新空档", async () => {
+    const first = session();
+    first.startedAt = 1_000;
+    await createNoiseCaptureSession(first);
+    await appendNoiseFeatureFrames(
+      first,
+      Array.from({ length: 20 }, (_, index) => frame(index + 1))
+    );
+    await finishNoiseCaptureSession(first, 3_000, "stopped");
+
+    const second = {
+      ...session(),
+      id: "capture-b",
+      captureSessionId: "capture-b",
+      leaderEpoch: "epoch-b",
+      producerId: "tab-b",
+      startedAt: 5_000,
+      lastFrameSequence: 0,
+      lastStartSample: -1,
+    };
+    await createNoiseCaptureSession(second);
+    await appendNoiseFeatureFrames(
+      second,
+      Array.from({ length: 10 }, (_, index) => ({
+        ...frame(index + 1),
+        captureSessionId: "capture-b",
+        leaderEpoch: "epoch-b",
+      }))
+    );
+    await finishNoiseCaptureSession(second, 6_000, "stopped");
+
+    const restored = await readNoiseScoringResumeWindow(metadata(), 7_000);
+
+    expect(restored).toMatchObject({ startedAt: 1_000, endedAt: 6_000 });
+    expect(restored?.frames).toHaveLength(30);
+    expect(restored?.frames[19]).toMatchObject({
+      captureSessionId: "capture-a",
+      capturedAt: 2_900,
+    });
+    expect(restored?.frames[20]).toMatchObject({
+      captureSessionId: "capture-b",
+      capturedAt: 5_000,
     });
   });
 

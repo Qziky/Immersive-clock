@@ -75,6 +75,8 @@ docker compose up --build
 - 其他非静态资源路径 fallback 到 `/index.html`。
 - 针对字体、图片、音频、JS/CSS、HTML、manifest/JSON 配置缓存头。
 - `/docs/(.*)` 设置 `X-Robots-Tag: noindex, nofollow`。
+- `/design-system` 与 `/debug/*` 设置 `X-Robots-Tag: noindex, nofollow, noarchive`，与应用内
+  `robots`/`googlebot` 动态 meta 共同保证开发者页面不进入搜索索引。
 
 ## EdgeOne 部署
 
@@ -83,7 +85,8 @@ docker compose up --build
 - 构建命令为 `npm run build`。
 - 输出目录为 `dist`。
 - 配置天气 API rewrite、文档路径 rewrite 和 SPA fallback。
-- 配置静态资源缓存头和文档 noindex。
+- 配置静态资源缓存头、文档 noindex，以及 `/design-system`、`/debug/*` 的开发者页面
+  `X-Robots-Tag` 禁索引响应头。
 
 ## 发布检查清单
 

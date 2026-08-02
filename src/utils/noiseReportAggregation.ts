@@ -1,10 +1,11 @@
+import { NOISE_SCORE_WEIGHTS } from "../constants/noise";
 import type { NoiseScoreQuality, NoiseSliceSummary } from "../types/noise";
 
-export interface NoiseScoreDistribution {
-  excellent: number;
-  good: number;
-  fair: number;
-  poor: number;
+export interface NoiseScoreDeductions {
+  activityMean: number;
+  activityFloor: number;
+  eventFactor: number;
+  total: number;
 }
 
 export interface NoiseRangeAggregate {
@@ -12,12 +13,12 @@ export interface NoiseRangeAggregate {
   activityMean: number;
   averageEstimatedDbA: number | null;
   averageScore: number | null;
-  distribution: NoiseScoreDistribution;
   eventFactor: number;
   excludedDurationMs: number;
   hasEstimated: boolean;
   maxEstimatedDbA: number | null;
   periodDurationMs: number;
+  scoreDeductions: NoiseScoreDeductions;
   slices: Array<NoiseSliceSummary & { score: number }>;
   validDurationMs: number;
 }
@@ -75,7 +76,6 @@ export function aggregateNoiseSlicesForRange(
   let weightedEstimatedDbA = 0;
   let maxEstimatedDbA = -Infinity;
   const contributingSlices: Array<NoiseSliceSummary & { score: number }> = [];
-  const distributionDuration = { excellent: 0, good: 0, fair: 0, poor: 0 };
 
   for (const slice of candidates) {
     const overlapStart = Math.max(startTs, slice.start);
@@ -95,11 +95,6 @@ export function aggregateNoiseSlicesForRange(
     weightedActivityFloor += slice.detail.activityFloor * validContributionMs;
     weightedEventFactor += slice.detail.eventFactor * validContributionMs;
 
-    if (slice.score >= 90) distributionDuration.excellent += validContributionMs;
-    else if (slice.score >= 75) distributionDuration.good += validContributionMs;
-    else if (slice.score >= 60) distributionDuration.fair += validContributionMs;
-    else distributionDuration.poor += validContributionMs;
-
     if (slice.estimated) {
       estimatedDurationMs += validContributionMs;
       weightedEstimatedDbA += slice.estimated.avgDbA * validContributionMs;
@@ -110,25 +105,29 @@ export function aggregateNoiseSlicesForRange(
   const validDurationMs = Math.min(periodDurationMs, weightedDurationMs);
   const hasValidDuration = validDurationMs > 0;
   const hasEstimated = estimatedDurationMs > 0;
+  const activityMean = hasValidDuration ? weightedActivityMean / weightedDurationMs : 0;
+  const activityFloor = hasValidDuration ? weightedActivityFloor / weightedDurationMs : 0;
+  const eventFactor = hasValidDuration ? weightedEventFactor / weightedDurationMs : 0;
+  const scoreDeductions = {
+    activityMean: activityMean * NOISE_SCORE_WEIGHTS.activityMean * 100,
+    activityFloor: activityFloor * NOISE_SCORE_WEIGHTS.activityFloor * 100,
+    eventFactor: eventFactor * NOISE_SCORE_WEIGHTS.eventFactor * 100,
+    total: 0,
+  };
+  scoreDeductions.total =
+    scoreDeductions.activityMean + scoreDeductions.activityFloor + scoreDeductions.eventFactor;
 
   return {
-    activityFloor: hasValidDuration ? weightedActivityFloor / weightedDurationMs : 0,
-    activityMean: hasValidDuration ? weightedActivityMean / weightedDurationMs : 0,
+    activityFloor,
+    activityMean,
     averageEstimatedDbA: hasEstimated ? weightedEstimatedDbA / estimatedDurationMs : null,
     averageScore: hasValidDuration ? weightedScore / weightedDurationMs : null,
-    distribution: hasValidDuration
-      ? {
-          excellent: distributionDuration.excellent / weightedDurationMs,
-          good: distributionDuration.good / weightedDurationMs,
-          fair: distributionDuration.fair / weightedDurationMs,
-          poor: distributionDuration.poor / weightedDurationMs,
-        }
-      : { excellent: 0, good: 0, fair: 0, poor: 0 },
-    eventFactor: hasValidDuration ? weightedEventFactor / weightedDurationMs : 0,
+    eventFactor,
     excludedDurationMs: Math.max(0, periodDurationMs - validDurationMs),
     hasEstimated,
     maxEstimatedDbA: hasEstimated ? maxEstimatedDbA : null,
     periodDurationMs,
+    scoreDeductions,
     slices: contributingSlices,
     validDurationMs,
   };
