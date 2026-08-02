@@ -5,7 +5,7 @@ import type { WeatherCache } from "../../utils/weatherStorage";
 import { processWeatherNotifications } from "../weatherNotificationRuntime";
 
 const mocks = vi.hoisted(() => ({
-  now: new Date("2026-07-18T06:05:00+08:00"),
+  now: new Date(2026, 6, 18, 6, 5),
 }));
 
 vi.mock("../../utils/appSettings", () => ({
@@ -25,7 +25,7 @@ describe("weatherNotificationRuntime", () => {
   beforeEach(() => {
     localStorage.clear();
     sessionStorage.clear();
-    mocks.now = new Date("2026-07-18T06:05:00+08:00");
+    mocks.now = new Date(2026, 6, 18, 6, 5);
   });
 
   it("隐藏顶部天气后仍触发并去重预警、AQI 与日出日落提醒", () => {
@@ -73,7 +73,7 @@ describe("weatherNotificationRuntime", () => {
 
     processWeatherNotifications(cache, alerts);
     processWeatherNotifications(cache, alerts);
-    mocks.now = new Date("2026-07-18T17:35:00+08:00");
+    mocks.now = new Date(2026, 6, 18, 17, 35);
     processWeatherNotifications(cache, alerts);
     processWeatherNotifications(cache, alerts);
 
