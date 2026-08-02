@@ -1,180 +1,97 @@
 # Contributing Guide
 
-Thanks for your interest in contributing to Immersive Clock. This document is for contributors and developers, covering local development, PR requirements, and quality checks.
+Welcome to contributions for Immersive Clock. This page keeps the shortest path to a useful
+contribution. For architecture, component governance, testing, release, and troubleshooting details,
+see the [technical knowledge base](docs/technical/README.md) (Chinese).
 
-## Contents
+## Ways to contribute
 
-- [Ways to Contribute](#ways-to-contribute)
-- [Prerequisites](#prerequisites)
-- [Local Development](#local-development)
-- [Common Scripts](#common-scripts)
-- [Branch & Commit Conventions](#branch--commit-conventions)
-- [Pull Request Guidelines](#pull-request-guidelines)
-- [Codebase Conventions](#codebase-conventions)
-- [Testing & Quality Gate](#testing--quality-gate)
-- [Electron Build Notes](#electron-build-notes)
-- [Docs & Bilingual Notes](#docs--bilingual-notes)
-- [Issues & Security](#issues--security)
-
----
-
-## Ways to Contribute
-
-- Bug fixes (please include reproducible steps and screenshots/recordings if possible)
-- Feature improvements (open an issue first to discuss scope and direction)
-- Documentation updates (README / docs / copy)
-- Performance and accessibility improvements (ARIA / keyboard navigation / large-screen touch UX)
-
----
+- Report reproducible bugs with environment, steps, expected behavior, and actual behavior.
+- Propose features or UX improvements with the target scenario, boundaries, and compatibility impact.
+- Improve user documentation, product documentation, or marketing materials.
+- Improve performance, accessibility, PWA, Electron, and cross-platform behavior.
 
 ## Prerequisites
 
-- Node.js: `>= 18.0.0` (see `engines.node` in [package.json](./package.json))
-- Git
-- Package manager: examples use `npm`
-
----
-
-## Local Development
-
-Clone your fork:
+- Node.js `>=20.19.0`, matching `package.json`.
+- Git.
+- npm and the repository's `package-lock.json`.
 
 ```bash
 git clone https://github.com/<your-username>/immersive-clock.git
 cd immersive-clock
-```
-
-Copy env file:
-
-```bash
-# Windows (PowerShell)
-copy .env.example .env
-```
-
-Install deps:
-
-```bash
 npm install
 ```
 
-Start web dev server:
+Create `.env` from `.env.example` when local environment variables are needed.
+
+## Common commands
 
 ```bash
+# Web
 npm run dev
-```
-
-Start Electron dev:
-
-```bash
-npm run dev:electron
-```
-
----
-
-## Common Scripts
-
-All scripts are defined in [package.json](./package.json):
-
-```bash
 npm run build
 npm run preview
 
-npm run lint
-npm run lint:fix
-npm run format
-
-npm run test
-npm run test:coverage
-
-npm run test:e2e:install
-npm run test:e2e
-```
-
----
-
-## Branch & Commit Conventions
-
-Suggested branch prefixes:
-
-- `fix/xxx`
-- `feat/xxx`
-- `docs/xxx`
-- `refactor/xxx`
-- `test/xxx`
-
-Commit messages should be short, readable, and focused. Avoid mixing unrelated changes in one commit.
-
----
-
-## Pull Request Guidelines
-
-Before opening a PR:
-
-- Keep the change focused and minimal
-- If UI changes are involved, attach screenshots/recordings
-- If you fixed a bug, include reproduction steps and the expected behavior
-- If you introduce new settings or user-visible behavior, update README or `docs/` accordingly
-
-PR description should include:
-
-- What changed
-- Why it changed
-- Compatibility / risks
-- What you tested locally
-
----
-
-## Codebase Conventions
-
-- Prefer TypeScript; avoid `any` and implicit `any`
-- Place shared type definitions under `src/types/` when adding new types
-- Put reusable UI components under `src/ui/` and export them from its public entry; keep business compositions in `src/components/`
-- Use semantic names (avoid one-letter variables unless extremely local and conventional)
-- Styling uses CSS Modules and CSS variables (the canonical tokens live in `src/ui/tokens.css`)
-- Update the `/design-system` catalog, component tests, and visual baselines with every public UI change
-- Keep accessibility in mind (ARIA attributes, keyboard navigation, not color-only signals)
-
----
-
-## Testing & Quality Gate
-
-Recommended minimum before a PR:
-
-```bash
-npm run lint
-npm run test
-```
-
-If your change affects core flows or UI interactions, also run:
-
-```bash
-npm run check:ui
-npm run test:e2e
-```
-
----
-
-## Electron Build Notes
-
-Build installers:
-
-```bash
+# Electron
+npm run dev:electron
+npm run build:electron
 npm run dist:electron
+
+# Quality checks
+npm run typecheck
+npm run lint
+npm run lint:styles
+npm run test
+npm run test:e2e
 ```
 
-This runs an Electron-mode build and packages artifacts via `electron-builder`. Output paths and platform differences depend on the project configuration.
+Choose the narrowest verification for the change. Documentation-only changes should at least check
+Markdown links and run `git diff --check`. For components, settings, persistence, permissions, PWA,
+or Electron changes, follow the [testing strategy](docs/technical/engineering/testing-strategy.md)
+and [build and release guide](docs/technical/engineering/build-release-and-deployment.md).
 
----
+## Branches, commits, and pull requests
 
-## Docs & Bilingual Notes
+Recommended branch prefixes:
 
-- README is user-facing; contributor/developer details should live in this guide
-- User docs and FAQ live under `docs/`
-- If your change affects user-facing docs, try to keep Chinese and English docs consistent (at least for entry points and key workflows)
+- `feat/`: feature
+- `fix/`: bug fix
+- `docs/`: documentation
+- `refactor/`: refactor
+- `test/`: tests
 
----
+Keep commits concise, readable, and traceable. A pull request should include:
 
-## Issues & Security
+- What changed and why.
+- Risks, compatibility, and migration notes.
+- Commands and tests actually run.
+- Screenshots or recordings for UI changes.
 
-- For bugs: include steps to reproduce + screenshots/recordings + browser/OS versions if relevant
-- For security issues: do not post secrets/tokens/private data in public issues; report via the author’s public contact channels instead
+Avoid mixing unrelated formatting, dependency upgrades, and feature changes in one pull request.
+
+## Codebase conventions
+
+- Use TypeScript strict mode and avoid `any` and implicit `any`.
+- Use functional React components, CSS Modules, and the existing design tokens.
+- Follow the [UI component and icon system guide](docs/technical/engineering/ui-components-and-icons.md).
+- Reuse existing settings, storage, and data-management boundaries.
+- Do not use `console.log` in business code; use the project logger.
+
+## Documentation ownership
+
+- `docs/technical/`: architecture, implementation, engineering, testing, release, and troubleshooting.
+- `docs/product/`: product direction, users, principles, and boundaries.
+- `docs/user-guide/`: user-facing guides and FAQ.
+- `docs/marketing/`: public copy, asset indexes, and release templates.
+
+README and this guide are entry points, not duplicate knowledge-base pages. Update the relevant user
+guide when user-visible behavior changes; update technical documentation and the testing coverage map
+when implementation facts change.
+
+## Security and feedback
+
+Do not expose secrets, tokens, personal locations, schedules, or unredacted backups in public issues,
+chat, or screenshots. Report security issues privately through the author's public contact channels.
+
+For the Chinese entry, see [贡献指南](CONTRIBUTING.md).

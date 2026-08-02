@@ -7,7 +7,7 @@ description: Immersive Clock project workflow for React, Vite, PWA, Electron, UI
 
 ## 适用边界
 
-用于 Immersive Clock 仓库内的功能实现、UI 调整、响应式验证、存储兼容、测试和构建工作。仓库规范以 [AGENTS.md](AGENTS.md) 为准；测试覆盖以 [docs/testing-map.md](docs/testing-map.md) 和 [docs/wiki/testing.md](docs/wiki/testing.md) 为准，不在本 skill 重复完整规范。
+用于 Immersive Clock 仓库内的功能实现、UI 调整、响应式验证、存储兼容、测试和构建工作。仓库规范以 [AGENTS.md](AGENTS.md) 为准；测试覆盖以 [测试覆盖地图](docs/technical/engineering/testing-coverage-map.md) 和 [测试策略](docs/technical/engineering/testing-strategy.md) 为准，不在本 skill 重复完整规范。
 
 ## 浏览器工具选择
 
@@ -32,6 +32,6 @@ description: Immersive Clock project workflow for React, Vite, PWA, Electron, UI
 - React 状态或交互改动：运行相关 Vitest；涉及关键用户流程时再运行对应 Playwright E2E。
 - 存储结构或键迁移：使用 `appSettings.ts` 现有模式并补迁移测试。
 - PWA、Electron 或共享构建配置：运行对应 Web/Electron 构建。
-- 测试覆盖发生变化时，同步更新 `docs/testing-map.md`。
+- 测试覆盖发生变化时，同步更新 `docs/technical/engineering/testing-coverage-map.md`。
 
 交付时说明实际运行的检查、未运行项及原因，不把 Browser 手动检查描述为自动化 E2E。

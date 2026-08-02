@@ -1,221 +1,97 @@
-# 贡献指南（CONTRIBUTING）
+# 贡献指南
 
-欢迎你为「沉浸式时钟 / Immersive Clock」贡献代码、文档与想法。本文档面向开发者与贡献者，说明本地开发、提交规范与质量要求。
-
-## 目录
-
-- [贡献方式](#贡献方式)
-- [开发前准备](#开发前准备)
-- [本地开发](#本地开发)
-- [常用命令](#常用命令)
-- [分支与提交规范](#分支与提交规范)
-- [Pull Request 规范](#pull-request-规范)
-- [代码与工程约定](#代码与工程约定)
-- [测试与质量门槛](#测试与质量门槛)
-- [Electron 构建说明](#electron-构建说明)
-- [文档与双语说明](#文档与双语说明)
-- [问题反馈与安全](#问题反馈与安全)
-
----
+欢迎为 Immersive Clock 提交代码、文档、问题反馈和产品建议。本页只保留参与项目所需的
+最短闭环；架构、组件治理、测试矩阵、发布和排障细节请阅读
+[技术知识库](docs/technical/README.md)。
 
 ## 贡献方式
 
-- 修复 Bug（建议先提供可复现步骤/录屏/日志片段）
-- 新增或优化功能（建议先开 Issue 讨论实现方向与边界）
-- 改进文档（README / docs / 注释说明 / 交互文案）
-- 优化性能、可访问性（ARIA / 键盘交互 / 大屏触控体验）
-
----
+- 报告可复现的 Bug，并附上环境、步骤、预期与实际结果。
+- 提交新功能或体验改进，先说明使用场景、边界和兼容性影响。
+- 改进用户文案、使用说明、产品文档或宣传素材。
+- 改善性能、可访问性、PWA、Electron 和跨平台体验。
 
 ## 开发前准备
 
-### 环境要求
-
-- Node.js：`>= 18.0.0`（以 [package.json](./package.json) 的 `engines.node` 为准）
-- Git：用于版本控制
-- 包管理器：示例命令统一使用 `npm`
-
-### 拉取代码
-
-推荐流程：Fork → Clone 你的 Fork → 添加 upstream（可选）。
+- Node.js：`>=20.19.0`，以 `package.json` 的 `engines` 为准。
+- Git。
+- npm，以及仓库中的 `package-lock.json`。
 
 ```bash
 git clone https://github.com/<your-username>/immersive-clock.git
 cd immersive-clock
-```
-
-### 环境变量
-
-项目提供了示例文件 `.env.example`，本地开发请复制为 `.env`：
-
-```bash
-# Windows (PowerShell)
-copy .env.example .env
-```
-
-如你在 macOS / Linux：
-
-```bash
-cp .env.example .env
-```
-
----
-
-## 本地开发
-
-### 安装依赖
-
-```bash
 npm install
 ```
 
-### 启动 Web 开发服务器
-
-```bash
-npm run dev
-```
-
-默认开发端口为 `3005`（如需修改请以项目配置为准）。
-
-### 启动 Electron 开发环境
-
-```bash
-npm run dev:electron
-```
-
----
+如需本地环境变量，请从 `.env.example` 创建 `.env`。
 
 ## 常用命令
 
-以下脚本均定义于 [package.json](./package.json)：
-
 ```bash
-# Web 端构建 / 预览
+# Web
+npm run dev
 npm run build
 npm run preview
 
-# 代码检查与格式化
+# Electron
+npm run dev:electron
+npm run build:electron
+npm run dist:electron
+
+# 质量检查
+npm run typecheck
 npm run lint
-npm run lint:fix
-npm run format
-
-# 单元测试 (Vitest)
+npm run lint:styles
 npm run test
-npm run test:coverage
-
-# E2E 测试 (Playwright)
-npm run test:e2e:install
 npm run test:e2e
 ```
 
----
+根据改动范围选择最窄的验证命令。只改文档时，至少检查 Markdown 链接和
+`git diff --check`；涉及组件、设置、持久化、权限、PWA 或 Electron 时，请参考
+[测试策略](docs/technical/engineering/testing-strategy.md) 和
+[构建发布文档](docs/technical/engineering/build-release-and-deployment.md)。
 
-## 分支与提交规范
+## 分支、提交与 Pull Request
 
-### 分支命名
+建议使用以下分支前缀：
 
-建议使用以下格式（示例）：
+- `feat/`：新功能
+- `fix/`：Bug 修复
+- `docs/`：文档
+- `refactor/`：重构
+- `test/`：测试
 
-- `fix/xxx`：Bug 修复
-- `feat/xxx`：新功能
-- `docs/xxx`：文档
-- `refactor/xxx`：重构
-- `test/xxx`：测试补充
+提交信息保持简洁、可读、可追溯，尽量说明原因和影响范围。Pull Request 应包含：
 
-### 提交信息
+- 改动内容与背景。
+- 风险、兼容性和迁移说明。
+- 实际运行的检查或测试。
+- UI 改动对应的截图或录屏。
 
-- 保持简洁、可读、可追溯，尽量在提交信息中说明“为什么改”和“影响范围”
-- 避免混合无关改动（例如一次提交同时做大范围格式化 + 修复逻辑问题）
-
----
-
-## Pull Request 规范
-
-### 提交前自检
-
-- 变更范围尽量小、目标单一
-- 如涉及 UI：提供截图/录屏（尤其是交互与动画变化）
-- 如修复 Bug：提供复现步骤与修复前后对比（日志/截图/录屏）
-- 如有新增配置项：同步更新 README 或 `docs/` 说明
-
-### PR 描述建议包含
-
-- 改动说明（做了什么）
-- 背景与动机（为什么做）
-- 风险与兼容性（可能影响哪些场景）
-- 测试情况（本地运行了哪些脚本）
-
----
+避免将无关格式化、依赖升级和功能修改混在同一个 PR 中。
 
 ## 代码与工程约定
 
-### TypeScript 与类型
+- 使用 TypeScript strict mode，避免 `any` 和隐式 `any`。
+- React 代码使用函数组件，样式使用 CSS Modules 和现有设计令牌。
+- 公共 UI 组件、图标、设计系统和无障碍规则遵循
+  [UI 组件与图标系统](docs/technical/engineering/ui-components-and-icons.md)。
+- 设置和数据持久化优先复用现有 `appSettings`、storage 和 data management 边界。
+- 业务代码不要直接使用 `console.log`，使用项目日志工具。
 
-- TypeScript 优先，避免 `any` 与隐式 `any`
-- 类型定义集中在 `src/types/`（如需新增类型，优先在此目录组织）
+## 文档分类
 
-### 组件与目录
+- `docs/technical/`：架构、实现、工程规范、测试、发布和排障。
+- `docs/product/`：产品定位、用户、设计原则和边界。
+- `docs/user-guide/`：面向用户的操作百科与 FAQ。
+- `docs/marketing/`：对外文案、素材索引和发布模板。
 
-- 通用 UI 组件放在 `src/ui/` 并通过公共入口导出；`src/components/` 只保留业务组合
-- 避免单字母变量名（除非约定俗成且作用域极小，例如短循环）
+README 和本贡献指南只做入口，不复制完整知识库正文。新增或修改用户可见行为时，
+同步更新对应用户指南；修改技术事实时，更新技术文档和测试覆盖地图。
 
-### 样式与设计系统
+## 安全与反馈
 
-- 使用 CSS Modules + CSS 变量（唯一通用令牌源为 `src/ui/tokens.css`）
-- 新增或修改公共组件时，同步更新 `/design-system` Catalog、组件测试和视觉基线
-- 关注响应式与触控大屏体验，避免破坏现有布局与交互习惯
+请不要在公开 Issue、群聊或截图中泄露密钥、Token、个人位置、课程安排或未脱敏备份文件。
+安全问题请通过作者公开联系方式私下报告。
 
-### 可访问性
-
-- 交互组件应具备合理的 ARIA 属性与键盘可达性
-- 避免仅依赖颜色表达状态；必要时增加文案或图标辅助
-
----
-
-## 测试与质量门槛
-
-- 单元测试使用 Vitest：尽量为关键逻辑补充覆盖（尤其是修复回归 Bug 时）
-- E2E 使用 Playwright：当改动影响核心流程/关键交互时，建议补充或更新用例
-- 提交 PR 前建议至少执行：
-
-```bash
-npm run lint
-npm run test
-```
-
-如涉及页面交互或重大 UI 改动，建议追加：
-
-```bash
-npm run check:ui
-npm run test:e2e
-```
-
----
-
-## Electron 构建说明
-
-项目提供 Electron 构建脚本：
-
-```bash
-npm run dist:electron
-```
-
-说明：
-
-- 该脚本会先进行 Electron 模式构建，再使用 `electron-builder` 打包产物
-- 构建输出目录与平台差异以项目配置为准
-
----
-
-## 文档与双语说明
-
-- README 面向普通用户；贡献与开发细节应写在本文件
-- 用户文档与 FAQ 位于 `docs/`
-- 若改动影响中英文 README / docs，请尽量保持双语内容一致（至少保持关键入口与流程一致）
-
----
-
-## 问题反馈与安全
-
-- 反馈 Bug：请尽量附带复现步骤、截图/录屏、浏览器/系统版本信息
-- 安全问题：请不要在公开 Issue/群聊中泄露密钥、Token、个人隐私或可被利用的细节；建议通过作者公开的联系方式进行私下报告
+如需英文入口，请阅读 [English contributing guide](CONTRIBUTING.en-US.md)。
