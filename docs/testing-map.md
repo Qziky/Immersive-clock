@@ -100,7 +100,7 @@
   - `messagePopup:open/close` 协议到统一 Toast 视口的投递、主题强调色、天气提醒常驻与关闭：[messagePopupEvents.test.tsx](file:///d:/Desktop/Immersive-clock/src/pages/ClockPage/__tests__/messagePopupEvents.test.tsx) → [ClockPage.tsx](file:///d:/Desktop/Immersive-clock/src/pages/ClockPage/ClockPage.tsx)
   - 旧 `MessagePopup` 适配器的语义图标、降温提醒信息态、剩余时长续时与带操作常驻：[MessagePopup.test.tsx](file:///d:/Desktop/Immersive-clock/src/components/MessagePopup/__tests__/MessagePopup.test.tsx) → [MessagePopup.tsx](file:///d:/Desktop/Immersive-clock/src/components/MessagePopup/MessagePopup.tsx)
   - UI 动效与浮层 presence：[motion.test.tsx](file:///d:/Desktop/Immersive-clock/src/ui/components/__tests__/motion.test.tsx) + [usePresence.test.tsx](file:///d:/Desktop/Immersive-clock/src/ui/utils/__tests__/usePresence.test.tsx) → [Modal.tsx](file:///d:/Desktop/Immersive-clock/src/ui/components/Modal.tsx) / [Dropdown.tsx](file:///d:/Desktop/Immersive-clock/src/ui/components/Dropdown.tsx) / [Popover.tsx](file:///d:/Desktop/Immersive-clock/src/ui/components/Popover.tsx) / [usePresence.ts](file:///d:/Desktop/Immersive-clock/src/ui/utils/usePresence.ts)
-  - 新手指引覆盖守卫/完成事件、紧凑设置导航自动进入“环境提醒 → 噪音监测”、自动切换校准 Tab 且不自动启动校准采集：[tourGuards.test.ts](file:///d:/Desktop/Immersive-clock/src/utils/__tests__/tourGuards.test.ts) + [tourFocus.test.ts](file:///d:/Desktop/Immersive-clock/src/utils/__tests__/tourFocus.test.ts) → [tour.ts](file:///d:/Desktop/Immersive-clock/src/utils/tour.ts)
+  - 新手指引单实例、步骤过渡锁、辅助动作 single-flight/超时恢复/过期轮询取消、完成事件、默认焦点、忽略背景自习节点并等待设置分组展开后自动进入“环境提醒 → 噪音监测”，以及自动切换校准 Tab 且不自动启动校准采集：[tourGuards.test.ts](file:///d:/Desktop/Immersive-clock/src/utils/__tests__/tourGuards.test.ts) + [tourFocus.test.ts](file:///d:/Desktop/Immersive-clock/src/utils/__tests__/tourFocus.test.ts) → [tour.ts](file:///d:/Desktop/Immersive-clock/src/utils/tour.ts)
 
 ## Playwright（端到端测试）
 
@@ -113,6 +113,7 @@
 
 - 首页加载 smoke：[clock.e2e.spec.ts](file:///d:/Desktop/Immersive-clock/tests/e2e/clock.e2e.spec.ts)
 - 模式切换回归（四模式可见、URL 同步/直达）：[mode-switch.e2e.spec.ts](file:///d:/Desktop/Immersive-clock/tests/e2e/mode-switch.e2e.spec.ts)
+- 新手指引在进入自习模式、打开设置和展开监测设置时连续双击，不重复启动、不连跳；等待设置分组动画稳定后准确高亮自习区域、设置容器和校准标签：`tests/e2e/tour-rapid-click.e2e.spec.ts`
 - 倒计时弹窗选择 10 分钟预设、确认、开始/暂停/重置，以及 320×568 末项与固定底栏几何避让：[countdown.e2e.spec.ts](file:///d:/Desktop/Immersive-clock/tests/e2e/countdown.e2e.spec.ts)
 - 秒表开始/暂停/重置：[stopwatch.e2e.spec.ts](file:///d:/Desktop/Immersive-clock/tests/e2e/stopwatch.e2e.spec.ts)
 - 自习模式入口、顶部进度与信息自定义文案保存即时生效/取消/重载、隐藏天气后的降雨与逐条天气预警、预警不打断、降雨打断后恢复轮播、降雨开始边界秒级切换、正常与减少动态效果下的轮播切换，以及 DPR 1.5 下 1440×900/390×844/320×568 混合字体字形完整、长文案省略、三列无重叠、状态栏高度稳定和无横向溢出：[study-smoke.e2e.spec.ts](file:///d:/Desktop/Immersive-clock/tests/e2e/study-smoke.e2e.spec.ts)
