@@ -286,6 +286,8 @@ export function Dropdown({
             data-ui-overlay-root
             data-ui-presence={presenceState}
             data-ui-scope
+            aria-hidden={isOpen ? undefined : "true"}
+            inert={isOpen ? undefined : true}
             style={{ ...menuStyle, zIndex }}
           >
             {searchable && (

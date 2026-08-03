@@ -80,13 +80,19 @@ describe("UI motion presence", () => {
 
     expect(onChange).toHaveBeenCalledWith("study");
     expect(trigger).toHaveAttribute("aria-expanded", "false");
-    expect(screen.getByRole("listbox")).toBeInTheDocument();
+    expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+
+    const exitingListbox = screen.getByRole("listbox", { hidden: true });
+    const exitingMenu = exitingListbox.closest("[data-dropdown-menu]");
+    expect(exitingMenu).toHaveAttribute("data-ui-presence", "exiting");
+    expect(exitingMenu).toHaveAttribute("aria-hidden", "true");
+    expect(exitingMenu).toHaveAttribute("inert");
 
     act(() => {
       vi.advanceTimersByTime(180);
     });
 
-    expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+    expect(screen.queryByRole("listbox", { hidden: true })).not.toBeInTheDocument();
   });
 
   it("keeps Popover mounted during exit and removes it after the exit duration", () => {
