@@ -23,6 +23,7 @@ import {
   getErrorCenterRecords,
   subscribeErrorCenter,
 } from "../../../utils/errorCenter";
+import { getRuntimePlatform } from "../../../utils/runtimePlatform";
 import { getWeatherCache } from "../../../utils/weatherStorage";
 import styles from "../SettingsPanel.module.css";
 
@@ -97,14 +98,8 @@ const AboutSettingsPanel: React.FC<AboutSettingsPanelProps> = ({ onRegisterSave,
 
   const envInfo = useMemo(() => {
     const ua = typeof navigator !== "undefined" ? navigator.userAgent : "";
-    const isElectron = (() => {
-      try {
-        return typeof navigator !== "undefined" && /electron/i.test(navigator.userAgent);
-      } catch {
-        return false;
-      }
-    })();
-    return { ua, isElectron };
+    const platform = getRuntimePlatform(ua);
+    return { ua, platform };
   }, []);
 
   const filteredRecords = useMemo(() => {
@@ -317,7 +312,14 @@ const AboutSettingsPanel: React.FC<AboutSettingsPanelProps> = ({ onRegisterSave,
             </div>
 
             <InfoPanel tone="neutral" title="运行环境">
-              <p>环境：{envInfo.isElectron ? "Electron" : "Web"}</p>
+              <p>
+                环境：
+                {envInfo.platform === "android"
+                  ? "Android"
+                  : envInfo.platform === "electron"
+                    ? "Electron"
+                    : "Web"}
+              </p>
               <p>UA：{envInfo.ua || "--"}</p>
               {(() => {
                 const cache = getWeatherCache();

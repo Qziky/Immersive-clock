@@ -17,6 +17,7 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
   // 检测是否为 Electron 模式
   const isElectron = mode === "electron";
+  const isAndroid = mode === "android";
   const isTest =
     mode === "test" || process.env.VITEST === "true" || process.env.NODE_ENV === "test";
 
@@ -31,6 +32,7 @@ export default defineConfig(({ mode }) => {
 
   console.log("Vite Mode:", mode);
   console.log("Is Electron:", isElectron);
+  console.log("Is Android:", isAndroid);
 
   // 优先使用环境变量版本；否则回退到 package.json 中的版本号
   const envVersion = (env.VITE_APP_VERSION || "").trim();
@@ -101,6 +103,7 @@ export default defineConfig(({ mode }) => {
       ]) as unknown as PluginOption),
     isElectron && (renderer() as unknown as PluginOption),
     !isTest &&
+      !isAndroid &&
       (VitePWA({
         registerType: "autoUpdate",
         includeAssets: ["favicon.svg", "apple-touch-icon.png", "og-image.png"],
@@ -188,11 +191,18 @@ export default defineConfig(({ mode }) => {
 
   return {
     plugins,
+    resolve: {
+      alias: isAndroid
+        ? {
+            "virtual:pwa-register": path.resolve(process.cwd(), "src/pwa-register.noop.ts"),
+          }
+        : undefined,
+    },
     define: {
       "import.meta.env.VITE_APP_VERSION": JSON.stringify(appVersion),
-      __ENABLE_PWA__: !isElectron,
+      __ENABLE_PWA__: !isElectron && !isAndroid,
     },
-    base: isElectron ? "./" : "/",
+    base: isElectron || isAndroid ? "./" : "/",
     server: {
       host: "127.0.0.1",
       port: 3005,

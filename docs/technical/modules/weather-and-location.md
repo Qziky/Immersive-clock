@@ -1,6 +1,6 @@
 # 天气与定位系统
 
-天气模块采用“位置解析 → 同源代理请求 → 规范化 → 本地缓存 → 运行时快照 → UI”的分层。
+天气模块采用“位置解析 → 平台传输 → 规范化 → 本地缓存 → 运行时快照 → UI”的分层。
 组件不直接请求第三方接口；所有上游请求统一经过小米天气客户端、请求治理和跨标签页锁。
 
 ## 数据流
@@ -39,8 +39,13 @@ flowchart TD
 
 ## 请求客户端与治理
 
-渲染层只请求 `/api/xiaomi-weather/wtr-v3/*`。开发服务器、Vercel、EdgeOne、Nginx 和 Electron
-`app://local` 协议各自把它转发到固定上游。
+Web 渲染层请求 `/api/xiaomi-weather/wtr-v3/*`，由开发服务器、Vercel、EdgeOne 或 Nginx 转发；
+Electron 的 `app://local` 协议转发同一路径。Android 使用 `CapacitorHttp` 直连固定的
+`https://weatherapi.market.xiaomi.com/wtr-v3/*` 上游，绕过 WebView CORS。
+
+三个平台仍共用 `xiaomiWeatherClient` 的 endpoint 分类、`weatherRequestGuard` 限流和现有错误
+模型。Android 原生传输把 HTTP 状态码、Retry-After、超时、非 JSON 和网络异常映射为
+`HttpRequestError`，上层不需要平台分支。
 
 `weatherRequestGuard.ts` 维护每类 endpoint 的最短间隔、小时窗口和 cooldown。HTTP 429 会使用
 重试时间或 30 分钟回退，403 进入 2 小时冷却。`weatherCrossTabLock.ts` 优先使用 Web Locks；
@@ -121,6 +126,7 @@ sessionStorage 去重确保同一会话不重复提醒。非自习模式只显�
 - 请求频率受限：显示 `rate_limited` 和下一次可请求时间，不能用强制刷新绕过 guard。
 - 跨标签页锁不可用：localStorage lease；localStorage 也不可用时只保证当前上下文内去重。
 - Electron 代理失败：返回 502，运行时按普通网络失败退避。
+- Android 原生 HTTP 失败：映射为相同的 HTTP/超时/网络错误并按现有策略退避。
 
 ## 测试重点
 

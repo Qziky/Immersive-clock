@@ -11,7 +11,7 @@
 - [状态与数据流](architecture/state-and-data-flow.md)：`AppContext`、外观草稿、事件和跨标签页同步。
 - [模块地图](architecture/module-map.md)：目录职责、依赖方向和模块边界。
 - [本地数据与持久化](architecture/local-data-and-persistence.md)：`AppSettings`、IndexedDB、缓存、备份与迁移。
-- [Web、PWA 与 Electron](architecture/web-pwa-and-electron.md)：构建模式、Service Worker、协议和桌面能力。
+- [Web、PWA、Electron 与 Android](architecture/web-pwa-and-electron.md)：构建模式、Service Worker、协议和原生容器能力。
 
 ### 功能模块
 
@@ -28,6 +28,7 @@
 - [测试策略](engineering/testing-strategy.md)：Vitest、Playwright、Browser 验证和选择测试范围。
 - [测试覆盖地图](engineering/testing-coverage-map.md)：代码与测试的稳定映射。
 - [构建、发布与部署](engineering/build-release-and-deployment.md)：Web、PWA、Electron、Docker 和发布流水线。
+- [Android Debug APK 构建](engineering/android-debug-build.md)：本地依赖、CI Artifact、真机安装与已知限制。
 - [排障指南](engineering/troubleshooting.md)：本地开发、存储、网络、噪音和打包故障排查。
 
 ## 文档边界

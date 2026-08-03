@@ -6,6 +6,8 @@ import AboutSettingsPanel from "../sections/AboutSettingsPanel";
 const aboutMocks = vi.hoisted(() => ({
   developerModeEnabled: false,
   dispatch: vi.fn(),
+  errorCenterMode: "off" as "off" | "memory" | "persist",
+  runtimePlatform: "web" as "android" | "electron" | "web",
   updateGeneralSettings: vi.fn(),
 }));
 
@@ -13,7 +15,7 @@ vi.mock("../../../contexts/AppContext", () => ({
   useAppDispatch: () => aboutMocks.dispatch,
   useAppState: () => ({
     study: {
-      errorCenterMode: "off",
+      errorCenterMode: aboutMocks.errorCenterMode,
       errorPopupEnabled: false,
     },
   }),
@@ -37,10 +39,16 @@ vi.mock("../../../utils/weatherStorage", () => ({
   getWeatherCache: vi.fn(() => ({})),
 }));
 
+vi.mock("../../../utils/runtimePlatform", () => ({
+  getRuntimePlatform: () => aboutMocks.runtimePlatform,
+}));
+
 describe("AboutSettingsPanel", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     aboutMocks.developerModeEnabled = false;
+    aboutMocks.errorCenterMode = "off";
+    aboutMocks.runtimePlatform = "web";
   });
 
   it("在项目信息中展示今日诗词服务与隐私说明", () => {
@@ -88,5 +96,15 @@ describe("AboutSettingsPanel", () => {
     expect(screen.getByRole("button", { name: "打开音频诊断" })).toBeEnabled();
     expect(screen.getByText("组件规范")).toBeVisible();
     expect(screen.getByText("音频诊断")).toBeVisible();
+  });
+
+  it("在 Android 容器中显示 Android 运行环境", () => {
+    aboutMocks.developerModeEnabled = true;
+    aboutMocks.errorCenterMode = "memory";
+    aboutMocks.runtimePlatform = "android";
+
+    render(<AboutSettingsPanel section="debug" />);
+
+    expect(screen.getByText(/环境：\s*Android/)).toBeVisible();
   });
 });
