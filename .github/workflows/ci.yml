@@ -67,6 +67,9 @@ jobs:
       - name: Install dependencies
         run: npm ci --no-audit --no-fund || npm install --no-audit --no-fund
 
+      - name: Install Playwright FFmpeg
+        run: npx playwright install ffmpeg
+
       - name: Run design system visual tests in Edge
         run: npm run test:e2e -- tests/e2e/design-system-visual.e2e.spec.ts --project=msedge
 
