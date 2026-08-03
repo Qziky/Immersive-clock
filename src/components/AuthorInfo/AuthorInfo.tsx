@@ -1,5 +1,6 @@
 import React from "react";
 
+import pkg from "../../../package.json";
 import { Button } from "../../ui";
 
 import styles from "./AuthorInfo.module.css";
@@ -16,6 +17,8 @@ interface AuthorInfoProps {
 export function AuthorInfo({ onVersionClick }: AuthorInfoProps) {
   // 版本来自环境变量（vite.config 注入）
   const appVersion = import.meta.env.VITE_APP_VERSION;
+  const authorName = pkg.author.name;
+  const projectUrl = pkg.homepage;
 
   /**
    * 处理版本号点击事件
@@ -40,13 +43,8 @@ export function AuthorInfo({ onVersionClick }: AuthorInfoProps) {
           v{appVersion}
         </Button>
         <span className={styles.by}>by</span>
-        <a
-          href="https://qqhkx.com"
-          target="_blank"
-          rel="noopener noreferrer"
-          className={styles.action}
-        >
-          qqhkx
+        <a href={projectUrl} target="_blank" rel="noopener noreferrer" className={styles.action}>
+          {authorName}
         </a>
       </div>
     </aside>

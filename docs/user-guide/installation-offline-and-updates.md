@@ -34,7 +34,7 @@ PWA 会把网页版安装到桌面、开始菜单或主屏幕，打开时更像�
 
 ## 桌面客户端
 
-Windows 和 Linux 可从项目的 [GitHub Releases](https://github.com/QQHKX/immersive-clock/releases) 下载构建产物。
+Windows 和 Linux 可从项目的 [GitHub Releases](https://github.com/Qziky/Immersive-clock/releases) 下载构建产物。
 
 - Windows 提供 x64 安装版和便携版。
 - Linux 构建目标包括 AppImage、deb 和 rpm，实际提供哪些文件以对应版本的 Release 为准。

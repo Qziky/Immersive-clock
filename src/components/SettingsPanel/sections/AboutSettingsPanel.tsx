@@ -91,8 +91,9 @@ const AboutSettingsPanel: React.FC<AboutSettingsPanelProps> = ({ onRegisterSave,
 
   const version = (appVersion && String(appVersion)) || pkg.version;
   const license = pkg.license || "MIT";
-  const authorSite = pkg.homepage || "https://qqhkx.com";
-  const repoUrl = "https://github.com/QQHKX/immersive-clock";
+  const authorName = pkg.author.name;
+  const authorUrl = pkg.author.url;
+  const repoUrl = pkg.homepage;
   const isSectionHidden = (candidate: AboutSettingsSection) =>
     section ? section !== candidate : undefined;
 
@@ -169,9 +170,9 @@ const AboutSettingsPanel: React.FC<AboutSettingsPanelProps> = ({ onRegisterSave,
           <MetricCard icon="feature.license" label="授权" value={`${license} License`} />
         </SettingGrid>
         <SettingGrid>
-          <SettingItem icon="feature.authorWebsite" title="作者网站" description={authorSite}>
-            <a href={authorSite} target="_blank" rel="noopener noreferrer">
-              {authorSite}
+          <SettingItem icon="feature.authorWebsite" title="项目作者" description={authorName}>
+            <a href={authorUrl} target="_blank" rel="noopener noreferrer">
+              {authorName}
             </a>
           </SettingItem>
           <SettingItem icon="feature.sourceCode" title="开源地址" description={repoUrl}>

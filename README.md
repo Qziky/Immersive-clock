@@ -11,10 +11,10 @@
 [![Electron](https://img.shields.io/badge/Electron-desktop-9feaf9?logo=electron)](https://www.electronjs.org/)
 [![Android](https://img.shields.io/badge/Android-debug%20APK-3DDC84?logo=android)](docs/technical/engineering/android-debug-build.md)
 [![PWA](https://img.shields.io/badge/PWA-ready-5A0FC8?logo=pwa)](https://clock.qqhkx.com)
-[![Platform](https://img.shields.io/badge/Platform-Web%20%7C%20PWA%20%7C%20Android%20%7C%20Win%20%7C%20Linux-blue)](https://github.com/QQHKX/immersive-clock/releases)
-[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/QQHKX/Immersive-clock)
+[![Platform](https://img.shields.io/badge/Platform-Web%20%7C%20PWA%20%7C%20Android%20%7C%20Win%20%7C%20Linux-blue)](https://github.com/Qziky/Immersive-clock/releases)
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/Qziky/Immersive-clock)
 
-[🖥️ 在线体验](https://clock.qqhkx.com) | 🇨🇳 简体中文 ｜ [🇺🇸 English](README.en-US.md)
+[🖥️ 现有外部在线体验](https://clock.qqhkx.com) | 🇨🇳 简体中文 ｜ [🇺🇸 English](README.en-US.md)
 
 <pre>
 让时间管理更优雅，让学习更专注
@@ -57,7 +57,7 @@ Electron 桌面形态。
 ## 🌠 界面预览
 
 当前界面仍在持续迭代，为避免在 README 中长期保留已经过时的设置页和报告截图，本页暂不
-内嵌旧版界面图片。你可以通过[在线体验](https://clock.qqhkx.com)查看当前版本。
+内嵌旧版界面图片。你可以通过[现有外部在线体验](https://clock.qqhkx.com)查看当前版本。
 
 界面主要由以下场景组成：
 
@@ -76,7 +76,7 @@ Electron 桌面形态。
 PWA 可以像桌面应用一样从图标启动，并在首次成功加载后保留核心时钟界面和本地内容的
 离线能力。
 
-1. 使用 Chrome、Edge 或 Safari 等现代浏览器打开[在线版本](https://clock.qqhkx.com)。
+1. 使用 Chrome、Edge 或 Safari 等现代浏览器打开[现有外部在线版本](https://clock.qqhkx.com)。
 2. 使用浏览器的“安装应用”或“添加到主屏幕”功能。
 3. 安装后从桌面、开始菜单或主屏幕启动。
 
@@ -84,12 +84,12 @@ PWA 可以像桌面应用一样从图标启动，并在首次成功加载后保�
 
 ### 🌐 方式二：浏览器直接使用
 
-无需安装，直接访问 [clock.qqhkx.com](https://clock.qqhkx.com)。推荐使用较新的 Chrome、
+无需安装，直接访问现有外部部署 [clock.qqhkx.com](https://clock.qqhkx.com)。推荐使用较新的 Chrome、
 Edge 或 Safari，以获得完整的 PWA、音频、定位和全屏能力。
 
 ### 💻 方式三：Electron 桌面版
 
-在 [GitHub Releases](https://github.com/QQHKX/immersive-clock/releases/latest) 下载桌面包：
+在 [GitHub Releases](https://github.com/Qziky/Immersive-clock/releases/latest) 下载桌面包：
 
 - **Windows**：提供 x64 安装版和便携版。
 - **Linux**：提供 AppImage、deb 和 rpm 构建。
@@ -231,7 +231,7 @@ immersive-clock/
 必要的截图或录屏。
 
 - QQ 群：[965931796](https://qm.qq.com/q/fawykipRhm)
-- [GitHub Issues](https://github.com/QQHKX/immersive-clock/issues)
+- [GitHub Issues](https://github.com/Qziky/Immersive-clock/issues)
 - 应用内反馈：点击右下角版本号，在公告弹窗中切换到“意见反馈”
 - [腾讯问卷](https://wj.qq.com/s2/25666249/lj9p/)
 
@@ -249,17 +249,17 @@ immersive-clock/
 ## 📄 许可证与作者
 
 - 许可证：[GPL-3.0](LICENSE)
-- 作者：[QQHKX](https://github.com/QQHKX)
-- 个人网站：[qqhkx.com](https://qqhkx.com)
+- 作者：[Qziky](https://github.com/Qziky)
+- 项目仓库：[Qziky/Immersive-clock](https://github.com/Qziky/Immersive-clock)
 
 ## 🧬 衍生项目
 
-### 沉浸式噪音监测（Immersive-clock-monitor）
+### 沉浸式噪音监测（Immersive-clock-monitor，外部维护）
 
 - 项目地址：[QQHKX/Immersive-clock-monitor](https://github.com/QQHKX/Immersive-clock-monitor)
 
-该项目从沉浸式时钟中提取噪音监测相关能力，为环境特征采集和相对安静评分提供独立的开源
-实现参考。它同样不应被描述为认证声级计或专业声学仪器。
+该项目由 QQHKX 在外部仓库维护，从沉浸式时钟中提取噪音监测相关能力，为环境特征采集和
+相对安静评分提供独立的开源实现参考。它同样不应被描述为认证声级计或专业声学仪器。
 
 更多社区与生态信息见[社区与生态](docs/marketing/community-and-ecosystem.md)。
 
@@ -271,11 +271,11 @@ immersive-clock/
 ## ⭐️ Star 历史
 
 <div align="center">
-  <a href="https://www.star-history.com/#QQHKX/Immersive-clock&type=date&legend=top-left">
+  <a href="https://www.star-history.com/#Qziky/Immersive-clock&type=date&legend=top-left">
     <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=QQHKX/Immersive-clock&type=date&theme=dark&legend=top-left" />
-      <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=QQHKX/Immersive-clock&type=date&legend=top-left" />
-      <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=QQHKX/Immersive-clock&type=date&legend=top-left" />
+      <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=Qziky/Immersive-clock&type=date&theme=dark&legend=top-left" />
+      <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=Qziky/Immersive-clock&type=date&legend=top-left" />
+      <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=Qziky/Immersive-clock&type=date&legend=top-left" />
     </picture>
   </a>
   <p>如果这个项目对你有帮助，欢迎点亮 Star ⭐</p>

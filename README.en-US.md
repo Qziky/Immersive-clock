@@ -10,10 +10,10 @@
 [![Vite](https://img.shields.io/badge/Vite-7-9135ff?logo=vite)](https://vite.dev/)
 [![Electron](https://img.shields.io/badge/Electron-desktop-9feaf9?logo=electron)](https://www.electronjs.org/)
 [![PWA](https://img.shields.io/badge/PWA-ready-5A0FC8?logo=pwa)](https://clock.qqhkx.com)
-[![Platform](https://img.shields.io/badge/Platform-Web%20%7C%20PWA%20%7C%20Win%20%7C%20Linux-blue)](https://github.com/QQHKX/immersive-clock/releases)
-[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/QQHKX/Immersive-clock)
+[![Platform](https://img.shields.io/badge/Platform-Web%20%7C%20PWA%20%7C%20Win%20%7C%20Linux-blue)](https://github.com/Qziky/Immersive-clock/releases)
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/Qziky/Immersive-clock)
 
-[🖥️ Live Demo](https://clock.qqhkx.com) | [🇨🇳 简体中文](README.md) ｜ 🇺🇸 English
+[🖥️ Existing External Demo](https://clock.qqhkx.com) | [🇨🇳 简体中文](README.md) ｜ 🇺🇸 English
 
 <pre>
 Elegant time management, focused learning
@@ -58,7 +58,7 @@ network time sources depend on their respective third-party services.
 ## 🌠 Interface Preview
 
 The interface continues to evolve. To avoid keeping obsolete settings and report screenshots in the
-README, this page no longer embeds the retired gallery. Use the [live demo](https://clock.qqhkx.com)
+README, this page no longer embeds the retired gallery. Use the [existing external demo](https://clock.qqhkx.com)
 to see the current version.
 
 The main interface includes:
@@ -80,7 +80,7 @@ promotional images.
 The PWA launches from its own icon and keeps the core clock interface and local content available
 after the first successful online load.
 
-1. Open the [live app](https://clock.qqhkx.com) in a modern Chrome, Edge, or Safari browser.
+1. Open the [existing external deployment](https://clock.qqhkx.com) in a modern Chrome, Edge, or Safari browser.
 2. Use the browser's Install App or Add to Home Screen action.
 3. Launch it later from the desktop, Start menu, or home screen.
 
@@ -88,12 +88,12 @@ Weather, online quotes, network time sources, and external feedback still requir
 
 ### 🌐 Option 2: Use the browser version
 
-Open [clock.qqhkx.com](https://clock.qqhkx.com) without installing anything. A recent Chrome, Edge, or
+Open the existing external deployment at [clock.qqhkx.com](https://clock.qqhkx.com) without installing anything. A recent Chrome, Edge, or
 Safari version is recommended for PWA, audio, location, and fullscreen capabilities.
 
 ### 💻 Option 3: Use an Electron desktop build
 
-Download packages from [GitHub Releases](https://github.com/QQHKX/immersive-clock/releases/latest):
+Download packages from [GitHub Releases](https://github.com/Qziky/Immersive-clock/releases/latest):
 
 - **Windows**: x64 installer and portable builds.
 - **Linux**: AppImage, deb, and rpm builds.
@@ -242,7 +242,7 @@ Share experiences, report bugs, or suggest features. Include the operating syste
 reproduction steps, and relevant screenshots or recordings when reporting a problem.
 
 - QQ group: [965931796](https://qm.qq.com/q/fawykipRhm)
-- [GitHub Issues](https://github.com/QQHKX/immersive-clock/issues)
+- [GitHub Issues](https://github.com/Qziky/Immersive-clock/issues)
 - In-app feedback: select the version label and switch to the Feedback tab
 - [Tencent survey](https://wj.qq.com/s2/25666249/lj9p/)
 
@@ -261,18 +261,19 @@ the [technical knowledge base](docs/technical/README.md).
 ## 📄 License and Author
 
 - License: [GPL-3.0](LICENSE)
-- Author: [QQHKX](https://github.com/QQHKX)
-- Website: [qqhkx.com](https://qqhkx.com)
+- Author: [Qziky](https://github.com/Qziky)
+- Repository: [Qziky/Immersive-clock](https://github.com/Qziky/Immersive-clock)
 
 ## 🧬 Derivative Projects
 
-### Immersive Noise Monitoring (`Immersive-clock-monitor`)
+### Immersive Noise Monitoring (`Immersive-clock-monitor`, externally maintained)
 
 - Repository: [QQHKX/Immersive-clock-monitor](https://github.com/QQHKX/Immersive-clock-monitor)
 
-This project extracts noise-related capabilities from Immersive Clock as an independent open-source
-reference for environmental feature capture and relative quietness scoring. It should likewise not be
-described as a certified sound level meter or professional acoustic instrument.
+This project is maintained by QQHKX in an external repository. It extracts noise-related capabilities
+from Immersive Clock as an independent open-source reference for environmental feature capture and
+relative quietness scoring. It should likewise not be described as a certified sound level meter or
+professional acoustic instrument.
 
 See [Community and Ecosystem](docs/marketing/community-and-ecosystem.md) for more links.
 
@@ -284,11 +285,11 @@ See [Community and Ecosystem](docs/marketing/community-and-ecosystem.md) for mor
 ## ⭐️ Star History
 
 <div align="center">
-  <a href="https://www.star-history.com/#QQHKX/Immersive-clock&type=date&legend=top-left">
+  <a href="https://www.star-history.com/#Qziky/Immersive-clock&type=date&legend=top-left">
     <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=QQHKX/Immersive-clock&type=date&theme=dark&legend=top-left" />
-      <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=QQHKX/Immersive-clock&type=date&legend=top-left" />
-      <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=QQHKX/Immersive-clock&type=date&legend=top-left" />
+      <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=Qziky/Immersive-clock&type=date&theme=dark&legend=top-left" />
+      <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=Qziky/Immersive-clock&type=date&legend=top-left" />
+      <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=Qziky/Immersive-clock&type=date&legend=top-left" />
     </picture>
   </a>
   <p>If this project helps you, consider leaving a Star ⭐</p>

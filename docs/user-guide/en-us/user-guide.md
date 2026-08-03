@@ -215,7 +215,7 @@ Use the online link in the repository [README](../../../README.en-US.md), or ins
 - Android Chrome: use Install App or Add to Home Screen.
 - iPhone/iPad Safari: use Share → Add to Home Screen.
 
-Windows and Linux desktop packages are available from [GitHub Releases](https://github.com/QQHKX/immersive-clock/releases). There is currently no published macOS desktop package; use the web or PWA version on macOS.
+Windows and Linux desktop packages are available from [GitHub Releases](https://github.com/Qziky/Immersive-clock/releases). There is currently no published macOS desktop package; use the web or PWA version on macOS.
 
 After the first successful online load, the PWA normally keeps the core clock interface and local content available offline. New weather, city search, online quotes, network time sources, and external feedback still require a connection.
 

@@ -1,7 +1,7 @@
 {
-  "appId": "com.qqhkx.immersive-clock",
+  "appId": "io.github.qziky.immersiveclock",
   "productName": "沉浸式时钟",
-  "copyright": "Copyright © 2025 QQHKX",
+  "copyright": "Copyright © 2025–2026 Qziky",
   "directories": {
     "output": "release",
     "buildResources": "build"

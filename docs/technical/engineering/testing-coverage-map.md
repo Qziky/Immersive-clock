@@ -42,7 +42,7 @@
 | 公告/反馈          | `src/components/AnnouncementModal/__tests__/AnnouncementModal.test.tsx`、`src/utils/__tests__/announcementStorage.test.ts`                                                    | `AnnouncementModal`、`announcementStorage.ts`                                        |
 | 公共 UI            | `src/ui/components/__tests__/*.test.tsx`、`src/ui/icons/__tests__/AppIcon.test.tsx`、`src/ui/__tests__/uiGovernance.test.ts`                                                  | `src/ui`、`src/pages/DesignSystem/componentCatalog.tsx`                              |
 | 全屏               | `src/hooks/__tests__/useFullscreen.test.ts`                                                                                                                                   | `src/hooks/useFullscreen.ts`                                                         |
-| 运行平台/PWA       | `src/utils/__tests__/runtimePlatform.test.ts`、`src/components/SettingsPanel/__tests__/AboutSettingsPanel.test.tsx`                                                           | `src/utils/runtimePlatform.ts`、`src/main.tsx`、`AboutSettingsPanel.tsx`             |
+| 运行平台/PWA       | `src/utils/__tests__/runtimePlatform.test.ts`、`src/components/SettingsPanel/__tests__/AboutSettingsPanel.test.tsx`、`src/components/AuthorInfo/__tests__/AuthorInfo.test.tsx` | `src/utils/runtimePlatform.ts`、`src/main.tsx`、`AboutSettingsPanel.tsx`、`AuthorInfo.tsx` |
 
 ## E2E 映射
 

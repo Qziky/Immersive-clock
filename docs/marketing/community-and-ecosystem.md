@@ -2,9 +2,9 @@
 
 ## 官方入口
 
-- 在线体验：https://clock.qqhkx.com
-- 源代码：https://github.com/QQHKX/Immersive-clock
-- 问题反馈：https://github.com/QQHKX/immersive-clock/issues
+- 现有外部在线部署：https://clock.qqhkx.com
+- 源代码：https://github.com/Qziky/Immersive-clock
+- 问题反馈：https://github.com/Qziky/Immersive-clock/issues
 - QQ 交流群：965931796
 - 应用内反馈：点击右下角版本号打开公告窗口，切换到“意见反馈”。
 - 腾讯问卷：https://wj.qq.com/s2/25666249/lj9p/
@@ -21,11 +21,11 @@
 
 ## 衍生项目
 
-### Immersive-clock-monitor
+### Immersive-clock-monitor（外部维护）
 
 - 项目地址：https://github.com/QQHKX/Immersive-clock-monitor
 
-该项目从沉浸式时钟的环境监测方向衍生，适合关注噪音评分实现与独立监测场景的开发者。介绍时应以衍生项目当前 README 为准，不把两个项目的版本、功能和支持承诺混为一谈。
+该项目由 QQHKX 在外部仓库维护，从沉浸式时钟的环境监测方向衍生，适合关注噪音评分实现与独立监测场景的开发者。介绍时应以衍生项目当前 README 为准，不把两个项目的作者、版本、功能和支持承诺混为一谈。
 
 ## 友情链接
 

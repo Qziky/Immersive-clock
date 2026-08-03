@@ -50,7 +50,7 @@ CommonJS preload，再执行 `scripts/postbuild-electron.mjs` 修正绝对资源
 | Linux x64/目标架构 | AppImage、deb、rpm                            |
 
 打包清单包含 `dist`、`dist-electron`、`public` 和 `package.json`。应用 ID 为
-`com.qqhkx.immersive-clock`，图标来自 public。Electron 运行时使用 `app://local`，协议层会
+`io.github.qziky.immersiveclock`，图标来自 public。Electron 运行时使用 `app://local`，协议层会
 服务静态文件并代理天气请求；生产页面不能依赖 `/` 绝对资源路径。
 
 ## Android Debug APK

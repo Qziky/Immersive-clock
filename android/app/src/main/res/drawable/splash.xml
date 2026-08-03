@@ -2,7 +2,7 @@
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
     <item android:drawable="@color/colorBackground" />
     <item
-        android:width="96dp"
+        android:width="104dp"
         android:height="96dp"
         android:drawable="@drawable/clock_mark"
         android:gravity="center" />
