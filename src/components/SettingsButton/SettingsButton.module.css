@@ -1,7 +1,7 @@
 .settingsButton {
-  bottom: 30px;
+  bottom: calc(30px + var(--safe-area-inset-bottom));
   flex: 0 0 auto;
-  left: 18px;
+  left: max(18px, var(--safe-area-inset-left));
   position: fixed;
   z-index: 1000;
 }
@@ -26,14 +26,14 @@
 
 @media (max-width: 768px) {
   .settingsButton {
-    bottom: 24px;
-    left: 14px;
+    bottom: calc(24px + var(--safe-area-inset-bottom));
+    left: max(14px, var(--safe-area-inset-left));
   }
 }
 
 @media (max-width: 480px) {
   .settingsButton {
-    bottom: 56px;
-    left: 12px;
+    bottom: calc(56px + var(--safe-area-inset-bottom));
+    left: max(12px, var(--safe-area-inset-left));
   }
 }

@@ -1647,12 +1647,12 @@
 }
 
 .toastViewport {
-  bottom: max(48px, calc(env(safe-area-inset-bottom) + 12px));
+  bottom: max(48px, calc(var(--safe-area-inset-bottom) + 12px));
   display: grid;
   gap: var(--ui-space-2);
   max-width: min(420px, calc(100vw - 24px));
   position: fixed;
-  right: max(12px, env(safe-area-inset-right));
+  right: max(12px, var(--safe-area-inset-right));
   width: 420px;
   z-index: var(--ui-z-toast);
 }
@@ -2026,10 +2026,10 @@
   display: flex;
   inset: 0;
   justify-content: center;
-  padding: max(var(--ui-space-5), env(safe-area-inset-top))
-    max(var(--ui-space-5), env(safe-area-inset-right))
-    max(var(--ui-space-5), env(safe-area-inset-bottom))
-    max(var(--ui-space-5), env(safe-area-inset-left));
+  padding: max(var(--ui-space-5), var(--safe-area-inset-top))
+    max(var(--ui-space-5), var(--safe-area-inset-right))
+    max(var(--ui-space-5), var(--safe-area-inset-bottom))
+    max(var(--ui-space-5), var(--safe-area-inset-left));
   position: fixed;
   z-index: var(--ui-z-modal);
 }
@@ -2065,7 +2065,7 @@
   max-height: min(720px, calc(100vh - 48px));
   max-height: min(
     720px,
-    calc(100dvh - 48px - env(safe-area-inset-top) - env(safe-area-inset-bottom))
+    calc(100dvh - 48px - var(--safe-area-inset-top) - var(--safe-area-inset-bottom))
   );
   min-width: 0;
   transform-origin: center;
@@ -2143,7 +2143,7 @@
 
 .modalHeader {
   padding: var(--ui-space-2) var(--ui-space-4);
-  padding-top: max(var(--ui-space-2), env(safe-area-inset-top));
+  padding-top: max(var(--ui-space-2), var(--safe-area-inset-top));
 }
 
 .modalHeaderFlat {
@@ -2152,14 +2152,14 @@
 
 .modalFooter {
   padding: var(--ui-space-4);
-  padding-bottom: max(var(--ui-space-4), env(safe-area-inset-bottom));
+  padding-bottom: max(var(--ui-space-4), var(--safe-area-inset-bottom));
 }
 
 .modalFooterPaddingCompact {
   padding: var(--ui-space-3)
-    max(calc(var(--ui-space-4) + var(--ui-space-1)), env(safe-area-inset-right))
-    max(var(--ui-space-3), env(safe-area-inset-bottom))
-    max(calc(var(--ui-space-4) + var(--ui-space-1)), env(safe-area-inset-left));
+    max(calc(var(--ui-space-4) + var(--ui-space-1)), var(--safe-area-inset-right))
+    max(var(--ui-space-3), var(--safe-area-inset-bottom))
+    max(calc(var(--ui-space-4) + var(--ui-space-1)), var(--safe-area-inset-left));
 }
 
 .modalFooterDivider {
@@ -2173,9 +2173,9 @@
   min-height: 0;
   overscroll-behavior: contain;
   overflow: auto;
-  padding: var(--ui-space-4) max(var(--ui-space-4), env(safe-area-inset-right))
-    max(var(--ui-space-4), env(safe-area-inset-bottom))
-    max(var(--ui-space-4), env(safe-area-inset-left));
+  padding: var(--ui-space-4) max(var(--ui-space-4), var(--safe-area-inset-right))
+    max(var(--ui-space-4), var(--safe-area-inset-bottom))
+    max(var(--ui-space-4), var(--safe-area-inset-left));
 }
 
 .modalBodyNoDividers {
@@ -2188,9 +2188,9 @@
 }
 
 .modalBodyPaddingCompact {
-  padding: var(--ui-space-3) max(var(--ui-space-3), env(safe-area-inset-right))
-    max(var(--ui-space-3), env(safe-area-inset-bottom))
-    max(var(--ui-space-3), env(safe-area-inset-left));
+  padding: var(--ui-space-3) max(var(--ui-space-3), var(--safe-area-inset-right))
+    max(var(--ui-space-3), var(--safe-area-inset-bottom))
+    max(var(--ui-space-3), var(--safe-area-inset-left));
 }
 
 .modalBodyPaddingNone {
@@ -2251,6 +2251,7 @@
   background: var(--ui-color-bg-raised);
   border: 1px solid var(--ui-color-border);
   border-radius: var(--ui-radius-lg);
+  container-name: settings-shell;
   container-type: inline-size;
   display: flex;
   flex-direction: column;
@@ -2590,7 +2591,7 @@
   gap: var(--ui-space-3);
   grid-area: footer;
   justify-content: flex-end;
-  padding: 12px 24px max(12px, env(safe-area-inset-bottom));
+  padding: 12px 24px max(12px, var(--safe-area-inset-bottom));
 }
 
 .settingsCompactNavigation,
@@ -2598,7 +2599,7 @@
   display: none;
 }
 
-@container (max-width: 720px) {
+@container settings-shell (max-width: 720px) {
   .settingsShellWorkspace {
     --settings-compact-rail-width: 64px;
 
@@ -2775,11 +2776,15 @@
   }
 
   .settingsFooter {
-    padding: 10px 18px max(10px, env(safe-area-inset-bottom));
+    padding: 10px 18px max(10px, var(--safe-area-inset-bottom));
   }
 }
 
-@container (max-width: 520px) {
+@container settings-shell (max-width: 520px) {
+  .settingGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   .settingsShellWorkspace {
     --settings-compact-rail-width: 56px;
   }
@@ -2798,7 +2803,7 @@
 
   .settingsFooter {
     gap: 10px;
-    padding: 10px 14px max(10px, env(safe-area-inset-bottom));
+    padding: 10px 14px max(10px, var(--safe-area-inset-bottom));
   }
 
   .settingsFooter > * {
@@ -3104,10 +3109,10 @@
   }
 
   .modalBackdrop:not(.modalBackdropFullscreen):not(.modalBackdropLeft) {
-    padding: max(var(--ui-space-2), env(safe-area-inset-top))
-      max(var(--ui-space-2), env(safe-area-inset-right))
-      max(var(--ui-space-2), env(safe-area-inset-bottom))
-      max(var(--ui-space-2), env(safe-area-inset-left));
+    padding: max(var(--ui-space-2), var(--safe-area-inset-top))
+      max(var(--ui-space-2), var(--safe-area-inset-right))
+      max(var(--ui-space-2), var(--safe-area-inset-bottom))
+      max(var(--ui-space-2), var(--safe-area-inset-left));
   }
 
   .closeButton {

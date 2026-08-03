@@ -26,6 +26,8 @@
 }
 
 .hudContent {
+  --hud-safe-gutter: 2rem;
+
   position: absolute;
   top: 0;
   left: 0;
@@ -34,7 +36,10 @@
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
-  padding: 2rem;
+  padding: max(var(--hud-safe-gutter), var(--safe-area-inset-top))
+    max(var(--hud-safe-gutter), var(--safe-area-inset-right))
+    max(var(--hud-safe-gutter), var(--safe-area-inset-bottom))
+    max(var(--hud-safe-gutter), var(--safe-area-inset-left));
   pointer-events: none;
 }
 
@@ -142,13 +147,13 @@
 /* 响应式适配 */
 @media (max-width: 768px) {
   .hudContent {
-    padding: 1.5rem;
+    --hud-safe-gutter: 1.5rem;
   }
 }
 
 @media (max-width: 480px) {
   .hudContent {
-    padding: 1rem;
+    --hud-safe-gutter: 1rem;
   }
 }
 

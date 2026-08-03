@@ -1,6 +1,8 @@
-import { useState, useEffect, useCallback } from "react";
+import { SystemBars, SystemBarsStyle } from "@capacitor/core";
+import { useCallback, useEffect, useState } from "react";
 
 import { logger } from "../utils/logger";
+import { getRuntimePlatform } from "../utils/runtimePlatform";
 
 interface FullscreenDocument extends Document {
   webkitFullscreenElement?: Element | null;
@@ -24,6 +26,7 @@ interface FullscreenElement extends HTMLElement {
  */
 export function useFullscreen(): [boolean, () => void] {
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
+  const isAndroid = getRuntimePlatform() === "android";
 
   /**
    * 检查当前是否处于全屏状态
@@ -46,6 +49,12 @@ export function useFullscreen(): [boolean, () => void] {
     const element = document.documentElement as FullscreenElement;
 
     try {
+      if (isAndroid) {
+        await SystemBars.hide();
+        setIsFullscreen(true);
+        return;
+      }
+
       if (element.requestFullscreen) {
         await element.requestFullscreen();
       } else if (element.webkitRequestFullscreen) {
@@ -58,7 +67,7 @@ export function useFullscreen(): [boolean, () => void] {
     } catch (error) {
       logger.warn("无法进入全屏模式:", error);
     }
-  }, []);
+  }, [isAndroid]);
 
   /**
    * 退出全屏模式
@@ -67,6 +76,13 @@ export function useFullscreen(): [boolean, () => void] {
     const doc = document as FullscreenDocument;
 
     try {
+      if (isAndroid) {
+        await SystemBars.setStyle({ style: SystemBarsStyle.Dark });
+        await SystemBars.show();
+        setIsFullscreen(false);
+        return;
+      }
+
       if (doc.exitFullscreen) {
         await doc.exitFullscreen();
       } else if (doc.webkitExitFullscreen) {
@@ -79,20 +95,22 @@ export function useFullscreen(): [boolean, () => void] {
     } catch (error) {
       logger.warn("无法退出全屏模式:", error);
     }
-  }, []);
+  }, [isAndroid]);
 
   /**
    * 切换全屏状态
    */
   const toggleFullscreen = useCallback(() => {
     if (isFullscreen) {
-      exitFullscreen();
+      void exitFullscreen();
     } else {
-      enterFullscreen();
+      void enterFullscreen();
     }
   }, [isFullscreen, enterFullscreen, exitFullscreen]);
 
   useEffect(() => {
+    if (isAndroid) return undefined;
+
     // 监听全屏状态变化事件
     const handleFullscreenChange = () => {
       checkFullscreen();
@@ -114,7 +132,7 @@ export function useFullscreen(): [boolean, () => void] {
       document.removeEventListener("mozfullscreenchange", handleFullscreenChange);
       document.removeEventListener("MSFullscreenChange", handleFullscreenChange);
     };
-  }, [checkFullscreen]);
+  }, [checkFullscreen, isAndroid]);
 
   return [isFullscreen, toggleFullscreen];
 }

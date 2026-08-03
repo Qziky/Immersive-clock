@@ -26,8 +26,8 @@
   justify-content: center;
   min-height: 0;
   overflow: hidden;
-  padding: max(1.5rem, env(safe-area-inset-top)) clamp(1rem, 4vw, 4.5rem)
-    max(3.5rem, env(safe-area-inset-bottom)) clamp(1rem, 4vw, 4.5rem);
+  padding: max(1.5rem, var(--safe-area-inset-top)) clamp(1rem, 4vw, 4.5rem)
+    max(3.5rem, var(--safe-area-inset-bottom)) clamp(1rem, 4vw, 4.5rem);
   position: relative;
   width: 100%;
 }
@@ -101,7 +101,7 @@
   left: 50%;
   min-height: 2.25rem;
   padding: 0.3rem 0.875rem;
-  top: max(1.25rem, calc(env(safe-area-inset-top) + 1rem));
+  top: max(1.25rem, calc(var(--safe-area-inset-top) + 1rem));
   transform: translateX(-50%);
   width: min(calc(100% - 2rem), 67.5rem);
 }
@@ -305,8 +305,8 @@
 
 @media (max-width: 960px) {
   .container {
-    padding: max(1.4rem, env(safe-area-inset-top)) clamp(0.9rem, 4vw, 1.5rem)
-      max(4.15rem, env(safe-area-inset-bottom)) clamp(0.9rem, 4vw, 1.5rem);
+    padding: max(1.4rem, var(--safe-area-inset-top)) clamp(0.9rem, 4vw, 1.5rem)
+      max(4.15rem, var(--safe-area-inset-bottom)) clamp(0.9rem, 4vw, 1.5rem);
   }
 
   .topDock {
@@ -342,7 +342,7 @@
 
 @media (max-width: 768px) {
   .topDock {
-    top: max(1rem, calc(env(safe-area-inset-top) + 0.8rem));
+    top: max(1rem, calc(var(--safe-area-inset-top) + 0.8rem));
   }
 
   .centerTime {
@@ -362,7 +362,7 @@
 
 @media (max-width: 480px) {
   .container {
-    padding: max(1rem, env(safe-area-inset-top)) 0.8rem max(4rem, env(safe-area-inset-bottom))
+    padding: max(1rem, var(--safe-area-inset-top)) 0.8rem max(4rem, var(--safe-area-inset-bottom))
       0.8rem;
   }
 
@@ -373,7 +373,7 @@
       "countdown";
     grid-template-columns: minmax(0, 1fr);
     padding: 0.5rem 0.65rem;
-    top: max(0.85rem, calc(env(safe-area-inset-top) + 0.7rem));
+    top: max(0.85rem, calc(var(--safe-area-inset-top) + 0.7rem));
     width: calc(100% - 1.2rem);
   }
 
@@ -403,8 +403,8 @@
 
 @media (max-height: 600px) {
   .container {
-    padding-bottom: max(2.75rem, env(safe-area-inset-bottom));
-    padding-top: max(1rem, env(safe-area-inset-top));
+    padding-bottom: max(2.75rem, var(--safe-area-inset-bottom));
+    padding-top: max(1rem, var(--safe-area-inset-top));
   }
 
   .quoteSection {

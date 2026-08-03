@@ -1178,7 +1178,7 @@ function SettingsCompositesExample() {
   const [enabled, setEnabled] = useState(true);
 
   return (
-    <SettingGrid>
+    <SettingGrid columns="auto">
       <SettingItem
         icon="feature.notification"
         title="通知提醒"
