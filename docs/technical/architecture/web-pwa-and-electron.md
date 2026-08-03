@@ -1,7 +1,7 @@
-# Web、PWA 与 Electron
+# Web、PWA、Electron 与 Android
 
-同一套 React 渲染代码同时服务 Web/PWA 和 Electron。差异集中在 Vite mode、资源基路径、
-Service Worker、`app://local` 协议和少量主进程能力。
+同一套 React 渲染代码同时服务 Web/PWA、Electron 和 Android。差异集中在 Vite mode、资源
+基路径、Service Worker、天气传输、`app://local` 协议和原生容器能力。
 
 ## 构建模式
 
@@ -13,13 +13,18 @@ Service Worker、`app://local` 协议和少量主进程能力。
 | `npm run build:electron` | 清理并构建渲染层和 `dist-electron/`，随后修正 Electron 相对路径。 |
 | `npm run pack:electron`  | 使用 `electron-builder.json` 打包到 `release/`。                  |
 | `npm run dist:electron`  | 先构建 Electron，再执行打包。                                     |
+| `npm run build:android`  | Android mode 构建到 `dist/`，随后执行 `cap sync android`。        |
+| `npm run pack:android`   | 通过 Gradle Wrapper 生成 Debug APK。                              |
+| `npm run open:android`   | 补齐 Wrapper 并在 Android Studio 打开原生工程。                   |
 
 `vite.config.ts` 从 `package.json` 或 `VITE_APP_VERSION` 注入版本，Web 使用 `/` base，Electron
-使用 `./` base。生产 Web 以 Terser 压缩并移除 `console`/`debugger`；开发和测试保留 source map。
+和 Android 使用 `./` base。生产构建以 Terser 压缩并移除 `console`/`debugger`；开发和测试保留
+source map。
 
 ## Web 与 PWA
 
-`vite-plugin-pwa` 使用 `registerType: "autoUpdate"`，仅非 Electron 模式启用。Service Worker：
+`vite-plugin-pwa` 使用 `registerType: "autoUpdate"`，仅 Web mode 启用。Electron 与 Android 不注册
+Service Worker；Android mode 也不加载 PWA 插件，避免 WebView 内的双重缓存。Web Service Worker：
 
 - precache JS、CSS、HTML、图像、音频和字体；
 - 字体使用 CacheFirst，图片和音频按数量/时间限制缓存；
@@ -32,6 +37,16 @@ Service Worker、`app://local` 协议和少量主进程能力。
 开发服务器将 `/api/xiaomi-weather` 代理到固定的小米天气上游；部署平台需要复制该 rewrite，
 避免把上游地址或签名配置暴露为客户端环境变量。Vercel、EdgeOne、Nginx 配置还负责 SPA fallback、
 静态资源缓存和开发者页 `X-Robots-Tag`。
+
+## Android 原生容器
+
+`capacitor.config.ts` 定义 `io.github.qziky.immersiveclock`、应用名称和 `dist` Web 目录。原生工程
+位于 `android/`，最低 API 24，Manifest 声明网络、前台定位、录音和音频设置权限。现有
+`navigator.geolocation`、`getUserMedia`、localStorage 和 IndexedDB 继续由 WebView 提供。
+
+Android 的小米天气客户端使用 `CapacitorHttp` 请求固定绝对上游地址，避开 WebView CORS；请求
+仍经过 `weatherRequestGuard`，并将原生状态码、超时、非 JSON 与网络失败映射为现有
+`HttpRequestError`。Web 继续使用部署代理，Electron 继续使用 `app://local` 协议代理。
 
 ## Electron 主进程
 

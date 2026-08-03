@@ -13,6 +13,7 @@ import { getAppSettings } from "./utils/appSettings";
 import { applySearchIndexingPolicy } from "./utils/developerPages";
 import { initErrorCenterGlobalCapture, setErrorCenterMode } from "./utils/errorCenter";
 import { logger } from "./utils/logger";
+import { shouldRegisterServiceWorker } from "./utils/runtimePlatform";
 import { initializeStorage } from "./utils/storageInitializer";
 
 import "./styles/global.css";
@@ -73,7 +74,7 @@ void bootstrap().catch((error) => {
 
 // 注册 Service Worker（仅在 Web 模式下）
 // @ts-ignore
-if (__ENABLE_PWA__) {
+if (shouldRegisterServiceWorker(__ENABLE_PWA__)) {
   import("./pwa-register").then(({ initPWA }) => {
     initPWA();
   });

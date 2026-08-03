@@ -13,7 +13,7 @@
 
 ## 开发前准备
 
-- Node.js：`>=20.19.0`，以 `package.json` 的 `engines` 为准。
+- Node.js：`>=22.0.0`，以 `package.json` 的 `engines` 为准。
 - Git。
 - npm，以及仓库中的 `package-lock.json`。
 

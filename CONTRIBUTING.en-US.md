@@ -13,7 +13,7 @@ see the [technical knowledge base](docs/technical/README.md) (Chinese).
 
 ## Prerequisites
 
-- Node.js `>=20.19.0`, matching `package.json`.
+- Node.js `>=22.0.0`, matching `package.json`.
 - Git.
 - npm and the repository's `package-lock.json`.
 

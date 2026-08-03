@@ -5,11 +5,12 @@
 
 ## 环境与脚本
 
-- Node.js `>=20.19.0`；包管理器使用 npm，锁文件为 `package-lock.json`。
+- Node.js `>=22.0.0`；包管理器使用 npm，锁文件为 `package-lock.json`。
 - Web 开发：`npm run dev`。
 - Electron 开发：`npm run dev:electron`。
 - Web 构建：`npm run build`。
 - Electron 构建/打包：`npm run build:electron`、`npm run pack:electron`、`npm run dist:electron`。
+- Android 构建/打包：`npm run build:android`、`npm run pack:android`、`npm run open:android`。
 - 类型检查：`npm run typecheck`。
 - ESLint/Stylelint：`npm run lint`、`npm run lint:styles`。
 - 单元测试：`npm run test`、`npm run test:coverage`、`npm run test:ui`。
@@ -32,6 +33,7 @@
 | 跨模块契约             | `src/types/`                           |
 | 共享常量               | `src/constants/`                       |
 | Electron 主进程能力    | `electron/`                            |
+| Android 原生容器       | `android/`、`capacitor.config.ts`      |
 | 静态资产和运行时公告   | `public/`                              |
 
 服务不应反向依赖页面；组件不应直接操作 IndexedDB、CacheStorage 或第三方 HTTP。

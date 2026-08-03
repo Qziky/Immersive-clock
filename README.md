@@ -9,8 +9,9 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6?logo=typescript)](https://www.typescriptlang.org/)
 [![Vite](https://img.shields.io/badge/Vite-7-9135ff?logo=vite)](https://vite.dev/)
 [![Electron](https://img.shields.io/badge/Electron-desktop-9feaf9?logo=electron)](https://www.electronjs.org/)
+[![Android](https://img.shields.io/badge/Android-debug%20APK-3DDC84?logo=android)](docs/technical/engineering/android-debug-build.md)
 [![PWA](https://img.shields.io/badge/PWA-ready-5A0FC8?logo=pwa)](https://clock.qqhkx.com)
-[![Platform](https://img.shields.io/badge/Platform-Web%20%7C%20PWA%20%7C%20Win%20%7C%20Linux-blue)](https://github.com/QQHKX/immersive-clock/releases)
+[![Platform](https://img.shields.io/badge/Platform-Web%20%7C%20PWA%20%7C%20Android%20%7C%20Win%20%7C%20Linux-blue)](https://github.com/QQHKX/immersive-clock/releases)
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/QQHKX/Immersive-clock)
 
 [🖥️ 在线体验](https://clock.qqhkx.com) | 🇨🇳 简体中文 ｜ [🇺🇸 English](README.en-US.md)
@@ -42,7 +43,8 @@
 ## 🕒 项目概述
 
 **沉浸式时钟（Immersive Clock）** 是一款面向校园、自习空间与个人专注场景的全屏时间
-看板。项目基于 React、TypeScript 与 Vite 构建，同时提供 Web/PWA 和 Electron 桌面形态。
+看板。项目基于 React、TypeScript 与 Vite 构建，同时提供 Web/PWA、Android Debug APK 和
+Electron 桌面形态。
 
 应用支持时钟、倒计时、秒表与自习四种模式，并将课程表、事件倒计时、天气与定位、环境
 安静评分、多频道语录和外观定制整合在一个低干扰界面中。
@@ -93,6 +95,12 @@ Edge 或 Safari，以获得完整的 PWA、音频、定位和全屏能力。
 - **Linux**：提供 AppImage、deb 和 rpm 构建。
 - **macOS**：当前没有发布原生安装包，请使用 Web/PWA 版本。
 
+### 🤖 方式四：Android Debug APK
+
+在仓库 Actions 页手动运行 “Android Debug APK”，完成后从 Artifacts 下载调试包。该 APK 适合
+真机测试，不是正式商店发行版本；安装、权限和已知限制见
+[Android Debug APK 构建说明](docs/technical/engineering/android-debug-build.md)。
+
 ## 💡 主要功能
 
 ### 🧭 时间管理模式
@@ -130,7 +138,7 @@ Edge 或 Safari，以获得完整的 PWA、音频、定位和全屏能力。
 - **本地优先**：无需账户，大多数设置和用户内容保存在当前应用配置中。
 - **备份与恢复**：提供完整备份、设置与资源备份，以及独立 `.icnoise` 原始特征归档。
 - **分类清理**：缓存、历史、诊断和未使用资源可以分别清理。
-- **PWA 与桌面构建**：支持离线核心界面、后台更新以及 Windows/Linux 桌面包。
+- **多平台构建**：支持 Web/PWA、Android Debug APK 以及 Windows/Linux 桌面包。
 
 ## 📘 使用说明
 
@@ -176,6 +184,7 @@ Edge 或 Safari，以获得完整的 PWA、音频、定位和全屏能力。
 
 ```text
 immersive-clock/
+├── android/           # Capacitor Android 原生工程与权限声明
 ├── electron/          # Electron 主进程、预加载、IPC 与桌面能力
 ├── public/            # 运行时静态资源、图标、PWA manifest、公告和更新日志
 ├── src/

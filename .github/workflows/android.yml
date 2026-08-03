@@ -1,0 +1,97 @@
+name: Android Debug APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - "src/**"
+      - "public/**"
+      - "android/**"
+      - "scripts/postbuild.mjs"
+      - "scripts/*android*.mjs"
+      - "capacitor.config.ts"
+      - "vite.config.ts"
+      - "index.html"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/android.yml"
+
+concurrency:
+  group: android-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build-debug-apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Setup JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android API 36
+        run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
+
+      - name: Setup Gradle cache
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Check TypeScript
+        run: npm run typecheck
+
+      - name: Build and sync Android web assets
+        env:
+          NODE_ENV: production
+        run: npm run build:android
+
+      - name: Verify Service Worker is disabled
+        shell: bash
+        run: |
+          if [ -f "dist/sw.js" ] || [ -f "android/app/src/main/assets/public/sw.js" ]; then
+            echo "Android build unexpectedly contains a Service Worker"
+            exit 1
+          fi
+
+      - name: Assemble Debug APK
+        run: npm run pack:android
+
+      - name: Verify Debug APK
+        shell: bash
+        run: |
+          apk="android/app/build/outputs/apk/debug/app-debug.apk"
+          if [ ! -f "$apk" ]; then
+            echo "Debug APK not found: $apk"
+            find android/app/build/outputs -maxdepth 5 -type f -print 2>/dev/null || true
+            exit 1
+          fi
+          ls -lh "$apk"
+
+      - name: Upload Debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: immersive-clock-android-debug
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14
