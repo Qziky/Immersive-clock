@@ -4,7 +4,7 @@
 
 # 沉浸式时钟 | Immersive Clock ⏰
 
-[![License: GPL-3.0](https://img.shields.io/badge/License-GPL--3.0-blue)](LICENSE)
+[![License: GPL-3.0-only](https://img.shields.io/badge/License-GPL--3.0--only-blue)](LICENSE)
 [![React](https://img.shields.io/badge/React-19-61dafb?logo=react)](https://react.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6?logo=typescript)](https://www.typescriptlang.org/)
 [![Vite](https://img.shields.io/badge/Vite-7-9135ff?logo=vite)](https://vite.dev/)
@@ -248,9 +248,15 @@ immersive-clock/
 
 ## 📄 许可证与作者
 
-- 许可证：[GPL-3.0](LICENSE)
+- 许可证：[GPL-3.0-only](LICENSE)
+- 第三方许可证与素材声明：[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)
+- 版权：Copyright © 2025–2026 [Qziky](https://github.com/Qziky)
 - 作者：[Qziky](https://github.com/Qziky)
 - 项目仓库：[Qziky/Immersive-clock](https://github.com/Qziky/Immersive-clock)
+
+本项目允许商业使用和收费分发；修改与再分发须遵守 GPL-3.0-only、保留相关通知，并按
+许可证要求提供对应源代码。本软件按“原样”提供，不附带任何明示或默示担保。第三方服务、
+字体、图标和其他素材适用各自条款。
 
 ## 🧬 衍生项目
 

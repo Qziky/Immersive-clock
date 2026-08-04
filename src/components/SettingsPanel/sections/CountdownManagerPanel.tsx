@@ -153,9 +153,7 @@ export const CountdownManagerPanel: React.FC<CountdownManagerPanelProps> = ({ on
               </FormButton>
             }
           >
-            <StatusPill tone="neutral">
-              {it.kind === "gaokao" ? "高考" : "自定义"}
-            </StatusPill>
+            <StatusPill tone="neutral">{it.kind === "gaokao" ? "高考" : "自定义"}</StatusPill>
             <SettingGrid columns={2}>
               <FormInput
                 label="名称"

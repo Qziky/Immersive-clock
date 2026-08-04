@@ -51,7 +51,7 @@ describe("AboutSettingsPanel", () => {
     aboutMocks.runtimePlatform = "web";
   });
 
-  it("在项目信息中展示今日诗词服务与隐私说明", () => {
+  it("在项目信息中展示开源许可、第三方声明与服务边界", () => {
     render(<AboutSettingsPanel section="project" />);
 
     expect(screen.getByRole("link", { name: "Qziky" })).toHaveAttribute(
@@ -61,10 +61,21 @@ describe("AboutSettingsPanel", () => {
     expect(
       screen.getByRole("link", { name: "https://github.com/Qziky/Immersive-clock" })
     ).toHaveAttribute("href", "https://github.com/Qziky/Immersive-clock");
+    expect(screen.getByRole("link", { name: "查看 GPLv3 许可证" })).toHaveAttribute(
+      "href",
+      "https://github.com/Qziky/Immersive-clock/blob/main/LICENSE"
+    );
+    expect(screen.getByRole("link", { name: "查看第三方声明" })).toHaveAttribute(
+      "href",
+      "https://github.com/Qziky/Immersive-clock/blob/main/THIRD_PARTY_NOTICES.md"
+    );
+    expect(screen.getByText("开源许可")).toBeInTheDocument();
+    expect(screen.getByText(/允许商业使用和收费分发/)).toHaveTextContent("本软件按“原样”提供");
     expect(screen.getByText("服务与隐私说明")).toBeInTheDocument();
-    expect(
-      screen.getByText(/今日诗词免费版仅限非商业使用。启用后会由服务方处理公开 IP/)
-    ).toHaveTextContent("Token/Cookie");
+    expect(screen.getByText(/今日诗词免费版仅限非商业使用/)).toHaveTextContent(
+      "该限制只适用于这一可选第三方服务"
+    );
+    expect(screen.getByText(/今日诗词免费版仅限非商业使用/)).toHaveTextContent("Token/Cookie");
   });
 
   it("仅在开发者模式草稿开启后展示调试页面，并在保存时持久化", () => {

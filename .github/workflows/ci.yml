@@ -26,10 +26,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
 
@@ -57,10 +57,10 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
 
@@ -72,12 +72,21 @@ jobs:
 
       - name: Run design system visual tests in Edge
         id: visual
-        continue-on-error: true
-        run: npm run test:e2e -- tests/e2e/design-system-visual.e2e.spec.ts --project=msedge
+        shell: pwsh
+        run: |
+          npm run test:e2e -- tests/e2e/design-system-visual.e2e.spec.ts --project=msedge
+
+          if ($LASTEXITCODE -eq 0) {
+            "drift=false" >> $env:GITHUB_OUTPUT
+            exit 0
+          }
+
+          "drift=true" >> $env:GITHUB_OUTPUT
+          exit 0
 
       - name: Upload design system visual diagnostics
-        if: steps.visual.outcome == 'failure'
-        uses: actions/upload-artifact@v4
+        if: steps.visual.outputs.drift == 'true'
+        uses: actions/upload-artifact@v7
         with:
           name: design-system-visual-diagnostics
           path: |
@@ -86,10 +95,10 @@ jobs:
           if-no-files-found: ignore
 
       - name: Report visual baseline drift
-        if: steps.visual.outcome == 'failure'
+        if: steps.visual.outputs.drift == 'true'
         shell: pwsh
         run: |
-          Write-Warning "Design system visual baselines differ from the current system Edge rendering."
+          Write-Output "::warning title=Design system visual baseline drift::System Edge rendering differs from the committed visual baselines. Review the uploaded diagnostics before refreshing snapshots."
           "### Design system visual baseline drift" >> $env:GITHUB_STEP_SUMMARY
           "The interaction run completed with screenshot differences. Review the uploaded design-system-visual-diagnostics artifact before refreshing committed baselines." >> $env:GITHUB_STEP_SUMMARY
 
@@ -98,10 +107,10 @@ jobs:
     needs: lint-test
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
 
@@ -120,7 +129,7 @@ jobs:
           cd ..
 
       - name: Upload Web Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: web-build
           path: immersive-clock-web.zip
@@ -132,15 +141,15 @@ jobs:
     needs: lint-test
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
 
       - name: Cache electron-builder
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             ~\AppData\Local\electron
@@ -223,14 +232,14 @@ jobs:
           }
 
       - name: Upload Windows NSIS installer
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: windows-nsis-installer
           path: release/*-Setup.exe
           if-no-files-found: error
 
       - name: Upload Windows Portable
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: windows-portable
           path: release/*-Portable.exe
@@ -242,15 +251,15 @@ jobs:
     needs: lint-test
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
 
       - name: Cache electron-builder
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             ~/.cache/electron
@@ -295,21 +304,21 @@ jobs:
           fi
 
       - name: Upload Linux AppImage
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: linux-appimage
           path: release/*.AppImage
           if-no-files-found: error
 
       - name: Upload Linux DEB
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: linux-deb
           path: release/*.deb
           if-no-files-found: error
 
       - name: Upload Linux RPM
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: linux-rpm
           path: release/*.rpm
@@ -321,16 +330,16 @@ jobs:
     needs: build-web
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v4
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       - name: Log in to Container Registry
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
@@ -338,7 +347,7 @@ jobs:
 
       - name: Extract metadata for Docker
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
@@ -349,7 +358,7 @@ jobs:
             type=raw,value=latest,enable={{is_default_branch}}
 
       - name: Build and push multi-arch Docker image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v7
         with:
           context: .
           platforms: linux/amd64,linux/arm64

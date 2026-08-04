@@ -4,7 +4,7 @@
 
 # Immersive Clock | 沉浸式时钟 ⏰
 
-[![License: GPL-3.0](https://img.shields.io/badge/License-GPL--3.0-blue)](LICENSE)
+[![License: GPL-3.0-only](https://img.shields.io/badge/License-GPL--3.0--only-blue)](LICENSE)
 [![React](https://img.shields.io/badge/React-19-61dafb?logo=react)](https://react.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6?logo=typescript)](https://www.typescriptlang.org/)
 [![Vite](https://img.shields.io/badge/Vite-7-9135ff?logo=vite)](https://vite.dev/)
@@ -260,9 +260,16 @@ the [technical knowledge base](docs/technical/README.md).
 
 ## 📄 License and Author
 
-- License: [GPL-3.0](LICENSE)
+- License: [GPL-3.0-only](LICENSE)
+- Third-party licenses and asset notices: [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)
+- Copyright: Copyright © 2025–2026 [Qziky](https://github.com/Qziky)
 - Author: [Qziky](https://github.com/Qziky)
 - Repository: [Qziky/Immersive-clock](https://github.com/Qziky/Immersive-clock)
+
+Commercial use and paid redistribution are permitted. Modified and redistributed copies must comply
+with GPL-3.0-only, preserve the applicable notices, and provide Corresponding Source when required.
+The software is provided “as is”, without warranty. Third-party services, fonts, icons, and other
+assets remain subject to their own terms.
 
 ## 🧬 Derivative Projects
 

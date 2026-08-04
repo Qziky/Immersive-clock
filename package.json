@@ -16,7 +16,7 @@
   "bugs": {
     "url": "https://github.com/Qziky/Immersive-clock/issues"
   },
-  "license": "GPL-3.0",
+  "license": "GPL-3.0-only",
   "type": "module",
   "main": "dist-electron/main.js",
   "engines": {
@@ -28,8 +28,8 @@
   "scripts": {
     "dev": "vite",
     "dev:electron": "vite --mode electron",
-    "build": "vite build && node scripts/postbuild.mjs",
-    "build:electron": "node --input-type=module -e \"import fs from 'fs'; fs.rmSync('dist-electron',{ recursive:true, force:true });\" && vite build --mode electron && node scripts/postbuild-electron.mjs",
+    "build": "vite build && node scripts/postbuild.mjs && node scripts/postbuild-compliance.mjs",
+    "build:electron": "node --input-type=module -e \"import fs from 'fs'; fs.rmSync('dist-electron',{ recursive:true, force:true });\" && vite build --mode electron && node scripts/postbuild-electron.mjs && node scripts/postbuild-compliance.mjs",
     "dist:electron": "npm run build:electron && npm run pack:electron",
     "pack:electron": "electron-builder",
     "preview": "vite preview",
@@ -45,7 +45,7 @@
     "test:e2e:install": "playwright install",
     "pretest:e2e": "node scripts/ensure-playwright.mjs",
     "test:e2e": "playwright test",
-    "build:android": "vite build --mode android && node scripts/postbuild.mjs && npx cap sync android",
+    "build:android": "vite build --mode android && node scripts/postbuild.mjs && node scripts/postbuild-compliance.mjs && npx cap sync android",
     "pack:android": "node scripts/run-android-gradle.mjs assembleDebug",
     "open:android": "node scripts/ensure-android-gradle-wrapper.mjs && npx cap open android"
   },

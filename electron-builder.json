@@ -7,7 +7,20 @@
     "buildResources": "build"
   },
   "files": ["dist/**/*", "dist-electron/**/*", "public/**/*", "package.json"],
-  "extraResources": [],
+  "extraResources": [
+    {
+      "from": "LICENSE",
+      "to": "LICENSE"
+    },
+    {
+      "from": "THIRD_PARTY_NOTICES.md",
+      "to": "THIRD_PARTY_NOTICES.md"
+    },
+    {
+      "from": "LICENSES",
+      "to": "LICENSES"
+    }
+  ],
   "win": {
     "target": [
       {

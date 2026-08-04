@@ -320,20 +320,10 @@ export const ScheduleEditor: React.FC<ScheduleEditorProps> = ({ onRegisterSave }
             >
               恢复
             </FormButton>
-            <FormButton
-              variant="secondary"
-              size="sm"
-              onClick={handleSortByTime}
-              icon="action.sort"
-            >
+            <FormButton variant="secondary" size="sm" onClick={handleSortByTime} icon="action.sort">
               排序
             </FormButton>
-            <FormButton
-              variant="danger"
-              size="sm"
-              onClick={handleReset}
-              icon="action.reset"
-            >
+            <FormButton variant="danger" size="sm" onClick={handleReset} icon="action.reset">
               重置
             </FormButton>
           </FormButtonGroup>

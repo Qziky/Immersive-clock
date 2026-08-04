@@ -94,6 +94,8 @@ const AboutSettingsPanel: React.FC<AboutSettingsPanelProps> = ({ onRegisterSave,
   const authorName = pkg.author.name;
   const authorUrl = pkg.author.url;
   const repoUrl = pkg.homepage;
+  const licenseUrl = `${repoUrl}/blob/main/LICENSE`;
+  const thirdPartyNoticesUrl = `${repoUrl}/blob/main/THIRD_PARTY_NOTICES.md`;
   const isSectionHidden = (candidate: AboutSettingsSection) =>
     section ? section !== candidate : undefined;
 
@@ -167,7 +169,7 @@ const AboutSettingsPanel: React.FC<AboutSettingsPanelProps> = ({ onRegisterSave,
       >
         <SettingGrid columns={2}>
           <MetricCard icon="feature.about" label="版本" value={`v${version}`} />
-          <MetricCard icon="feature.license" label="授权" value={`${license} License`} />
+          <MetricCard icon="feature.license" label="授权" value={license} />
         </SettingGrid>
         <SettingGrid>
           <SettingItem icon="feature.authorWebsite" title="项目作者" description={authorName}>
@@ -180,16 +182,31 @@ const AboutSettingsPanel: React.FC<AboutSettingsPanelProps> = ({ onRegisterSave,
               {repoUrl}
             </a>
           </SettingItem>
+          <SettingItem icon="feature.license" title="许可证原文" description={license}>
+            <a href={licenseUrl} target="_blank" rel="noopener noreferrer">
+              查看 GPLv3 许可证
+            </a>
+          </SettingItem>
+          <SettingItem
+            icon="feature.sourceCode"
+            title="第三方声明"
+            description="字体、图标与依赖许可证"
+          >
+            <a href={thirdPartyNoticesUrl} target="_blank" rel="noopener noreferrer">
+              查看第三方声明
+            </a>
+          </SettingItem>
         </SettingGrid>
       </FormSection>
 
       <FormSection title="使用声明" variant="plain" hidden={isSectionHidden("project")}>
-        <InfoPanel tone="warning" title="开源声明">
-          本软件为开源软件，严禁倒卖商用。
+        <InfoPanel tone="info" title="开源许可">
+          Copyright © 2025–2026 Qziky。本软件按 GPL-3.0-only
+          发布，允许商业使用和收费分发；修改与再分发须遵守许可证、保留版权与许可证通知，并按要求提供对应源代码。本软件按“原样”提供，不附带任何明示或默示担保。
         </InfoPanel>
         <InfoPanel tone="warning" title="服务与隐私说明">
-          今日诗词免费版仅限非商业使用。启用后会由服务方处理公开 IP，并在当前终端保存推荐
-          Token/Cookie。
+          今日诗词免费版仅限非商业使用；该限制只适用于这一可选第三方服务，不限制本软件本身。启用后会由服务方处理公开
+          IP，并在当前终端保存推荐 Token/Cookie。
         </InfoPanel>
       </FormSection>
 
