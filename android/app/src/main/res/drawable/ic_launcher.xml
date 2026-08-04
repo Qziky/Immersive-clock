@@ -1,9 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <item android:drawable="@color/colorBackground" />
     <item
-        android:width="78dp"
-        android:height="72dp"
+        android:width="108dp"
+        android:height="108dp"
+        android:drawable="@color/launcherBackground"
+        android:gravity="center" />
+    <item
+        android:width="64dp"
+        android:height="59dp"
         android:drawable="@drawable/clock_mark"
         android:gravity="center" />
 </layer-list>
