@@ -53,6 +53,7 @@ export interface AppSettings {
 
   general: {
     developerModeEnabled: boolean;
+    keepAwakeEnabled: boolean;
     timeDisplay: TimeDisplaySettings;
     startup: {
       initialMode: AppMode;
@@ -141,7 +142,7 @@ export interface AppSettings {
 
 export const APP_SETTINGS_KEY = "AppSettings";
 export const APP_SETTINGS_QUARANTINE_KEY = "immersive-clock:quarantine:app-settings";
-export const CURRENT_SETTINGS_VERSION = 11;
+export const CURRENT_SETTINGS_VERSION = 12;
 
 /** 中央信息轮播的硬上限，配置与运行时都应遵守该值。 */
 export const MAX_STUDY_INFO_ITEMS = 20;
@@ -760,6 +761,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   appearance: createDefaultAppearance(),
   general: {
     developerModeEnabled: false,
+    keepAwakeEnabled: false,
     timeDisplay: {
       showClockSeconds: true,
       showStudySeconds: true,
@@ -1064,6 +1066,10 @@ export function normalizeAppSettings(value: unknown): AppSettings {
         typeof parsedGeneral.developerModeEnabled === "boolean"
           ? parsedGeneral.developerModeEnabled
           : DEFAULT_SETTINGS.general.developerModeEnabled,
+      keepAwakeEnabled:
+        typeof parsedGeneral.keepAwakeEnabled === "boolean"
+          ? parsedGeneral.keepAwakeEnabled
+          : DEFAULT_SETTINGS.general.keepAwakeEnabled,
       timeDisplay: normalizeTimeDisplaySettings(parsedTimeDisplay),
       startup: { ...DEFAULT_SETTINGS.general.startup, ...parsedStartup },
       quote: normalizeQuoteSettings(parsedGeneral.quote, storedVersion),
@@ -1179,6 +1185,7 @@ export function updateAppSettings(
         ...current.general,
         developerModeEnabled:
           generalUpdates.developerModeEnabled ?? current.general.developerModeEnabled,
+        keepAwakeEnabled: generalUpdates.keepAwakeEnabled ?? current.general.keepAwakeEnabled,
         timeDisplay: generalUpdates.timeDisplay
           ? normalizeTimeDisplaySettings({
               ...current.general.timeDisplay,

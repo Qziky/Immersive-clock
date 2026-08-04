@@ -51,6 +51,7 @@
   },
   "dependencies": {
     "@capacitor/android": "8.5.0",
+    "@capacitor-community/keep-awake": "8.0.1",
     "@capacitor/core": "8.5.0",
     "@microsoft/clarity": "^1.0.2",
     "driver.js": "^1.4.0",

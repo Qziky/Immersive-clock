@@ -305,8 +305,9 @@ describe("dataManagement", () => {
     });
   });
 
-  it("备份恢复会保留中央信息轮播、自定义消息与麦克风偏好", async () => {
+  it("备份恢复会保留屏幕常亮、中央信息轮播、自定义消息与麦克风偏好", async () => {
     const settings = settingsWithBackground();
+    settings.general.keepAwakeEnabled = true;
     settings.noiseControl.preferredInputDevice = {
       deviceId: "usb-mic",
       label: "USB 麦克风",
@@ -360,6 +361,7 @@ describe("dataManagement", () => {
     localStorage.setItem(APP_SETTINGS_KEY, JSON.stringify(settingsWithBackground()));
     await restoreBackup(prepared);
 
+    expect(getAppSettings().general.keepAwakeEnabled).toBe(true);
     expect(getAppSettings().study.infoCarousel).toMatchObject({
       intervalSec: 12,
       items: expect.arrayContaining([

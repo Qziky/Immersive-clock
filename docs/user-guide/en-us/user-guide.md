@@ -56,6 +56,8 @@ Most controls edit a draft. Select **Save (`保存`)** at the bottom of the Sett
 
 Backup, restore, cleanup, reset, and erase operations are immediate data actions. They show a separate confirmation and may reload the application; they do not require a second press of the Settings Save button.
 
+Under **Workspace (`常用工作台`) → Startup Page (`启动页面`)**, **Prevent the screen from turning off (`防止屏幕自动关闭`)** keeps the display awake in Clock, Countdown, Stopwatch, and Study modes while the app is visible. It is off by default and releases the wake lock when the app is minimized, hidden, or closed. Web/PWA support depends on the browser Screen Wake Lock API and a secure context; Electron and Android builds use native system capabilities. If the current environment rejects or does not support the request, the preference remains saved and the app retries when it returns to the foreground. Keeping the screen awake increases power use.
+
 ## Study mode
 
 Study mode has three main areas:

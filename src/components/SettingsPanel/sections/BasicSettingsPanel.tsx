@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 
 import { useAppDispatch, useAppState } from "../../../contexts/AppContext";
+import { useKeepAwakeRuntime } from "../../../hooks/useKeepAwakeRuntime";
 import { AppMode, CountdownItem } from "../../../types";
 import type { StudyDisplaySettings, StudyInfoCarouselSettings } from "../../../types";
 import {
@@ -62,8 +63,11 @@ export const BasicSettingsPanel: React.FC<BasicSettingsPanelProps> = ({
 }) => {
   const { study } = useAppState();
   const dispatch = useAppDispatch();
+  const keepAwakeRuntime = useKeepAwakeRuntime();
 
   const [startupMode, setStartupMode] = useState<AppMode>("clock");
+  const [persistedKeepAwakeEnabled, setPersistedKeepAwakeEnabled] = useState(false);
+  const [keepAwakeEnabled, setKeepAwakeEnabled] = useState(false);
 
   // 倒计时模式（重构）：'gaokao' | 'single' | 'multi'
   const [countdownMode, setCountdownMode] = useState<"gaokao" | "single" | "multi">("gaokao");
@@ -134,7 +138,10 @@ export const BasicSettingsPanel: React.FC<BasicSettingsPanelProps> = ({
   // 打开时优先从 AppSettings 读取上次选择的倒计时模式
   useEffect(() => {
     try {
-      setStartupMode(resolveStartupMode(getAppSettings().general.startup.initialMode));
+      const general = getAppSettings().general;
+      setStartupMode(resolveStartupMode(general.startup.initialMode));
+      setPersistedKeepAwakeEnabled(general.keepAwakeEnabled);
+      setKeepAwakeEnabled(general.keepAwakeEnabled);
       const saved = getAppSettings().study.countdownMode;
       if (saved === "gaokao" || saved === "single" || saved === "multi") {
         setCountdownMode(saved);
@@ -285,7 +292,10 @@ export const BasicSettingsPanel: React.FC<BasicSettingsPanelProps> = ({
         updateStudySettings({ countdownMode });
       } catch {}
 
-      updateGeneralSettings({ startup: { initialMode: startupMode } });
+      updateGeneralSettings({
+        keepAwakeEnabled,
+        startup: { initialMode: startupMode },
+      });
 
       updateTimeSyncSettings((current) => ({
         enabled: timeSyncEnabled,
@@ -314,6 +324,7 @@ export const BasicSettingsPanel: React.FC<BasicSettingsPanelProps> = ({
     carouselIntervalSec,
     dispatch,
     startupMode,
+    keepAwakeEnabled,
     timeSyncEnabled,
     timeSyncProvider,
     timeSyncHttpDateUrl,
@@ -339,6 +350,35 @@ export const BasicSettingsPanel: React.FC<BasicSettingsPanelProps> = ({
     : "无";
   const isSectionHidden = (candidate: BasicSettingsSection) =>
     section ? section !== candidate : undefined;
+  const keepAwakeDraftChanged = keepAwakeEnabled !== persistedKeepAwakeEnabled;
+  const keepAwakeStatusLabel = keepAwakeDraftChanged
+    ? keepAwakeEnabled
+      ? "保存后开启"
+      : "保存后关闭"
+    : keepAwakeRuntime.status === "requesting"
+      ? "正在启用"
+      : keepAwakeRuntime.status === "active"
+        ? "已保持常亮"
+        : keepAwakeRuntime.status === "suspended"
+          ? "后台暂停"
+          : keepAwakeRuntime.status === "unsupported" || keepAwakeRuntime.status === "error"
+            ? "当前环境暂不可用"
+            : "未开启";
+  const keepAwakeStatusTone = keepAwakeDraftChanged
+    ? "accent"
+    : keepAwakeRuntime.status === "active"
+      ? "success"
+      : keepAwakeRuntime.status === "requesting"
+        ? "info"
+        : keepAwakeRuntime.status === "suspended" ||
+            keepAwakeRuntime.status === "unsupported" ||
+            keepAwakeRuntime.status === "error"
+          ? "warning"
+          : "neutral";
+  const showKeepAwakeWarning =
+    keepAwakeEnabled &&
+    !keepAwakeDraftChanged &&
+    (keepAwakeRuntime.status === "unsupported" || keepAwakeRuntime.status === "error");
 
   return (
     <Stack id="basic-panel" gap="xl">
@@ -360,6 +400,27 @@ export const BasicSettingsPanel: React.FC<BasicSettingsPanelProps> = ({
             ]}
             onChange={(v) => setStartupMode(v as AppMode)}
           />
+        </SettingItem>
+        <SettingItem
+          icon="feature.keepAwake"
+          title="防止屏幕自动关闭"
+          description="开启后，应用在前台可见时保持屏幕常亮；最小化或切到后台后允许系统正常休眠。"
+          tone={keepAwakeEnabled ? "accent" : "neutral"}
+          control={
+            <FormSwitch
+              checked={keepAwakeEnabled}
+              onCheckedChange={setKeepAwakeEnabled}
+              aria-label="防止屏幕自动关闭"
+            />
+          }
+        >
+          <StatusPill tone={keepAwakeStatusTone}>{keepAwakeStatusLabel}</StatusPill>
+          {showKeepAwakeWarning && (
+            <InfoPanel tone="warning" title="屏幕常亮暂不可用">
+              {keepAwakeRuntime.message ??
+                "设置已保留，将在应用再次进入前台或运行于支持的环境时重试。"}
+            </InfoPanel>
+          )}
         </SettingItem>
       </FormSection>
 

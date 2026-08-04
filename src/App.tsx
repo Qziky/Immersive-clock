@@ -4,8 +4,10 @@ import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import styles from "./App.module.css";
 import AnnouncementModal from "./components/AnnouncementModal";
 import { Confetti } from "./components/Confetti/Confetti";
+import { useKeepAwakeRuntime } from "./hooks/useKeepAwakeRuntime";
 import { ClockPage } from "./pages/ClockPage/ClockPage";
 import { DesignSystemPage } from "./pages/DesignSystem";
+import { useFeedback } from "./ui";
 import { shouldShowAnnouncement } from "./utils/announcementStorage";
 import { getAppSettings } from "./utils/appSettings";
 import { applySearchIndexingPolicy, isDeveloperPagePath } from "./utils/developerPages";
@@ -14,6 +16,34 @@ import { hasSeenTour } from "./utils/tour";
 const AudioDebugPage = lazy(() =>
   import("./pages/Debug/AudioDebugPage").then((module) => ({ default: module.AudioDebugPage }))
 );
+
+const KEEP_AWAKE_WARNING_ID = "keep-awake-runtime-warning";
+
+export function KeepAwakeRuntimeNotice() {
+  const { dismiss, notify } = useFeedback();
+  const runtime = useKeepAwakeRuntime();
+
+  useEffect(() => {
+    if (
+      runtime.preferenceEnabled &&
+      (runtime.status === "unsupported" || runtime.status === "error")
+    ) {
+      notify({
+        id: KEEP_AWAKE_WARNING_ID,
+        variant: "warning",
+        title: "屏幕常亮暂不可用",
+        description: runtime.message ?? "设置已保留，将在应用再次进入前台时重试。",
+      });
+      return;
+    }
+
+    if (runtime.status === "active" || runtime.status === "disabled") {
+      dismiss(KEEP_AWAKE_WARNING_ID);
+    }
+  }, [dismiss, notify, runtime.message, runtime.preferenceEnabled, runtime.status]);
+
+  return null;
+}
 
 /**
  * 主应用组件

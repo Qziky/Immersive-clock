@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from "electron";
 
-import { TIME_SYNC_NTP_CHANNEL } from "./ipc/channels";
+import { KEEP_AWAKE_SET_CHANNEL, TIME_SYNC_NTP_CHANNEL } from "./ipc/channels";
 
 // 声明全局类型（可选，用于 TypeScript）
 declare global {
@@ -14,6 +14,9 @@ declare global {
           serverEpochMs: number;
           measuredAt: number;
         }>;
+      };
+      keepAwake: {
+        setEnabled: (enabled: boolean) => Promise<{ active: boolean }>;
       };
     };
   }
@@ -30,6 +33,13 @@ contextBridge.exposeInMainWorld("electronAPI", {
      */
     ntp: (options: { host: string; port?: number; timeoutMs?: number }) =>
       ipcRenderer.invoke(TIME_SYNC_NTP_CHANNEL, options),
+  },
+
+  keepAwake: {
+    setEnabled: (enabled: boolean) =>
+      ipcRenderer.invoke(KEEP_AWAKE_SET_CHANNEL, Boolean(enabled)) as Promise<{
+        active: boolean;
+      }>,
   },
 
   // 可以在这里添加更多需要的 API

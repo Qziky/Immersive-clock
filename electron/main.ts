@@ -5,14 +5,18 @@ import { fileURLToPath } from "url";
 import {
   app,
   BrowserWindow,
+  ipcMain,
   net,
+  powerSaveBlocker,
   protocol,
   session,
   systemPreferences,
   type WebContents,
 } from "electron";
 
+import { KEEP_AWAKE_SET_CHANNEL } from "./ipc/channels";
 import { registerTimeSyncIpc } from "./ipc/registerTimeSyncIpc";
+import { createKeepAwakeController } from "./keepAwakeController";
 import { shouldAllowFullscreenPermission } from "./permissionPolicy";
 import { resolveXiaomiWeatherUpstreamUrl } from "./xiaomiWeatherProxy";
 
@@ -53,6 +57,7 @@ protocol.registerSchemesAsPrivileged([
 // app.disableHardwareAcceleration();
 
 let mainWindow: BrowserWindow | null = null;
+const keepAwakeController = createKeepAwakeController(powerSaveBlocker);
 const hasSingleInstanceLock = app.requestSingleInstanceLock();
 
 if (!hasSingleInstanceLock) {
@@ -192,8 +197,12 @@ function createWindow() {
 
   // 窗口关闭时的处理
   mainWindow.on("closed", () => {
+    keepAwakeController.release();
     mainWindow = null;
   });
+  mainWindow.on("hide", keepAwakeController.release);
+  mainWindow.on("minimize", keepAwakeController.release);
+  mainWindow.webContents.on("render-process-gone", keepAwakeController.release);
 
   // 快捷键支持
   mainWindow.webContents.on("before-input-event", (event, input) => {
@@ -224,10 +233,26 @@ function createWindow() {
   });
 }
 
+function registerKeepAwakeIpc() {
+  ipcMain.handle(KEEP_AWAKE_SET_CHANNEL, (event, enabled: unknown) => {
+    const window = mainWindow;
+    const isTrustedRenderer = window !== null && event.sender === window.webContents;
+    if (!isTrustedRenderer || typeof enabled !== "boolean") {
+      keepAwakeController.release();
+      return { active: false };
+    }
+
+    const canKeepAwake = window.isVisible() && !window.isMinimized();
+    const active = keepAwakeController.setEnabled(enabled && canKeepAwake);
+    return { active };
+  });
+}
+
 // 当 Electron 完成初始化时创建窗口
 app.whenReady().then(async () => {
   if (!hasSingleInstanceLock) return;
   await registerAppProtocol();
+  registerKeepAwakeIpc();
   registerTimeSyncIpc();
 
   /**
@@ -327,5 +352,5 @@ app.on("window-all-closed", () => {
 
 // 处理应用退出前的清理工作
 app.on("before-quit", () => {
-  // 在这里可以添加退出前的清理逻辑
+  keepAwakeController.release();
 });

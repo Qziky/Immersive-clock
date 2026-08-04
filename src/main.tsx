@@ -3,9 +3,10 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 
-import { App } from "./App";
+import { App, KeepAwakeRuntimeNotice } from "./App";
 import { AppContextProvider } from "./contexts/AppContext";
 import { AppearanceProvider } from "./contexts/AppearanceContext";
+import { startKeepAwakeRuntime } from "./services/keepAwakeRuntime";
 import { initializeNoiseDataMaintenance } from "./services/noise/noiseDataMaintenance";
 import { FeedbackProvider } from "./ui";
 import { initializeAppearanceResources } from "./utils/appearanceSettings";
@@ -38,6 +39,7 @@ async function bootstrap(): Promise<void> {
   applySearchIndexingPolicy(window.location.pathname);
   initAnalytics();
   initializeStorage();
+  startKeepAwakeRuntime();
   initializeNoiseDataMaintenance();
   await initializeAppearanceResources();
   setErrorCenterMode(getAppSettings().study.alerts.errorCenterMode);
@@ -50,6 +52,7 @@ async function bootstrap(): Promise<void> {
         <AppContextProvider>
           <AppearanceProvider>
             <FeedbackProvider>
+              <KeepAwakeRuntimeNotice />
               <App />
             </FeedbackProvider>
           </AppearanceProvider>

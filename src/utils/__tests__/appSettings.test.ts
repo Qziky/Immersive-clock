@@ -70,6 +70,7 @@ describe("appSettings", () => {
     const s = getAppSettings();
     expect(s.version).toBe(CURRENT_SETTINGS_VERSION);
     expect(s.general.developerModeEnabled).toBe(false);
+    expect(s.general.keepAwakeEnabled).toBe(false);
     expect(s.general.timeDisplay).toEqual({
       showClockSeconds: true,
       showStudySeconds: true,
@@ -577,6 +578,20 @@ describe("appSettings", () => {
     updateGeneralSettings({ developerModeEnabled: true });
 
     expect(getAppSettings().general.developerModeEnabled).toBe(true);
+  });
+
+  it("屏幕常亮设置从旧版本补齐、拒绝非法值并支持持久化", () => {
+    localStorage.setItem(
+      APP_SETTINGS_KEY,
+      JSON.stringify({ version: 11, general: { keepAwakeEnabled: "yes" } })
+    );
+
+    const migrated = migrateStoredAppSettings();
+    expect(migrated.version).toBe(CURRENT_SETTINGS_VERSION);
+    expect(migrated.general.keepAwakeEnabled).toBe(false);
+
+    updateGeneralSettings({ keepAwakeEnabled: true });
+    expect(getAppSettings().general.keepAwakeEnabled).toBe(true);
   });
 
   it("当前时间显示设置会补齐旧数据、规范化无效值并支持局部更新", () => {
@@ -1157,6 +1172,7 @@ describe("appSettings", () => {
 
   it("恢复默认设置时保留课程、倒计时和语录内容，但重置外观与功能偏好", () => {
     const current = getAppSettings();
+    current.general.keepAwakeEnabled = true;
     current.general.startup.initialMode = "study";
     current.general.quote.animationMode = "crossfade";
     current.general.quote.typingSpeed = "fast";
@@ -1210,6 +1226,7 @@ describe("appSettings", () => {
 
     const reset = resetAppSettingsPreservingUserContent();
 
+    expect(reset.general.keepAwakeEnabled).toBe(false);
     expect(reset.general.startup.initialMode).toBe("clock");
     expect(reset.general.quote.animationMode).toBe("crossfade");
     expect(reset.general.quote.typingSpeed).toBe("fast");

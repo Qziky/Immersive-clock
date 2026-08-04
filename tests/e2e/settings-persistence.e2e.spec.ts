@@ -434,6 +434,92 @@ async function seedMinutelyWeatherSettings(page: Page) {
 }
 
 /** 端到端用例：验证设置保存后写入本地存储且刷新后仍生效（函数级注释） */
+test("屏幕常亮：取消不生效，保存后启用并在重载后保持", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("immersive-clock:has-seen-tour", "true");
+    if (!localStorage.getItem("AppSettings")) {
+      localStorage.setItem(
+        "AppSettings",
+        JSON.stringify({
+          version: 12,
+          general: {
+            announcement: {
+              hideUntil: Date.now() + 7 * 24 * 60 * 60 * 1000,
+              version: "3.13.3",
+            },
+          },
+        })
+      );
+    }
+
+    const state = { releases: 0, requests: 0 };
+    Object.defineProperty(window, "__keepAwakeTest", { configurable: true, value: state });
+    Object.defineProperty(navigator, "wakeLock", {
+      configurable: true,
+      value: {
+        request: async () => {
+          state.requests += 1;
+          const sentinel = new EventTarget() as EventTarget & {
+            release: () => Promise<void>;
+            released: boolean;
+            type: "screen";
+          };
+          sentinel.released = false;
+          sentinel.type = "screen";
+          sentinel.release = async () => {
+            if (sentinel.released) return;
+            sentinel.released = true;
+            state.releases += 1;
+            sentinel.dispatchEvent(new Event("release"));
+          };
+          return sentinel;
+        },
+      },
+    });
+  });
+  await page.goto("/");
+
+  const firstDialog = await openStudySettings(page);
+  const firstSwitch = firstDialog.getByRole("switch", { name: "防止屏幕自动关闭" });
+  await expect(firstSwitch).not.toBeChecked();
+  await firstSwitch.click();
+  await expect(firstDialog.getByText("保存后开启")).toBeVisible();
+  await firstDialog.getByRole("button", { name: "取消" }).click();
+
+  const secondDialog = await openStudySettings(page);
+  const secondSwitch = secondDialog.getByRole("switch", { name: "防止屏幕自动关闭" });
+  await expect(secondSwitch).not.toBeChecked();
+  await secondSwitch.click();
+  await secondDialog.getByRole("button", { name: "保存" }).click();
+
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const state = (window as Window & { __keepAwakeTest?: { requests: number } })
+          .__keepAwakeTest;
+        return state?.requests ?? 0;
+      })
+    )
+    .toBeGreaterThan(0);
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const raw = localStorage.getItem("AppSettings");
+        return raw ? JSON.parse(raw)?.general?.keepAwakeEnabled : undefined;
+      })
+    )
+    .toBe(true);
+
+  const thirdDialog = await openStudySettings(page);
+  await expect(thirdDialog.getByRole("switch", { name: "防止屏幕自动关闭" })).toBeChecked();
+  await expect(thirdDialog.getByText("已保持常亮")).toBeVisible();
+  await thirdDialog.getByRole("button", { name: "取消" }).click();
+
+  await page.reload();
+  const fourthDialog = await openStudySettings(page);
+  await expect(fourthDialog.getByRole("switch", { name: "防止屏幕自动关闭" })).toBeChecked();
+});
+
 test("设置持久化：修改目标年份并保存", async ({ page }) => {
   await page.goto("/");
 

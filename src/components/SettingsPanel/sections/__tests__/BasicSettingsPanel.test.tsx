@@ -11,6 +11,19 @@ import {
 import { BasicSettingsPanel } from "../BasicSettingsPanel";
 
 const dispatch = vi.hoisted(() => vi.fn());
+const keepAwakeRuntime = vi.hoisted(() => ({
+  message: null as string | null,
+  platform: "web" as const,
+  preferenceEnabled: false,
+  status: "disabled" as
+    | "active"
+    | "disabled"
+    | "error"
+    | "requesting"
+    | "suspended"
+    | "unsupported",
+  updatedAt: 0,
+}));
 const infoCarousel = vi.hoisted<StudyInfoCarouselSettings>(() => ({
   intervalSec: 6,
   items: [],
@@ -33,6 +46,10 @@ const studyState = vi.hoisted(() => ({
 vi.mock("../../../../contexts/AppContext", () => ({
   useAppDispatch: () => dispatch,
   useAppState: () => ({ study: studyState }),
+}));
+
+vi.mock("../../../../hooks/useKeepAwakeRuntime", () => ({
+  useKeepAwakeRuntime: () => keepAwakeRuntime,
 }));
 
 vi.mock("../../../ScheduleSettings/ScheduleSettings", () => ({
@@ -100,6 +117,9 @@ describe("BasicSettingsPanel 中央信息设置", () => {
     registeredSave = undefined;
     infoCarousel.intervalSec = 6;
     infoCarousel.items = defaultInfoItems();
+    keepAwakeRuntime.message = null;
+    keepAwakeRuntime.preferenceEnabled = false;
+    keepAwakeRuntime.status = "disabled";
   });
 
   function renderPanel() {
@@ -114,6 +134,58 @@ describe("BasicSettingsPanel 中央信息设置", () => {
       />
     );
   }
+
+  it("启动设置中的防息屏开关遵循草稿保存并默认关闭", () => {
+    render(
+      <BasicSettingsPanel
+        section="startup"
+        targetYear={2027}
+        onTargetYearChange={vi.fn()}
+        onRegisterSave={(save) => {
+          registeredSave = save;
+        }}
+      />
+    );
+
+    const keepAwakeSwitch = screen.getByRole("switch", { name: "防止屏幕自动关闭" });
+    expect(keepAwakeSwitch).toHaveAttribute("aria-checked", "false");
+    expect(screen.getByText("未开启")).toBeInTheDocument();
+
+    fireEvent.click(keepAwakeSwitch);
+    expect(keepAwakeSwitch).toHaveAttribute("aria-checked", "true");
+    expect(screen.getByText("保存后开启")).toBeInTheDocument();
+
+    act(() => registeredSave?.());
+    expect(JSON.parse(localStorage.getItem(APP_SETTINGS_KEY) ?? "{}")).toMatchObject({
+      general: { keepAwakeEnabled: true },
+    });
+  });
+
+  it("屏幕常亮失败时保留开启意图并显示环境状态", () => {
+    localStorage.setItem(
+      APP_SETTINGS_KEY,
+      JSON.stringify({ version: 12, general: { keepAwakeEnabled: true } })
+    );
+    migrateStoredAppSettings();
+    keepAwakeRuntime.message = "系统暂未允许屏幕常亮，设置已保留。";
+    keepAwakeRuntime.preferenceEnabled = true;
+    keepAwakeRuntime.status = "error";
+
+    render(
+      <BasicSettingsPanel
+        section="startup"
+        targetYear={2027}
+        onTargetYearChange={vi.fn()}
+        onRegisterSave={(save) => {
+          registeredSave = save;
+        }}
+      />
+    );
+
+    expect(screen.getByRole("switch", { name: "防止屏幕自动关闭" })).toBeChecked();
+    expect(screen.getByText("当前环境暂不可用")).toBeInTheDocument();
+    expect(screen.getByText("系统暂未允许屏幕常亮，设置已保留。")).toBeInTheDocument();
+  });
 
   function getSavedCarousel(): StudyInfoCarouselSettings {
     act(() => registeredSave?.());
