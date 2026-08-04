@@ -53,6 +53,10 @@ coverage
 
 # AI 配置文件夹
 .trae
+.agents/
+AGENTS.md
+CLAUDE.md
+.github/workflows/opencode.yml
 .github/*instructions.md
 .github/skills/
 
