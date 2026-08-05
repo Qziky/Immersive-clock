@@ -1,6 +1,6 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 
-import { showHud } from "./e2eUtils";
+import { CURRENT_APP_VERSION, showHud } from "./e2eUtils";
 
 async function openStudyDisplaySettings(page: Page) {
   await showHud(page);
@@ -179,7 +179,7 @@ test("中央信息：取消不保存，自定义消息保存后可重载", async
 });
 
 test("中央信息：隐藏天气组件后仍显示共享快照中的降雨主次信息", async ({ page }) => {
-  await page.addInitScript(() => {
+  await page.addInitScript((appVersion) => {
     const now = Date.now();
     const rainStartAt = now + 8 * 60 * 1000;
     const rainEndAt = rainStartAt + 10 * 60 * 1000;
@@ -188,6 +188,12 @@ test("中央信息：隐藏天气组件后仍显示共享快照中的降雨主�
       "AppSettings",
       JSON.stringify({
         version: 4,
+        general: {
+          announcement: {
+            hideUntil: now + 7 * 24 * 60 * 60 * 1000,
+            version: appVersion,
+          },
+        },
         study: {
           display: {
             showWeather: false,
@@ -213,7 +219,24 @@ test("中央信息：隐藏天气组件后仍显示共享快照中的降雨主�
     localStorage.setItem(
       "weather-cache",
       JSON.stringify({
+        version: 2,
+        activeLocation: {
+          city: {
+            lat: 31.2,
+            locationKey: "weathercn:101020100",
+            lon: 121.5,
+            name: "上海市",
+          },
+          coords: { lat: 31.2, lon: 121.5 },
+          mode: "auto",
+          resolvedAt: now,
+          source: "browser",
+        },
         coords: { lat: 31.2, lon: 121.5, source: "e2e", updatedAt: now },
+        now: {
+          data: { code: "200", now: { temp: "26", text: "多云" } },
+          updatedAt: now,
+        },
         minutely: {
           data: {
             code: "200",
@@ -225,13 +248,13 @@ test("中央信息：隐藏天气组件后仍显示共享快照中的降雨主�
               { fxTime: new Date(rainEndAt).toISOString(), precip: "0" },
             ],
           },
-          location: "121.50,31.20",
+          location: "121.5000,31.2000",
           updatedAt: now,
           lastApiFetchAt: now,
         },
       })
     );
-  });
+  }, CURRENT_APP_VERSION);
   await page.goto("/");
   await showHud(page);
   await page
@@ -261,8 +284,6 @@ test("中央信息：隐藏天气组件后天气预警逐条轮播且不打断�
     await route.fulfill({
       contentType: "application/json",
       body: JSON.stringify({
-        status: 0,
-        updateTime: now,
         alerts: [
           {
             alertId: "orange-alert",
@@ -281,16 +302,69 @@ test("中央信息：隐藏天气组件后天气预警逐条轮播且不打断�
             type: "雷电",
           },
         ],
+        current: {
+          feelsLike: { unit: "℃", value: "27" },
+          humidity: { unit: "%", value: "60" },
+          pressure: { unit: "hPa", value: "1008" },
+          pubTime: now,
+          temperature: { unit: "℃", value: "26" },
+          visibility: { unit: "km", value: "10" },
+          weather: "0",
+          wind: {
+            direction: { unit: "°", value: "90" },
+            speed: { unit: "km/h", value: "4" },
+          },
+        },
+        forecastDaily: {
+          sunRiseSet: { value: [{ from: "05:01", to: "18:59" }] },
+          temperature: { value: [{ from: "30", to: "22" }] },
+          weather: { value: [{ from: "0", to: "1" }] },
+        },
+        minutely: {
+          new: "study-alerts-e2e",
+          precipitation: {
+            fxTime: [
+              new Date(now + 60_000).toISOString(),
+              new Date(now + 120_000).toISOString(),
+            ],
+            interval: 1,
+            pubTime: new Date(now).toISOString(),
+            status: 0,
+            value: [0, 0],
+          },
+          status: 0,
+        },
+        status: 0,
+        updateTime: now,
       }),
     });
   });
   await page.addInitScript(
-    ({ seededAt }) => {
+    ({ appVersion, seededAt }) => {
       localStorage.setItem("immersive-clock:has-seen-tour", "true");
       localStorage.setItem(
         "AppSettings",
         JSON.stringify({
           version: 5,
+          general: {
+            announcement: {
+              hideUntil: seededAt + 7 * 24 * 60 * 60 * 1000,
+              version: appVersion,
+            },
+            weather: {
+              locationMode: "manual",
+              manualLocation: {
+                query: "成都",
+                selected: {
+                  affiliation: "四川省",
+                  lat: 30.67,
+                  locationKey: "weathercn:101270101",
+                  lon: 104.06,
+                  name: "成都市",
+                },
+              },
+            },
+          },
           study: {
             display: {
               showWeather: false,
@@ -323,16 +397,25 @@ test("中央信息：隐藏天气组件后天气预警逐条轮播且不打断�
       localStorage.setItem(
         "weather-cache",
         JSON.stringify({
-          coords: { lat: 30.67, lon: 104.06, source: "manual_city", updatedAt: seededAt },
-          location: {
-            city: "成都市",
-            signature: "30.6700,104.0600",
-            updatedAt: seededAt,
+          version: 2,
+          activeLocation: {
+            city: {
+              affiliation: "四川省",
+              lat: 30.67,
+              locationKey: "weathercn:101270101",
+              lon: 104.06,
+              name: "成都市",
+            },
+            coords: { lat: 30.67, lon: 104.06 },
+            mode: "manual",
+            resolvedAt: seededAt,
+            source: "manual_city",
           },
+          coords: { lat: 30.67, lon: 104.06, source: "manual_city", updatedAt: seededAt },
         })
       );
     },
-    { seededAt: now }
+    { appVersion: CURRENT_APP_VERSION, seededAt: now }
   );
 
   await page.goto("/study");
@@ -356,7 +439,7 @@ test("中央信息：隐藏天气组件后天气预警逐条轮播且不打断�
 
 test("中央信息：正在下雨打断后继续轮播普通信息", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "no-preference" });
-  await page.addInitScript(() => {
+  await page.addInitScript((appVersion) => {
     const now = Date.now();
     const rainEndAt = now + 10 * 60 * 1000;
     localStorage.setItem("immersive-clock:has-seen-tour", "true");
@@ -364,6 +447,12 @@ test("中央信息：正在下雨打断后继续轮播普通信息", async ({ pa
       "AppSettings",
       JSON.stringify({
         version: 4,
+        general: {
+          announcement: {
+            hideUntil: now + 7 * 24 * 60 * 60 * 1000,
+            version: appVersion,
+          },
+        },
         study: {
           display: {
             showWeather: false,
@@ -397,7 +486,24 @@ test("中央信息：正在下雨打断后继续轮播普通信息", async ({ pa
     localStorage.setItem(
       "weather-cache",
       JSON.stringify({
+        version: 2,
+        activeLocation: {
+          city: {
+            lat: 31.2,
+            locationKey: "weathercn:101020100",
+            lon: 121.5,
+            name: "上海市",
+          },
+          coords: { lat: 31.2, lon: 121.5 },
+          mode: "auto",
+          resolvedAt: now,
+          source: "browser",
+        },
         coords: { lat: 31.2, lon: 121.5, source: "e2e", updatedAt: now },
+        now: {
+          data: { code: "200", now: { temp: "26", text: "中雨" } },
+          updatedAt: now,
+        },
         minutely: {
           data: {
             code: "200",
@@ -409,13 +515,13 @@ test("中央信息：正在下雨打断后继续轮播普通信息", async ({ pa
               { fxTime: new Date(rainEndAt).toISOString(), precip: "0" },
             ],
           },
-          location: "121.50,31.20",
+          location: "121.5000,31.2000",
           updatedAt: now,
           lastApiFetchAt: now,
         },
       })
     );
-  });
+  }, CURRENT_APP_VERSION);
 
   await page.goto("/study");
 
@@ -426,7 +532,7 @@ test("中央信息：正在下雨打断后继续轮播普通信息", async ({ pa
 });
 
 test("中央信息：到达降雨开始时间后立即切换为正在下雨", async ({ page }) => {
-  await page.addInitScript(() => {
+  await page.addInitScript((appVersion) => {
     const now = Date.now();
     const rainStartAt = now + 4 * 1000;
     const rainEndAt = rainStartAt + 10 * 60 * 1000;
@@ -435,6 +541,12 @@ test("中央信息：到达降雨开始时间后立即切换为正在下雨", as
       "AppSettings",
       JSON.stringify({
         version: 4,
+        general: {
+          announcement: {
+            hideUntil: now + 7 * 24 * 60 * 60 * 1000,
+            version: appVersion,
+          },
+        },
         study: {
           display: {
             showWeather: false,
@@ -460,7 +572,24 @@ test("中央信息：到达降雨开始时间后立即切换为正在下雨", as
     localStorage.setItem(
       "weather-cache",
       JSON.stringify({
+        version: 2,
+        activeLocation: {
+          city: {
+            lat: 31.2,
+            locationKey: "weathercn:101020100",
+            lon: 121.5,
+            name: "上海市",
+          },
+          coords: { lat: 31.2, lon: 121.5 },
+          mode: "auto",
+          resolvedAt: now,
+          source: "browser",
+        },
         coords: { lat: 31.2, lon: 121.5, source: "e2e", updatedAt: now },
+        now: {
+          data: { code: "200", now: { temp: "26", text: "多云" } },
+          updatedAt: now,
+        },
         minutely: {
           data: {
             code: "200",
@@ -472,13 +601,13 @@ test("中央信息：到达降雨开始时间后立即切换为正在下雨", as
               { fxTime: new Date(rainEndAt).toISOString(), precip: "0" },
             ],
           },
-          location: "121.50,31.20",
+          location: "121.5000,31.2000",
           updatedAt: now,
           lastApiFetchAt: now,
         },
       })
     );
-  });
+  }, CURRENT_APP_VERSION);
 
   await page.goto("/study");
 

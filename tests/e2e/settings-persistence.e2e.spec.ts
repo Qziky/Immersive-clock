@@ -1,6 +1,6 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 
-import { showHud } from "./e2eUtils";
+import { CURRENT_APP_VERSION, showHud } from "./e2eUtils";
 
 async function openStudySettings(page: Parameters<typeof showHud>[0]) {
   await showHud(page);
@@ -435,7 +435,7 @@ async function seedMinutelyWeatherSettings(page: Page) {
 
 /** 端到端用例：验证设置保存后写入本地存储且刷新后仍生效（函数级注释） */
 test("屏幕常亮：取消不生效，保存后启用并在重载后保持", async ({ page }) => {
-  await page.addInitScript(() => {
+  await page.addInitScript((appVersion) => {
     localStorage.setItem("immersive-clock:has-seen-tour", "true");
     if (!localStorage.getItem("AppSettings")) {
       localStorage.setItem(
@@ -445,7 +445,7 @@ test("屏幕常亮：取消不生效，保存后启用并在重载后保持", as
           general: {
             announcement: {
               hideUntil: Date.now() + 7 * 24 * 60 * 60 * 1000,
-              version: "3.13.3",
+              version: appVersion,
             },
           },
         })
@@ -476,7 +476,7 @@ test("屏幕常亮：取消不生效，保存后启用并在重载后保持", as
         },
       },
     });
-  });
+  }, CURRENT_APP_VERSION);
   await page.goto("/");
 
   const firstDialog = await openStudySettings(page);
@@ -589,6 +589,7 @@ test("自习显示：进度信息与天气可独立控制并持久化", async ({
 });
 
 test("自习显示：进度条目取消不保存并可持久化课时进度", async ({ page }) => {
+  await page.clock.setFixedTime(new Date("2026-08-05T08:30:00+08:00"));
   await page.goto("/");
 
   let dialog = await openStudySettings(page);
@@ -710,7 +711,7 @@ test("天气设置：移除分钟降水弹窗并在天气数据保留完整数�
     };
   });
   expect(migrated).toMatchObject({
-    version: 10,
+    version: 12,
     hasSchedule: false,
     hasLegacyField: false,
     rain: {
@@ -841,7 +842,7 @@ test("定位设置：手动城市必须搜索并选择小米候选", async ({ pa
 });
 
 test("噪音设置：选择麦克风只在保存后持久化，并在重开后恢复", async ({ page }) => {
-  await page.addInitScript(() => {
+  await page.addInitScript((appVersion) => {
     localStorage.setItem("immersive-clock:has-seen-tour", "true");
     localStorage.setItem(
       "AppSettings",
@@ -850,7 +851,7 @@ test("噪音设置：选择麦克风只在保存后持久化，并在重开后�
         general: {
           announcement: {
             hideUntil: Date.now() + 7 * 24 * 60 * 60 * 1000,
-            version: "3.13.3",
+            version: appVersion,
           },
         },
         noiseControl: {
@@ -870,7 +871,7 @@ test("噪音设置：选择麦克风只在保存后持久化，并在重开后�
         ],
       },
     });
-  });
+  }, CURRENT_APP_VERSION);
   await page.goto("/");
 
   let dialog = await openStudySettings(page);
@@ -897,7 +898,7 @@ test("噪音设置：选择麦克风只在保存后持久化，并在重开后�
       return { version: settings.version, preference: settings.noiseControl?.preferredInputDevice };
     })
   ).toEqual({
-    version: 11,
+    version: 12,
     preference: { deviceId: "usb-mic", label: "USB 麦克风" },
   });
 
@@ -910,7 +911,7 @@ test("噪音设置：选择麦克风只在保存后持久化，并在重开后�
 
 test("噪音报告：自动关闭时长随统一保存持久化，取消时丢弃草稿", async ({ page }) => {
   await page.goto("/");
-  await page.evaluate(() => {
+  await page.evaluate((appVersion) => {
     localStorage.setItem("immersive-clock:has-seen-tour", "true");
     localStorage.setItem(
       "AppSettings",
@@ -919,7 +920,7 @@ test("噪音报告：自动关闭时长随统一保存持久化，取消时丢�
         general: {
           announcement: {
             hideUntil: Date.now() + 7 * 24 * 60 * 60 * 1000,
-            version: "3.13.3",
+            version: appVersion,
           },
         },
         noiseControl: {
@@ -929,7 +930,7 @@ test("噪音报告：自动关闭时长随统一保存持久化，取消时丢�
         },
       })
     );
-  });
+  }, CURRENT_APP_VERSION);
   await page.reload();
 
   const openReportSettings = async () => {

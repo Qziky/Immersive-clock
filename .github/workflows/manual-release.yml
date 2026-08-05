@@ -4,19 +4,23 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "发布 Tag（可选，默认使用 package.json version）"
+        description: "发布 Tag（v4.0.0；留空时从 package.json 生成）"
         required: false
         type: string
       draft:
         description: "是否创建为草稿"
         required: false
-        default: false
+        default: true
         type: boolean
       prerelease:
         description: "是否标记为预发布"
         required: false
         default: false
         type: boolean
+
+concurrency:
+  group: manual-release-${{ github.ref }}
+  cancel-in-progress: false
 
 permissions:
   contents: write
@@ -26,14 +30,19 @@ env:
   NODE_VERSION: "22"
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
+  EXPECTED_VERSION: "4.0.0"
+  EXPECTED_ANDROID_VERSION_CODE: "40000"
+  RELEASE_NOTES_PATH: docs/marketing/releases/v4.0.0.md
 
 jobs:
   prepare:
     runs-on: ubuntu-latest
     outputs:
-      version: ${{ steps.get_version.outputs.version }}
-      tag: ${{ steps.compute_tag.outputs.tag }}
-      release_name: ${{ steps.compute_tag.outputs.release_name }}
+      version: ${{ steps.metadata.outputs.version }}
+      tag: ${{ steps.metadata.outputs.tag }}
+      major: ${{ steps.metadata.outputs.major }}
+      major_minor: ${{ steps.metadata.outputs.major_minor }}
+      release_name: ${{ steps.metadata.outputs.release_name }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -42,29 +51,68 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
+          cache: npm
 
-      - name: Read version from package.json
-        id: get_version
+      - name: Install dependencies from lockfile
+        run: npm ci --no-audit --no-fund
+
+      - name: Validate release metadata
+        id: metadata
         shell: bash
+        env:
+          INPUT_TAG: ${{ inputs.tag }}
         run: |
-          VERSION=$(node -p "JSON.parse(require('fs').readFileSync('package.json','utf-8')).version")
-          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          set -euo pipefail
 
-      - name: Compute release metadata
-        id: compute_tag
-        shell: bash
-        run: |
-          INPUT_TAG="${{ inputs.tag }}"
-          VERSION="${{ steps.get_version.outputs.version }}"
-
-          if [ -n "${INPUT_TAG}" ]; then
-            TAG="${INPUT_TAG}"
-          else
-            TAG="v${VERSION}"
+          if [ "${GITHUB_REF_NAME}" != "main" ]; then
+            echo "Manual Release must be dispatched from main, got ${GITHUB_REF_NAME}" >&2
+            exit 1
           fi
 
-          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
-          echo "release_name=Immersive Clock ${TAG}" >> "$GITHUB_OUTPUT"
+          version="$(node -p "require('./package.json').version")"
+          if [ "$version" != "$EXPECTED_VERSION" ]; then
+            echo "package.json version must be ${EXPECTED_VERSION}, got ${version}" >&2
+            exit 1
+          fi
+
+          input_tag="$INPUT_TAG"
+          tag="${input_tag:-v${version}}"
+          if [ "$tag" != "v${version}" ]; then
+            echo "Release tag must equal v${version}, got ${tag}" >&2
+            exit 1
+          fi
+
+          android_version_name="$(sed -nE 's/^[[:space:]]*versionName[[:space:]]+"([^"]+)".*/\1/p' android/app/build.gradle | head -n 1)"
+          android_version_code="$(sed -nE 's/^[[:space:]]*versionCode[[:space:]]+([0-9]+).*/\1/p' android/app/build.gradle | head -n 1)"
+          if [ "$android_version_name" != "$version" ]; then
+            echo "Android versionName must equal ${version}, got ${android_version_name}" >&2
+            exit 1
+          fi
+          if [ "$android_version_code" != "$EXPECTED_ANDROID_VERSION_CODE" ]; then
+            echo "Android versionCode must equal ${EXPECTED_ANDROID_VERSION_CODE}, got ${android_version_code}" >&2
+            exit 1
+          fi
+
+          if [ ! -s "$RELEASE_NOTES_PATH" ]; then
+            echo "Release notes not found or empty: ${RELEASE_NOTES_PATH}" >&2
+            exit 1
+          fi
+          if ! grep -Fq "沉浸式时钟 v${version}" "$RELEASE_NOTES_PATH"; then
+            echo "Release notes do not identify v${version}" >&2
+            exit 1
+          fi
+
+          IFS=. read -r major minor patch <<< "$version"
+          if [ -z "$major" ] || [ -z "$minor" ] || [ -z "$patch" ]; then
+            echo "Invalid semantic version: ${version}" >&2
+            exit 1
+          fi
+
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
+          echo "major=${major}" >> "$GITHUB_OUTPUT"
+          echo "major_minor=${major}.${minor}" >> "$GITHUB_OUTPUT"
+          echo "release_name=沉浸式时钟 v${version}" >> "$GITHUB_OUTPUT"
 
   build-web:
     runs-on: ubuntu-latest
@@ -77,31 +125,36 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
+          cache: npm
 
-      - name: Install dependencies
-        run: npm install --no-audit --no-fund
+      - name: Install dependencies from lockfile
+        run: npm ci --no-audit --no-fund
 
       - name: Build Web
         env:
           NODE_ENV: production
         run: npm run build
 
-      - name: Package Web dist
+      - name: Package versioned Web build
+        shell: bash
         run: |
-          cd dist
-          zip -r ../immersive-clock-web.zip .
-          cd ..
+          set -euo pipefail
+          archive="immersive-clock-web-${{ needs.prepare.outputs.version }}.zip"
+          (cd dist && zip -q -r "../${archive}" .)
+          test -s "$archive"
+          unzip -t "$archive"
 
-      - name: Upload Web Artifact
+      - name: Upload Web artifact
         uses: actions/upload-artifact@v4
         with:
           name: web-build
-          path: immersive-clock-web.zip
+          path: immersive-clock-web-${{ needs.prepare.outputs.version }}.zip
           if-no-files-found: error
 
   build-electron-windows:
     runs-on: windows-latest
     needs: prepare
+    timeout-minutes: 40
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -110,6 +163,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
+          cache: npm
 
       - name: Cache electron-builder
         uses: actions/cache@v4
@@ -117,100 +171,73 @@ jobs:
           path: |
             ~\AppData\Local\electron
             ~\AppData\Local\electron-builder
-          key: ${{ runner.os }}-electron-builder-${{ hashFiles('package.json', 'electron-builder.json') }}
+          key: ${{ runner.os }}-electron-builder-${{ hashFiles('package-lock.json', 'electron-builder.json') }}
           restore-keys: |
             ${{ runner.os }}-electron-builder-
 
-      - name: Install dependencies
-        run: npm install --no-audit --no-fund
+      - name: Install dependencies from lockfile
+        run: npm ci --no-audit --no-fund
 
       - name: Cleanup broken NSIS cache
         shell: pwsh
         run: |
           $nsisResourcesDir = Join-Path $env:LOCALAPPDATA "electron-builder\Cache\nsis\nsis-resources-3.4.1"
           $wrongArchive = Join-Path $nsisResourcesDir "nsis-resources.7z"
-
           if (Test-Path $wrongArchive) {
-            Write-Host "Detected legacy/broken NSIS resources cache ($wrongArchive). Removing $nsisResourcesDir to force re-download."
             Remove-Item -Recurse -Force $nsisResourcesDir
           }
 
-      - name: Create .env file from secrets
-        run: |
-          $content = @"
-          VITE_QWEATHER_API_HOST=${{ secrets.VITE_QWEATHER_API_HOST }}
-          VITE_QWEATHER_API_KEY=${{ secrets.VITE_QWEATHER_API_KEY }}
-          VITE_AMAP_API_KEY=${{ secrets.VITE_AMAP_API_KEY }}
-          "@
-          
-          Set-Content -Path .env -Value $content
-
-      - name: Build Electron app
+      - name: Build Windows Electron packages
+        shell: pwsh
         env:
           NODE_ENV: production
-          DEBUG: electron-builder
         run: |
           $maxAttempts = 3
-
           for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
-            Write-Host "Build attempt $attempt of $maxAttempts..."
-
             npm run build:electron
             if ($LASTEXITCODE -ne 0) {
-              if ($attempt -eq $maxAttempts) {
-                throw "build:electron failed after $maxAttempts attempts"
-              }
-              Write-Host "build:electron failed, retrying in 10 seconds..."
+              if ($attempt -eq $maxAttempts) { throw "build:electron failed" }
               Start-Sleep -Seconds 10
               continue
             }
 
             npm run pack:electron
-            if ($LASTEXITCODE -eq 0) {
-              break
-            }
-
-            if ($attempt -eq $maxAttempts) {
-              throw "pack:electron failed after $maxAttempts attempts"
-            }
-
-            Write-Host "pack:electron failed, retrying in 10 seconds..."
+            if ($LASTEXITCODE -eq 0) { break }
+            if ($attempt -eq $maxAttempts) { throw "pack:electron failed" }
             Start-Sleep -Seconds 10
           }
-        timeout-minutes: 30
 
       - name: Verify Windows artifacts
         shell: pwsh
         run: |
-          if (-not (Test-Path "release")) {
-            throw "release directory not found"
+          $version = "${{ needs.prepare.outputs.version }}"
+          $setup = "release/immersive-clock-$version-x64-Setup.exe"
+          $portable = "release/immersive-clock-$version-x64-Portable.exe"
+          if (-not (Test-Path $setup -PathType Leaf) -or (Get-Item $setup).Length -eq 0) {
+            throw "Missing Windows Setup: $setup"
+          }
+          if (-not (Test-Path $portable -PathType Leaf) -or (Get-Item $portable).Length -eq 0) {
+            throw "Missing Windows Portable: $portable"
           }
 
-          $setupFiles = Get-ChildItem -Path "release" -Filter "*-Setup.exe" -File -ErrorAction SilentlyContinue
-          $portableFiles = Get-ChildItem -Path "release" -Filter "*-Portable.exe" -File -ErrorAction SilentlyContinue
-
-          if (($setupFiles.Count + $portableFiles.Count) -eq 0) {
-            Get-ChildItem -Path "release" -Force | Format-Table -AutoSize | Out-String | Write-Host
-            throw "No Windows installer files found in release/"
-          }
-
-      - name: Upload Windows NSIS installer
+      - name: Upload Windows Setup
         uses: actions/upload-artifact@v4
         with:
-          name: windows-nsis-installer
-          path: release/*-Setup.exe
+          name: windows-setup
+          path: release/immersive-clock-${{ needs.prepare.outputs.version }}-x64-Setup.exe
           if-no-files-found: error
 
       - name: Upload Windows Portable
         uses: actions/upload-artifact@v4
         with:
           name: windows-portable
-          path: release/*-Portable.exe
+          path: release/immersive-clock-${{ needs.prepare.outputs.version }}-x64-Portable.exe
           if-no-files-found: error
 
   build-electron-linux:
     runs-on: ubuntu-latest
     needs: prepare
+    timeout-minutes: 40
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -219,6 +246,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
+          cache: npm
 
       - name: Cache electron-builder
         uses: actions/cache@v4
@@ -226,22 +254,14 @@ jobs:
           path: |
             ~/.cache/electron
             ~/.cache/electron-builder
-          key: ${{ runner.os }}-electron-builder-${{ hashFiles('package.json', 'electron-builder.json') }}
+          key: ${{ runner.os }}-electron-builder-${{ hashFiles('package-lock.json', 'electron-builder.json') }}
           restore-keys: |
             ${{ runner.os }}-electron-builder-
 
-      - name: Install dependencies
-        run: npm install --no-audit --no-fund
+      - name: Install dependencies from lockfile
+        run: npm ci --no-audit --no-fund
 
-      - name: Create .env file from secrets
-        run: |
-          cat > .env << EOF
-          VITE_QWEATHER_API_HOST=${{ secrets.VITE_QWEATHER_API_HOST }}
-          VITE_QWEATHER_API_KEY=${{ secrets.VITE_QWEATHER_API_KEY }}
-          VITE_AMAP_API_KEY=${{ secrets.VITE_AMAP_API_KEY }}
-          EOF
-
-      - name: Build Electron app
+      - name: Build Linux Electron packages
         env:
           NODE_ENV: production
         run: |
@@ -251,39 +271,145 @@ jobs:
       - name: Verify Linux artifacts
         shell: bash
         run: |
-          if [ ! -d "release" ]; then
-            echo "release directory not found"
-            exit 1
-          fi
-
-          ls -la release
-
-          shopt -s nullglob
-          files=(release/*.AppImage release/*.deb release/*.rpm)
-          if [ ${#files[@]} -eq 0 ]; then
-            echo "No Linux artifacts found in release/"
-            exit 1
-          fi
+          set -euo pipefail
+          for extension in AppImage deb rpm; do
+            shopt -s nullglob
+            files=(release/immersive-clock-${{ needs.prepare.outputs.version }}-*.${extension})
+            if [ ${#files[@]} -ne 1 ] || [ ! -s "${files[0]}" ]; then
+              echo "Expected one non-empty ${extension} package" >&2
+              find release -maxdepth 1 -type f -print 2>/dev/null || true
+              exit 1
+            fi
+          done
 
       - name: Upload Linux AppImage
         uses: actions/upload-artifact@v4
         with:
           name: linux-appimage
-          path: release/*.AppImage
+          path: release/immersive-clock-${{ needs.prepare.outputs.version }}-*.AppImage
           if-no-files-found: error
 
       - name: Upload Linux DEB
         uses: actions/upload-artifact@v4
         with:
           name: linux-deb
-          path: release/*.deb
+          path: release/immersive-clock-${{ needs.prepare.outputs.version }}-*.deb
           if-no-files-found: error
 
       - name: Upload Linux RPM
         uses: actions/upload-artifact@v4
         with:
           name: linux-rpm
-          path: release/*.rpm
+          path: release/immersive-clock-${{ needs.prepare.outputs.version }}-*.rpm
+          if-no-files-found: error
+
+  build-android-release:
+    runs-on: ubuntu-latest
+    needs: prepare
+    timeout-minutes: 35
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Setup JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android API and Build Tools
+        run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
+
+      - name: Setup Gradle cache
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Install dependencies from lockfile
+        run: npm ci --no-audit --no-fund
+
+      - name: Decode release keystore
+        shell: bash
+        env:
+          ANDROID_RELEASE_KEYSTORE_BASE64: ${{ secrets.ANDROID_RELEASE_KEYSTORE_BASE64 }}
+        run: |
+          set -euo pipefail
+          if [ -z "$ANDROID_RELEASE_KEYSTORE_BASE64" ]; then
+            echo "ANDROID_RELEASE_KEYSTORE_BASE64 is not configured" >&2
+            exit 1
+          fi
+          printf '%s' "$ANDROID_RELEASE_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/immersive-clock-release.jks"
+          chmod 600 "$RUNNER_TEMP/immersive-clock-release.jks"
+          test -s "$RUNNER_TEMP/immersive-clock-release.jks"
+
+      - name: Build and sync Android web assets
+        env:
+          NODE_ENV: production
+        run: npm run build:android
+
+      - name: Verify Android build excludes Service Worker
+        shell: bash
+        run: |
+          if [ -f "dist/sw.js" ] || [ -f "android/app/src/main/assets/public/sw.js" ]; then
+            echo "Android build unexpectedly contains a Service Worker" >&2
+            exit 1
+          fi
+
+      - name: Assemble signed Android Release APK
+        env:
+          ANDROID_RELEASE_STORE_FILE: ${{ runner.temp }}/immersive-clock-release.jks
+          ANDROID_RELEASE_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_RELEASE_KEYSTORE_PASSWORD }}
+          ANDROID_RELEASE_KEY_ALIAS: ${{ secrets.ANDROID_RELEASE_KEY_ALIAS }}
+          ANDROID_RELEASE_KEY_PASSWORD: ${{ secrets.ANDROID_RELEASE_KEY_PASSWORD }}
+        run: npm run pack:android:release
+
+      - name: Verify Android package, version, and signature
+        shell: bash
+        env:
+          EXPECTED_CERT_SHA256: ${{ vars.ANDROID_RELEASE_CERT_SHA256 }}
+        run: |
+          set -euo pipefail
+          apk="android/app/build/outputs/apk/release/app-release.apk"
+          apksigner="$ANDROID_HOME/build-tools/36.0.0/apksigner"
+          aapt="$ANDROID_HOME/build-tools/36.0.0/aapt"
+
+          test -s "$apk"
+          "$apksigner" verify --verbose --print-certs "$apk"
+
+          actual_cert="$("$apksigner" verify --print-certs "$apk" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p' | head -n 1 | tr -d ':[:space:]' | tr '[:lower:]' '[:upper:]')"
+          expected_cert="$(printf '%s' "$EXPECTED_CERT_SHA256" | tr -d ':[:space:]' | tr '[:lower:]' '[:upper:]')"
+          if [ -z "$expected_cert" ] || [ "$actual_cert" != "$expected_cert" ]; then
+            echo "Android signing certificate SHA-256 does not match the configured repository variable" >&2
+            exit 1
+          fi
+
+          badging="$("$aapt" dump badging "$apk" | head -n 1)"
+          printf '%s\n' "$badging"
+          grep -Fq "name='io.github.qziky.immersiveclock'" <<< "$badging"
+          grep -Fq "versionCode='${EXPECTED_ANDROID_VERSION_CODE}'" <<< "$badging"
+          grep -Fq "versionName='${{ needs.prepare.outputs.version }}'" <<< "$badging"
+
+          output="immersive-clock-${{ needs.prepare.outputs.version }}-android-release.apk"
+          cp "$apk" "$output"
+          test -s "$output"
+
+      - name: Remove decoded keystore
+        if: always()
+        shell: bash
+        run: rm -f "$RUNNER_TEMP/immersive-clock-release.jks"
+
+      - name: Upload Android Release APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-release
+          path: immersive-clock-${{ needs.prepare.outputs.version }}-android-release.apk
           if-no-files-found: error
 
   build-docker:
@@ -299,64 +425,105 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Log in to Container Registry
+      - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract metadata for Docker
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=semver,pattern={{major}}
-            type=raw,value=latest,enable=${{ github.ref == format('refs/heads/{0}', 'main') }}
+      - name: Normalize image name
+        id: image
+        shell: bash
+        run: |
+          image="$(printf '%s/%s' "$REGISTRY" "$IMAGE_NAME" | tr '[:upper:]' '[:lower:]')"
+          echo "name=${image}" >> "$GITHUB_OUTPUT"
 
-      - name: Build and push multi-arch Docker image
-        uses: docker/build-push-action@v5
+      - name: Build and push multi-architecture image
+        uses: docker/build-push-action@v6
         with:
           context: .
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          tags: |
+            ${{ steps.image.outputs.name }}:${{ needs.prepare.outputs.version }}
+            ${{ steps.image.outputs.name }}:${{ needs.prepare.outputs.major_minor }}
+            ${{ steps.image.outputs.name }}:${{ needs.prepare.outputs.major }}
+            ${{ steps.image.outputs.name }}:latest
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.version=${{ needs.prepare.outputs.version }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      - name: Verify all image tags and architectures
+        shell: bash
+        run: |
+          set -euo pipefail
+          image="${{ steps.image.outputs.name }}"
+          for tag in "${{ needs.prepare.outputs.version }}" "${{ needs.prepare.outputs.major_minor }}" "${{ needs.prepare.outputs.major }}" latest; do
+            output="$(docker buildx imagetools inspect "${image}:${tag}")"
+            printf '%s\n' "$output"
+            grep -Fq "linux/amd64" <<< "$output"
+            grep -Fq "linux/arm64" <<< "$output"
+          done
+
   publish:
     runs-on: ubuntu-latest
-    needs: [prepare, build-web, build-electron-windows, build-electron-linux, build-docker]
+    needs:
+      - prepare
+      - build-web
+      - build-electron-windows
+      - build-electron-linux
+      - build-android-release
+      - build-docker
     permissions:
       contents: write
     steps:
-      - name: Download all artifacts
+      - name: Checkout repository for fixed Release Notes
+        uses: actions/checkout@v4
+
+      - name: Download all release artifacts
         uses: actions/download-artifact@v4
         with:
           path: release-assets
 
-      - name: List assets
+      - name: Collect and validate release files
         shell: bash
         run: |
-          ls -R release-assets
+          set -euo pipefail
+          version="${{ needs.prepare.outputs.version }}"
+          mkdir release-files
+          find release-assets -type f -exec cp '{}' release-files/ \;
+
+          test -s "release-files/immersive-clock-web-${version}.zip"
+          test -s "release-files/immersive-clock-${version}-x64-Setup.exe"
+          test -s "release-files/immersive-clock-${version}-x64-Portable.exe"
+          test -s "release-files/immersive-clock-${version}-android-release.apk"
+
+          for extension in AppImage deb rpm; do
+            shopt -s nullglob
+            files=(release-files/immersive-clock-${version}-*.${extension})
+            if [ ${#files[@]} -ne 1 ] || [ ! -s "${files[0]}" ]; then
+              echo "Expected one non-empty ${extension} release file" >&2
+              find release-files -maxdepth 1 -type f -print
+              exit 1
+            fi
+          done
+
+          (cd release-files && sha256sum * | sort -k2 > SHA256SUMS.txt)
+          test -s release-files/SHA256SUMS.txt
+          find release-files -maxdepth 1 -type f -printf '%f %s bytes\n' | sort
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ needs.prepare.outputs.tag }}
           name: ${{ needs.prepare.outputs.release_name }}
           target_commitish: ${{ github.sha }}
+          body_path: docs/marketing/releases/v4.0.0.md
           draft: ${{ inputs.draft }}
           prerelease: ${{ inputs.prerelease }}
           fail_on_unmatched_files: true
-          files: |
-            release-assets/**/immersive-clock-web.zip
-            release-assets/**/*-Setup.exe
-            release-assets/**/*-Portable.exe
-            release-assets/**/*.AppImage
-            release-assets/**/*.deb
-            release-assets/**/*.rpm
+          files: release-files/*

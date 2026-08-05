@@ -8,7 +8,7 @@
 <p>A local-first fullscreen time dashboard for classrooms, study spaces, and personal focus.</p>
 
 <p>
-  <a href="https://clock.qqhkx.com"><strong>Live Demo</strong></a>
+  <a href="https://github.com/Qziky/Immersive-clock/releases/latest"><strong>Download v4.0.0</strong></a>
   ·
   <a href="docs/user-guide/en-us/user-guide.md"><strong>User Guide</strong></a>
   ·
@@ -17,7 +17,7 @@
 
 <p>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-GPL--3.0--only-2fecc6" alt="GPL-3.0-only" /></a>
-  <a href="https://clock.qqhkx.com"><img src="https://img.shields.io/badge/PWA-ready-0f766e?logo=pwa" alt="PWA ready" /></a>
+  <img src="https://img.shields.io/badge/PWA-ready-0f766e?logo=pwa" alt="PWA ready" />
   <a href="https://github.com/Qziky/Immersive-clock/releases"><img src="https://img.shields.io/badge/Platform-Web%20%7C%20Android%20%7C%20Win%20%7C%20Linux-0891b2" alt="Web, Android, Windows, and Linux" /></a>
 </p>
 
@@ -40,7 +40,7 @@ controls into a low-distraction interface made for long-running displays.
 | **Study**          | Classrooms, study rooms, personal focus | Time, weather, progress, events, quotes, and optional environment monitoring      |
 | **Local first**    | Account-free personal use               | Settings, schedules, resources, and history stay on the current device by default |
 | **Appearance**     | Projection tuning and personalization   | Fonts, backgrounds, time display, and component-level styling                     |
-| **Multi-platform** | Browsers, desktops, and mobile devices  | Web/PWA, Windows/Linux, and an Android Debug APK                                  |
+| **Multi-platform** | Browsers, desktops, and mobile devices  | Web/PWA, Windows/Linux, and a release-signed Android APK                          |
 
 > Local first does not mean every feature is fully offline. Core timers and local content work
 > offline; fresh weather, city search, online quotes, external time sync, and feedback pages need a
@@ -75,21 +75,26 @@ per-page appearance controls.
 
 ## Quick start
 
-### Use it directly
+### Use the Web / PWA build
 
-1. Open the [live demo (external deployment)](https://clock.qqhkx.com).
+1. Download `immersive-clock-web-4.0.0.zip` from
+   [GitHub Releases](https://github.com/Qziky/Immersive-clock/releases/latest), then deploy it to an
+   HTTPS web server with SPA fallback support.
 2. Use the HUD in the lower-right corner to switch between clock, countdown, stopwatch, and study.
 3. In a supported browser, choose “Install app” or “Add to Home Screen” to launch it as a PWA.
 
+> External website deployments are outside the v4.0.0 release scope. This README does not guarantee
+> their current version or availability.
+
 ### Installable builds
 
-| Platform  | Get it                                                                      | Current boundary                                                                 |
-| --------- | --------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| Web / PWA | [Live demo](https://clock.qqhkx.com)                                        | Installation and offline behavior depend on browser support and cached resources |
-| Windows   | [GitHub Releases](https://github.com/Qziky/Immersive-clock/releases/latest) | x64 installer and portable builds, subject to actual release assets              |
-| Linux     | [GitHub Releases](https://github.com/Qziky/Immersive-clock/releases/latest) | AppImage, deb, and rpm, subject to actual release assets                         |
-| Android   | [Debug APK guide](docs/technical/engineering/android-debug-build.md)        | Debug-signed APK only; this is not a production app-store package                |
-| macOS     | Use Web / PWA                                                               | No native macOS package is currently published                                   |
+| Platform  | Get it                                                                      | Current boundary                                                    |
+| --------- | --------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| Web / PWA | [GitHub Releases](https://github.com/Qziky/Immersive-clock/releases/latest) | Download the versioned Web ZIP and self-host it                     |
+| Windows   | [GitHub Releases](https://github.com/Qziky/Immersive-clock/releases/latest) | x64 installer and portable builds, subject to actual release assets |
+| Linux     | [GitHub Releases](https://github.com/Qziky/Immersive-clock/releases/latest) | AppImage, deb, and rpm, subject to actual release assets            |
+| Android   | [GitHub Releases](https://github.com/Qziky/Immersive-clock/releases/latest) | Release-signed sideload APK; not distributed through an app store   |
+| macOS     | Self-host the Web / PWA build                                               | No native macOS package is currently published                      |
 
 ## Privacy and capability boundaries
 

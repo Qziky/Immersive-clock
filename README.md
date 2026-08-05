@@ -8,7 +8,7 @@
 <p>为教室、自习空间与个人专注打造的本地优先全屏时间看板。</p>
 
 <p>
-  <a href="https://clock.qqhkx.com"><strong>在线体验</strong></a>
+  <a href="https://github.com/Qziky/Immersive-clock/releases/latest"><strong>下载 v4.0.0</strong></a>
   ·
   <a href="docs/user-guide/README.md"><strong>使用文档</strong></a>
   ·
@@ -17,7 +17,7 @@
 
 <p>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-GPL--3.0--only-2fecc6" alt="GPL-3.0-only" /></a>
-  <a href="https://clock.qqhkx.com"><img src="https://img.shields.io/badge/PWA-ready-0f766e?logo=pwa" alt="PWA ready" /></a>
+  <img src="https://img.shields.io/badge/PWA-ready-0f766e?logo=pwa" alt="PWA ready" />
   <a href="https://github.com/Qziky/Immersive-clock/releases"><img src="https://img.shields.io/badge/Platform-Web%20%7C%20Android%20%7C%20Win%20%7C%20Linux-0891b2" alt="Web、Android、Windows 与 Linux" /></a>
 </p>
 
@@ -32,15 +32,15 @@
 沉浸式时钟将四种时间模式、自习信息、环境提示和外观定制组织在一个适合长时间展示的
 低干扰界面中。
 
-| 能力         | 适用场景               | 说明                                       |
-| ------------ | ---------------------- | ------------------------------------------ |
-| **时钟**     | 桌面、投屏、常驻显示   | 大字时间、日期、秒数开关与自动隐藏 HUD     |
-| **倒计时**   | 考试、演讲、番茄钟     | 快捷时长、自定义时间与结束提醒             |
-| **秒表**     | 活动、训练、课堂计时   | 开始、暂停、继续与归零                     |
-| **自习**     | 教室、自习室、个人专注 | 时间、天气、进度、事件、语录与可选环境监测 |
-| **本地优先** | 无账号的个人使用       | 设置、课表、资源和历史默认保存在当前设备   |
-| **外观定制** | 投屏适配与个性化       | 字体、背景、时间显示和组件级样式           |
-| **多平台**   | 浏览器、桌面与移动设备 | Web/PWA、Windows/Linux、Android Debug APK  |
+| 能力         | 适用场景               | 说明                                         |
+| ------------ | ---------------------- | -------------------------------------------- |
+| **时钟**     | 桌面、投屏、常驻显示   | 大字时间、日期、秒数开关与自动隐藏 HUD       |
+| **倒计时**   | 考试、演讲、番茄钟     | 快捷时长、自定义时间与结束提醒               |
+| **秒表**     | 活动、训练、课堂计时   | 开始、暂停、继续与归零                       |
+| **自习**     | 教室、自习室、个人专注 | 时间、天气、进度、事件、语录与可选环境监测   |
+| **本地优先** | 无账号的个人使用       | 设置、课表、资源和历史默认保存在当前设备     |
+| **外观定制** | 投屏适配与个性化       | 字体、背景、时间显示和组件级样式             |
+| **多平台**   | 浏览器、桌面与移动设备 | Web/PWA、Windows/Linux、正式签名 Android APK |
 
 > 本地优先不等于所有功能完全离线。核心计时与本地内容可离线使用；新天气、城市搜索、在线
 > 语录、外部校时和反馈页面需要网络。
@@ -71,21 +71,24 @@
 
 ## 快速开始
 
-### 直接使用
+### 使用 Web / PWA
 
-1. 打开[在线体验（外部部署）](https://clock.qqhkx.com)。
+1. 从 [GitHub Releases](https://github.com/Qziky/Immersive-clock/releases/latest) 下载
+   `immersive-clock-web-4.0.0.zip`，部署到支持 HTTPS 和 SPA fallback 的 Web 服务。
 2. 通过页面右下角 HUD 切换时钟、倒计时、秒表和自习模式。
 3. 在支持的浏览器中选择“安装应用”或“添加到主屏幕”，即可作为 PWA 启动。
 
+> 仓库外的在线站点不在 v4.0.0 发布范围内；本页不对其当前版本或可用性作保证。
+
 ### 安装版本
 
-| 平台      | 获取方式                                                                    | 当前边界                                   |
-| --------- | --------------------------------------------------------------------------- | ------------------------------------------ |
-| Web / PWA | [在线体验](https://clock.qqhkx.com)                                         | 安装和离线表现取决于浏览器及缓存状态       |
-| Windows   | [GitHub Releases](https://github.com/Qziky/Immersive-clock/releases/latest) | x64 安装版与便携版，以发布附件为准         |
-| Linux     | [GitHub Releases](https://github.com/Qziky/Immersive-clock/releases/latest) | AppImage、deb 与 rpm，以发布附件为准       |
-| Android   | [Debug APK 构建说明](docs/technical/engineering/android-debug-build.md)     | 当前仅提供调试签名 APK，不是应用商店正式包 |
-| macOS     | 使用 Web / PWA                                                              | 当前没有对外发布原生安装包                 |
+| 平台      | 获取方式                                                                    | 当前边界                             |
+| --------- | --------------------------------------------------------------------------- | ------------------------------------ |
+| Web / PWA | [GitHub Releases](https://github.com/Qziky/Immersive-clock/releases/latest) | 下载版本化 Web ZIP 后自托管          |
+| Windows   | [GitHub Releases](https://github.com/Qziky/Immersive-clock/releases/latest) | x64 安装版与便携版，以发布附件为准   |
+| Linux     | [GitHub Releases](https://github.com/Qziky/Immersive-clock/releases/latest) | AppImage、deb 与 rpm，以发布附件为准 |
+| Android   | [GitHub Releases](https://github.com/Qziky/Immersive-clock/releases/latest) | 正式签名侧载 APK，不是应用商店分发包 |
+| macOS     | 自托管 Web / PWA                                                            | 当前没有对外发布原生安装包           |
 
 ## 隐私与能力边界
 

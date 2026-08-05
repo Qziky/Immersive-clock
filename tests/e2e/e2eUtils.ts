@@ -1,6 +1,12 @@
+import { readFileSync } from "node:fs";
+
 import { expect, type Page } from "@playwright/test";
 
 const TOUR_STORAGE_KEY = "immersive-clock:has-seen-tour";
+
+export const CURRENT_APP_VERSION = JSON.parse(
+  readFileSync(new URL("../../package.json", import.meta.url), "utf8")
+).version as string;
 
 async function dismissTourOverlay(page: Page) {
   try {

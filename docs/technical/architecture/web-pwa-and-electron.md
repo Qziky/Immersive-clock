@@ -5,17 +5,18 @@
 
 ## 构建模式
 
-| 命令                     | 结果                                                              |
-| ------------------------ | ----------------------------------------------------------------- |
-| `npm run dev`            | Vite Web 开发服务器，默认 `127.0.0.1:3005`。                      |
-| `npm run dev:electron`   | `vite --mode electron`，启动 Electron 主进程并加载开发服务器。    |
-| `npm run build`          | Web/PWA 构建到 `dist/`，随后执行 `scripts/postbuild.mjs`。        |
-| `npm run build:electron` | 清理并构建渲染层和 `dist-electron/`，随后修正 Electron 相对路径。 |
-| `npm run pack:electron`  | 使用 `electron-builder.json` 打包到 `release/`。                  |
-| `npm run dist:electron`  | 先构建 Electron，再执行打包。                                     |
-| `npm run build:android`  | Android mode 构建到 `dist/`，随后执行 `cap sync android`。        |
-| `npm run pack:android`   | 通过 Gradle Wrapper 生成 Debug APK。                              |
-| `npm run open:android`   | 补齐 Wrapper 并在 Android Studio 打开原生工程。                   |
+| 命令                           | 结果                                                              |
+| ------------------------------ | ----------------------------------------------------------------- |
+| `npm run dev`                  | Vite Web 开发服务器，默认 `127.0.0.1:3005`。                      |
+| `npm run dev:electron`         | `vite --mode electron`，启动 Electron 主进程并加载开发服务器。    |
+| `npm run build`                | Web/PWA 构建到 `dist/`，随后执行 `scripts/postbuild.mjs`。        |
+| `npm run build:electron`       | 清理并构建渲染层和 `dist-electron/`，随后修正 Electron 相对路径。 |
+| `npm run pack:electron`        | 使用 `electron-builder.json` 打包到 `release/`。                  |
+| `npm run dist:electron`        | 先构建 Electron，再执行打包。                                     |
+| `npm run build:android`        | Android mode 构建到 `dist/`，随后执行 `cap sync android`。        |
+| `npm run pack:android`         | 通过 Gradle Wrapper 生成 Debug APK。                              |
+| `npm run pack:android:release` | 使用环境变量中的长期发布证书生成正式签名 Release APK。            |
+| `npm run open:android`         | 补齐 Wrapper 并在 Android Studio 打开原生工程。                   |
 
 `vite.config.ts` 从 `package.json` 或 `VITE_APP_VERSION` 注入版本，Web 使用 `/` base，Electron
 和 Android 使用 `./` base。生产构建以 Terser 压缩并移除 `console`/`debugger`；开发和测试保留
@@ -47,6 +48,11 @@ Service Worker；Android mode 也不加载 PWA 插件，避免 WebView 内的双
 Android 的小米天气客户端使用 `CapacitorHttp` 请求固定绝对上游地址，避开 WebView CORS；请求
 仍经过 `weatherRequestGuard`，并将原生状态码、超时、非 JSON 与网络失败映射为现有
 `HttpRequestError`。Web 继续使用部署代理，Electron 继续使用 `app://local` 协议代理。
+
+Debug APK 使用 Android 默认调试证书。Release APK 的 Gradle 配置只从
+`ANDROID_RELEASE_STORE_FILE`、`ANDROID_RELEASE_KEYSTORE_PASSWORD`、
+`ANDROID_RELEASE_KEY_ALIAS` 与 `ANDROID_RELEASE_KEY_PASSWORD` 读取长期签名；Release 任务缺少
+任一字段即失败。正式工作流还会将 `apksigner` 输出与仓库变量中的证书 SHA-256 比对。
 
 ## Electron 主进程
 

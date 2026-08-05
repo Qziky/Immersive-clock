@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+
 import { showHud } from "./e2eUtils";
 
 /** 端到端用例：验证秒表可开始、暂停与重置（函数级注释） */
@@ -10,6 +11,7 @@ test("秒表：开始/暂停/重置", async ({ page }) => {
   await tablist.getByRole("tab", { name: /秒表/ }).click();
 
   const toolbar = page.getByRole("toolbar", { name: "时钟控制" });
+  await expect(page.getByText("正在加载秒表…", { exact: true })).toBeHidden();
   const timeArea = page.locator("#stopwatch-panel").locator('[aria-live="polite"]');
 
   await expect(timeArea).toContainText("00:00:00");
