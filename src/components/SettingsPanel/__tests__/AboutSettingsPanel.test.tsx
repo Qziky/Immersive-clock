@@ -70,7 +70,7 @@ describe("AboutSettingsPanel", () => {
       "https://github.com/Qziky/Immersive-clock/blob/main/THIRD_PARTY_NOTICES.md"
     );
     expect(screen.getByText("开源许可")).toBeInTheDocument();
-    expect(screen.getByText(/允许商业使用和收费分发/)).toHaveTextContent("本软件按“原样”提供");
+    expect(screen.getByText(/修改与再分发须遵守许可证/)).toHaveTextContent("本软件按“原样”提供");
     expect(screen.getByText("服务与隐私说明")).toBeInTheDocument();
     expect(screen.getByText(/今日诗词免费版仅限非商业使用/)).toHaveTextContent(
       "该限制只适用于这一可选第三方服务"

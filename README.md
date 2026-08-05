@@ -254,8 +254,8 @@ immersive-clock/
 - 作者：[Qziky](https://github.com/Qziky)
 - 项目仓库：[Qziky/Immersive-clock](https://github.com/Qziky/Immersive-clock)
 
-本项目允许商业使用和收费分发；修改与再分发须遵守 GPL-3.0-only、保留相关通知，并按
-许可证要求提供对应源代码。本软件按“原样”提供，不附带任何明示或默示担保。第三方服务、
+修改与再分发须遵守 GPL-3.0-only、保留相关通知，并按许可证要求提供对应源代码。本软件按
+“原样”提供，不附带任何明示或默示担保。第三方服务、
 字体、图标和其他素材适用各自条款。
 
 ## 🧬 衍生项目

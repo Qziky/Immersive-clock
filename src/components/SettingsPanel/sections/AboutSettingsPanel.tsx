@@ -202,7 +202,7 @@ const AboutSettingsPanel: React.FC<AboutSettingsPanelProps> = ({ onRegisterSave,
       <FormSection title="使用声明" variant="plain" hidden={isSectionHidden("project")}>
         <InfoPanel tone="info" title="开源许可">
           Copyright © 2025–2026 Qziky。本软件按 GPL-3.0-only
-          发布，允许商业使用和收费分发；修改与再分发须遵守许可证、保留版权与许可证通知，并按要求提供对应源代码。本软件按“原样”提供，不附带任何明示或默示担保。
+          发布。修改与再分发须遵守许可证、保留版权与许可证通知，并按要求提供对应源代码。本软件按“原样”提供，不附带任何明示或默示担保。
         </InfoPanel>
         <InfoPanel tone="warning" title="服务与隐私说明">
           今日诗词免费版仅限非商业使用；该限制只适用于这一可选第三方服务，不限制本软件本身。启用后会由服务方处理公开

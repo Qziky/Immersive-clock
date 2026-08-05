@@ -37,17 +37,3 @@ Immersive Clock 的项目代码按 [GPL-3.0-only](LICENSE) 发布。本文件所
 根据已安装的生产依赖生成 `LICENSES/npm-production-dependencies.txt`，其中包含包名、版本、
 许可证表达式以及可找到的上游许可证/版权文本。发布 Web、Android 或 Electron 构建产物时，
 请保留该文件以及本目录中的其他许可证文件。
-
-## 尚待确认的仓库素材
-
-以下文件在当前仓库中没有足够的来源或授权记录。在首次公开仓库或发布二进制包前，应确认
-它们由项目维护者创作、已获得可再分发许可，或替换为来源明确的素材：
-
-- `public/ding.mp3`
-- `public/ding-1.mp3`
-- `public/ding-2.mp3`
-- `public/favicon.svg`、`public/favicon.png`、`public/favicon.ico` 及其派生图标
-- `src/data/quotes-1.json` 和 `src/data/quotes-2.json` 中的语录与校训文本
-
-第三方天气服务、在线语录服务、问卷、分析服务以及用户输入内容不属于本项目许可证的授权
-范围，使用时须遵守对应服务条款和隐私政策。

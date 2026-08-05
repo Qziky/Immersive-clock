@@ -266,10 +266,9 @@ the [technical knowledge base](docs/technical/README.md).
 - Author: [Qziky](https://github.com/Qziky)
 - Repository: [Qziky/Immersive-clock](https://github.com/Qziky/Immersive-clock)
 
-Commercial use and paid redistribution are permitted. Modified and redistributed copies must comply
-with GPL-3.0-only, preserve the applicable notices, and provide Corresponding Source when required.
-The software is provided “as is”, without warranty. Third-party services, fonts, icons, and other
-assets remain subject to their own terms.
+Modified and redistributed copies must comply with GPL-3.0-only, preserve the applicable notices,
+and provide Corresponding Source when required. The software is provided “as is”, without warranty.
+Third-party services, fonts, icons, and other assets remain subject to their own terms.
 
 ## 🧬 Derivative Projects
 
