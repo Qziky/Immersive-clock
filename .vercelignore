@@ -57,9 +57,8 @@ build
 .parcel-cache
 .vite
 
-# 文档和说明文件（可选，根据需要调整）
+# 文档和说明文件（LICENSE 是合规构建输入，必须上传）
 README.md
-LICENSE
 
 # Git相关
 .git
