@@ -488,6 +488,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: release-assets
+          pattern: "!*.dockerbuild"
 
       - name: Collect and validate release files
         shell: bash
