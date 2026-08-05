@@ -27,8 +27,6 @@
 
 </div>
 
-<img src="docs/marketing/assets/readme/readme-divider.svg" width="100%" alt="" />
-
 ## At a glance
 
 Immersive Clock brings four time modes, study information, environmental context, and appearance
@@ -74,8 +72,6 @@ The settings center provides a live preview, primary and information fonts, back
 per-page appearance controls.
 
 ![Immersive Clock appearance settings](docs/marketing/assets/readme/readme-appearance-settings.png)
-
-<img src="docs/marketing/assets/readme/readme-divider.svg" width="100%" alt="" />
 
 ## Quick start
 

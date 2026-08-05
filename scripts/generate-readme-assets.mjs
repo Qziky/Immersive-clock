@@ -619,30 +619,6 @@ async function buildModesGrid(browser) {
   );
 }
 
-async function writeDivider() {
-  const divider = `<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="160" viewBox="0 0 1600 160" fill="none">
-  <defs>
-    <linearGradient id="line" x1="160" y1="80" x2="1440" y2="80" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#07110E" stop-opacity="0"/>
-      <stop offset="0.28" stop-color="#48C99F" stop-opacity="0.36"/>
-      <stop offset="0.5" stop-color="#72E4C2" stop-opacity="0.9"/>
-      <stop offset="0.72" stop-color="#4CBADA" stop-opacity="0.36"/>
-      <stop offset="1" stop-color="#07110E" stop-opacity="0"/>
-    </linearGradient>
-    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
-      <feGaussianBlur stdDeviation="9"/>
-    </filter>
-  </defs>
-  <path d="M120 80C380 20 520 140 800 80C1080 20 1220 140 1480 80" stroke="url(#line)" stroke-width="1.5"/>
-  <path d="M270 80C520 42 640 118 800 80C960 42 1080 118 1330 80" stroke="url(#line)" stroke-opacity="0.45"/>
-  <circle cx="800" cy="80" r="6" fill="#72E4C2"/>
-  <circle cx="800" cy="80" r="18" fill="#72E4C2" fill-opacity="0.18" filter="url(#glow)"/>
-  <circle cx="534" cy="66" r="3" fill="#55CBAA" fill-opacity="0.7"/>
-  <circle cx="1066" cy="94" r="3" fill="#4CBADA" fill-opacity="0.7"/>
-</svg>`;
-  await writeFile(path.join(ASSET_DIR, "readme-divider.svg"), divider, "utf8");
-}
-
 async function copyFinalScreenshots() {
   const study = await readFile(path.join(SOURCE_DIR, "study.png"));
   const appearance = await readFile(path.join(SOURCE_DIR, "appearance-settings.png"));
@@ -656,12 +632,7 @@ async function main() {
   const browser = await chromium.launch({ channel: "msedge", headless: true });
   try {
     await captureSources(browser);
-    await Promise.all([
-      buildHero(browser),
-      buildModesGrid(browser),
-      copyFinalScreenshots(),
-      writeDivider(),
-    ]);
+    await Promise.all([buildHero(browser), buildModesGrid(browser), copyFinalScreenshots()]);
     await rm(LEGACY_HERO_PATH, { force: true });
   } finally {
     await browser.close();

@@ -27,8 +27,6 @@
 
 </div>
 
-<img src="docs/marketing/assets/readme/readme-divider.svg" width="100%" alt="" />
-
 ## 一眼了解
 
 沉浸式时钟将四种时间模式、自习信息、环境提示和外观定制组织在一个适合长时间展示的
@@ -70,8 +68,6 @@
 设置中心提供实时预览、主显示字体、信息字体、背景和各页面外观配置。
 
 ![沉浸式时钟外观设置界面](docs/marketing/assets/readme/readme-appearance-settings.png)
-
-<img src="docs/marketing/assets/readme/readme-divider.svg" width="100%" alt="" />
 
 ## 快速开始
 
