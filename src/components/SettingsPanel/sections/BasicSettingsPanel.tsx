@@ -414,7 +414,9 @@ export const BasicSettingsPanel: React.FC<BasicSettingsPanelProps> = ({
             />
           }
         >
-          <StatusPill tone={keepAwakeStatusTone}>{keepAwakeStatusLabel}</StatusPill>
+          <FormButtonGroup gap="xs">
+            <StatusPill tone={keepAwakeStatusTone}>{keepAwakeStatusLabel}</StatusPill>
+          </FormButtonGroup>
           {showKeepAwakeWarning && (
             <InfoPanel tone="warning" title="屏幕常亮暂不可用">
               {keepAwakeRuntime.message ??
