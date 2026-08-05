@@ -7,6 +7,7 @@ import {
 } from "./appearanceAssets";
 import { normalizeAppearance } from "./appearanceModel";
 import { APP_SETTINGS_KEY, getAppSettings, replaceAppearanceSettings } from "./appSettings";
+import { broadcastSettingsEvent, SETTINGS_EVENTS } from "./settingsEvents";
 import { ensureInjectedFonts } from "./studyFontStorage";
 
 export async function migrateAppearanceAssets(): Promise<void> {
@@ -44,7 +45,10 @@ export async function migrateAppearanceAssets(): Promise<void> {
     };
     changed = true;
   }
-  if (changed) replaceAppearanceSettings(appearance);
+  if (changed) {
+    replaceAppearanceSettings(appearance);
+    broadcastSettingsEvent(SETTINGS_EVENTS.AppearanceResourcesMigrated);
+  }
 }
 
 export async function initializeAppearanceResources(): Promise<void> {

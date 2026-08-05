@@ -1,4 +1,4 @@
-import { act, render, screen } from "@testing-library/react";
+import { act, render, screen, within } from "@testing-library/react";
 import React from "react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -90,11 +90,10 @@ describe("消息事件通知适配", () => {
       );
     });
 
-    expect(screen.getByRole("status")).toHaveTextContent("天气提醒");
-    expect(screen.getByRole("status")).toHaveTextContent("测试内容");
-    expect(screen.getByRole("status").style.getPropertyValue("--ui-toast-accent-color")).toBe(
-      "#8ec5ff"
-    );
+    const notification = within(screen.getByLabelText("通知")).getByRole("status");
+    expect(notification).toHaveTextContent("天气提醒");
+    expect(notification).toHaveTextContent("测试内容");
+    expect(notification.style.getPropertyValue("--ui-toast-accent-color")).toBe("#8ec5ff");
 
     act(() => {
       window.dispatchEvent(
@@ -107,7 +106,7 @@ describe("消息事件通知适配", () => {
       );
     });
 
-    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    expect(within(screen.getByLabelText("通知")).queryByRole("status")).not.toBeInTheDocument();
   });
 
   it("keeps weather reminders visible until an explicit close", () => {
@@ -138,7 +137,9 @@ describe("消息事件通知适配", () => {
       vi.advanceTimersByTime(60000);
     });
 
-    expect(screen.getByRole("status")).toHaveTextContent("空气污染提醒");
+    expect(within(screen.getByLabelText("通知")).getByRole("status")).toHaveTextContent(
+      "空气污染提醒"
+    );
 
     act(() => {
       window.dispatchEvent(

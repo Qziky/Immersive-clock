@@ -1,6 +1,4 @@
-import readXlsxFile from "read-excel-file/universal";
-
-import { StudyPeriod } from "../types/studySchedule";
+import type { StudyPeriod } from "../types/studySchedule";
 
 import { parseExcelTimeNumber, parseTimeText } from "./studyScheduleValidation";
 
@@ -31,6 +29,7 @@ type HeaderIndices = {
 export async function parseStudyScheduleFromExcelArrayBuffer(
   buffer: ArrayBuffer
 ): Promise<ExcelImportResult> {
+  const { default: readXlsxFile } = await import("read-excel-file/universal");
   const sheets = await readXlsxFile(buffer);
 
   if (!sheets || sheets.length === 0) {

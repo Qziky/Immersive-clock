@@ -146,7 +146,7 @@ function AppearanceDraftControl() {
   );
 }
 
-function renderSettings(onClose = vi.fn()) {
+async function renderSettings(onClose = vi.fn()) {
   render(
     <AppContextProvider>
       <AppearanceProvider>
@@ -157,6 +157,7 @@ function renderSettings(onClose = vi.fn()) {
       </AppearanceProvider>
     </AppContextProvider>
   );
+  await screen.findByTestId("basic-panel");
   return onClose;
 }
 
@@ -184,8 +185,8 @@ describe("SettingsPanel", () => {
     vi.useRealTimers();
   });
 
-  it("支持折叠并重新展开当前桌面导航分组", () => {
-    renderSettings();
+  it("支持折叠并重新展开当前桌面导航分组", async () => {
+    await renderSettings();
 
     const dialog = screen.getByRole("dialog", { name: "设置" });
     const navigation = within(within(dialog).getByRole("complementary", { name: "设置导航" }));
@@ -210,8 +211,8 @@ describe("SettingsPanel", () => {
     expect(navigation.getByRole("button", { name: "启动页面" })).toBeInTheDocument();
   });
 
-  it("紧凑导航忽略悬停并通过单次点击打开二级菜单", () => {
-    renderSettings();
+  it("紧凑导航忽略悬停并通过单次点击打开二级菜单", async () => {
+    await renderSettings();
 
     const dialog = screen.getByRole("dialog", { name: "设置" });
     const compactNavigation = within(dialog).getByRole("navigation", { name: "设置紧凑导航" });
@@ -241,9 +242,9 @@ describe("SettingsPanel", () => {
     expect(within(dialog).queryByRole("navigation", { name: "视觉外观子分类" })).toBeNull();
   });
 
-  it("紧凑子菜单退出期间保留节点但立即停止交互", () => {
+  it("紧凑子菜单退出期间保留节点但立即停止交互", async () => {
+    await renderSettings();
     vi.useFakeTimers();
-    renderSettings();
 
     const dialog = screen.getByRole("dialog", { name: "设置" });
     const compactNavigation = within(dialog).getByRole("navigation", { name: "设置紧凑导航" });
@@ -273,9 +274,9 @@ describe("SettingsPanel", () => {
     expect(submenu).not.toBeInTheDocument();
   });
 
-  it("记住分组内最后子页并在跨分组切换时保留课程表草稿", () => {
+  it("记住分组内最后子页并在跨分组切换时保留课程表草稿", async () => {
     saveCalls.length = 0;
-    renderSettings();
+    await renderSettings();
 
     const dialog = screen.getByRole("dialog", { name: "设置" });
     const navigation = within(within(dialog).getByRole("complementary", { name: "设置导航" }));
@@ -285,6 +286,7 @@ describe("SettingsPanel", () => {
 
     fireEvent.click(navigation.getByRole("button", { name: /视觉外观/ }));
     fireEvent.click(navigation.getByRole("button", { name: "整体样式" }));
+    await screen.findByTestId("appearance-panel");
     fireEvent.click(navigation.getByRole("button", { name: /常用工作台/ }));
     finishGroupExpansion(navigation.getByRole("group", { name: "常用工作台" }));
 
@@ -298,7 +300,7 @@ describe("SettingsPanel", () => {
 
   it("按刷新、显示、渠道顺序展示语录设置并保留点击焦点", async () => {
     const user = userEvent.setup();
-    renderSettings();
+    await renderSettings();
 
     const dialog = screen.getByRole("dialog", { name: "设置" });
     const navigation = within(within(dialog).getByRole("complementary", { name: "设置导航" }));
@@ -316,14 +318,14 @@ describe("SettingsPanel", () => {
 
     expect(effectsButton).toHaveFocus();
     expect(effectsButton).toHaveAttribute("aria-current", "page");
-    expect(screen.getByTestId("quotes-panel")).toHaveAttribute("data-section", "effects");
+    expect(await screen.findByTestId("quotes-panel")).toHaveAttribute("data-section", "effects");
     expect(within(dialog).getByRole("heading", { name: "显示效果" })).toBeInTheDocument();
   });
 
   it("将环境提醒收敛为噪音、天气与定位三个页面", async () => {
     const user = userEvent.setup();
     weatherPanelInstances.count = 0;
-    renderSettings();
+    await renderSettings();
 
     const dialog = screen.getByRole("dialog", { name: "设置" });
     const navigation = within(within(dialog).getByRole("complementary", { name: "设置导航" }));
@@ -339,14 +341,14 @@ describe("SettingsPanel", () => {
 
     const noiseButton = within(environmentPanes).getByRole("button", { name: "噪音监测" });
     expect(noiseButton.querySelector('[data-app-icon="feature.noise"]')).not.toBeNull();
-    expect(screen.getByTestId("monitor-panel")).toBeInTheDocument();
+    expect(await screen.findByTestId("monitor-panel")).toBeInTheDocument();
     expect(within(dialog).queryByRole("heading", { name: "噪音监测" })).toBeNull();
     expect(within(dialog).queryByText("调整阈值与校准，并查看报告、实时监控和统计。")).toBeNull();
 
     const weatherButton = within(environmentPanes).getByRole("button", { name: "天气服务" });
     expect(weatherButton.querySelector('[data-app-icon="feature.weather"]')).not.toBeNull();
     await user.click(weatherButton);
-    expect(screen.getByTestId("weather-panel")).toHaveAttribute("data-section", "weather");
+    expect(await screen.findByTestId("weather-panel")).toHaveAttribute("data-section", "weather");
     expect(screen.getByTestId("weather-panel")).toHaveAttribute("data-instance", "1");
     expect(within(dialog).queryByRole("heading", { name: "天气服务" })).toBeNull();
     expect(within(dialog).queryByText("管理天气提醒与刷新策略，并查看完整天气数据。")).toBeNull();
@@ -360,8 +362,8 @@ describe("SettingsPanel", () => {
     expect(within(dialog).queryByText("选择自动或手动定位，并查看坐标、地址和诊断。")).toBeNull();
   });
 
-  it("将自习辅助组件归类到顶部信息栏", () => {
-    renderSettings();
+  it("将自习辅助组件归类到顶部信息栏", async () => {
+    await renderSettings();
 
     const dialog = screen.getByRole("dialog", { name: "设置" });
     const navigation = within(within(dialog).getByRole("complementary", { name: "设置导航" }));
@@ -377,22 +379,27 @@ describe("SettingsPanel", () => {
     expect(within(appearancePanes).queryByRole("button", { name: "事件倒计时" })).toBeNull();
   });
 
-  it("统一保存会提交所有已挂载设置面板", () => {
+  it("统一保存会提交所有已挂载设置面板", async () => {
     saveCalls.length = 0;
-    const onClose = renderSettings();
+    const onClose = await renderSettings();
     const dialog = screen.getByRole("dialog", { name: "设置" });
     const navigation = within(within(dialog).getByRole("complementary", { name: "设置导航" }));
 
     fireEvent.click(navigation.getByRole("button", { name: /视觉外观/ }));
     finishGroupExpansion(navigation.getByRole("group", { name: "视觉外观" }));
+    await screen.findByTestId("appearance-panel");
     fireEvent.click(navigation.getByRole("button", { name: /环境提醒/ }));
     finishGroupExpansion(navigation.getByRole("group", { name: "环境提醒" }));
+    await screen.findByTestId("monitor-panel");
     fireEvent.click(navigation.getByRole("button", { name: "天气服务" }));
+    await screen.findByTestId("weather-panel");
     fireEvent.click(navigation.getByRole("button", { name: /内容语录/ }));
     finishGroupExpansion(navigation.getByRole("group", { name: "内容语录" }));
+    await screen.findByTestId("quotes-panel");
     fireEvent.click(navigation.getByRole("button", { name: /系统数据/ }));
     finishGroupExpansion(navigation.getByRole("group", { name: "系统数据" }));
     fireEvent.click(navigation.getByRole("button", { name: "项目信息" }));
+    await screen.findByTestId("about-panel");
 
     fireEvent.click(within(dialog).getByRole("button", { name: "保存" }));
     expect(saveCalls).toEqual([
@@ -406,9 +413,9 @@ describe("SettingsPanel", () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
-  it("取消设置不会提交任何面板草稿", () => {
+  it("取消设置不会提交任何面板草稿", async () => {
     saveCalls.length = 0;
-    const onClose = renderSettings();
+    const onClose = await renderSettings();
     const dialog = screen.getByRole("dialog", { name: "设置" });
 
     fireEvent.click(within(dialog).getByRole("button", { name: "取消" }));
@@ -417,30 +424,31 @@ describe("SettingsPanel", () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
-  it("数据恢复请求刷新时立即关闭并锁定设置底栏", () => {
-    vi.useFakeTimers();
-    const onClose = renderSettings();
+  it("数据恢复请求刷新时立即关闭并锁定设置底栏", async () => {
+    const onClose = await renderSettings();
     const dialog = screen.getByRole("dialog", { name: "设置" });
     const navigation = within(within(dialog).getByRole("complementary", { name: "设置导航" }));
 
     fireEvent.click(navigation.getByRole("button", { name: /系统数据/ }));
     fireEvent.click(navigation.getByRole("button", { name: "设置数据" }));
-    fireEvent.click(screen.getByRole("button", { name: "模拟恢复并刷新" }));
+    const reloadButton = await screen.findByRole("button", { name: "模拟恢复并刷新" });
+    vi.useFakeTimers();
+    fireEvent.click(reloadButton);
 
     expect(onClose).toHaveBeenCalledTimes(1);
     expect(within(dialog).getByRole("button", { name: "取消" })).toBeDisabled();
     expect(within(dialog).getByRole("button", { name: "保存" })).toBeDisabled();
   });
 
-  it("数据操作期间锁定对话框关闭、导航和统一保存", () => {
+  it("数据操作期间锁定对话框关闭、导航和统一保存", async () => {
     saveCalls.length = 0;
-    const onClose = renderSettings();
+    const onClose = await renderSettings();
     const dialog = screen.getByRole("dialog", { name: "设置" });
     const navigation = within(within(dialog).getByRole("complementary", { name: "设置导航" }));
 
     fireEvent.click(navigation.getByRole("button", { name: /系统数据/ }));
     fireEvent.click(navigation.getByRole("button", { name: "设置数据" }));
-    fireEvent.click(screen.getByRole("button", { name: "模拟数据操作开始" }));
+    fireEvent.click(await screen.findByRole("button", { name: "模拟数据操作开始" }));
 
     expect(document.getElementById("settings-panel-container")).toHaveAttribute(
       "aria-busy",
@@ -468,8 +476,8 @@ describe("SettingsPanel", () => {
     expect(within(dialog).getByRole("button", { name: "保存" })).toBeEnabled();
   });
 
-  it("把未保存的外观草稿状态传给数据面板", () => {
-    renderSettings();
+  it("把未保存的外观草稿状态传给数据面板", async () => {
+    await renderSettings();
     fireEvent.click(screen.getByTestId("make-appearance-dirty"));
 
     const dialog = screen.getByRole("dialog", { name: "设置" });
@@ -477,10 +485,13 @@ describe("SettingsPanel", () => {
     fireEvent.click(navigation.getByRole("button", { name: /系统数据/ }));
     fireEvent.click(navigation.getByRole("button", { name: "设置数据" }));
 
-    expect(screen.getByTestId("data-panel")).toHaveAttribute("data-unsaved-appearance", "true");
+    expect(await screen.findByTestId("data-panel")).toHaveAttribute(
+      "data-unsaved-appearance",
+      "true"
+    );
   });
 
-  it("退出动画期间重新打开会重置基础设置和课程表草稿", () => {
+  it("退出动画期间重新打开会重置基础设置和课程表草稿", async () => {
     render(
       <AppContextProvider>
         <AppearanceProvider>
@@ -490,6 +501,7 @@ describe("SettingsPanel", () => {
         </AppearanceProvider>
       </AppContextProvider>
     );
+    await screen.findByTestId("basic-panel");
 
     let dialog = screen.getByRole("dialog", { name: "设置" });
     let navigation = within(within(dialog).getByRole("complementary", { name: "设置导航" }));
@@ -505,8 +517,7 @@ describe("SettingsPanel", () => {
     expect(screen.getByLabelText("课程草稿")).toHaveValue("已保存课程");
   });
 
-  it("退出动画期间保留当前分区并在结束后卸载", () => {
-    vi.useFakeTimers();
+  it("退出动画期间保留当前分区并在结束后卸载", async () => {
     render(
       <AppContextProvider>
         <AppearanceProvider>
@@ -516,11 +527,14 @@ describe("SettingsPanel", () => {
         </AppearanceProvider>
       </AppContextProvider>
     );
+    await screen.findByTestId("basic-panel");
 
     const dialog = screen.getByRole("dialog", { name: "设置" });
     const navigation = within(within(dialog).getByRole("complementary", { name: "设置导航" }));
     fireEvent.click(navigation.getByRole("button", { name: /视觉外观/ }));
     fireEvent.click(navigation.getByRole("button", { name: "时间显示" }));
+    await screen.findByTestId("appearance-panel");
+    vi.useFakeTimers();
     fireEvent.click(within(dialog).getByRole("button", { name: "取消" }));
 
     const exitingDialog = screen.getByRole("dialog", { hidden: true });

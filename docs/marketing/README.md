@@ -19,7 +19,7 @@
 
 ## 社区
 
-- [社区与生态](community-and-ecosystem.md)：反馈入口、衍生项目、友情链接和合作边界。
+- [社区与生态](community-and-ecosystem.md)：反馈入口、友情链接和合作边界。
 
 ## 使用原则
 

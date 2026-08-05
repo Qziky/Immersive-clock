@@ -3,7 +3,7 @@
 .modeSelector.modeSelector {
   border-bottom: 0;
   display: flex;
-  gap: clamp(0.75rem, 1.5vw, 1.25rem);
+  gap: clamp(var(--ui-space-5), 3vw, var(--ui-space-8));
   overflow-x: visible;
 }
 
@@ -69,7 +69,7 @@
 /* 响应式适配 */
 @media (max-width: 1200px) {
   .modeSelector.modeSelector {
-    gap: 1rem;
+    gap: var(--ui-space-5);
   }
 
   .modeSelector .modeButton {

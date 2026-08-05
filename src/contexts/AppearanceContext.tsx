@@ -27,6 +27,7 @@ import {
   resolveAppearanceStyle,
 } from "../utils/appearanceModel";
 import { getAppSettings, replaceAppearanceSettings } from "../utils/appSettings";
+import { SETTINGS_EVENTS, subscribeSettingsEvent } from "../utils/settingsEvents";
 
 type ResetScope =
   | { type: "property"; path: readonly string[] }
@@ -138,6 +139,14 @@ export function AppearanceProvider({ children }: { children: ReactNode }) {
   const isPreviewing = draftAppearance !== null;
   const activeAppearance = draftAppearance ?? committedAppearance;
 
+  useEffect(
+    () =>
+      subscribeSettingsEvent(SETTINGS_EVENTS.AppearanceResourcesMigrated, () => {
+        setCommittedAppearance(normalizeAppearance(getAppSettings().appearance));
+      }),
+    []
+  );
+
   useEffect(() => {
     let cancelled = false;
     const assetIds = collectBackgroundAssetIds(activeAppearance);
@@ -242,8 +251,9 @@ export function AppearanceProvider({ children }: { children: ReactNode }) {
 
   const getBackgroundImage = useCallback(
     (scene: AppearanceSceneId) => {
-      const assetId = resolveAppearanceBackground(activeAppearance, scene).assetId;
-      return assetId ? backgroundImages[assetId] : undefined;
+      const background = resolveAppearanceBackground(activeAppearance, scene);
+      if (background.type !== "image") return undefined;
+      return background.assetId ? backgroundImages[background.assetId] : background.imageDataUrl;
     },
     [activeAppearance, backgroundImages]
   );

@@ -44,12 +44,32 @@ npm run lint
 npm run lint:styles
 npm run test
 npm run test:e2e
+
+# README screenshots and decorative assets
+npm run assets:readme
 ```
 
 Choose the narrowest verification for the change. Documentation-only changes should at least check
 Markdown links and run `git diff --check`. For components, settings, persistence, permissions, PWA,
 or Electron changes, follow the [testing strategy](docs/technical/engineering/testing-strategy.md)
 and [build and release guide](docs/technical/engineering/build-release-and-deployment.md).
+
+## Project structure
+
+```text
+Immersive-clock/
+├── src/                    # React app, components, pages, state, and services
+├── electron/               # Electron main process and preload scripts
+├── android/                # Capacitor Android project
+├── public/                 # PWA, icons, and runtime static assets
+├── docs/                   # Product, user, technical, and marketing knowledge base
+├── scripts/                # Build, compliance, and README asset scripts
+├── tests/e2e/              # Playwright end-to-end tests
+└── vite.config.ts          # Web, PWA, Electron, and Android build entry
+```
+
+See [Application Architecture](docs/technical/architecture/application-architecture.md) and the
+[Module Map](docs/technical/architecture/module-map.md) for details.
 
 ## Branches, commits, and pull requests
 
@@ -85,9 +105,9 @@ Avoid mixing unrelated formatting, dependency upgrades, and feature changes in o
 - `docs/user-guide/`: user-facing guides and FAQ.
 - `docs/marketing/`: public copy, asset indexes, and release templates.
 
-README and this guide are entry points, not duplicate knowledge-base pages. Update the relevant user
-guide when user-visible behavior changes; update technical documentation and the testing coverage map
-when implementation facts change.
+README is for product users; development setup, repository structure, and verification workflows
+belong in this contributing guide. Update the relevant user guide when user-visible behavior changes;
+update technical documentation and the testing coverage map when implementation facts change.
 
 ## Security and feedback
 

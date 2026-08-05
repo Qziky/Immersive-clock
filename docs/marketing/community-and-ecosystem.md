@@ -19,14 +19,6 @@
 - 代码与文档贡献遵循仓库根目录的贡献指南。
 - 宣传、翻译或截图贡献应同时遵循[品牌表达](copy/brand-messaging.md)和[截图规范](assets/screenshot-guidelines.md)。
 
-## 衍生项目
-
-### Immersive-clock-monitor（外部维护）
-
-- 项目地址：https://github.com/QQHKX/Immersive-clock-monitor
-
-该项目由 QQHKX 在外部仓库维护，从沉浸式时钟的环境监测方向衍生，适合关注噪音评分实现与独立监测场景的开发者。介绍时应以衍生项目当前 README 为准，不把两个项目的作者、版本、功能和支持承诺混为一谈。
-
 ## 友情链接
 
 - SECTL：https://sectl.top/

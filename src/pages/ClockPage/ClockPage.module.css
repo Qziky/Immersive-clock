@@ -22,6 +22,19 @@
   user-select: none;
 }
 
+.lazyModalStatus {
+  padding: var(--ui-space-6);
+  color: var(--ui-color-text-muted);
+  text-align: center;
+}
+
+.modeLoadingStatus {
+  color: var(--ui-color-text-muted);
+  font-size: var(--ui-font-size-md);
+  padding: var(--ui-space-4);
+  text-align: center;
+}
+
 .clockPage:focus {
   outline: none;
 }

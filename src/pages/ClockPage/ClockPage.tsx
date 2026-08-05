@@ -1,28 +1,42 @@
-import React, { useCallback, useRef, useEffect, useState } from "react";
+import React, { lazy, Suspense, useCallback, useRef, useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
-import AnnouncementModal from "../../components/AnnouncementModal";
 import { AuthorInfo } from "../../components/AuthorInfo/AuthorInfo";
-import { Clock } from "../../components/Clock/Clock";
-import { Countdown } from "../../components/Countdown/Countdown";
-import { CountdownModal } from "../../components/CountdownModal/CountdownModal";
 import { HUD } from "../../components/HUD/HUD";
 import { SettingsButton } from "../../components/SettingsButton";
-import { SettingsPanel } from "../../components/SettingsPanel";
-import { Stopwatch } from "../../components/Stopwatch/Stopwatch";
-import { Study } from "../../components/Study/Study";
 import { useAppState, useAppDispatch } from "../../contexts/AppContext";
 import { useAppearance } from "../../contexts/AppearanceContext";
 import { startWeatherRuntime } from "../../services/weatherRuntime";
 import type { AppMode } from "../../types";
 import type { MessagePopupOpenDetail, MessagePopupType } from "../../types/messagePopup";
-import { IconButton, useFeedback, type ToastVariant } from "../../ui";
+import { IconButton, Modal, useFeedback, type ToastVariant } from "../../ui";
 import { appearanceBackgroundToCss } from "../../utils/appearanceModel";
 import { getModeFromPathname, MODE_ROUTE_PATHS } from "../../utils/modeRoutes";
 import { startTimeSyncManager } from "../../utils/timeSync";
 import { startTour, isTourActive } from "../../utils/tour";
 
 import styles from "./ClockPage.module.css";
+import { MODE_COMPONENTS, preloadModeComponent } from "./modeComponents";
+
+const loadAnnouncementModal = () => import("../../components/AnnouncementModal");
+const loadCountdownModal = () =>
+  import("../../components/CountdownModal/CountdownModal").then((module) => ({
+    default: module.CountdownModal,
+  }));
+const loadSettingsPanel = () => import("../../components/SettingsPanel");
+
+const AnnouncementModal = lazy(loadAnnouncementModal);
+const CountdownModal = lazy(loadCountdownModal);
+const SettingsPanel = lazy(() =>
+  loadSettingsPanel().then((module) => ({ default: module.SettingsPanel }))
+);
+
+const MODE_LABELS: Record<AppMode, string> = {
+  clock: "时钟",
+  countdown: "倒计时",
+  stopwatch: "秒表",
+  study: "自习模式",
+};
 
 function getPopupToastVariant(type: MessagePopupType): ToastVariant {
   switch (type) {
@@ -60,15 +74,21 @@ export function ClockPage() {
   const navigate = useNavigate();
   const hideTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const hudContainerRef = useRef<HTMLDivElement | null>(null);
+  const settingsButtonRef = useRef<HTMLButtonElement | null>(null);
   const popupTypeMapRef = useRef(new Map<string, MessagePopupType>());
   const [showSettings, setShowSettings] = useState(false);
   const [showAnnouncement, setShowAnnouncement] = useState(false);
+  const [settingsWasRequested, setSettingsWasRequested] = useState(false);
+  const [announcementWasRequested, setAnnouncementWasRequested] = useState(false);
+  const shouldMountSettings = showSettings || settingsWasRequested;
+  const shouldMountAnnouncement = showAnnouncement || announcementWasRequested;
   const displayMode = previewScene ?? mode;
   const displayBackground = resolveBackground(displayMode);
   const displayBackgroundStyle = appearanceBackgroundToCss(
     displayBackground,
     getBackgroundImage(displayMode)
   );
+  const ModeComponent = MODE_COMPONENTS[displayMode];
 
   useEffect(() => {
     const routeMode = getModeFromPathname(location.pathname);
@@ -79,6 +99,7 @@ export function ClockPage() {
 
   const switchMode = useCallback(
     (nextMode: AppMode) => {
+      preloadModeComponent(nextMode);
       dispatch({ type: "SET_MODE", payload: nextMode });
       const nextPath = MODE_ROUTE_PATHS[nextMode];
       if (window.location.pathname !== nextPath) {
@@ -95,6 +116,14 @@ export function ClockPage() {
   useEffect(() => {
     return startWeatherRuntime();
   }, []);
+
+  useEffect(() => {
+    if (showSettings) setSettingsWasRequested(true);
+  }, [showSettings]);
+
+  useEffect(() => {
+    if (showAnnouncement) setAnnouncementWasRequested(true);
+  }, [showAnnouncement]);
 
   /**
    * 清除 HUD 自动隐藏定时器
@@ -234,6 +263,7 @@ export function ClockPage() {
    */
   const handleSettingsClose = useCallback(() => {
     setShowSettings(false);
+    window.requestAnimationFrame(() => settingsButtonRef.current?.focus({ preventScroll: true }));
   }, []);
 
   /**
@@ -249,24 +279,6 @@ export function ClockPage() {
   const handleAnnouncementClose = useCallback(() => {
     setShowAnnouncement(false);
   }, []);
-
-  /**
-   * 渲染当前模式的时钟组件
-   */
-  const renderTimeDisplay = () => {
-    switch (displayMode) {
-      case "clock":
-        return <Clock />;
-      case "countdown":
-        return <Countdown />;
-      case "stopwatch":
-        return <Stopwatch />;
-      case "study":
-        return <Study />;
-      default:
-        return <Clock />;
-    }
-  };
 
   // 全局消息弹窗事件监听：自习模式下全量响应，非自习模式仅响应天气相关弹窗
   useEffect(() => {
@@ -347,7 +359,15 @@ export function ClockPage() {
         data-appearance-content
         data-tour="clock-area"
       >
-        {renderTimeDisplay()}
+        <Suspense
+          fallback={
+            <div className={styles.modeLoadingStatus} role="status" aria-live="polite">
+              正在加载{MODE_LABELS[displayMode]}…
+            </div>
+          }
+        >
+          <ModeComponent />
+        </Suspense>
       </div>
 
       <div
@@ -398,19 +418,50 @@ export function ClockPage() {
         <AuthorInfo onVersionClick={handleVersionClick} />
       </div>
 
-      <SettingsButton onClick={handleSettingsClick} isVisible={!isModalOpen && !showSettings} />
+      <SettingsButton
+        ref={settingsButtonRef}
+        onClick={handleSettingsClick}
+        onIntent={loadSettingsPanel}
+        isVisible={!isModalOpen && !showSettings}
+      />
 
       {/* 设置面板 */}
-      <SettingsPanel isOpen={showSettings} onClose={handleSettingsClose} />
+      {shouldMountSettings && (
+        <Suspense
+          fallback={
+            <Modal
+              isOpen={showSettings}
+              onClose={handleSettingsClose}
+              title="设置"
+              placement="left"
+              maxWidth="xxl"
+            >
+              <div className={styles.lazyModalStatus} role="status" aria-live="polite">
+                正在加载设置…
+              </div>
+            </Modal>
+          }
+        >
+          <SettingsPanel isOpen={showSettings} onClose={handleSettingsClose} />
+        </Suspense>
+      )}
 
-      {isModalOpen && <CountdownModal />}
+      {isModalOpen && (
+        <Suspense fallback={null}>
+          <CountdownModal />
+        </Suspense>
+      )}
 
       {/* 公告弹窗 */}
-      <AnnouncementModal
-        isOpen={showAnnouncement}
-        onClose={handleAnnouncementClose}
-        initialTab="announcement"
-      />
+      {shouldMountAnnouncement && (
+        <Suspense fallback={null}>
+          <AnnouncementModal
+            isOpen={showAnnouncement}
+            onClose={handleAnnouncementClose}
+            initialTab="announcement"
+          />
+        </Suspense>
+      )}
     </main>
   );
 }

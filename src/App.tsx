@@ -2,17 +2,19 @@ import React, { lazy, Suspense, useEffect, useState } from "react";
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 
 import styles from "./App.module.css";
-import AnnouncementModal from "./components/AnnouncementModal";
 import { Confetti } from "./components/Confetti/Confetti";
 import { useKeepAwakeRuntime } from "./hooks/useKeepAwakeRuntime";
 import { ClockPage } from "./pages/ClockPage/ClockPage";
-import { DesignSystemPage } from "./pages/DesignSystem";
 import { useFeedback } from "./ui";
 import { shouldShowAnnouncement } from "./utils/announcementStorage";
 import { getAppSettings } from "./utils/appSettings";
 import { applySearchIndexingPolicy, isDeveloperPagePath } from "./utils/developerPages";
 import { hasSeenTour } from "./utils/tour";
 
+const AnnouncementModal = lazy(() => import("./components/AnnouncementModal"));
+const DesignSystemPage = lazy(() =>
+  import("./pages/DesignSystem").then((module) => ({ default: module.DesignSystemPage }))
+);
 const AudioDebugPage = lazy(() =>
   import("./pages/Debug/AudioDebugPage").then((module) => ({ default: module.AudioDebugPage }))
 );
@@ -56,7 +58,9 @@ export function App() {
   const developerModeEnabled = getAppSettings().general.developerModeEnabled;
   const [showEnterAnimation, setShowEnterAnimation] = useState(false);
   const [showAnnouncement, setShowAnnouncement] = useState(false);
+  const [announcementWasRequested, setAnnouncementWasRequested] = useState(false);
   const [showTourConfetti, setShowTourConfetti] = useState(false);
+  const shouldMountAnnouncement = showAnnouncement || announcementWasRequested;
 
   /**
    * 设置进入动画和公告弹窗
@@ -131,6 +135,10 @@ export function App() {
 
   useEffect(() => applySearchIndexingPolicy(location.pathname), [location.pathname]);
 
+  useEffect(() => {
+    if (showAnnouncement) setAnnouncementWasRequested(true);
+  }, [showAnnouncement]);
+
   return (
     <div
       className={`${styles.app} ${showEnterAnimation ? styles.enterAnimation : ""}`}
@@ -144,7 +152,21 @@ export function App() {
         <Route path="/study" element={<ClockPage />} />
         <Route
           path="/design-system"
-          element={developerModeEnabled ? <DesignSystemPage /> : <Navigate to="/" replace />}
+          element={
+            developerModeEnabled ? (
+              <Suspense
+                fallback={
+                  <div className={styles.routeLoading} role="status">
+                    正在加载组件规范…
+                  </div>
+                }
+              >
+                <DesignSystemPage />
+              </Suspense>
+            ) : (
+              <Navigate to="/" replace />
+            )
+          }
         />
         <Route
           path="/debug/audio"
@@ -170,12 +192,14 @@ export function App() {
       {!isDeveloperPageRoute && showTourConfetti && <Confetti />}
 
       {/* 公告弹窗 */}
-      {!isDeveloperPageRoute && (
-        <AnnouncementModal
-          isOpen={showAnnouncement}
-          onClose={() => setShowAnnouncement(false)}
-          initialTab="announcement"
-        />
+      {!isDeveloperPageRoute && shouldMountAnnouncement && (
+        <Suspense fallback={null}>
+          <AnnouncementModal
+            isOpen={showAnnouncement}
+            onClose={() => setShowAnnouncement(false)}
+            initialTab="announcement"
+          />
+        </Suspense>
       )}
     </div>
   );

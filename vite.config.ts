@@ -106,9 +106,9 @@ export default defineConfig(({ mode }) => {
       !isAndroid &&
       (VitePWA({
         registerType: "autoUpdate",
-        includeAssets: ["favicon.svg", "apple-touch-icon.png", "og-image.png"],
+        includeAssets: ["apple-touch-icon.png"],
         workbox: {
-          globPatterns: ["**/*.{js,css,html,ico,png,svg,webp,mp3,woff2,woff}"],
+          globPatterns: ["**/*.{js,css,html,ico,svg,webp,mp3,woff2,woff}"],
           navigateFallback: "/index.html",
           navigateFallbackAllowlist: [/^\/.*$/],
           navigateFallbackDenylist: [

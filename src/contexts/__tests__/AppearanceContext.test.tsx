@@ -1,7 +1,8 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { APP_SETTINGS_KEY } from "../../utils/appSettings";
+import { SETTINGS_EVENTS } from "../../utils/settingsEvents";
 import { AppearanceProvider, useAppearance } from "../AppearanceContext";
 
 function Harness() {
@@ -107,5 +108,25 @@ describe("AppearanceProvider", () => {
     expect(screen.getByLabelText("背景类型")).toHaveTextContent("color");
     fireEvent.click(screen.getByRole("button", { name: "写入非法颜色" }));
     expect(screen.getByLabelText("预览颜色")).toHaveTextContent("inherit");
+  });
+
+  it("外观资源迁移完成后同步当前会话中的已保存外观", () => {
+    render(
+      <AppearanceProvider>
+        <Harness />
+      </AppearanceProvider>
+    );
+    fireEvent.click(screen.getByRole("button", { name: "开始" }));
+    fireEvent.click(screen.getByRole("button", { name: "修改" }));
+    fireEvent.click(screen.getByRole("button", { name: "保存" }));
+
+    const stored = JSON.parse(localStorage.getItem(APP_SETTINGS_KEY) ?? "{}");
+    stored.appearance.scenes.clock.components.clock.slots.time.color = "#00ff00";
+    localStorage.setItem(APP_SETTINGS_KEY, JSON.stringify(stored));
+    act(() => {
+      window.dispatchEvent(new CustomEvent(SETTINGS_EVENTS.AppearanceResourcesMigrated));
+    });
+
+    expect(screen.getByLabelText("保存颜色")).toHaveTextContent("#00ff00");
   });
 });

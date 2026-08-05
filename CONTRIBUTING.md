@@ -44,12 +44,32 @@ npm run lint
 npm run lint:styles
 npm run test
 npm run test:e2e
+
+# README 截图与装饰素材
+npm run assets:readme
 ```
 
 根据改动范围选择最窄的验证命令。只改文档时，至少检查 Markdown 链接和
 `git diff --check`；涉及组件、设置、持久化、权限、PWA 或 Electron 时，请参考
 [测试策略](docs/technical/engineering/testing-strategy.md) 和
 [构建发布文档](docs/technical/engineering/build-release-and-deployment.md)。
+
+## 项目结构
+
+```text
+Immersive-clock/
+├── src/                    # React 应用、组件、页面、状态与服务
+├── electron/               # Electron 主进程与预加载脚本
+├── android/                # Capacitor Android 工程
+├── public/                 # PWA、图标与运行时静态资源
+├── docs/                   # 产品、用户、技术与营销知识库
+├── scripts/                # 构建、合规与 README 素材脚本
+├── tests/e2e/              # Playwright 端到端测试
+└── vite.config.ts          # Web、PWA、Electron 与 Android 构建入口
+```
+
+完整模块说明见[应用架构](docs/technical/architecture/application-architecture.md)和
+[模块地图](docs/technical/architecture/module-map.md)。
 
 ## 分支、提交与 Pull Request
 
@@ -86,8 +106,8 @@ npm run test:e2e
 - `docs/user-guide/`：面向用户的操作百科与 FAQ。
 - `docs/marketing/`：对外文案、素材索引和发布模板。
 
-README 和本贡献指南只做入口，不复制完整知识库正文。新增或修改用户可见行为时，
-同步更新对应用户指南；修改技术事实时，更新技术文档和测试覆盖地图。
+README 面向产品用户；开发环境、仓库结构和验证流程统一在本贡献指南中说明。新增或修改
+用户可见行为时，同步更新对应用户指南；修改技术事实时，更新技术文档和测试覆盖地图。
 
 ## 安全与反馈
 

@@ -8,6 +8,7 @@ import { logger } from "./logger";
 export const SETTINGS_EVENTS = {
   SettingsSaved: "settingsSaved",
   SettingsPanelClosed: "settingsPanelClosed",
+  AppearanceResourcesMigrated: "appearanceResourcesMigrated",
   NoiseControlSettingsUpdated: "noiseControlSettingsUpdated",
   StudyScheduleUpdated: "studyScheduleUpdated",
   WeatherSettingsUpdated: "weatherSettingsUpdated",
