@@ -12,6 +12,7 @@ const LEGACY_HERO_PATH = path.join(ROOT, "public", "assets", "readme-hero.png");
 const BASE_URL = process.env.README_CAPTURE_BASE_URL || "http://127.0.0.1:3005";
 const FIXED_TIME = new Date("2026-08-05T08:30:00+08:00");
 const VIEWPORT = { width: 1440, height: 900 };
+const APP_VERSION = JSON.parse(await readFile(path.join(ROOT, "package.json"), "utf8")).version;
 
 const BUILT_IN_QUOTE_CHANNELS = [
   { id: "local-inspirational", enabled: false, weight: 1, orderMode: "sequential" },
@@ -39,7 +40,7 @@ function createDemoSettings(fixedTime) {
       timeDisplay: { showClockSeconds: true, showStudySeconds: true },
       announcement: {
         hideUntil: fixedTime + 14 * 24 * 60 * 60 * 1000,
-        version: "3.13.3",
+        version: APP_VERSION,
       },
       weather: {
         locationMode: "manual",

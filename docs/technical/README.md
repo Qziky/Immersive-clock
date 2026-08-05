@@ -28,7 +28,7 @@
 - [测试策略](engineering/testing-strategy.md)：Vitest、Playwright、Browser 验证和选择测试范围。
 - [测试覆盖地图](engineering/testing-coverage-map.md)：代码与测试的稳定映射。
 - [构建、发布与部署](engineering/build-release-and-deployment.md)：Web、PWA、Electron、Docker 和发布流水线。
-- [Android Debug APK 构建](engineering/android-debug-build.md)：本地依赖、CI Artifact、真机安装与已知限制。
+- [Android APK 构建与发布](engineering/android-debug-build.md)：Debug CI、正式签名、侧载、恢复与真机验收。
 - [排障指南](engineering/troubleshooting.md)：本地开发、存储、网络、噪音和打包故障排查。
 
 ## 文档边界

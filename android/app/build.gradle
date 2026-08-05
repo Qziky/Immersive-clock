@@ -1,5 +1,27 @@
 apply plugin: 'com.android.application'
 
+def releaseStoreFile = System.getenv('ANDROID_RELEASE_STORE_FILE')
+def releaseStorePassword = System.getenv('ANDROID_RELEASE_KEYSTORE_PASSWORD')
+def releaseKeyAlias = System.getenv('ANDROID_RELEASE_KEY_ALIAS')
+def releaseKeyPassword = System.getenv('ANDROID_RELEASE_KEY_PASSWORD')
+def releaseSigningConfigured = [
+    releaseStoreFile,
+    releaseStorePassword,
+    releaseKeyAlias,
+    releaseKeyPassword
+].every { value -> value != null && !value.trim().isEmpty() }
+def releaseTaskRequested = gradle.startParameter.taskNames.any { taskName ->
+    taskName.toLowerCase().contains('release')
+}
+
+if (releaseTaskRequested && !releaseSigningConfigured) {
+    throw new GradleException(
+        'Android release signing requires ANDROID_RELEASE_STORE_FILE, ' +
+        'ANDROID_RELEASE_KEYSTORE_PASSWORD, ANDROID_RELEASE_KEY_ALIAS, and ' +
+        'ANDROID_RELEASE_KEY_PASSWORD.'
+    )
+}
+
 android {
     namespace = "io.github.qziky.immersiveclock"
     compileSdk = rootProject.ext.compileSdkVersion
@@ -8,16 +30,30 @@ android {
         applicationId "io.github.qziky.immersiveclock"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 31303
-        versionName "3.13.3"
+        versionCode 40000
+        versionName "4.0.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
 
+    signingConfigs {
+        if (releaseSigningConfigured) {
+            release {
+                storeFile file(releaseStoreFile)
+                storePassword releaseStorePassword
+                keyAlias releaseKeyAlias
+                keyPassword releaseKeyPassword
+            }
+        }
+    }
+
     buildTypes {
         release {
+            if (releaseSigningConfigured) {
+                signingConfig signingConfigs.release
+            }
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }

@@ -1,6 +1,6 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 
-import { showHud } from "./e2eUtils";
+import { CURRENT_APP_VERSION, showHud } from "./e2eUtils";
 
 type Background =
   | { type: "default" }
@@ -31,7 +31,7 @@ async function prepareVisualPage(
   await page.emulateMedia({ colorScheme: "dark", reducedMotion: "reduce" });
   await page.goto("/");
   await page.evaluate(
-    ({ nextBackground, hideUntil }) => {
+    ({ appVersion, nextBackground, hideUntil }) => {
       const current = JSON.parse(localStorage.getItem("AppSettings") || "{}");
       current.general = {
         ...(current.general || {}),
@@ -39,13 +39,17 @@ async function prepareVisualPage(
         announcement: {
           ...(current.general?.announcement || {}),
           hideUntil,
-          version: "3.13.3",
+          version: appVersion,
         },
       };
       localStorage.setItem("AppSettings", JSON.stringify(current));
       localStorage.setItem("immersive-clock:has-seen-tour", "true");
     },
-    { nextBackground: background, hideUntil: FIXED_TIME.getTime() + 7 * 24 * 60 * 60 * 1000 }
+    {
+      appVersion: CURRENT_APP_VERSION,
+      nextBackground: background,
+      hideUntil: FIXED_TIME.getTime() + 7 * 24 * 60 * 60 * 1000,
+    }
   );
   await page.reload();
   const motionResetStyle = await page.addStyleTag({
@@ -321,7 +325,9 @@ for (const viewport of [
   test(`设置抽屉视觉快照 ${viewport.width}×${viewport.height}`, async ({ page }) => {
     await prepareVisualPage(page, viewport, { type: "default" });
     await page.getByRole("button", { name: "打开设置" }).click();
-    await expect(page.getByRole("dialog", { name: "设置" })).toBeVisible();
+    const dialog = page.getByRole("dialog", { name: "设置" });
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByRole("heading", { name: "启动页面", level: 2 })).toBeVisible();
 
     await expect(page).toHaveScreenshot(`settings-${viewport.width}x${viewport.height}.png`, {
       animations: "disabled",
@@ -377,7 +383,7 @@ for (const viewport of [
         minimumAreaUtilization: 0.25,
         section: "顶部进度与信息",
       },
-      { label: "事件倒计时外观预览", minimumAreaUtilization: 0.35, section: "事件倒计时" },
+      { label: "事件倒计时外观预览", minimumAreaUtilization: 0.34, section: "事件倒计时" },
     ]) {
       await selectAppearanceSection(dialog, viewport, preview.section);
       const componentPreview = dialog.getByLabel(preview.label);

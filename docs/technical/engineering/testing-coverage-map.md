@@ -63,6 +63,7 @@
 | 音频诊断/开发者页 | `tests/e2e/audio-debug.e2e.spec.ts`、`developer-pages.e2e.spec.ts`            |
 | UI 视觉           | `tests/e2e/design-system-visual.e2e.spec.ts`、`visual-regression.e2e.spec.ts` |
 | 弹层与引导        | `modal-redesign.e2e.spec.ts`、`tour-rapid-click.e2e.spec.ts`                  |
+| 公告与发布版本    | `settings-persistence.e2e.spec.ts`、`visual-regression.e2e.spec.ts`           |
 | SEO/GEO           | `tests/e2e/seo.e2e.spec.ts`                                                   |
 
 ## 维护规则

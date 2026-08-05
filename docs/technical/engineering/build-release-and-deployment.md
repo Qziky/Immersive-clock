@@ -1,113 +1,84 @@
 # 构建、发布与部署
 
-项目同时产出 Web/PWA、Electron 桌面包、Android Debug APK 和 Docker/Nginx 镜像。构建入口由
+项目产出 Web/PWA、Electron 桌面包、Android APK 和 Docker/Nginx 镜像。构建入口由
 `package.json`、`vite.config.ts`、`capacitor.config.ts`、`electron-builder.json` 和 GitHub
-Actions 共同定义。
+Actions 共同定义，要求 Node.js 22 或更高版本。
 
-## Web 构建
+## Web 与 PWA
 
-`npm run build` 执行 `vite build`，输出 `dist/`，再运行 `scripts/postbuild.mjs`：
+`npm run build` 执行 Vite 生产构建及 postbuild、预渲染和合规检查，输出 `dist/`。
+`VITE_APP_VERSION` 优先于 `package.json.version`，该值会注入应用、manifest、公告偏好和缓存键。
 
-- 复制并更新 sitemap HTML/XML 日期；
-- 复制 `robots.txt`；
-- 不修改源码或 `public/docs`。
+Web mode 启用 `vite-plugin-pwa` 与自动更新 Service Worker；Electron 和 Android 不注册 Service
+Worker。发布前验证首次在线加载、离线重开、旧版本更新、`/docs/*.md` NetworkFirst 行为，以及
+IndexedDB 中的自定义字体和背景不会因缓存清理丢失。
 
-Vite 输出：
+GitHub Release 中的 `immersive-clock-web-<version>.zip` 是可自托管的 Web 正式制品。生产部署必须
+提供 HTTPS、SPA history fallback、`/docs/*` 静态文件，以及 `/api/xiaomi-weather/*` 同源代理。
+仓库外在线站点的部署、域名与证书不属于 Release 工作流。
 
-- JS：`js/[name]-[hash].js`；
-- 字体：`fonts/[name]-[hash][ext]`；
-- 图片：`images/[name]-[hash][ext]`；
-- 音频：`audio/[name]-[hash][ext]`；
-- 其他：`assets/[name]-[hash][ext]`。
+## Electron
 
-生产模式 Terser 移除 console/debugger，4KB 以下资源允许内联。`VITE_APP_VERSION` 优先，缺失
-时读取 `package.json.version`；值会注入 manifest、公告偏好和版本缓存插件。
+`npm run build:electron` 构建渲染层、主进程和 CommonJS preload，并修正生产资源相对路径；
+`npm run pack:electron` 使用 electron-builder 输出 `release/`。
 
-## PWA 产物
-
-Web 构建启用 `vite-plugin-pwa`：`registerType: "autoUpdate"`，自动生成 Service Worker 和 web
-manifest；Electron 与 Android mode 均禁用注册，Android 还完全禁用 PWA 插件。Web 预缓存静态
-资源，运行时缓存字体、图片、音频和 `/docs/*.md`。修改缓存规则、
-资源路径或 manifest 时要验证：
-
-1. 首次在线加载；
-2. Service Worker 安装与更新；
-3. 离线启动和旧版本更新；
-4. 公告/更新日志 NetworkFirst 行为；
-5. 自定义背景/字体不因缓存清理丢失（它们在 IndexedDB）。
-
-## Electron 构建
-
-`npm run build:electron` 会先删除 `dist-electron/`，以 Electron mode 构建渲染层、主进程和
-CommonJS preload，再执行 `scripts/postbuild-electron.mjs` 修正绝对资源路径。`npm run pack:electron`
-调用 electron-builder 输出 `release/`。
-
-平台产物：
-
-| 平台               | 产物                                          |
-| ------------------ | --------------------------------------------- |
-| Windows x64        | NSIS `*-Setup.exe`、Portable `*-Portable.exe` |
-| Linux x64/目标架构 | AppImage、deb、rpm                            |
+| 平台 | 产物 |
+| --- | --- |
+| Windows x64 | NSIS `*-Setup.exe`、Portable `*-Portable.exe` |
+| Linux x64 | AppImage、deb、rpm |
 
 打包清单包含 `dist`、`dist-electron`、`public` 和 `package.json`。应用 ID 为
-`io.github.qziky.immersiveclock`，图标来自 public。Electron 运行时使用 `app://local`，协议层会
-服务静态文件并代理天气请求；生产页面不能依赖 `/` 绝对资源路径。
+`io.github.qziky.immersiveclock`，生产运行时通过 `app://local` 提供静态资源和天气代理。
 
-## Android Debug APK
+## Android
 
-`npm run build:android` 使用 Android mode 构建 Web assets 并执行 `cap sync android`；该 mode 使用
-`./` base，禁用 Electron、PWA 插件和 Service Worker。`npm run pack:android` 通过经过 SHA-256
-校验的 Gradle 8.14.3 Wrapper 执行 `assembleDebug`，输出
-`android/app/build/outputs/apk/debug/app-debug.apk`。
+`npm run build:android` 使用相对资源路径构建 Web assets，禁用 Electron、PWA 插件与 Service
+Worker，并执行 `cap sync android`。
 
-Android application ID 为 `io.github.qziky.immersiveclock`，最低 API 24，使用 JDK 21。Debug APK
-使用 Android 自动生成的调试签名，不需要 keystore 或 Secrets。完整本地依赖、Artifact 下载、
-安装命令和限制见 [Android Debug APK 构建](android-debug-build.md)。
+- `npm run pack:android`：生成默认调试证书签名的 Debug APK，供独立 Android CI 和开发验收使用。
+- `npm run pack:android:release`：生成 Release APK；必须提供
+  `ANDROID_RELEASE_STORE_FILE`、`ANDROID_RELEASE_KEYSTORE_PASSWORD`、
+  `ANDROID_RELEASE_KEY_ALIAS`、`ANDROID_RELEASE_KEY_PASSWORD`，缺少任一字段即失败。
+
+application ID 为 `io.github.qziky.immersiveclock`，最低 API 24，使用 JDK 21、Android API 36 和
+Build Tools 36.0.0。Manual Release 从 GitHub Actions Secrets 解码仓库外 keystore，通过
+`apksigner` 验证签名并与 `ANDROID_RELEASE_CERT_SHA256` 仓库变量比对，再用 `aapt` 检查 package、
+`versionName` 和 `versionCode`。Release 只发布正式签名 APK，不发布 Debug APK 或 AAB。
+
+完整本地与 CI 说明见 [Android APK 构建与发布](android-debug-build.md)。
 
 ## Docker/Nginx
 
-`Dockerfile` 使用 Node 24 Alpine 构建 Web，再复制 `dist/` 到 Nginx Alpine；`nginx.conf`：
+`Dockerfile` 使用 Node 24 Alpine 构建 Web，再复制到 Nginx Alpine。镜像提供 SPA fallback、
+静态资源缓存、gzip、天气代理、开发者页 noindex 和 `/health`。
 
-- 为静态资源设置长期缓存和 gzip；
-- 代理 `/api/xiaomi-weather/` 到小米天气；
-- 对 `/design-system` 与 `/debug` 加 noindex；
-- 用 `try_files` 提供 SPA history fallback；
-- `/health` 返回纯文本 `healthy`。
+Manual Release 向 `ghcr.io/qziky/immersive-clock` 推送 amd64/arm64 manifest，并显式发布
+`<version>`、`<major>.<minor>`、`<major>`、`latest` 四组标签。发布后必须检查双架构 manifest，
+将 package visibility 设为 public，并在未登录状态验证可拉取。
 
-`docker-compose.yml` 将容器 80 端口映射到本机 8080。生产环境必须保证代理与 SPA fallback
-同时存在，否则天气会遇到 CORS、深链接会 404。
+## CI 与 Manual Release
 
-## Vercel/EdgeOne
+`.github/workflows/ci.yml` 在 PR/main 执行类型、样式、UI Catalog、lint、Vitest 与构建；main push
+还构建 Web、Windows/Linux Electron 和 Docker。`.github/workflows/android.yml` 独立构建 Debug
+APK，不参与 Release 附件。
 
-`vercel.json` 与 `edgeone.json` 复制同源天气代理、`/docs` 直出和 SPA fallback，并设置：
+`.github/workflows/manual-release.yml` 仅允许手动触发，并执行：
 
-- JS/CSS immutable 长缓存；
-- 图片 1 天、音频 2 天、字体约 30 天；
-- HTML 不缓存；
-- Web manifest/JSON 1 天；
-- docs noindex；开发者页面 noindex/nofollow/noarchive。
+1. 用 `npm ci` 安装依赖，校验 Tag、包版本、Android 版本和固定 Release Notes 一致；
+2. 构建 Web ZIP、Windows、Linux、正式签名 Android APK；
+3. 推送四组公开 GHCR 标签并检查 amd64/arm64 manifest；
+4. 汇总全部附件并生成 `SHA256SUMS.txt`；
+5. 从 `docs/marketing/releases/v<version>.md` 创建 GitHub Release。
 
-EdgeOne 当前配置声明 Node 18，而仓库开发和 CI 要求 Node `>=22.0.0`；部署平台若执行构建应
-以 CI/项目支持的 Node 版本为准并单独验证，不要把该配置误写成开发环境要求。
-
-## CI 与手动发布
-
-`.github/workflows/ci.yml` 在 PR/main 执行类型、样式、UI Catalog、lint、Vitest；main push 还
-构建 Web、Windows/Linux Electron 和 Docker。`manual-release.yml` 由 workflow_dispatch 触发，
-读取 package 版本或自定义 tag，上传 Web zip、Windows 安装包、Linux 包，并创建 GitHub Release。
-
-`.github/workflows/android.yml` 独立响应手动触发和 main 的 Android 相关路径变化，构建并上传
-Debug APK；它不作为现有 Web、Electron 或 Docker job 的依赖。
-
-Electron CI 会缓存 electron-builder，Windows 在打包失败时最多重试 3 次；发布前检查 release
-目录和预期扩展名。不要把 `.env`、API key 或构建缓存提交到仓库。
+v4.0.0 的标准流程先以 `draft=true`、`prerelease=false` 创建 Draft Release，下载并验收所有制品后，
+再转为公开稳定版并标记 Latest。
 
 ## 发布检查清单
 
-1. `npm ci`/`npm install` 后运行 typecheck、lint、styles、UI tests、Vitest。
-2. 运行 Web build，检查 `dist/index.html`、manifest、`public/docs/*.md` 和天气代理路径。
-3. 需要桌面包时运行 build:electron + pack:electron，检查 Windows/Linux 产物。
-4. 需要 Android APK 时运行 build:android + pack:android，并在真机检查定位、麦克风和重启。
-5. 验证深链接、全屏、定位、仅音频权限、NTP IPC、公告和离线启动。
-6. 检查版本注入、sitemap、robots、缓存 header 和 noindex header。
-7. 在发布说明中记录构建版本、平台、测试命令和已知限制。
+1. 运行 typecheck、lint、stylelint、Vitest、Playwright 和 Web build。
+2. 构建并检查 Windows Setup/Portable、Linux AppImage/deb/rpm。
+3. 构建 Android Release APK，核对 application ID、版本、证书指纹和校验和。
+4. 检查 Web ZIP 内容、版本注入、公告、更新日志、manifest、sitemap 和 robots。
+5. 检查 Docker 四组标签、双架构 manifest、健康端点与匿名拉取。
+6. 真机可用时检查 Android 启动、重开、四种模式、定位、麦克风、拒绝权限和离线重开；没有设备时明确记录未执行。
+7. Release 公开后确认 Tag 指向 `main` 发布提交、Release 为 Latest，并保持工作区干净。
