@@ -29,7 +29,7 @@
     "assets:readme": "node scripts/generate-readme-assets.mjs",
     "dev": "vite",
     "dev:electron": "vite --mode electron",
-    "build": "vite build && node scripts/postbuild.mjs && node scripts/postbuild-compliance.mjs",
+    "build": "vite build && node scripts/postbuild.mjs && node scripts/prerender.mjs && node scripts/postbuild-compliance.mjs",
     "build:electron": "node --input-type=module -e \"import fs from 'fs'; fs.rmSync('dist-electron',{ recursive:true, force:true });\" && vite build --mode electron && node scripts/postbuild-electron.mjs && node scripts/postbuild-compliance.mjs",
     "dist:electron": "npm run build:electron && npm run pack:electron",
     "pack:electron": "electron-builder",

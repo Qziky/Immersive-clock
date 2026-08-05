@@ -17,6 +17,41 @@ function formatDateIso(date) {
   return `${y}-${m}-${d}`;
 }
 
+// 读取 package.json 的 version 字段，失败时回退。
+function readAppVersion(root) {
+  try {
+    const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf-8'));
+    return typeof pkg.version === 'string' ? pkg.version : '';
+  } catch (e) {
+    console.warn('[postbuild] 读取 package.json version 失败:', e);
+    return '';
+  }
+}
+
+// 将 index.html 中的构建期占位符替换为真实版本号与日期，保持结构化数据“新鲜度”。
+function injectBuildMetadata(distDir, root) {
+  const indexPath = path.join(distDir, 'index.html');
+  if (!fs.existsSync(indexPath)) {
+    console.warn('[postbuild] 未找到 dist/index.html，跳过版本与日期注入');
+    return;
+  }
+  try {
+    const now = new Date();
+    const version = readAppVersion(root);
+    const buildDate = formatDateIso(now); // YYYY-MM-DD，用于 dateModified
+    const buildDateTime = now.toISOString(); // ISO 8601，用于 og:updated_time
+    let html = fs.readFileSync(indexPath, 'utf-8');
+    html = html
+      .replaceAll('__APP_VERSION__', version)
+      .replaceAll('__BUILD_DATE__', buildDate)
+      .replaceAll('__BUILD_DATETIME__', buildDateTime);
+    fs.writeFileSync(indexPath, html, 'utf-8');
+    console.log(`[postbuild] index.html 已注入版本(${version})与构建日期(${buildDate})`);
+  } catch (e) {
+    console.error('[postbuild] 注入构建元数据失败:', e);
+  }
+}
+
 function updateSitemapHtml(html) {
   const todayZh = formatDateZh(new Date());
   const pattern = /(最后更新:\s*)(\d{4}年\d{1,2}月\d{1,2}日)/;
@@ -44,6 +79,9 @@ function main() {
   const root = process.cwd();
   const distDir = path.join(root, 'dist');
   ensureDir(distDir);
+
+  // 注入版本号与构建日期，替换 index.html 中的占位符
+  injectBuildMetadata(distDir, root);
 
   // 处理 sitemap.html
   const sitemapHtmlPath = path.join(root, 'sitemap.html');

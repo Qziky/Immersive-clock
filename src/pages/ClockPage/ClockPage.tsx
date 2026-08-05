@@ -3,6 +3,8 @@ import { useLocation, useNavigate } from "react-router-dom";
 
 import { AuthorInfo } from "../../components/AuthorInfo/AuthorInfo";
 import { HUD } from "../../components/HUD/HUD";
+import { RouteSeo } from "../../components/Seo/RouteSeo";
+import { SeoContent } from "../../components/Seo/SeoContent";
 import { SettingsButton } from "../../components/SettingsButton";
 import { useAppState, useAppDispatch } from "../../contexts/AppContext";
 import { useAppearance } from "../../contexts/AppearanceContext";
@@ -352,6 +354,8 @@ export function ClockPage() {
       tabIndex={0}
       aria-label="时钟应用主界面"
     >
+      <RouteSeo />
+      <SeoContent />
       <div
         className={`${styles.timeDisplay} ${displayMode === "study" ? styles.studyTimeDisplay : ""}`}
         id={`${displayMode}-panel`}

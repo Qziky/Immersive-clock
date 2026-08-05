@@ -45,6 +45,7 @@
 | 公共 UI            | `src/ui/components/__tests__/*.test.tsx`、`src/ui/icons/__tests__/AppIcon.test.tsx`、`src/ui/__tests__/uiGovernance.test.ts`                                                   | `src/ui`、`src/pages/DesignSystem/componentCatalog.tsx`                                    |
 | 全屏               | `src/hooks/__tests__/useFullscreen.test.ts`                                                                                                                                    | `src/hooks/useFullscreen.ts`                                                               |
 | 运行平台/PWA       | `src/utils/__tests__/runtimePlatform.test.ts`、`src/components/SettingsPanel/__tests__/AboutSettingsPanel.test.tsx`、`src/components/AuthorInfo/__tests__/AuthorInfo.test.tsx` | `src/utils/runtimePlatform.ts`、`src/main.tsx`、`AboutSettingsPanel.tsx`、`AuthorInfo.tsx` |
+| SEO/GEO            | `src/utils/seo/__tests__/routeSeo.test.ts`、`src/components/Seo/__tests__/RouteSeo.test.tsx`                                                                              | `src/utils/seo/routeSeo.ts`、`src/components/Seo/RouteSeo.tsx`、`SeoContent.tsx`                    |
 
 ## E2E 映射
 
@@ -62,6 +63,7 @@
 | 音频诊断/开发者页 | `tests/e2e/audio-debug.e2e.spec.ts`、`developer-pages.e2e.spec.ts`            |
 | UI 视觉           | `tests/e2e/design-system-visual.e2e.spec.ts`、`visual-regression.e2e.spec.ts` |
 | 弹层与引导        | `modal-redesign.e2e.spec.ts`、`tour-rapid-click.e2e.spec.ts`                  |
+| SEO/GEO           | `tests/e2e/seo.e2e.spec.ts`                                                   |
 
 ## 维护规则
 

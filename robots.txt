@@ -5,5 +5,45 @@ Disallow: /src/
 Disallow: /dist/
 Disallow: /build/
 
+# 显式放行主流 AI 抓取与生成式引擎，便于内容被正确索引与引用
+User-agent: GPTBot
+Allow: /
+
+User-agent: OAI-SearchBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: Claude-Web
+Allow: /
+
+User-agent: anthropic-ai
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+User-agent: Applebot-Extended
+Allow: /
+
+User-agent: CCBot
+Allow: /
+
+User-agent: Baiduspider
+Allow: /
+
+User-agent: Bytespider
+Allow: /
+
+User-agent: Amazonbot
+Allow: /
+
 # 指定站点地图位置
 Sitemap: https://clock.qqhkx.com/sitemap.xml
