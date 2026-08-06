@@ -159,7 +159,6 @@ export function LegalConsentGate({ children }: LegalConsentGateProps) {
                 <Link className={styles.consentLink} to={LEGAL_DOCUMENTS.privacy.path}>
                   《隐私政策》
                 </Link>
-                ，并知悉用户体验改进计划默认开启。
               </span>
             }
             onChange={(event) => setAcknowledged(event.target.checked)}

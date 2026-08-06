@@ -52,6 +52,9 @@ describe("LegalConsentGate", () => {
     );
     expect(screen.getByRole("link", { name: "《隐私政策》" })).toHaveAttribute("href", "/privacy");
     expect(screen.queryByRole("link", { name: "《分析服务说明》" })).not.toBeInTheDocument();
+    expect(screen.getByRole("checkbox")).toHaveAccessibleName(
+      "我已阅读并同意《用户使用协议》和《隐私政策》"
+    );
     expect(document.querySelector("[data-legal-document]")).toBeNull();
 
     fireEvent.keyDown(document, { key: "Escape" });
