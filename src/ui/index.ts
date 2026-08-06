@@ -103,6 +103,13 @@ export type { SwitchProps } from "./components/Switch";
 export { Switch } from "./components/Switch";
 export type { TabItem, TabsProps } from "./components/Tabs";
 export { Tabs } from "./components/Tabs";
+export type {
+  TimeStageAttributes,
+  TimeStagePlacement,
+  TimeStageProps,
+  TimeStageValueProps,
+} from "./components/TimeStage";
+export { TimeStage, TimeStageValue } from "./components/TimeStage";
 export type { TimePickerProps, TimePickerValue } from "./components/TimePicker";
 export { TimePicker } from "./components/TimePicker";
 export type { TooltipProps } from "./components/Tooltip";

@@ -8,7 +8,7 @@
 <p>A local-first fullscreen time dashboard for classrooms, study spaces, and personal focus.</p>
 
 <p>
-  <a href="https://github.com/Qziky/Immersive-clock/releases/latest"><strong>Download v4.0.0</strong></a>
+  <a href="https://github.com/Qziky/Immersive-clock/releases/latest"><strong>Download v4.0.1</strong></a>
   ·
   <a href="docs/user-guide/en-us/user-guide.md"><strong>User Guide</strong></a>
   ·
@@ -77,13 +77,13 @@ per-page appearance controls.
 
 ### Use the Web / PWA build
 
-1. Download `immersive-clock-web-4.0.0.zip` from
+1. Download `immersive-clock-web-4.0.1.zip` from
    [GitHub Releases](https://github.com/Qziky/Immersive-clock/releases/latest), then deploy it to an
    HTTPS web server with SPA fallback support.
 2. Use the HUD in the lower-right corner to switch between clock, countdown, stopwatch, and study.
 3. In a supported browser, choose “Install app” or “Add to Home Screen” to launch it as a PWA.
 
-> External website deployments are outside the v4.0.0 release scope. This README does not guarantee
+> External website deployments are outside the v4.0.1 release scope. This README does not guarantee
 > their current version or availability.
 
 ### Installable builds

@@ -109,7 +109,7 @@ function isValidDraftValue(path: readonly string[], value: unknown): boolean {
   }
   if (path.includes("background")) {
     if (property === "type") {
-      return ["inherit", "default", "builtin", "black", "dark", "color", "image"].includes(
+      return ["inherit", "default", "green", "black", "dark", "color", "image"].includes(
         String(value)
       );
     }

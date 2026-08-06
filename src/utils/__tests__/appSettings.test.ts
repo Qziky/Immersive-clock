@@ -71,6 +71,7 @@ describe("appSettings", () => {
     expect(s.version).toBe(CURRENT_SETTINGS_VERSION);
     expect(s.general.developerModeEnabled).toBe(false);
     expect(s.general.keepAwakeEnabled).toBe(false);
+    expect(s.general.analytics.experienceProgramEnabled).toBe(true);
     expect(s.general.timeDisplay).toEqual({
       showClockSeconds: true,
       showStudySeconds: true,
@@ -678,6 +679,34 @@ describe("appSettings", () => {
       colorAlpha: 0.75,
     });
     expect(settings.study.background.type).toBe("default");
+  });
+
+  it("启动迁移会让旧默认背景使用深灰，并保留旧页面预设为深绿", () => {
+    localStorage.setItem(
+      APP_SETTINGS_KEY,
+      JSON.stringify({
+        version: 12,
+        appearance: {
+          global: { background: { type: "default" } },
+          scenes: {
+            clock: { background: { type: "builtin" }, components: {} },
+          },
+        },
+      })
+    );
+
+    const migrated = migrateStoredAppSettings();
+    const persisted = JSON.parse(localStorage.getItem(APP_SETTINGS_KEY) ?? "{}");
+
+    expect(migrated.appearance.global.background).toEqual({ type: "default" });
+    expect(migrated.appearance.scenes.clock.background).toEqual({ type: "green" });
+    expect(persisted).toMatchObject({
+      version: CURRENT_SETTINGS_VERSION,
+      appearance: {
+        global: { background: { type: "default" } },
+        scenes: { clock: { background: { type: "green" } } },
+      },
+    });
   });
 
   it("readStudyBackground 会将旧系统背景映射为深灰", () => {

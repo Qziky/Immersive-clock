@@ -1284,7 +1284,7 @@ test("组件外观：实时预览、取消回滚并在保存后持久化", async
   ).toBe("#ff3366");
 });
 
-test("页面背景：可在整体背景和应用预设之间切换", async ({ page }) => {
+test("页面背景：可在整体背景和深绿预设之间切换", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem(
       "AppSettings",
@@ -1305,14 +1305,14 @@ test("页面背景：可在整体背景和应用预设之间切换", async ({ pa
   let previewStage = dialog.getByLabel("时钟外观预览").locator('[data-preview-stage="clock"]');
   await expect(previewStage).toHaveCSS("background-color", "rgb(18, 52, 86)");
 
-  await dialog.getByRole("radio", { name: "应用预设" }).check({ force: true });
+  await dialog.getByRole("radio", { name: "深绿预设" }).check({ force: true });
   await dialog.getByRole("button", { name: "保存" }).click();
   expect(
     await page.evaluate(() => {
       const raw = localStorage.getItem("AppSettings");
       return raw ? JSON.parse(raw)?.appearance?.scenes?.clock?.background?.type : null;
     })
-  ).toBe("builtin");
+  ).toBe("green");
 
   await page.getByRole("button", { name: "打开设置" }).click();
   dialog = page.getByRole("dialog", { name: "设置" });

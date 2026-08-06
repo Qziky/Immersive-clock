@@ -57,6 +57,7 @@ export type AppearanceBackgroundType =
   | "inherit"
   | "default"
   | "builtin"
+  | "green"
   | "black"
   | "dark"
   | "color"

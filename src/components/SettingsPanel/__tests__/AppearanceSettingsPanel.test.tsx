@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen, waitFor, within } from "@testing-librar
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { FeedbackProvider } from "../../../ui";
+import timeStageStyles from "../../../ui/components/TimeStage.module.css";
 import { createDefaultAppearance } from "../../../utils/appearanceModel";
 import clockStyles from "../../Clock/Clock.module.css";
 import quoteStyles from "../../MotivationalQuote/MotivationalQuote.module.css";
@@ -154,7 +155,7 @@ describe("AppearanceSettingsPanel", () => {
     expect(screen.getByRole("heading", { name: "实时预览" })).toBeInTheDocument();
     const appearancePreview = screen.getByLabelText("时钟外观预览");
     expect(appearancePreview).toHaveTextContent("12:45:09");
-    expect(within(appearancePreview).getByText("12:45:09")).toHaveClass(clockStyles.time);
+    expect(within(appearancePreview).getByText("12:45:09")).toHaveClass(timeStageStyles.value);
     expect(within(appearancePreview).getByText("2026年7月13日星期一")).toHaveClass(
       clockStyles.date
     );

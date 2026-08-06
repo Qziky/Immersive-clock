@@ -1,5 +1,6 @@
 import type { HTMLAttributes, ReactNode } from "react";
 
+import { TimeStage } from "../../ui";
 import { classNames } from "../../utils/classNames";
 import type { PresentationAttributes } from "../PresentationContent";
 
@@ -18,17 +19,16 @@ export function StudyCenterPresentation({
   rootAttributes,
   timeContent,
 }: StudyCenterPresentationProps) {
-  const { className: rootClassName, ...rootProps } = rootAttributes ?? {};
   const { className: quoteClassName, ...quoteProps } = quoteSectionAttributes ?? {};
 
   return (
-    <div {...rootProps} className={classNames(styles.centerTime, rootClassName)}>
+    <TimeStage placement="overlay" rootAttributes={rootAttributes}>
       {timeContent}
       {quoteContent ? (
         <div {...quoteProps} className={classNames(styles.quoteSection, quoteClassName)}>
           {quoteContent}
         </div>
       ) : null}
-    </div>
+    </TimeStage>
   );
 }

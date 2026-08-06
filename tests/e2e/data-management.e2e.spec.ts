@@ -14,6 +14,7 @@ async function openDataSettings(page: Page) {
   await dialog.getByRole("button", { name: "系统数据" }).click();
   await dialog.getByRole("button", { name: "设置数据" }).click();
   await expect(dialog.getByRole("heading", { name: "本地数据概览" })).toBeVisible();
+  await expect(dialog.getByLabel("备份文件", { exact: true })).toBeEnabled({ timeout: 10_000 });
   return dialog;
 }
 
@@ -87,7 +88,7 @@ test("非法文件 MIME 在 Worker 启动前被拒绝且不会写入设置", asy
   const settingsBefore = await page.evaluate(() => localStorage.getItem("AppSettings"));
 
   await dialog.getByLabel("备份文件", { exact: true }).setInputFiles({
-    name: "fake-backup.html",
+    name: "fake-backup.json",
     mimeType: "text/html",
     buffer: Buffer.from(JSON.stringify({ format: "immersive-clock-backup" })),
   });

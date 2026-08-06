@@ -22,19 +22,6 @@
   user-select: none;
 }
 
-.lazyModalStatus {
-  padding: var(--ui-space-6);
-  color: var(--ui-color-text-muted);
-  text-align: center;
-}
-
-.modeLoadingStatus {
-  color: var(--ui-color-text-muted);
-  font-size: var(--ui-font-size-md);
-  padding: var(--ui-space-4);
-  text-align: center;
-}
-
 .clockPage:focus {
   outline: none;
 }
@@ -109,7 +96,7 @@
   z-index: 0;
 }
 
-.clockPage[data-background-type="default"]::before {
+.clockPage[data-background-type="green"]::before {
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.035) 0%, transparent 32%),
     linear-gradient(115deg, rgba(76, 118, 104, 0.12) 0%, transparent 44%),
@@ -117,7 +104,7 @@
   content: "";
 }
 
-.clockPage[data-background-type="default"]::after {
+.clockPage[data-background-type="green"]::after {
   background:
     linear-gradient(
       90deg,
@@ -132,6 +119,10 @@
 }
 
 .clockPage[data-background-type="default"] {
+  background-color: #121212;
+}
+
+.clockPage[data-background-type="green"] {
   background-color: #0c1110;
 }
 

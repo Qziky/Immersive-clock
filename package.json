@@ -2,7 +2,7 @@
   "name": "immersive-clock",
   "private": true,
   "description": "一款支持时钟、倒计时、秒表与自习模式的轻量时钟应用。",
-  "version": "4.0.0",
+  "version": "4.0.1",
   "author": {
     "name": "Qziky",
     "email": "qziky.gg@gmail.com",

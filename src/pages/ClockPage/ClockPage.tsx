@@ -1,4 +1,12 @@
-import React, { lazy, Suspense, useCallback, useRef, useEffect, useState } from "react";
+import React, {
+  lazy,
+  startTransition,
+  Suspense,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
 import { AuthorInfo } from "../../components/AuthorInfo/AuthorInfo";
@@ -11,7 +19,7 @@ import { useAppearance } from "../../contexts/AppearanceContext";
 import { startWeatherRuntime } from "../../services/weatherRuntime";
 import type { AppMode } from "../../types";
 import type { MessagePopupOpenDetail, MessagePopupType } from "../../types/messagePopup";
-import { IconButton, Modal, useFeedback, type ToastVariant } from "../../ui";
+import { IconButton, useFeedback, type ToastVariant } from "../../ui";
 import { appearanceBackgroundToCss } from "../../utils/appearanceModel";
 import { getModeFromPathname, MODE_ROUTE_PATHS } from "../../utils/modeRoutes";
 import { startTimeSyncManager } from "../../utils/timeSync";
@@ -19,26 +27,34 @@ import { startTour, isTourActive } from "../../utils/tour";
 
 import styles from "./ClockPage.module.css";
 import { MODE_COMPONENTS, preloadModeComponent } from "./modeComponents";
+import { preloadClockPageResources } from "./resourcePreloading";
+
+const BACKGROUND_PRELOAD_TIMEOUT_MS = 1500;
+const BACKGROUND_PRELOAD_FALLBACK_DELAY_MS = 120;
 
 const loadAnnouncementModal = () => import("../../components/AnnouncementModal");
 const loadCountdownModal = () =>
   import("../../components/CountdownModal/CountdownModal").then((module) => ({
     default: module.CountdownModal,
   }));
-const loadSettingsPanel = () => import("../../components/SettingsPanel");
+let settingsPanelPromise: Promise<typeof import("../../components/SettingsPanel")> | undefined;
+const loadSettingsPanel = () => {
+  settingsPanelPromise ??= import("../../components/SettingsPanel").catch((error: unknown) => {
+    settingsPanelPromise = undefined;
+    throw error;
+  });
+  return settingsPanelPromise;
+};
+
+const preloadSettingsPanel = () => {
+  void loadSettingsPanel().catch(() => undefined);
+};
 
 const AnnouncementModal = lazy(loadAnnouncementModal);
 const CountdownModal = lazy(loadCountdownModal);
 const SettingsPanel = lazy(() =>
   loadSettingsPanel().then((module) => ({ default: module.SettingsPanel }))
 );
-
-const MODE_LABELS: Record<AppMode, string> = {
-  clock: "时钟",
-  countdown: "倒计时",
-  stopwatch: "秒表",
-  study: "自习模式",
-};
 
 function getPopupToastVariant(type: MessagePopupType): ToastVariant {
   switch (type) {
@@ -84,7 +100,8 @@ export function ClockPage() {
   const [announcementWasRequested, setAnnouncementWasRequested] = useState(false);
   const shouldMountSettings = showSettings || settingsWasRequested;
   const shouldMountAnnouncement = showAnnouncement || announcementWasRequested;
-  const displayMode = previewScene ?? mode;
+  const routeMode = getModeFromPathname(location.pathname);
+  const displayMode = previewScene ?? routeMode ?? mode;
   const displayBackground = resolveBackground(displayMode);
   const displayBackgroundStyle = appearanceBackgroundToCss(
     displayBackground,
@@ -95,21 +112,78 @@ export function ClockPage() {
   useEffect(() => {
     const routeMode = getModeFromPathname(location.pathname);
     if (routeMode && routeMode !== mode) {
-      dispatch({ type: "SET_MODE", payload: routeMode });
+      startTransition(() => {
+        dispatch({ type: "SET_MODE", payload: routeMode });
+      });
     }
   }, [dispatch, location.pathname, mode]);
 
   const switchMode = useCallback(
     (nextMode: AppMode) => {
-      preloadModeComponent(nextMode);
-      dispatch({ type: "SET_MODE", payload: nextMode });
-      const nextPath = MODE_ROUTE_PATHS[nextMode];
-      if (window.location.pathname !== nextPath) {
-        navigate(nextPath);
-      }
+      void preloadModeComponent(nextMode);
+      startTransition(() => {
+        dispatch({ type: "SET_MODE", payload: nextMode });
+        const nextPath = MODE_ROUTE_PATHS[nextMode];
+        if (window.location.pathname !== nextPath) {
+          navigate(nextPath);
+        }
+      });
     },
     [dispatch, navigate]
   );
+
+  useEffect(() => {
+    let cancelled = false;
+    let cancelPendingWait: (() => void) | null = null;
+
+    const waitForBackgroundOpportunity = () =>
+      new Promise<boolean>((resolve) => {
+        if (cancelled) {
+          resolve(false);
+          return;
+        }
+
+        let settled = false;
+        let idleId: number | null = null;
+        let timeoutId: number | null = null;
+        const finish = (shouldContinue: boolean) => {
+          if (settled) return;
+          settled = true;
+          cancelPendingWait = null;
+          resolve(shouldContinue);
+        };
+
+        if (typeof window.requestIdleCallback === "function") {
+          idleId = window.requestIdleCallback(() => finish(!cancelled), {
+            timeout: BACKGROUND_PRELOAD_TIMEOUT_MS,
+          });
+        } else {
+          timeoutId = window.setTimeout(
+            () => finish(!cancelled),
+            BACKGROUND_PRELOAD_FALLBACK_DELAY_MS
+          );
+        }
+
+        cancelPendingWait = () => {
+          if (idleId !== null && typeof window.cancelIdleCallback === "function") {
+            window.cancelIdleCallback(idleId);
+          }
+          if (timeoutId !== null) window.clearTimeout(timeoutId);
+          finish(false);
+        };
+      });
+
+    void preloadClockPageResources({
+      currentMode: displayMode,
+      secondaryLoaders: [loadSettingsPanel, loadCountdownModal, loadAnnouncementModal],
+      waitForBackgroundOpportunity,
+    });
+
+    return () => {
+      cancelled = true;
+      cancelPendingWait?.();
+    };
+  }, [displayMode]);
 
   useEffect(() => {
     return startTimeSyncManager();
@@ -179,7 +253,7 @@ export function ClockPage() {
           switchMode(mode);
         },
         openSettings: () => {
-          setShowSettings(true);
+          startTransition(() => setShowSettings(true));
         },
       });
     }, 1000);
@@ -257,7 +331,7 @@ export function ClockPage() {
    * 处理设置按钮点击
    */
   const handleSettingsClick = useCallback(() => {
-    setShowSettings(true);
+    startTransition(() => setShowSettings(true));
   }, []);
 
   /**
@@ -272,7 +346,7 @@ export function ClockPage() {
    * 处理版本号点击，显示公告弹窗
    */
   const handleVersionClick = useCallback(() => {
-    setShowAnnouncement(true);
+    startTransition(() => setShowAnnouncement(true));
   }, []);
 
   /**
@@ -360,16 +434,11 @@ export function ClockPage() {
         className={`${styles.timeDisplay} ${displayMode === "study" ? styles.studyTimeDisplay : ""}`}
         id={`${displayMode}-panel`}
         role="tabpanel"
+        data-clarity-mask="true"
         data-appearance-content
         data-tour="clock-area"
       >
-        <Suspense
-          fallback={
-            <div className={styles.modeLoadingStatus} role="status" aria-live="polite">
-              正在加载{MODE_LABELS[displayMode]}…
-            </div>
-          }
-        >
+        <Suspense fallback={null}>
           <ModeComponent />
         </Suspense>
       </div>
@@ -425,27 +494,13 @@ export function ClockPage() {
       <SettingsButton
         ref={settingsButtonRef}
         onClick={handleSettingsClick}
-        onIntent={loadSettingsPanel}
+        onIntent={preloadSettingsPanel}
         isVisible={!isModalOpen && !showSettings}
       />
 
       {/* 设置面板 */}
       {shouldMountSettings && (
-        <Suspense
-          fallback={
-            <Modal
-              isOpen={showSettings}
-              onClose={handleSettingsClose}
-              title="设置"
-              placement="left"
-              maxWidth="xxl"
-            >
-              <div className={styles.lazyModalStatus} role="status" aria-live="polite">
-                正在加载设置…
-              </div>
-            </Modal>
-          }
-        >
+        <Suspense fallback={null}>
           <SettingsPanel isOpen={showSettings} onClose={handleSettingsClose} />
         </Suspense>
       )}

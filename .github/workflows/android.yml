@@ -25,6 +25,10 @@ concurrency:
 permissions:
   contents: read
 
+env:
+  VITE_ENABLE_CLARITY: ${{ vars.VITE_ENABLE_CLARITY }}
+  VITE_CLARITY_PROJECT_ID: ${{ vars.VITE_CLARITY_PROJECT_ID }}
+
 jobs:
   build-debug-apk:
     runs-on: ubuntu-latest

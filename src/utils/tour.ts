@@ -625,6 +625,9 @@ export const startTour = (force = false, options?: TourOptions) => {
       showProgress: true,
       allowClose: false,
       allowKeyboardControl: false,
+      // 显式配置 SVG 遮罩，兼容无法可靠匹配 driver.js 遮罩节点的浏览器内核。
+      overlayColor: "#020504",
+      overlayOpacity: 0.62,
       animate: !shouldReduceMotion,
       nextBtnText: "下一步",
       prevBtnText: "上一步",

@@ -490,14 +490,14 @@ export function normalizeAppearanceBackground(
   if (!value || typeof value !== "object") return { type: fallback };
   const candidate = value as Partial<AppearanceBackground>;
   const rawType = (value as { type?: string }).type;
-  const type = rawType === "system" ? "dark" : rawType;
+  const type = rawType === "system" ? "dark" : rawType === "builtin" ? "green" : rawType;
   if (type === "inherit") {
     return { type: options.allowInherit ? "inherit" : "default" };
   }
   if (type === "default" && options.legacyDefaultAsInherit) {
     return { type: "inherit" };
   }
-  if (!type || !["default", "builtin", "black", "dark", "color", "image"].includes(type)) {
+  if (!type || !["default", "green", "black", "dark", "color", "image"].includes(type)) {
     return { type: fallback };
   }
   if (type === "color") {
@@ -691,7 +691,7 @@ export function resolveAppearanceBackground(
   const sceneBackground = appearance.scenes[scene].background;
   const effective =
     sceneBackground.type === "inherit" ? appearance.global.background : sceneBackground;
-  return effective.type === "builtin" ? { type: "default" } : effective;
+  return effective.type === "builtin" ? { type: "green" } : effective;
 }
 
 /** Resolve the value shown by the editor without persisting CSS-module defaults as overrides. */

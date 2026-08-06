@@ -68,6 +68,8 @@ describe("tour 默认焦点", () => {
     expect(driverMock).toHaveBeenCalledTimes(1);
     const config = driverMock.mock.calls[0]?.[0] as Config | undefined;
     expect(config?.onPopoverRender).toBeTypeOf("function");
+    expect(config?.overlayColor).toBe("#020504");
+    expect(config?.overlayOpacity).toBe(0.62);
 
     const nextButton = createUsableButton();
     const previousButton = createUsableButton();

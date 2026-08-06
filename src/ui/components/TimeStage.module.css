@@ -1,0 +1,102 @@
+.stage {
+  --time-stage-display-size: clamp(5rem, 15vw, 10rem);
+  --time-stage-offset-y: 0px;
+
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 0;
+  min-width: 0;
+  text-align: center;
+  width: 100%;
+}
+
+.stageFlow {
+  height: 100%;
+}
+
+.stageOverlay {
+  inset: 0;
+  pointer-events: none;
+  position: absolute;
+  z-index: 2;
+}
+
+.content {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  max-width: min(72rem, 100%);
+  min-width: 0;
+  transform: translateY(var(--time-stage-offset-y));
+  width: 100%;
+}
+
+.stageOverlay .content {
+  max-width: min(72rem, calc(100% - 2rem));
+  pointer-events: auto;
+  width: min(72rem, calc(100% - 2rem));
+}
+
+.value {
+  align-items: baseline;
+  color: var(--ui-color-text);
+  display: flex;
+  font-family: var(--ui-font-number);
+  font-size: var(--time-stage-display-size);
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  justify-content: center;
+  letter-spacing: 0;
+  line-height: 1;
+  margin-bottom: var(--ui-space-2);
+  max-width: 100%;
+  text-align: center;
+  text-shadow: none;
+  transition:
+    color var(--ui-transition-normal),
+    opacity var(--ui-transition-normal);
+  white-space: nowrap;
+}
+
+@media (max-width: 768px) {
+  .stageOverlay .content {
+    max-width: calc(100% - 1.5rem);
+    width: calc(100% - 1.5rem);
+  }
+
+  .stage {
+    --time-stage-display-size: clamp(4rem, 18vw, 8rem);
+  }
+}
+
+@media (max-height: 600px) {
+  .stage {
+    --time-stage-display-size: clamp(3rem, 12vh, 5rem);
+  }
+
+  .value {
+    margin-bottom: var(--ui-space-1);
+  }
+}
+
+@media (max-width: 360px) and (max-height: 600px) and (orientation: portrait) {
+  .stage {
+    --time-stage-display-size: 3.5rem;
+  }
+}
+
+/* 所有模式共用同一套手机横屏舞台：数字按宽高较小值缩放，内容整体避开 HUD。 */
+@media (orientation: landscape) and (max-height: 600px) {
+  .stage {
+    --time-stage-display-size: clamp(4.25rem, min(12vw, 24vh), 7rem);
+    --time-stage-offset-y: clamp(1.5rem, 8vh, 2.5rem);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .value {
+    transition: none;
+  }
+}

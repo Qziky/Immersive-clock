@@ -22,10 +22,10 @@ GitHub Release 中的 `immersive-clock-web-<version>.zip` 是可自托管的 Web
 `npm run build:electron` 构建渲染层、主进程和 CommonJS preload，并修正生产资源相对路径；
 `npm run pack:electron` 使用 electron-builder 输出 `release/`。
 
-| 平台 | 产物 |
-| --- | --- |
+| 平台        | 产物                                          |
+| ----------- | --------------------------------------------- |
 | Windows x64 | NSIS `*-Setup.exe`、Portable `*-Portable.exe` |
-| Linux x64 | AppImage、deb、rpm |
+| Linux x64   | AppImage、deb、rpm                            |
 
 打包清单包含 `dist`、`dist-electron`、`public` 和 `package.json`。应用 ID 为
 `io.github.qziky.immersiveclock`，生产运行时通过 `app://local` 提供静态资源和天气代理。
@@ -70,7 +70,7 @@ APK，不参与 Release 附件。
 4. 汇总全部附件并生成 `SHA256SUMS.txt`；
 5. 从 `docs/marketing/releases/v<version>.md` 创建 GitHub Release。
 
-v4.0.0 的标准流程先以 `draft=true`、`prerelease=false` 创建 Draft Release，下载并验收所有制品后，
+v4.0.1 的标准流程先以 `draft=true`、`prerelease=false` 创建 Draft Release，下载并验收所有制品后，
 再转为公开稳定版并标记 Latest。
 
 ## 发布检查清单

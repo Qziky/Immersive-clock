@@ -19,7 +19,17 @@ const PORT = 4319;
 const HOST = "127.0.0.1";
 
 // 需要预渲染的公共路由（与 App.tsx 路由、routeSeo.ts 数据表保持一致）。
-const ROUTES = ["/", "/clock", "/countdown", "/stopwatch", "/study"];
+const ROUTES = [
+  "/",
+  "/clock",
+  "/countdown",
+  "/stopwatch",
+  "/study",
+  "/terms",
+  "/privacy",
+  "/analytics",
+];
+const LEGAL_DOCUMENT_VERSION = "2026-08-06";
 
 const MIME_TYPES = {
   ".html": "text/html; charset=utf-8",
@@ -100,6 +110,8 @@ async function launchBrowser(chromium) {
 function stripRuntimeOverlays() {
   const selectors = [
     "#loading-screen",
+    "#clarity-script",
+    "script[src*='clarity.ms']",
     ".driver-overlay",
     ".driver-popover",
     "svg.driver-overlay",
@@ -141,13 +153,23 @@ async function main() {
   try {
     const context = await browser.newContext();
     // 预置本地存储，抑制引导与公告弹窗污染快照。
-    await context.addInitScript(() => {
+    await context.addInitScript((legalDocumentVersion) => {
       try {
+        // 预渲染需要协议内容可见，但绝不能在构建期初始化 Clarity 或把其脚本写入快照。
+        window.__IMMERSIVE_CLOCK_PRERENDER__ = true;
         localStorage.setItem("immersive-clock:has-seen-tour", "true");
+        localStorage.setItem(
+          "immersive-clock:legal-consent:v1",
+          JSON.stringify({
+            schemaVersion: 1,
+            documentVersion: legalDocumentVersion,
+            acceptedAt: Date.now(),
+          })
+        );
       } catch {
         // 忽略无痕环境下的存储异常。
       }
-    });
+    }, LEGAL_DOCUMENT_VERSION);
 
     for (const route of ROUTES) {
       const page = await context.newPage();
@@ -157,7 +179,10 @@ async function main() {
           timeout: 30000,
         });
         // 等待可爬取正文渲染完成。
-        await page.waitForSelector("[data-seo-content] h1", { timeout: 15000 });
+        const readySelector = ["/terms", "/privacy", "/analytics"].includes(route)
+          ? "[data-legal-document]"
+          : "[data-seo-content] h1";
+        await page.waitForSelector(readySelector, { timeout: 15000 });
         await page.evaluate(stripRuntimeOverlays);
         const html = await page.evaluate(() => `<!DOCTYPE html>\n${document.documentElement.outerHTML}`);
         snapshots.push({ route, html });

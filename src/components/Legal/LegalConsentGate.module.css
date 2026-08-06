@@ -1,0 +1,180 @@
+.gate {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+  padding: var(--ui-space-5);
+}
+
+.legalPageLoading {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+  padding: var(--ui-space-5);
+  color: var(--ui-color-text-muted);
+}
+
+.legalPageLoading p {
+  margin: 0;
+}
+
+.blockedCard {
+  width: min(100%, 620px);
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-lg);
+  background: var(--ui-color-bg-raised);
+  box-shadow: var(--ui-shadow-panel);
+  padding: var(--ui-space-6);
+}
+
+.blockedCard h1 {
+  margin: var(--ui-space-2) 0;
+  font-size: var(--ui-font-size-xl);
+}
+
+.blockedCard p {
+  margin: 0;
+  color: var(--ui-color-text-muted);
+  line-height: 1.7;
+}
+
+.eyebrow {
+  margin: 0;
+  color: var(--ui-color-accent);
+  font-size: var(--ui-font-size-sm);
+}
+
+.intro {
+  margin: 0;
+  color: var(--ui-color-text-muted);
+  line-height: 1.7;
+}
+
+.consentLink,
+.documentLinks a,
+.textLink {
+  color: var(--ui-color-accent);
+  text-decoration: none;
+}
+
+.consentLink {
+  white-space: nowrap;
+}
+
+.consentLink:hover,
+.documentLinks a:hover,
+.textLink:hover {
+  text-decoration: underline;
+}
+
+.consentLink:focus-visible,
+.documentLinks a:focus-visible,
+.textLink:focus-visible {
+  border-radius: var(--ui-radius-sm);
+  outline: none;
+  box-shadow: var(--ui-focus-ring);
+}
+
+.documentViewer {
+  max-height: min(300px, 42vh);
+  overflow-y: auto;
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-md);
+  background: var(--ui-color-bg);
+  padding: var(--ui-space-3);
+  scrollbar-gutter: stable;
+}
+
+.documentViewer:focus-visible {
+  outline: none;
+  box-shadow: var(--ui-focus-ring);
+}
+
+.documentText {
+  color: var(--ui-color-text-subtle);
+  font-size: var(--ui-font-size-xs);
+  line-height: 1.55;
+}
+
+.documentText + .documentText {
+  margin-top: var(--ui-space-4);
+  border-top: 1px solid var(--ui-color-border);
+  padding-top: var(--ui-space-4);
+}
+
+.documentText h1,
+.documentText h2 {
+  color: var(--ui-color-text-muted);
+  line-height: 1.3;
+}
+
+.documentText h1 {
+  margin: 0 0 var(--ui-space-2);
+  font-size: var(--ui-font-size-md);
+}
+
+.documentText h2 {
+  margin: var(--ui-space-3) 0 var(--ui-space-1);
+  font-size: var(--ui-font-size-sm);
+}
+
+.documentText p,
+.documentText ul {
+  margin: 0 0 var(--ui-space-2);
+}
+
+.documentText ul {
+  padding-left: var(--ui-space-4);
+}
+
+.documentText li + li {
+  margin-top: var(--ui-space-1);
+}
+
+.documentText a {
+  color: var(--ui-color-text-subtle);
+  text-decoration-color: var(--ui-color-border-strong);
+}
+
+.documentText a:hover {
+  color: var(--ui-color-text-muted);
+}
+
+.documentLinks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ui-space-3);
+}
+
+.modalFooter {
+  display: flex;
+  width: 100%;
+  justify-content: flex-end;
+  gap: var(--ui-space-3);
+}
+
+.modalFooter .initialFocusButton:focus-visible {
+  box-shadow: none;
+}
+
+@media (max-width: 480px) {
+  .gate {
+    padding: var(--ui-space-3);
+  }
+
+  .blockedCard {
+    padding: var(--ui-space-5);
+  }
+
+  .documentViewer {
+    max-height: min(240px, 38vh);
+    padding: var(--ui-space-2);
+  }
+
+  .modalFooter {
+    flex-direction: column-reverse;
+  }
+
+  .modalFooter > * {
+    width: 100%;
+  }
+}

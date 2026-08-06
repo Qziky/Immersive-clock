@@ -49,6 +49,12 @@ function Harness() {
       </button>
       <button
         type="button"
+        onClick={() => updateAppearanceDraft(["scenes", "clock", "background", "type"], "green")}
+      >
+        选择深绿背景
+      </button>
+      <button
+        type="button"
         onClick={() =>
           updateAppearanceDraft(
             ["scenes", "clock", "components", "clock", "slots", "time", "color"],
@@ -108,6 +114,17 @@ describe("AppearanceProvider", () => {
     expect(screen.getByLabelText("背景类型")).toHaveTextContent("color");
     fireEvent.click(screen.getByRole("button", { name: "写入非法颜色" }));
     expect(screen.getByLabelText("预览颜色")).toHaveTextContent("inherit");
+  });
+
+  it("允许将深绿预设写入外观草稿", () => {
+    render(
+      <AppearanceProvider>
+        <Harness />
+      </AppearanceProvider>
+    );
+    fireEvent.click(screen.getByRole("button", { name: "开始" }));
+    fireEvent.click(screen.getByRole("button", { name: "选择深绿背景" }));
+    expect(screen.getByLabelText("背景类型")).toHaveTextContent("green");
   });
 
   it("外观资源迁移完成后同步当前会话中的已保存外观", () => {

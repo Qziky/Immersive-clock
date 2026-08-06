@@ -1,5 +1,6 @@
 import type { HTMLAttributes } from "react";
 
+import { TimeStageValue } from "../../ui";
 import { classNames } from "../../utils/classNames";
 import { PresentationContent, type PresentationAttributes } from "../PresentationContent";
 
@@ -33,7 +34,10 @@ export function StudyTimePresentation({
 
   return (
     <PresentationContent attributes={contentAttributes}>
-      <div {...currentTimeProps} className={classNames(styles.currentTime, currentTimeClassName)}>
+      <TimeStageValue
+        {...currentTimeProps}
+        className={classNames(styles.currentTime, currentTimeClassName)}
+      >
         <span {...primaryProps} className={classNames(styles.timePrimary, primaryClassName)}>
           {primaryText}
         </span>
@@ -42,7 +46,7 @@ export function StudyTimePresentation({
             {secondsText}
           </span>
         ) : null}
-      </div>
+      </TimeStageValue>
       {dateText ? (
         <div {...dateProps} className={classNames(styles.currentDate, dateClassName)}>
           {dateText}

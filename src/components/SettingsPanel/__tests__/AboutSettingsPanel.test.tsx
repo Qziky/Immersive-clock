@@ -4,9 +4,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import AboutSettingsPanel from "../sections/AboutSettingsPanel";
 
 const aboutMocks = vi.hoisted(() => ({
+  analyticsEnabled: true,
   developerModeEnabled: false,
   dispatch: vi.fn(),
   errorCenterMode: "off" as "off" | "memory" | "persist",
+  initializeClarityIfAllowed: vi.fn(async () => true),
+  revokeClarityConsent: vi.fn(),
   runtimePlatform: "web" as "android" | "electron" | "web",
   updateGeneralSettings: vi.fn(),
 }));
@@ -30,9 +33,18 @@ vi.mock("../../../utils/errorCenter", () => ({
 
 vi.mock("../../../utils/appSettings", () => ({
   getAppSettings: () => ({
-    general: { developerModeEnabled: aboutMocks.developerModeEnabled },
+    general: {
+      analytics: { experienceProgramEnabled: aboutMocks.analyticsEnabled },
+      developerModeEnabled: aboutMocks.developerModeEnabled,
+    },
   }),
   updateGeneralSettings: aboutMocks.updateGeneralSettings,
+}));
+
+vi.mock("../../../services/clarityAnalytics", () => ({
+  initializeClarityIfAllowed: aboutMocks.initializeClarityIfAllowed,
+  isClarityDeploymentConfigured: () => true,
+  revokeClarityConsent: aboutMocks.revokeClarityConsent,
 }));
 
 vi.mock("../../../utils/weatherStorage", () => ({
@@ -46,6 +58,7 @@ vi.mock("../../../utils/runtimePlatform", () => ({
 describe("AboutSettingsPanel", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    aboutMocks.analyticsEnabled = true;
     aboutMocks.developerModeEnabled = false;
     aboutMocks.errorCenterMode = "off";
     aboutMocks.runtimePlatform = "web";
@@ -124,5 +137,38 @@ describe("AboutSettingsPanel", () => {
     render(<AboutSettingsPanel section="debug" />);
 
     expect(screen.getByText(/环境：\s*Android/)).toBeVisible();
+  });
+
+  it("关闭用户体验改进计划前进行挽留，确认后保存并要求刷新", () => {
+    let save: (() => void) | undefined;
+    const onAnalyticsReloadRequired = vi.fn();
+    render(
+      <AboutSettingsPanel
+        section="privacy"
+        onAnalyticsReloadRequired={onAnalyticsReloadRequired}
+        onRegisterSave={(registeredSave) => {
+          save = registeredSave;
+        }}
+      />
+    );
+
+    const experienceSwitch = screen.getByRole("switch", { name: "用户体验改进计划" });
+    expect(experienceSwitch).toBeChecked();
+
+    fireEvent.click(experienceSwitch);
+    expect(screen.getByRole("dialog", { name: "要关闭用户体验改进计划吗？" })).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "继续帮助改进" }));
+    expect(experienceSwitch).toBeChecked();
+
+    fireEvent.click(experienceSwitch);
+    fireEvent.click(screen.getByRole("button", { name: "仍然关闭" }));
+    expect(experienceSwitch).not.toBeChecked();
+
+    act(() => save?.());
+    expect(aboutMocks.updateGeneralSettings).toHaveBeenCalledWith({
+      analytics: { experienceProgramEnabled: false },
+    });
+    expect(aboutMocks.revokeClarityConsent).toHaveBeenCalledTimes(1);
+    expect(onAnalyticsReloadRequired).toHaveBeenCalledTimes(1);
   });
 });

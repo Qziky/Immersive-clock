@@ -63,6 +63,9 @@ export interface AppSettings {
       hideUntil: number;
       version: string; // 存储版本号，用于与当前应用版本进行比对
     };
+    analytics: {
+      experienceProgramEnabled: boolean;
+    };
     weather: {
       locationMode: "auto" | "manual";
       manualLocation: {
@@ -142,7 +145,7 @@ export interface AppSettings {
 
 export const APP_SETTINGS_KEY = "AppSettings";
 export const APP_SETTINGS_QUARANTINE_KEY = "immersive-clock:quarantine:app-settings";
-export const CURRENT_SETTINGS_VERSION = 12;
+export const CURRENT_SETTINGS_VERSION = 14;
 
 /** 中央信息轮播的硬上限，配置与运行时都应遵守该值。 */
 export const MAX_STUDY_INFO_ITEMS = 20;
@@ -774,6 +777,9 @@ const DEFAULT_SETTINGS: AppSettings = {
       hideUntil: 0,
       version: "",
     },
+    analytics: {
+      experienceProgramEnabled: true,
+    },
     weather: {
       locationMode: "auto",
       manualLocation: {
@@ -1010,6 +1016,7 @@ export function normalizeAppSettings(value: unknown): AppSettings {
   const parsedNoiseControl = isRecord(parsed.noiseControl) ? parsed.noiseControl : {};
   const parsedStartup = isRecord(parsedGeneral.startup) ? parsedGeneral.startup : {};
   const parsedAnnouncement = isRecord(parsedGeneral.announcement) ? parsedGeneral.announcement : {};
+  const parsedAnalytics = isRecord(parsedGeneral.analytics) ? parsedGeneral.analytics : {};
   const parsedWeather = isRecord(parsedGeneral.weather) ? parsedGeneral.weather : {};
   const parsedTimeSync = isRecord(parsedGeneral.timeSync) ? parsedGeneral.timeSync : {};
   const parsedGeneralBackground = isRecord(parsedGeneral.background)
@@ -1074,6 +1081,12 @@ export function normalizeAppSettings(value: unknown): AppSettings {
       startup: { ...DEFAULT_SETTINGS.general.startup, ...parsedStartup },
       quote: normalizeQuoteSettings(parsedGeneral.quote, storedVersion),
       announcement: { ...DEFAULT_SETTINGS.general.announcement, ...parsedAnnouncement },
+      analytics: {
+        experienceProgramEnabled:
+          typeof parsedAnalytics.experienceProgramEnabled === "boolean"
+            ? parsedAnalytics.experienceProgramEnabled
+            : DEFAULT_SETTINGS.general.analytics.experienceProgramEnabled,
+      },
       weather: {
         locationMode: parsedWeather.locationMode === "manual" ? "manual" : "auto",
         manualLocation: normalizeManualWeatherLocation(parsedWeather.manualLocation),
@@ -1201,6 +1214,9 @@ export function updateAppSettings(
         announcement: generalUpdates.announcement
           ? { ...current.general.announcement, ...generalUpdates.announcement }
           : current.general.announcement,
+        analytics: generalUpdates.analytics
+          ? { ...current.general.analytics, ...generalUpdates.analytics }
+          : current.general.analytics,
         weather: generalUpdates.weather
           ? {
               ...current.general.weather,

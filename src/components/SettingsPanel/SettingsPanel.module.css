@@ -2,12 +2,6 @@
   min-width: 0;
 }
 
-.panelLoading {
-  padding: var(--ui-space-6);
-  color: var(--ui-color-text-muted);
-  text-align: center;
-}
-
 .panelMount[hidden] {
   display: none;
 }

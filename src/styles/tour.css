@@ -2,7 +2,8 @@
 .driver-popover {
   -webkit-backdrop-filter: blur(var(--ui-glass-blur, 22px)) saturate(130%);
   backdrop-filter: blur(var(--ui-glass-blur, 22px)) saturate(130%);
-  background: var(--ui-glass-surface-strong, rgba(12, 17, 16, 0.9)) !important;
+  background: rgba(14, 19, 18, 0.9) !important;
+  background: var(--ui-glass-surface-strong, rgba(14, 19, 18, 0.9)) !important;
   border: 1px solid var(--ui-glass-border, rgba(232, 233, 224, 0.13)) !important;
   border-radius: var(--ui-radius-lg, 8px) !important;
   box-shadow: var(
@@ -10,10 +11,28 @@
     0 24px 70px rgba(0, 0, 0, 0.42),
     0 8px 20px rgba(0, 0, 0, 0.22)
   ) !important;
+  color: #f0f1ec !important;
   color: var(--ui-color-text, #f0f1ec) !important;
   font-family: var(--ui-font-sans, "Inter", "Microsoft YaHei", sans-serif) !important;
   max-width: min(320px, calc(100vw - 24px)) !important;
   padding: 18px !important;
+}
+
+/* QQ 浏览器部分内核会保留 driver.js 的 all: unset 回退样式，
+ * 因此为文字与按钮保留不依赖 CSS 变量的静态颜色。 */
+.driver-popover,
+.driver-popover * {
+  -webkit-text-fill-color: currentColor;
+}
+
+.driver-popover-title {
+  color: #f0f1ec !important;
+  color: var(--ui-color-text, #f0f1ec) !important;
+}
+
+.driver-popover-description {
+  color: #a3a8a1 !important;
+  color: var(--ui-color-text-muted, #a3a8a1) !important;
 }
 
 .driver-popover-arrow {
@@ -84,9 +103,12 @@
 
 .driver-popover .driver-popover-footer .driver-popover-next-btn,
 .driver-popover .driver-popover-footer .driver-popover-done-btn {
+  background: #17c7ad !important;
   background: var(--ui-color-accent-strong, #17c7ad) !important;
+  border-color: #17c7ad !important;
   border-color: var(--ui-color-accent-strong, #17c7ad) !important;
   color: #06110f !important;
+  -webkit-text-fill-color: #06110f !important;
 }
 
 .driver-popover .driver-popover-footer .driver-popover-next-btn:hover,
@@ -141,6 +163,17 @@
 
 #driver-page-overlay {
   background: #020504 !important;
+  opacity: 0.62 !important;
+}
+
+/* driver.js 1.4 uses an SVG path for the page mask. */
+.driver-overlay {
+  fill: #020504 !important;
+  opacity: 1 !important;
+}
+
+.driver-overlay path {
+  fill: #020504 !important;
   opacity: 0.62 !important;
 }
 

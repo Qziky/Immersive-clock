@@ -83,7 +83,7 @@ describe("主模式按需加载", () => {
       </MemoryRouter>
     );
 
-    expect(await screen.findByTestId(`mode-${mode}`)).toBeVisible();
     expect(screen.getByRole("tabpanel")).toHaveAttribute("id", `${mode}-panel`);
+    expect(await screen.findByTestId(`mode-${mode}`)).toBeVisible();
   });
 });

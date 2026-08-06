@@ -1,8 +1,8 @@
 import type { HTMLAttributes } from "react";
 
-import { AppIcon } from "../../ui";
+import { AppIcon, TimeStage, TimeStageValue } from "../../ui";
 import { classNames } from "../../utils/classNames";
-import { PresentationContent, type PresentationAttributes } from "../PresentationContent";
+import type { PresentationAttributes } from "../PresentationContent";
 
 import styles from "./Stopwatch.module.css";
 
@@ -39,42 +39,39 @@ export function StopwatchPresentation({
   timeAttributes,
   timeText,
 }: StopwatchPresentationProps) {
-  const { className: rootClassName, ...rootProps } = rootAttributes ?? {};
   const { className: timeClassName, ...timeProps } = timeAttributes ?? {};
   const { className: placeholderClassName, ...placeholderProps } = placeholderAttributes ?? {};
   const { className: statusClassName, ...statusProps } = statusAttributes ?? {};
   const { className: milestoneClassName, ...milestoneProps } = milestoneAttributes ?? {};
 
   return (
-    <div {...rootProps} className={classNames(styles.stopwatch, rootClassName)}>
-      <PresentationContent attributes={contentAttributes}>
-        <div
-          {...timeProps}
-          className={classNames(styles.time, active && styles.running, timeClassName)}
-        >
-          {showPlaceholder ? (
-            <span
-              {...placeholderProps}
-              className={classNames(styles.placeholder, placeholderClassName)}
-            >
-              {placeholderText}
-            </span>
-          ) : (
-            timeText
-          )}
+    <TimeStage contentAttributes={contentAttributes} rootAttributes={rootAttributes}>
+      <TimeStageValue
+        {...timeProps}
+        className={classNames(styles.time, active && styles.running, timeClassName)}
+      >
+        {showPlaceholder ? (
+          <span
+            {...placeholderProps}
+            className={classNames(styles.placeholder, placeholderClassName)}
+          >
+            {placeholderText}
+          </span>
+        ) : (
+          timeText
+        )}
+      </TimeStageValue>
+      {showPausedStatus ? (
+        <div {...statusProps} className={classNames(styles.status, statusClassName)}>
+          {statusText}
         </div>
-        {showPausedStatus ? (
-          <div {...statusProps} className={classNames(styles.status, statusClassName)}>
-            {statusText}
-          </div>
-        ) : null}
-        {showMilestone ? (
-          <div {...milestoneProps} className={classNames(styles.milestone, milestoneClassName)}>
-            <AppIcon name="status.milestone" size="xl" />
-            <span>{milestoneText}</span>
-          </div>
-        ) : null}
-      </PresentationContent>
-    </div>
+      ) : null}
+      {showMilestone ? (
+        <div {...milestoneProps} className={classNames(styles.milestone, milestoneClassName)}>
+          <AppIcon name="status.milestone" size="xl" />
+          <span>{milestoneText}</span>
+        </div>
+      ) : null}
+    </TimeStage>
   );
 }

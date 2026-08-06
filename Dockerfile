@@ -12,6 +12,12 @@ RUN npm ci || npm install
 # Copy source code
 COPY . .
 
+# Clarity is configured at Vite build time and is intentionally public client configuration.
+ARG VITE_ENABLE_CLARITY=false
+ARG VITE_CLARITY_PROJECT_ID
+ENV VITE_ENABLE_CLARITY=${VITE_ENABLE_CLARITY}
+ENV VITE_CLARITY_PROJECT_ID=${VITE_CLARITY_PROJECT_ID}
+
 # Build the application
 RUN npm run build
 

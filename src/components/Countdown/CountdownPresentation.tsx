@@ -1,7 +1,8 @@
 import type { HTMLAttributes } from "react";
 
+import { TimeStage, TimeStageValue } from "../../ui";
 import { classNames } from "../../utils/classNames";
-import { PresentationContent, type PresentationAttributes } from "../PresentationContent";
+import type { PresentationAttributes } from "../PresentationContent";
 
 import styles from "./Countdown.module.css";
 
@@ -32,41 +33,38 @@ export function CountdownPresentation({
   timeText,
   warning,
 }: CountdownPresentationProps) {
-  const { className: rootClassName, ...rootProps } = rootAttributes ?? {};
   const { className: timeClassName, ...timeProps } = timeAttributes ?? {};
   const { className: placeholderClassName, ...placeholderProps } = placeholderAttributes ?? {};
   const { className: finishedClassName, ...finishedProps } = finishedMessageAttributes ?? {};
 
   return (
-    <div {...rootProps} className={classNames(styles.countdown, rootClassName)}>
-      <PresentationContent attributes={contentAttributes}>
-        <div
-          {...timeProps}
-          className={classNames(
-            styles.time,
-            styles.clickable,
-            warning && styles.warning,
-            finished && styles.finished,
-            timeClassName
-          )}
-        >
-          {showPlaceholder ? (
-            <span
-              {...placeholderProps}
-              className={classNames(styles.placeholder, placeholderClassName)}
-            >
-              {placeholderText}
-            </span>
-          ) : (
-            timeText
-          )}
+    <TimeStage contentAttributes={contentAttributes} rootAttributes={rootAttributes}>
+      <TimeStageValue
+        {...timeProps}
+        className={classNames(
+          styles.time,
+          styles.clickable,
+          warning && styles.warning,
+          finished && styles.finished,
+          timeClassName
+        )}
+      >
+        {showPlaceholder ? (
+          <span
+            {...placeholderProps}
+            className={classNames(styles.placeholder, placeholderClassName)}
+          >
+            {placeholderText}
+          </span>
+        ) : (
+          timeText
+        )}
+      </TimeStageValue>
+      {finished ? (
+        <div {...finishedProps} className={classNames(styles.finishedMessage, finishedClassName)}>
+          {finishedMessageText}
         </div>
-        {finished ? (
-          <div {...finishedProps} className={classNames(styles.finishedMessage, finishedClassName)}>
-            {finishedMessageText}
-          </div>
-        ) : null}
-      </PresentationContent>
-    </div>
+      ) : null}
+    </TimeStage>
   );
 }

@@ -101,7 +101,7 @@ When automatic noise reports are enabled, Study mode opens the current session r
 
 ## Appearance and personalization
 
-**Overall Style (`整体样式`)** controls default numeric and information fonts plus the global background. Background choices include the application default, black, dark gray, a custom color, or a local image. Imported fonts can be `.ttf`, `.otf`, `.woff`, or `.woff2`.
+**Overall Style (`整体样式`)** controls default numeric and information fonts plus the global background. The application default is now dark gray; the previous dark-green appearance remains available as **Dark Green Preset (`深绿预设`)**. Other choices include black, manual dark gray, a custom color, or a local image. Imported fonts can be `.ttf`, `.otf`, `.woff`, or `.woff2`.
 
 Clock, Countdown, Stopwatch, and Study can each use their own page background. Individual text, icons, surfaces, states, and Study countdown events can override the global style. Restore actions change the current draft and still require **Save**.
 

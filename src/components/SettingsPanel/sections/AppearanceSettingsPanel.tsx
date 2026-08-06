@@ -194,9 +194,10 @@ function BackgroundEditor({
 }: BackgroundEditorProps) {
   const options = [
     ...(allowInherit ? [{ label: "跟随整体", value: "inherit" }] : []),
-    { label: "应用预设", value: allowInherit ? "builtin" : "default" },
+    { label: "默认深灰", value: "default" },
+    { label: "深绿预设", value: "green" },
     { label: "纯黑", value: "black" },
-    { label: "深灰", value: "dark" },
+    { label: "深灰（手动）", value: "dark" },
     { label: "纯色", value: "color" },
     { label: "图片", value: "image" },
   ];
@@ -1081,7 +1082,7 @@ export function AppearanceSettingsPanel({
             <BackgroundEditor
               assets={backgroundAssets}
               title={`${SCENE_LABELS[scene]}页面背景`}
-              description="当前页面可使用整体背景、应用预设或单独设置的背景。"
+              description="当前页面可使用整体背景、默认深灰、深绿预设或单独设置的背景。"
               background={pageBackground}
               path={["scenes", scene, "background"]}
               allowInherit

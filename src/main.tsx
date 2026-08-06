@@ -3,6 +3,7 @@ import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 
 import { App, KeepAwakeRuntimeNotice } from "./App";
+import { LegalConsentGate } from "./components/Legal/LegalConsentGate";
 import { AppContextProvider } from "./contexts/AppContext";
 import { AppearanceProvider } from "./contexts/AppearanceContext";
 import { startKeepAwakeRuntime } from "./services/keepAwakeRuntime";
@@ -17,28 +18,15 @@ import { initializeStorage } from "./utils/storageInitializer";
 import "./styles/global.css";
 import "./styles/tour.css";
 
-/**
- * 初始化埋点服务
- * 仅在生产环境且显式开启时初始化，避免受网络策略影响产生无效报错
- */
-async function initAnalytics(): Promise<void> {
-  const clarityProjectId = import.meta.env.VITE_CLARITY_PROJECT_ID?.trim();
-  const enableClarity = import.meta.env.VITE_ENABLE_CLARITY === "true";
-
-  if (!import.meta.env.PROD || !enableClarity || !clarityProjectId) {
-    return;
-  }
-
-  const { default: Clarity } = await import("@microsoft/clarity");
-  Clarity.init(clarityProjectId);
-}
+let deferredResourcesInitialized = false;
 
 function initializeDeferredResources(): void {
+  if (deferredResourcesInitialized) return;
+  deferredResourcesInitialized = true;
+
   void import("./utils/appearanceSettings")
     .then(({ initializeAppearanceResources }) => initializeAppearanceResources())
     .catch((error) => logger.warn("Appearance resource initialization failed", error));
-
-  void initAnalytics().catch((error) => logger.warn("Analytics initialization failed", error));
 
   const initializeNoise = () => {
     void import("./services/noise/noiseDataMaintenance")
@@ -54,32 +42,44 @@ function initializeDeferredResources(): void {
   window.setTimeout(initializeNoise, 0);
 }
 
+function AppRuntime(): React.ReactElement {
+  React.useEffect(() => {
+    startKeepAwakeRuntime();
+    setErrorCenterMode(getAppSettings().study.alerts.errorCenterMode);
+    initErrorCenterGlobalCapture();
+
+    window.setTimeout(initializeDeferredResources, 0);
+  }, []);
+
+  return (
+    <AppContextProvider>
+      <AppearanceProvider>
+        <FeedbackProvider>
+          <KeepAwakeRuntimeNotice />
+          <App />
+        </FeedbackProvider>
+      </AppearanceProvider>
+    </AppContextProvider>
+  );
+}
+
 function bootstrap(): void {
   applySearchIndexingPolicy(window.location.pathname);
   initializeStorage();
-  startKeepAwakeRuntime();
-  setErrorCenterMode(getAppSettings().study.alerts.errorCenterMode);
-  initErrorCenterGlobalCapture();
 
   const root = ReactDOM.createRoot(document.getElementById("root") as HTMLElement);
   root.render(
     <React.StrictMode>
       <BrowserRouter>
-        <AppContextProvider>
-          <AppearanceProvider>
-            <FeedbackProvider>
-              <KeepAwakeRuntimeNotice />
-              <App />
-            </FeedbackProvider>
-          </AppearanceProvider>
-        </AppContextProvider>
+        <LegalConsentGate>
+          <AppRuntime />
+        </LegalConsentGate>
       </BrowserRouter>
     </React.StrictMode>
   );
   window.requestAnimationFrame(() => {
     const loadingScreen = document.getElementById("loading-screen");
     loadingScreen?.remove();
-    window.setTimeout(initializeDeferredResources, 0);
   });
 }
 

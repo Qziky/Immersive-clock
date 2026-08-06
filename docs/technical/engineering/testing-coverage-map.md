@@ -22,7 +22,8 @@
 | AppContext/reducer | `src/contexts/__tests__/AppContext.test.ts`                                                                                                                                    | `src/contexts/AppContext.tsx`                                                              |
 | 外观模型与预览     | `src/utils/__tests__/appearanceModel.test.ts`、`src/contexts/__tests__/AppearanceContext.test.tsx`、`src/components/SettingsPanel/__tests__/AppearanceSettingsPanel.test.tsx`  | `src/utils/appearanceModel.ts`、`src/contexts/AppearanceContext.tsx`                       |
 | AppSettings        | `src/utils/__tests__/appSettings.test.ts`                                                                                                                                      | `src/utils/appSettings.ts`                                                                 |
-| 启动与按需加载     | `src/App.test.tsx`、`modeLazyLoading.test.tsx`、`src/components/SettingsPanel/__tests__/SettingsPanel.test.tsx`                                                                | `main.tsx`、`App.tsx`、`ClockPage/modeComponents.ts`、`SettingsPanel.tsx`                  |
+| 法律同意与分析     | `src/utils/__tests__/legalConsent.test.ts`、`src/services/__tests__/clarityAnalytics.test.ts`、`src/components/Legal/__tests__/LegalConsentGate.test.tsx`、`AboutSettingsPanel.test.tsx`、`tests/e2e/legal-consent.e2e.spec.ts` | `src/utils/legalConsent.ts`、`src/components/Legal`、`src/services/clarityAnalytics.ts` |
+| 启动与资源预加载   | `src/App.test.tsx`、`modeLazyLoading.test.tsx`、`resourcePreloading.test.ts`、`src/components/SettingsPanel/__tests__/SettingsPanel.test.tsx`                                  | `main.tsx`、`App.tsx`、`ClockPage/modeComponents.ts`、`SettingsPanel.tsx`                  |
 | Storage migration  | `src/utils/__tests__/storageInitializer*.test.ts`                                                                                                                              | `src/utils/storageInitializer.ts`                                                          |
 | 数据管理           | `src/services/__tests__/dataManagement.test.ts`                                                                                                                                | `src/services/dataManagement.ts`                                                           |
 | 课表               | `src/utils/__tests__/studyScheduleValidation.test.ts`、`src/utils/__tests__/storageInitializer.studyScheduleMigration.test.ts`                                                 | `src/utils/studySchedule*.ts`                                                              |
@@ -45,7 +46,9 @@
 | 公共 UI            | `src/ui/components/__tests__/*.test.tsx`、`src/ui/icons/__tests__/AppIcon.test.tsx`、`src/ui/__tests__/uiGovernance.test.ts`                                                   | `src/ui`、`src/pages/DesignSystem/componentCatalog.tsx`                                    |
 | 全屏               | `src/hooks/__tests__/useFullscreen.test.ts`                                                                                                                                    | `src/hooks/useFullscreen.ts`                                                               |
 | 运行平台/PWA       | `src/utils/__tests__/runtimePlatform.test.ts`、`src/components/SettingsPanel/__tests__/AboutSettingsPanel.test.tsx`、`src/components/AuthorInfo/__tests__/AuthorInfo.test.tsx` | `src/utils/runtimePlatform.ts`、`src/main.tsx`、`AboutSettingsPanel.tsx`、`AuthorInfo.tsx` |
-| SEO/GEO            | `src/utils/seo/__tests__/routeSeo.test.ts`、`src/components/Seo/__tests__/RouteSeo.test.tsx`                                                                              | `src/utils/seo/routeSeo.ts`、`src/components/Seo/RouteSeo.tsx`、`SeoContent.tsx`                    |
+| SEO/GEO            | `src/utils/seo/__tests__/routeSeo.test.ts`、`src/components/Seo/__tests__/RouteSeo.test.tsx`                                                                                   | `src/utils/seo/routeSeo.ts`、`src/components/Seo/RouteSeo.tsx`、`SeoContent.tsx`           |
+
+法律同意相关测试同时覆盖静态 HTML 协议正文和法律详情页的按需加载路由。
 
 ## E2E 映射
 
@@ -70,6 +73,9 @@
 
 - 新测试文件使用 `*.test.ts(x)`、`*.e2e.spec.ts` 命名并放在最近的领域目录。
 - 测试覆盖的是行为/契约；迁移或模型版本变化要在本页和相应专题同时更新。
+- 外观背景默认值与预设迁移由 `appearanceModel.test.ts`、`appSettings.test.ts` 和
+  `settings-persistence.e2e.spec.ts` 共同覆盖。
+- 公共 UI 的 TimeStage 响应式布局契约由 `src/ui/components/__tests__/TimeStage.test.tsx` 覆盖。
 - 公共浮层的进入、退出和交互隔离由 `src/ui/components/__tests__/motion.test.tsx` 覆盖。
 - 若文件移动，优先更新本页相对路径，不保留失效旧链接或本机绝对链接。
 - 视觉基线只提交稳定视口和确定数据，临时截图放在 `output/`，不放入知识库。

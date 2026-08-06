@@ -37,6 +37,7 @@ import {
 } from "../utils/appSettings";
 import { appearanceAssetDb, appearanceAssetMetadataDb, db } from "../utils/db";
 import { clearErrorCenter, getErrorCenterRecords } from "../utils/errorCenter";
+import { LEGAL_CONSENT_STORAGE_KEY } from "../utils/legalConsent";
 import {
   clearNoiseSlices,
   exportNoiseSlices,
@@ -1086,6 +1087,7 @@ const deviceStateDomain = createLocalStorageOnlyDomain("deviceState", DEVICE_STA
   TOUR_STORAGE_KEY,
   HITOKOTO_DEVICE_SEED_KEY,
   NOISE_REPORT_CHART_PREFERENCE_KEY,
+  LEGAL_CONSENT_STORAGE_KEY,
   "immersive-clock:noise-device-profiles:v1",
 ]);
 

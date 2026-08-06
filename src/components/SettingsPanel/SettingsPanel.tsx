@@ -1,13 +1,4 @@
-import {
-  lazy,
-  Suspense,
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import { useAppDispatch, useAppState } from "../../contexts/AppContext";
 import { useAppearance } from "../../contexts/AppearanceContext";
@@ -22,24 +13,17 @@ import {
 import { logger } from "../../utils/logger";
 import { broadcastSettingsEvent, SETTINGS_EVENTS } from "../../utils/settingsEvents";
 
-import type { AboutSettingsSection } from "./sections/AboutSettingsPanel";
-import type { AppearanceSettingsSection } from "./sections/AppearanceSettingsPanel";
-import type { BasicSettingsSection } from "./sections/BasicSettingsPanel";
-import type { ContentSettingsSection } from "./sections/ContentSettingsPanel";
-import type { WeatherSettingsSection } from "./sections/WeatherSettingsPanel";
+import AboutSettingsPanel, { type AboutSettingsSection } from "./sections/AboutSettingsPanel";
+import {
+  AppearanceSettingsPanel,
+  type AppearanceSettingsSection,
+} from "./sections/AppearanceSettingsPanel";
+import BasicSettingsPanel, { type BasicSettingsSection } from "./sections/BasicSettingsPanel";
+import ContentSettingsPanel, { type ContentSettingsSection } from "./sections/ContentSettingsPanel";
+import DataSettingsPanel from "./sections/DataSettingsPanel";
+import StudySettingsPanel from "./sections/StudySettingsPanel";
+import WeatherSettingsPanel, { type WeatherSettingsSection } from "./sections/WeatherSettingsPanel";
 import styles from "./SettingsPanel.module.css";
-
-const AboutSettingsPanel = lazy(() => import("./sections/AboutSettingsPanel"));
-const AppearanceSettingsPanel = lazy(() =>
-  import("./sections/AppearanceSettingsPanel").then((module) => ({
-    default: module.AppearanceSettingsPanel,
-  }))
-);
-const BasicSettingsPanel = lazy(() => import("./sections/BasicSettingsPanel"));
-const ContentSettingsPanel = lazy(() => import("./sections/ContentSettingsPanel"));
-const DataSettingsPanel = lazy(() => import("./sections/DataSettingsPanel"));
-const StudySettingsPanel = lazy(() => import("./sections/StudySettingsPanel"));
-const WeatherSettingsPanel = lazy(() => import("./sections/WeatherSettingsPanel"));
 
 type SettingsPrimaryGroup = "workspace" | "appearance" | "environment" | "content" | "system";
 
@@ -59,6 +43,7 @@ type SettingsPaneId =
   | "quoteEffects"
   | "quoteChannels"
   | "timeSync"
+  | "privacy"
   | "project"
   | "data"
   | "debug";
@@ -312,6 +297,15 @@ const paneItems: SettingsPane[] = [
     section: "timeSync",
   },
   {
+    value: "privacy",
+    group: "system",
+    label: "隐私与分析",
+    description: "查看法律文档并控制用户体验改进计划。",
+    icon: "feature.privacy",
+    panel: "about",
+    section: "privacy",
+  },
+  {
     value: "project",
     group: "system",
     label: "项目信息",
@@ -484,6 +478,13 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
     settingsBusy,
   ]);
 
+  const handlePaneChange = useCallback(
+    (pane: SettingsPaneId) => {
+      if (settingsBusy) return;
+      setActivePane(pane);
+    },
+    [settingsBusy]
+  );
   useEffect(() => {
     if (!isOpen) return;
     const panel = getPane(activePane).panel;
@@ -494,14 +495,6 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
       return next;
     });
   }, [activePane, isOpen]);
-
-  const handlePaneChange = useCallback(
-    (pane: SettingsPaneId) => {
-      if (settingsBusy) return;
-      setActivePane(pane);
-    },
-    [settingsBusy]
-  );
   const activePaneItem = getPane(activePane);
   const showContentHeader = activePaneItem.group !== "environment";
   const basicSection: BasicSettingsSection =
@@ -561,79 +554,72 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
           </>
         }
       >
-        <Suspense
-          fallback={
-            <div className={styles.panelLoading} role="status" aria-live="polite">
-              正在加载设置内容…
-            </div>
-          }
-        >
-          {visitedPanels.has("basic") && (
-            <div className={styles.panelMount} hidden={activePaneItem.panel !== "basic"}>
-              <BasicSettingsPanel
-                key={`basic-${draftSession}`}
-                section={basicSection}
-                targetYear={targetYear}
-                onTargetYearChange={setTargetYear}
-                onRegisterSave={registerBasicSave}
-              />
-            </div>
-          )}
-          {visitedPanels.has("appearance") && (
-            <div className={styles.panelMount} hidden={activePaneItem.panel !== "appearance"}>
-              <AppearanceSettingsPanel
-                key={`appearance-${draftSession}`}
-                section={appearanceSection}
-                onRegisterSave={registerAppearanceSave}
-              />
-            </div>
-          )}
-          {visitedPanels.has("weather") && (
-            <div className={styles.panelMount} hidden={activePaneItem.panel !== "weather"}>
-              <WeatherSettingsPanel
-                key={`weather-${draftSession}`}
-                section={weatherSection}
-                onRegisterSave={registerWeatherSave}
-              />
-            </div>
-          )}
-          {visitedPanels.has("monitor") && (
-            <div className={styles.panelMount} hidden={activePaneItem.panel !== "monitor"}>
-              <StudySettingsPanel
-                key={`monitor-${draftSession}`}
-                onRegisterSave={registerMonitorSave}
-              />
-            </div>
-          )}
-          {visitedPanels.has("quotes") && (
-            <div className={styles.panelMount} hidden={activePaneItem.panel !== "quotes"}>
-              <ContentSettingsPanel
-                key={`quotes-${draftSession}`}
-                section={quotesSection}
-                onRegisterSave={registerQuotesSave}
-              />
-            </div>
-          )}
-          {visitedPanels.has("about") && (
-            <div className={styles.panelMount} hidden={activePaneItem.panel !== "about"}>
-              <AboutSettingsPanel
-                key={`about-${draftSession}`}
-                section={aboutSection}
-                onRegisterSave={registerAboutSave}
-              />
-            </div>
-          )}
-          {visitedPanels.has("data") && (
-            <div className={styles.panelMount} hidden={activePaneItem.panel !== "data"}>
-              <DataSettingsPanel
-                key={`data-${draftSession}`}
-                hasUnsavedAppearanceChanges={hasUnsavedAppearanceChanges}
-                onBusyChange={handleDataBusyChange}
-                onReloadRequired={handleDataReloadRequired}
-              />
-            </div>
-          )}
-        </Suspense>
+        {visitedPanels.has("basic") && (
+          <div className={styles.panelMount} hidden={activePaneItem.panel !== "basic"}>
+            <BasicSettingsPanel
+              key={`basic-${draftSession}`}
+              section={basicSection}
+              targetYear={targetYear}
+              onTargetYearChange={setTargetYear}
+              onRegisterSave={registerBasicSave}
+            />
+          </div>
+        )}
+        {visitedPanels.has("appearance") && (
+          <div className={styles.panelMount} hidden={activePaneItem.panel !== "appearance"}>
+            <AppearanceSettingsPanel
+              key={`appearance-${draftSession}`}
+              section={appearanceSection}
+              onRegisterSave={registerAppearanceSave}
+            />
+          </div>
+        )}
+        {visitedPanels.has("weather") && (
+          <div className={styles.panelMount} hidden={activePaneItem.panel !== "weather"}>
+            <WeatherSettingsPanel
+              key={`weather-${draftSession}`}
+              section={weatherSection}
+              onRegisterSave={registerWeatherSave}
+            />
+          </div>
+        )}
+        {visitedPanels.has("monitor") && (
+          <div className={styles.panelMount} hidden={activePaneItem.panel !== "monitor"}>
+            <StudySettingsPanel
+              key={`monitor-${draftSession}`}
+              onRegisterSave={registerMonitorSave}
+            />
+          </div>
+        )}
+        {visitedPanels.has("quotes") && (
+          <div className={styles.panelMount} hidden={activePaneItem.panel !== "quotes"}>
+            <ContentSettingsPanel
+              key={`quotes-${draftSession}`}
+              section={quotesSection}
+              onRegisterSave={registerQuotesSave}
+            />
+          </div>
+        )}
+        {visitedPanels.has("about") && (
+          <div className={styles.panelMount} hidden={activePaneItem.panel !== "about"}>
+            <AboutSettingsPanel
+              key={`about-${draftSession}`}
+              section={aboutSection}
+              onAnalyticsReloadRequired={handleDataReloadRequired}
+              onRegisterSave={registerAboutSave}
+            />
+          </div>
+        )}
+        {visitedPanels.has("data") && (
+          <div className={styles.panelMount} hidden={activePaneItem.panel !== "data"}>
+            <DataSettingsPanel
+              key={`data-${draftSession}`}
+              hasUnsavedAppearanceChanges={hasUnsavedAppearanceChanges}
+              onBusyChange={handleDataBusyChange}
+              onReloadRequired={handleDataReloadRequired}
+            />
+          </div>
+        )}
       </SettingsShell>
     </Modal>
   );

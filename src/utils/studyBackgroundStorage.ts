@@ -1,6 +1,13 @@
 import { getAppSettings, updateAppSettings } from "./appSettings";
 
-export type StudyBackgroundType = "default" | "black" | "dark" | "system" | "color" | "image";
+export type StudyBackgroundType =
+  | "default"
+  | "green"
+  | "black"
+  | "dark"
+  | "system"
+  | "color"
+  | "image";
 
 export interface StudyBackgroundSettings {
   type: StudyBackgroundType;

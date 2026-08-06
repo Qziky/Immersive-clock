@@ -1,7 +1,8 @@
 import type { HTMLAttributes } from "react";
 
+import { TimeStage, TimeStageValue } from "../../ui";
 import { classNames } from "../../utils/classNames";
-import { PresentationContent, type PresentationAttributes } from "../PresentationContent";
+import type { PresentationAttributes } from "../PresentationContent";
 
 import styles from "./Clock.module.css";
 
@@ -22,20 +23,17 @@ export function ClockPresentation({
   timeAttributes,
   timeText,
 }: ClockPresentationProps) {
-  const { className: rootClassName, ...rootProps } = rootAttributes ?? {};
   const { className: timeClassName, ...timeProps } = timeAttributes ?? {};
   const { className: dateClassName, ...dateProps } = dateAttributes ?? {};
 
   return (
-    <div {...rootProps} className={classNames(styles.clock, rootClassName)}>
-      <PresentationContent attributes={contentAttributes}>
-        <div {...timeProps} className={classNames(styles.time, timeClassName)}>
-          {timeText}
-        </div>
-        <div {...dateProps} className={classNames(styles.date, dateClassName)}>
-          {dateText}
-        </div>
-      </PresentationContent>
-    </div>
+    <TimeStage contentAttributes={contentAttributes} rootAttributes={rootAttributes}>
+      <TimeStageValue {...timeProps} className={timeClassName}>
+        {timeText}
+      </TimeStageValue>
+      <div {...dateProps} className={classNames(styles.date, dateClassName)}>
+        {dateText}
+      </div>
+    </TimeStage>
   );
 }

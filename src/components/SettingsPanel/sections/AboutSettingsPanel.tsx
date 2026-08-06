@@ -1,9 +1,16 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 
 import pkg from "../../../../package.json";
+import { LEGAL_DOCUMENTS, LEGAL_DOCUMENT_VERSION } from "../../../constants/legal";
 import { useAppDispatch, useAppState } from "../../../contexts/AppContext";
 import {
+  initializeClarityIfAllowed,
+  isClarityDeploymentConfigured,
+  revokeClarityConsent,
+} from "../../../services/clarityAnalytics";
+import {
   Button as FormButton,
+  ConfirmDialog,
   FormSection,
   InfoPanel,
   Inline as FormButtonGroup,
@@ -23,6 +30,7 @@ import {
   getErrorCenterRecords,
   subscribeErrorCenter,
 } from "../../../utils/errorCenter";
+import { getLegalConsent } from "../../../utils/legalConsent";
 import { getRuntimePlatform } from "../../../utils/runtimePlatform";
 import { getWeatherCache } from "../../../utils/weatherStorage";
 import styles from "../SettingsPanel.module.css";
@@ -32,12 +40,17 @@ const appVersion = import.meta.env.VITE_APP_VERSION;
 
 export interface AboutSettingsPanelProps {
   onRegisterSave?: (fn: () => void) => void;
+  onAnalyticsReloadRequired?: () => void;
   section?: AboutSettingsSection;
 }
 
-export type AboutSettingsSection = "project" | "debug";
+export type AboutSettingsSection = "privacy" | "project" | "debug";
 
-const AboutSettingsPanel: React.FC<AboutSettingsPanelProps> = ({ onRegisterSave, section }) => {
+const AboutSettingsPanel: React.FC<AboutSettingsPanelProps> = ({
+  onAnalyticsReloadRequired,
+  onRegisterSave,
+  section,
+}) => {
   const { study } = useAppState();
   const dispatch = useAppDispatch();
   const [notice, setNotice] = useState<string>("");
@@ -58,6 +71,10 @@ const AboutSettingsPanel: React.FC<AboutSettingsPanelProps> = ({ onRegisterSave,
   const [draftDeveloperModeEnabled, setDraftDeveloperModeEnabled] = useState(
     appliedDeveloperModeEnabled
   );
+  const [draftExperienceProgramEnabled, setDraftExperienceProgramEnabled] = useState(
+    () => getAppSettings().general.analytics?.experienceProgramEnabled ?? true
+  );
+  const [showExperienceDisableConfirm, setShowExperienceDisableConfirm] = useState(false);
 
   useEffect(() => {
     setDraftErrorPopupEnabled(!!study.errorPopupEnabled);
@@ -67,10 +84,32 @@ const AboutSettingsPanel: React.FC<AboutSettingsPanelProps> = ({ onRegisterSave,
     setDraftErrorCenterMode(appliedErrorCenterMode);
   }, [appliedErrorCenterMode]);
 
+  const handleExperienceProgramChange = useCallback((nextEnabled: boolean) => {
+    if (nextEnabled) {
+      setDraftExperienceProgramEnabled(true);
+      return;
+    }
+
+    setShowExperienceDisableConfirm(true);
+  }, []);
+
   useEffect(() => {
     if (!onRegisterSave) return;
     onRegisterSave(() => {
       updateGeneralSettings({ developerModeEnabled: draftDeveloperModeEnabled });
+      const currentExperienceProgramEnabled =
+        getAppSettings().general.analytics?.experienceProgramEnabled ?? true;
+      updateGeneralSettings({
+        analytics: { experienceProgramEnabled: draftExperienceProgramEnabled },
+      });
+      if (currentExperienceProgramEnabled !== draftExperienceProgramEnabled) {
+        if (draftExperienceProgramEnabled) {
+          void initializeClarityIfAllowed();
+        } else {
+          revokeClarityConsent();
+          onAnalyticsReloadRequired?.();
+        }
+      }
       dispatch({ type: "SET_ERROR_POPUP_ENABLED", payload: draftErrorPopupEnabled });
       dispatch({ type: "SET_ERROR_CENTER_MODE", payload: draftErrorCenterMode });
     });
@@ -80,6 +119,8 @@ const AboutSettingsPanel: React.FC<AboutSettingsPanelProps> = ({ onRegisterSave,
     draftDeveloperModeEnabled,
     draftErrorPopupEnabled,
     draftErrorCenterMode,
+    draftExperienceProgramEnabled,
+    onAnalyticsReloadRequired,
   ]);
 
   useEffect(() => {
@@ -96,6 +137,10 @@ const AboutSettingsPanel: React.FC<AboutSettingsPanelProps> = ({ onRegisterSave,
   const repoUrl = pkg.homepage;
   const licenseUrl = `${repoUrl}/blob/main/LICENSE`;
   const thirdPartyNoticesUrl = `${repoUrl}/blob/main/THIRD_PARTY_NOTICES.md`;
+  const legalConsent = getLegalConsent();
+  const legalConsentTime = legalConsent
+    ? new Date(legalConsent.acceptedAt).toLocaleString()
+    : "尚未记录";
   const isSectionHidden = (candidate: AboutSettingsSection) =>
     section ? section !== candidate : undefined;
 
@@ -161,6 +206,55 @@ const AboutSettingsPanel: React.FC<AboutSettingsPanelProps> = ({ onRegisterSave,
 
   return (
     <Stack id="about-panel" gap="xl">
+      <FormSection
+        title="隐私与分析"
+        variant="plain"
+        description="查看公开法律文档，并控制是否帮助作者改进应用。"
+        hidden={isSectionHidden("privacy")}
+      >
+        <SettingGrid>
+          <SettingItem
+            icon="feature.privacy"
+            title="用户体验改进计划"
+            description="默认开启，用于发现难以复现的界面问题；关闭后应用仍可正常使用。"
+            tone={draftExperienceProgramEnabled ? "accent" : "neutral"}
+            control={
+              <FormSwitch
+                checked={draftExperienceProgramEnabled}
+                onCheckedChange={handleExperienceProgramChange}
+                aria-label="用户体验改进计划"
+              />
+            }
+          >
+            <StatusPill tone={isClarityDeploymentConfigured() ? "success" : "neutral"}>
+              {isClarityDeploymentConfigured() ? "部署已配置" : "当前部署未启用"}
+            </StatusPill>
+          </SettingItem>
+          <SettingItem
+            icon="feature.privacy"
+            title="同意记录"
+            description={`文档版本：${LEGAL_DOCUMENT_VERSION}`}
+          >
+            <StatusPill tone="info">{legalConsentTime}</StatusPill>
+          </SettingItem>
+        </SettingGrid>
+        <SettingGrid>
+          {Object.values(LEGAL_DOCUMENTS).map((document) => (
+            <SettingItem
+              key={document.key}
+              icon="feature.sourceCode"
+              title={document.title}
+              description={document.summary}
+            >
+              <a href={document.path}>公开查看</a>
+            </SettingItem>
+          ))}
+        </SettingGrid>
+        <InfoPanel tone="info">
+          分析只在生产环境、部署已配置、当前协议已同意且此开关开启时运行。关闭后保存设置会自动刷新应用。
+        </InfoPanel>
+      </FormSection>
+
       <FormSection
         title="项目信息"
         variant="plain"
@@ -397,6 +491,18 @@ const AboutSettingsPanel: React.FC<AboutSettingsPanelProps> = ({ onRegisterSave,
           <InfoPanel tone="info">保存设置后即可打开这些调试页面。</InfoPanel>
         ) : null}
       </FormSection>
+      <ConfirmDialog
+        isOpen={showExperienceDisableConfirm}
+        title="要关闭用户体验改进计划吗？"
+        description="这个项目主要由作者个人维护。匿名的页面使用情况能帮助我发现难以复现的问题，也能判断哪些功能需要优先修复。关闭后应用仍可正常使用，也不会影响你的现有设置，只是我能获得的改进线索会少一些。"
+        cancelLabel="继续帮助改进"
+        confirmLabel="仍然关闭"
+        onCancel={() => setShowExperienceDisableConfirm(false)}
+        onConfirm={() => {
+          setDraftExperienceProgramEnabled(false);
+          setShowExperienceDisableConfirm(false);
+        }}
+      />
     </Stack>
   );
 };

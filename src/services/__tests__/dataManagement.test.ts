@@ -793,6 +793,10 @@ describe("dataManagement", () => {
     localStorage.setItem("weather-cache", "cached");
     localStorage.setItem("error-center.records", "[]");
     localStorage.setItem("immersive-clock:has-seen-tour", "true");
+    localStorage.setItem(
+      "immersive-clock:legal-consent:v1",
+      JSON.stringify({ schemaVersion: 1, documentVersion: "2026-08-06", acceptedAt: 1 })
+    );
     localStorage.setItem("api-governance.hitokoto.device-seed", "42");
     localStorage.setItem("noise-report.is-main-chart-combined", "true");
     localStorage.setItem("sentinel.owner-data", "keep");
@@ -813,6 +817,7 @@ describe("dataManagement", () => {
     expect(localStorage.getItem("weather-cache")).toBeNull();
     expect(localStorage.getItem("error-center.records")).toBeNull();
     expect(localStorage.getItem("immersive-clock:has-seen-tour")).toBeNull();
+    expect(localStorage.getItem("immersive-clock:legal-consent:v1")).toBeNull();
     expect(localStorage.getItem("api-governance.hitokoto.device-seed")).toBeNull();
     expect(localStorage.getItem("noise-report.is-main-chart-combined")).toBeNull();
     expect(localStorage.getItem("sentinel.owner-data")).toBe("keep");

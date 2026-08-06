@@ -41,6 +41,8 @@ import {
   Switch,
   Tabs,
   Textarea,
+  TimeStage,
+  TimeStageValue,
   TimePicker,
   Toast,
   ToastViewport,
@@ -377,6 +379,25 @@ function LayoutExample() {
         <InfoPanel title="窄屏单列">一段用于验证长内容换行而不撑破网格的确定性文案。</InfoPanel>
       </Grid>
     </Stack>
+  );
+}
+
+function TimeStageExample() {
+  return (
+    <div className={styles.timeStageGrid}>
+      <section className={styles.timeStageDemo} aria-label="流式时间舞台">
+        <TimeStage>
+          <TimeStageValue>12:45:09</TimeStageValue>
+          <span className={styles.timeStageMeta}>2026年8月6日星期四</span>
+        </TimeStage>
+      </section>
+      <section className={styles.timeStageDemo} aria-label="覆盖式时间舞台">
+        <TimeStage placement="overlay">
+          <TimeStageValue>00:25:00</TimeStageValue>
+          <span className={styles.timeStageMeta}>覆盖业务背景但复用同一中央布局</span>
+        </TimeStage>
+      </section>
+    </div>
   );
 }
 
@@ -1586,6 +1607,23 @@ export const COMPONENT_CATALOG: readonly ComponentCatalogEntry[] = [
         "组合布局",
         ["vertical", "horizontal", "responsive-grid", "long-content"],
         LayoutExample
+      ),
+    ],
+  },
+  {
+    id: "time-stage",
+    title: "TimeStage / TimeStageValue",
+    description: "统一全屏时间类页面的中央布局、主数字缩放和手机横屏 HUD 避让。",
+    section: "foundation",
+    kind: "visual",
+    publicExports: ["TimeStage", "TimeStageValue"],
+    requiredStates: ["flow", "overlay", "display-value", "secondary-content", "responsive"],
+    examples: [
+      makeExample(
+        "time-stage-layouts",
+        "流式与覆盖式舞台",
+        ["flow", "overlay", "display-value", "secondary-content", "responsive"],
+        TimeStageExample
       ),
     ],
   },

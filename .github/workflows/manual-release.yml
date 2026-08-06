@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "发布 Tag（v4.0.0；留空时从 package.json 生成）"
+        description: "发布 Tag（v4.0.1；留空时从 package.json 生成）"
         required: false
         type: string
       draft:
@@ -30,9 +30,11 @@ env:
   NODE_VERSION: "22"
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
-  EXPECTED_VERSION: "4.0.0"
-  EXPECTED_ANDROID_VERSION_CODE: "40000"
-  RELEASE_NOTES_PATH: docs/marketing/releases/v4.0.0.md
+  EXPECTED_VERSION: "4.0.1"
+  EXPECTED_ANDROID_VERSION_CODE: "40001"
+  RELEASE_NOTES_PATH: docs/marketing/releases/v4.0.1.md
+  VITE_ENABLE_CLARITY: ${{ vars.VITE_ENABLE_CLARITY }}
+  VITE_CLARITY_PROJECT_ID: ${{ vars.VITE_CLARITY_PROJECT_ID }}
 
 jobs:
   prepare:
@@ -445,6 +447,9 @@ jobs:
           context: .
           platforms: linux/amd64,linux/arm64
           push: true
+          build-args: |
+            VITE_ENABLE_CLARITY=${{ env.VITE_ENABLE_CLARITY }}
+            VITE_CLARITY_PROJECT_ID=${{ env.VITE_CLARITY_PROJECT_ID }}
           tags: |
             ${{ steps.image.outputs.name }}:${{ needs.prepare.outputs.version }}
             ${{ steps.image.outputs.name }}:${{ needs.prepare.outputs.major_minor }}
@@ -523,7 +528,7 @@ jobs:
           tag_name: ${{ needs.prepare.outputs.tag }}
           name: ${{ needs.prepare.outputs.release_name }}
           target_commitish: ${{ github.sha }}
-          body_path: docs/marketing/releases/v4.0.0.md
+          body_path: docs/marketing/releases/v4.0.1.md
           draft: ${{ inputs.draft }}
           prerelease: ${{ inputs.prerelease }}
           fail_on_unmatched_files: true

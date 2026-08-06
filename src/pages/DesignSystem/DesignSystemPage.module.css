@@ -304,6 +304,27 @@
   padding: var(--ui-space-4);
 }
 
+.timeStageGrid {
+  display: grid;
+  gap: var(--ui-space-4);
+}
+
+.timeStageDemo {
+  background:
+    linear-gradient(115deg, var(--ui-color-accent-soft), transparent 44%), var(--ui-color-bg);
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-lg);
+  height: 240px;
+  min-width: 0;
+  overflow: hidden;
+  position: relative;
+}
+
+.timeStageMeta {
+  color: var(--ui-color-text-muted);
+  font-size: var(--ui-font-size-lg);
+}
+
 .tabsShowcase {
   display: grid;
   min-width: 0;

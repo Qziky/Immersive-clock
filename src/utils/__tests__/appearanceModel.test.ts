@@ -45,7 +45,7 @@ describe("appearanceModel", () => {
     expect(resolveAppearanceBackground(appearance, "clock")).toEqual({ type: "black" });
 
     appearance.scenes.clock.background = { type: "builtin" };
-    expect(resolveAppearanceBackground(appearance, "clock")).toEqual({ type: "default" });
+    expect(resolveAppearanceBackground(appearance, "clock")).toEqual({ type: "green" });
   });
 
   it("将旧页面默认背景规范化为继承全局", () => {
@@ -56,6 +56,16 @@ describe("appearanceModel", () => {
 
     expect(normalized.global.background).toEqual({ type: "default" });
     expect(normalized.scenes.clock.background).toEqual({ type: "inherit" });
+  });
+
+  it("将旧页面应用预设迁移为深绿预设", () => {
+    const normalized = normalizeAppearance({
+      global: { background: { type: "default" } },
+      scenes: { clock: { background: { type: "builtin" }, components: {} } },
+    });
+
+    expect(normalized.global.background).toEqual({ type: "default" });
+    expect(normalized.scenes.clock.background).toEqual({ type: "green" });
   });
 
   it("将顶部信息栏旧表面样式合并到唯一容器", () => {

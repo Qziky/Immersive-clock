@@ -17,13 +17,35 @@ const MODE_COMPONENT_LOADERS: Record<AppMode, ModeComponentLoader> = {
   study: () => import("../../components/Study/Study").then((module) => ({ default: module.Study })),
 };
 
+const modeComponentPromises: Partial<Record<AppMode, Promise<{ default: ComponentType }>>> = {};
+
+function getModeComponentPromise(mode: AppMode): Promise<{ default: ComponentType }> {
+  const existingPromise = modeComponentPromises[mode];
+  if (existingPromise) return existingPromise;
+
+  const promise = MODE_COMPONENT_LOADERS[mode]().catch((error: unknown) => {
+    if (modeComponentPromises[mode] === promise) delete modeComponentPromises[mode];
+    throw error;
+  });
+  modeComponentPromises[mode] = promise;
+  return promise;
+}
+
 export const MODE_COMPONENTS: Record<AppMode, LazyExoticComponent<ComponentType>> = {
-  clock: lazy(MODE_COMPONENT_LOADERS.clock),
-  countdown: lazy(MODE_COMPONENT_LOADERS.countdown),
-  stopwatch: lazy(MODE_COMPONENT_LOADERS.stopwatch),
-  study: lazy(MODE_COMPONENT_LOADERS.study),
+  clock: lazy(() => getModeComponentPromise("clock")),
+  countdown: lazy(() => getModeComponentPromise("countdown")),
+  stopwatch: lazy(() => getModeComponentPromise("stopwatch")),
+  study: lazy(() => getModeComponentPromise("study")),
 };
 
-export function preloadModeComponent(mode: AppMode): void {
-  void MODE_COMPONENT_LOADERS[mode]().catch(() => undefined);
+export async function preloadModeComponent(mode: AppMode): Promise<void> {
+  await getModeComponentPromise(mode).then(
+    () => undefined,
+    () => undefined
+  );
+}
+
+export function getModePreloadOrder(priorityMode: AppMode): AppMode[] {
+  const modes = Object.keys(MODE_COMPONENT_LOADERS) as AppMode[];
+  return [priorityMode, ...modes.filter((mode) => mode !== priorityMode)];
 }

@@ -8,7 +8,7 @@
 <p>为教室、自习空间与个人专注打造的本地优先全屏时间看板。</p>
 
 <p>
-  <a href="https://github.com/Qziky/Immersive-clock/releases/latest"><strong>下载 v4.0.0</strong></a>
+  <a href="https://github.com/Qziky/Immersive-clock/releases/latest"><strong>下载 v4.0.1</strong></a>
   ·
   <a href="docs/user-guide/README.md"><strong>使用文档</strong></a>
   ·
@@ -74,11 +74,11 @@
 ### 使用 Web / PWA
 
 1. 从 [GitHub Releases](https://github.com/Qziky/Immersive-clock/releases/latest) 下载
-   `immersive-clock-web-4.0.0.zip`，部署到支持 HTTPS 和 SPA fallback 的 Web 服务。
+   `immersive-clock-web-4.0.1.zip`，部署到支持 HTTPS 和 SPA fallback 的 Web 服务。
 2. 通过页面右下角 HUD 切换时钟、倒计时、秒表和自习模式。
 3. 在支持的浏览器中选择“安装应用”或“添加到主屏幕”，即可作为 PWA 启动。
 
-> 仓库外的在线站点不在 v4.0.0 发布范围内；本页不对其当前版本或可用性作保证。
+> 仓库外的在线站点不在 v4.0.1 发布范围内；本页不对其当前版本或可用性作保证。
 
 ### 安装版本
 
