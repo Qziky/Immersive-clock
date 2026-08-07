@@ -1570,9 +1570,14 @@
   color: var(--ui-color-text);
   display: grid;
   gap: var(--ui-space-3);
-  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   min-width: 0;
   padding: 12px;
+  position: relative;
+}
+
+.toast[data-ui-closable="true"] {
+  padding-right: 44px;
 }
 
 .toast[data-ui-motion="default"][data-ui-presence="entering"] {
@@ -1606,8 +1611,11 @@
 }
 
 .toastClose {
-  align-self: center;
-  flex: 0 0 auto;
+  min-height: 32px;
+  min-width: 32px;
+  position: absolute;
+  right: var(--ui-space-1);
+  top: var(--ui-space-1);
 }
 
 .toastSuccess {

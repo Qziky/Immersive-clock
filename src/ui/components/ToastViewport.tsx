@@ -9,7 +9,7 @@ export type ToastDismissReason = "timeout" | "close" | "programmatic";
 
 export const TOAST_EXIT_DURATION_MS = 180;
 
-export interface ToastMessage extends Omit<ToastProps, "className" | "motion" | "onClose"> {
+export interface ToastMessage extends Omit<ToastProps, "motion" | "onClose"> {
   id: string;
   revision: number;
   duration?: number | null;
@@ -104,6 +104,7 @@ function TimedToast({ toast, onDismiss }: TimedToastProps) {
         accentColor={toast.accentColor}
         action={toast.action}
         role={toast.role}
+        className={toast.className}
         motion="none"
         onClose={isExiting ? undefined : () => onDismiss(toast.id, "close")}
       />

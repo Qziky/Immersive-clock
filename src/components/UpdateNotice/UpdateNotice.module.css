@@ -1,0 +1,40 @@
+.notice {
+  margin-left: auto;
+  max-width: 100%;
+  min-width: 176px;
+  width: fit-content;
+}
+
+.noticeWithAction {
+  min-height: 76px;
+}
+
+.actionRow {
+  bottom: var(--ui-space-2);
+  display: flex;
+  justify-content: flex-end;
+  left: var(--ui-space-7);
+  position: absolute;
+  right: var(--ui-space-5);
+}
+
+.version {
+  color: var(--ui-color-text-subtle);
+  font-size: 10px;
+  font-weight: 500;
+  font-family: var(--ui-font-number);
+  letter-spacing: 0;
+  margin-left: 6px;
+  white-space: nowrap;
+}
+
+.version::before {
+  content: "·";
+  margin-right: 5px;
+}
+
+.action {
+  color: var(--ui-color-text-muted);
+  flex: 0 0 auto;
+  font-size: var(--ui-font-size-xs);
+}

@@ -34,6 +34,12 @@ function FeedbackHarness() {
       </button>
       <button
         type="button"
+        onClick={() => feedback.notify({ title: "定制通知", className: "feedback-custom-class" })}
+      >
+        推送定制通知
+      </button>
+      <button
+        type="button"
         onClick={() => {
           duplicateCountRef.current += 1;
           feedback.notify({
@@ -79,6 +85,7 @@ describe("FeedbackProvider", () => {
     expect(within(viewport).getAllByRole("status")).toHaveLength(3);
     expect(screen.getByText("一")).toBeInTheDocument();
     expect(screen.queryByText("四")).not.toBeInTheDocument();
+    expect(within(viewport).getAllByRole("status")[0]).toHaveAttribute("data-ui-closable", "true");
 
     await user.click(within(viewport).getAllByRole("button", { name: "关闭通知" })[0]);
     await waitFor(() => expect(screen.getByText("四")).toBeInTheDocument());
@@ -171,6 +178,19 @@ describe("FeedbackProvider", () => {
     expect(exitingToast).toHaveAttribute("data-ui-presence", "exiting");
     act(() => vi.advanceTimersByTime(180));
     expect(screen.queryByText("需处理")).not.toBeInTheDocument();
+  });
+
+  it("forwards the toast class name", () => {
+    render(
+      <FeedbackProvider>
+        <FeedbackHarness />
+      </FeedbackProvider>
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "推送定制通知" }));
+    expect(screen.getByText("定制通知").closest("[role='status']")).toHaveClass(
+      "feedback-custom-class"
+    );
   });
 
   it("resolves themed confirmations and focuses the safe action first", async () => {

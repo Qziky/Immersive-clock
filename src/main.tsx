@@ -4,6 +4,7 @@ import { BrowserRouter } from "react-router-dom";
 
 import { App, KeepAwakeRuntimeNotice } from "./App";
 import { LegalConsentGate } from "./components/Legal/LegalConsentGate";
+import { UpdateNotice } from "./components/UpdateNotice/UpdateNotice";
 import { AppContextProvider } from "./contexts/AppContext";
 import { AppearanceProvider } from "./contexts/AppearanceContext";
 import { startKeepAwakeRuntime } from "./services/keepAwakeRuntime";
@@ -56,6 +57,7 @@ function AppRuntime(): React.ReactElement {
       <AppearanceProvider>
         <FeedbackProvider>
           <KeepAwakeRuntimeNotice />
+          <UpdateNotice />
           <App />
         </FeedbackProvider>
       </AppearanceProvider>

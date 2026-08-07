@@ -25,6 +25,8 @@ interface ImportMetaEnv {
   readonly VITE_ENABLE_CLARITY?: string;
   /** Clarity 项目 ID */
   readonly VITE_CLARITY_PROJECT_ID?: string;
+  /** 更新清单地址覆盖 */
+  readonly VITE_UPDATE_MANIFEST_URL?: string;
 }
 
 /** 扩展 ImportMeta 接口 */

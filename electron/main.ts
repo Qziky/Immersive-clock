@@ -14,9 +14,16 @@ import {
   type WebContents,
 } from "electron";
 
-import { KEEP_AWAKE_SET_CHANNEL } from "./ipc/channels";
+import {
+  KEEP_AWAKE_SET_CHANNEL,
+  UPDATE_CHECK_CHANNEL,
+  UPDATE_GET_STATE_CHANNEL,
+  UPDATE_INSTALL_CHANNEL,
+  UPDATE_OPEN_RELEASE_CHANNEL,
+} from "./ipc/channels";
 import { registerTimeSyncIpc } from "./ipc/registerTimeSyncIpc";
 import { createKeepAwakeController } from "./keepAwakeController";
+import { electronUpdateManager } from "./updateManager";
 import { shouldAllowFullscreenPermission } from "./permissionPolicy";
 import { resolveXiaomiWeatherUpstreamUrl } from "./xiaomiWeatherProxy";
 
@@ -248,11 +255,33 @@ function registerKeepAwakeIpc() {
   });
 }
 
+function registerUpdateIpc() {
+  const isTrustedRenderer = (event: Electron.IpcMainInvokeEvent): boolean =>
+    mainWindow !== null && event.sender === mainWindow.webContents;
+
+  electronUpdateManager.setWindowGetter(() => mainWindow);
+  ipcMain.handle(UPDATE_GET_STATE_CHANNEL, (event) =>
+    isTrustedRenderer(event)
+      ? electronUpdateManager.getState()
+      : { status: "error", currentVersion: app.getVersion(), error: "未授权的更新请求" }
+  );
+  ipcMain.handle(UPDATE_CHECK_CHANNEL, (event) =>
+    isTrustedRenderer(event) ? electronUpdateManager.check() : electronUpdateManager.getState()
+  );
+  ipcMain.handle(UPDATE_INSTALL_CHANNEL, (event) =>
+    isTrustedRenderer(event) ? electronUpdateManager.install() : Promise.resolve()
+  );
+  ipcMain.handle(UPDATE_OPEN_RELEASE_CHANNEL, (event) =>
+    isTrustedRenderer(event) ? electronUpdateManager.openRelease() : Promise.resolve()
+  );
+}
+
 // 当 Electron 完成初始化时创建窗口
 app.whenReady().then(async () => {
   if (!hasSingleInstanceLock) return;
   await registerAppProtocol();
   registerKeepAwakeIpc();
+  registerUpdateIpc();
   registerTimeSyncIpc();
 
   /**

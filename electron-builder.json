@@ -56,5 +56,12 @@
     "category": "Utility",
     "artifactName": "immersive-clock-${version}-${arch}.${ext}"
   },
-  "publish": null
+  "publish": [
+    {
+      "provider": "github",
+      "owner": "Qziky",
+      "repo": "Immersive-clock",
+      "releaseType": "release"
+    }
+  ]
 }

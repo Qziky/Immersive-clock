@@ -1,6 +1,15 @@
 import { contextBridge, ipcRenderer } from "electron";
 
-import { KEEP_AWAKE_SET_CHANNEL, TIME_SYNC_NTP_CHANNEL } from "./ipc/channels";
+import {
+  KEEP_AWAKE_SET_CHANNEL,
+  TIME_SYNC_NTP_CHANNEL,
+  UPDATE_CHECK_CHANNEL,
+  UPDATE_GET_STATE_CHANNEL,
+  UPDATE_INSTALL_CHANNEL,
+  UPDATE_OPEN_RELEASE_CHANNEL,
+  UPDATE_STATE_CHANNEL,
+} from "./ipc/channels";
+import type { ElectronUpdateBridge, ElectronUpdateState } from "../src/types/update";
 
 // 声明全局类型（可选，用于 TypeScript）
 declare global {
@@ -18,6 +27,7 @@ declare global {
       keepAwake: {
         setEnabled: (enabled: boolean) => Promise<{ active: boolean }>;
       };
+      updates: ElectronUpdateBridge;
     };
   }
 }
@@ -40,6 +50,19 @@ contextBridge.exposeInMainWorld("electronAPI", {
       ipcRenderer.invoke(KEEP_AWAKE_SET_CHANNEL, Boolean(enabled)) as Promise<{
         active: boolean;
       }>,
+  },
+
+  updates: {
+    getState: () => ipcRenderer.invoke(UPDATE_GET_STATE_CHANNEL) as Promise<ElectronUpdateState>,
+    check: () => ipcRenderer.invoke(UPDATE_CHECK_CHANNEL) as Promise<ElectronUpdateState>,
+    install: () => ipcRenderer.invoke(UPDATE_INSTALL_CHANNEL) as Promise<void>,
+    openRelease: () => ipcRenderer.invoke(UPDATE_OPEN_RELEASE_CHANNEL) as Promise<void>,
+    subscribe: (listener: (state: ElectronUpdateState) => void) => {
+      const handler = (_event: Electron.IpcRendererEvent, state: ElectronUpdateState) =>
+        listener(state);
+      ipcRenderer.on(UPDATE_STATE_CHANNEL, handler);
+      return () => ipcRenderer.removeListener(UPDATE_STATE_CHANNEL, handler);
+    },
   },
 
   // 可以在这里添加更多需要的 API

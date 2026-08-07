@@ -103,9 +103,10 @@ export default defineConfig(({ mode }) => {
       ]) as unknown as PluginOption),
     isElectron && (renderer() as unknown as PluginOption),
     !isTest &&
+      !isElectron &&
       !isAndroid &&
       (VitePWA({
-        registerType: "autoUpdate",
+        registerType: "prompt",
         includeAssets: ["apple-touch-icon.png"],
         workbox: {
           globPatterns: ["**/*.{js,css,html,ico,svg,webp,mp3,woff2,woff}"],
@@ -192,11 +193,12 @@ export default defineConfig(({ mode }) => {
   return {
     plugins,
     resolve: {
-      alias: isAndroid
-        ? {
-            "virtual:pwa-register": path.resolve(process.cwd(), "src/pwa-register.noop.ts"),
-          }
-        : undefined,
+      alias:
+        isElectron || isAndroid
+          ? {
+              "virtual:pwa-register": path.resolve(process.cwd(), "src/pwa-register.noop.ts"),
+            }
+          : undefined,
     },
     define: {
       "import.meta.env.VITE_APP_VERSION": JSON.stringify(appVersion),

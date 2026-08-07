@@ -63,6 +63,9 @@ export interface AppSettings {
       hideUntil: number;
       version: string; // 存储版本号，用于与当前应用版本进行比对
     };
+    update: {
+      autoCheckEnabled: boolean;
+    };
     analytics: {
       experienceProgramEnabled: boolean;
     };
@@ -145,7 +148,7 @@ export interface AppSettings {
 
 export const APP_SETTINGS_KEY = "AppSettings";
 export const APP_SETTINGS_QUARANTINE_KEY = "immersive-clock:quarantine:app-settings";
-export const CURRENT_SETTINGS_VERSION = 14;
+export const CURRENT_SETTINGS_VERSION = 15;
 
 /** 中央信息轮播的硬上限，配置与运行时都应遵守该值。 */
 export const MAX_STUDY_INFO_ITEMS = 20;
@@ -777,6 +780,9 @@ const DEFAULT_SETTINGS: AppSettings = {
       hideUntil: 0,
       version: "",
     },
+    update: {
+      autoCheckEnabled: true,
+    },
     analytics: {
       experienceProgramEnabled: true,
     },
@@ -1016,6 +1022,7 @@ export function normalizeAppSettings(value: unknown): AppSettings {
   const parsedNoiseControl = isRecord(parsed.noiseControl) ? parsed.noiseControl : {};
   const parsedStartup = isRecord(parsedGeneral.startup) ? parsedGeneral.startup : {};
   const parsedAnnouncement = isRecord(parsedGeneral.announcement) ? parsedGeneral.announcement : {};
+  const parsedUpdate = isRecord(parsedGeneral.update) ? parsedGeneral.update : {};
   const parsedAnalytics = isRecord(parsedGeneral.analytics) ? parsedGeneral.analytics : {};
   const parsedWeather = isRecord(parsedGeneral.weather) ? parsedGeneral.weather : {};
   const parsedTimeSync = isRecord(parsedGeneral.timeSync) ? parsedGeneral.timeSync : {};
@@ -1081,6 +1088,12 @@ export function normalizeAppSettings(value: unknown): AppSettings {
       startup: { ...DEFAULT_SETTINGS.general.startup, ...parsedStartup },
       quote: normalizeQuoteSettings(parsedGeneral.quote, storedVersion),
       announcement: { ...DEFAULT_SETTINGS.general.announcement, ...parsedAnnouncement },
+      update: {
+        autoCheckEnabled:
+          typeof parsedUpdate.autoCheckEnabled === "boolean"
+            ? parsedUpdate.autoCheckEnabled
+            : DEFAULT_SETTINGS.general.update.autoCheckEnabled,
+      },
       analytics: {
         experienceProgramEnabled:
           typeof parsedAnalytics.experienceProgramEnabled === "boolean"
@@ -1214,6 +1227,9 @@ export function updateAppSettings(
         announcement: generalUpdates.announcement
           ? { ...current.general.announcement, ...generalUpdates.announcement }
           : current.general.announcement,
+        update: generalUpdates.update
+          ? { ...current.general.update, ...generalUpdates.update }
+          : current.general.update,
         analytics: generalUpdates.analytics
           ? { ...current.general.analytics, ...generalUpdates.analytics }
           : current.general.analytics,

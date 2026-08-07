@@ -142,7 +142,15 @@ This is expected. Core timers and local content can work offline, but new weathe
 
 ### The PWA still shows an old version
 
-Close all Immersive Clock tabs and PWA windows, then reopen online. If needed, clear **Temporary Cache (`临时缓存`)** under Settings Data. Do not clear all site data until you have created a backup.
+Open **System Data → App Updates (`应用更新`)** and select **Check for Updates (`检查更新`)**. If resources are still being prepared, stay online and retry. If the old version remains after **Update Now (`立即更新`)**, close every Immersive Clock tab and PWA window, then reopen. Clear **Temporary Cache (`临时缓存`)** only after that; do not clear all site data until you have created a backup.
+
+### A desktop update cannot be downloaded
+
+Retry from App Updates, then use the Release-page fallback. Portable, deb, and rpm packages intentionally do not replace themselves. Verify that manual downloads come from the project GitHub Release and match `SHA256SUMS.txt`.
+
+### Android does not open the APK download
+
+The app falls back to the GitHub Release page. If that also fails, allow external links and download the release-signed APK manually from the project Release.
 
 ### Is there a macOS desktop package?
 

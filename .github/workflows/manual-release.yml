@@ -221,6 +221,9 @@ jobs:
           if (-not (Test-Path $portable -PathType Leaf) -or (Get-Item $portable).Length -eq 0) {
             throw "Missing Windows Portable: $portable"
           }
+          if (-not (Test-Path "release/latest.yml" -PathType Leaf) -or (Get-Item "release/latest.yml").Length -eq 0) {
+            throw "Missing Windows update metadata: release/latest.yml"
+          }
 
       - name: Upload Windows Setup
         uses: actions/upload-artifact@v4
@@ -235,6 +238,15 @@ jobs:
           name: windows-portable
           path: release/immersive-clock-${{ needs.prepare.outputs.version }}-x64-Portable.exe
           if-no-files-found: error
+
+      - name: Upload Windows update metadata
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-update-metadata
+          path: |
+            release/latest.yml
+            release/*.blockmap
+          if-no-files-found: warn
 
   build-electron-linux:
     runs-on: ubuntu-latest
@@ -283,6 +295,7 @@ jobs:
               exit 1
             fi
           done
+          test -s release/latest-linux.yml
 
       - name: Upload Linux AppImage
         uses: actions/upload-artifact@v4
@@ -304,6 +317,15 @@ jobs:
           name: linux-rpm
           path: release/immersive-clock-${{ needs.prepare.outputs.version }}-*.rpm
           if-no-files-found: error
+
+      - name: Upload Linux update metadata
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-update-metadata
+          path: |
+            release/latest-linux.yml
+            release/*.blockmap
+          if-no-files-found: warn
 
   build-android-release:
     runs-on: ubuntu-latest
@@ -503,10 +525,18 @@ jobs:
           mkdir release-files
           find release-assets -type f -exec cp '{}' release-files/ \;
 
+          VITE_APP_VERSION="$version" \
+            UPDATE_RELEASE_TAG="${{ needs.prepare.outputs.tag }}" \
+            UPDATE_MANIFEST_OUTPUT_DIR=release-files \
+            node scripts/generate-update-manifest.mjs
+
           test -s "release-files/immersive-clock-web-${version}.zip"
           test -s "release-files/immersive-clock-${version}-x64-Setup.exe"
           test -s "release-files/immersive-clock-${version}-x64-Portable.exe"
           test -s "release-files/immersive-clock-${version}-android-release.apk"
+          test -s release-files/update-manifest.json
+          test -s release-files/latest.yml
+          test -s release-files/latest-linux.yml
 
           for extension in AppImage deb rpm; do
             shopt -s nullglob

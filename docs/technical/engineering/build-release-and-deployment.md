@@ -6,12 +6,16 @@ Actions 共同定义，要求 Node.js 22 或更高版本。
 
 ## Web 与 PWA
 
-`npm run build` 执行 Vite 生产构建及 postbuild、预渲染和合规检查，输出 `dist/`。
+`npm run build` 执行 Vite 生产构建、统一清单生成、postbuild、预渲染和合规检查，输出 `dist/`。
 `VITE_APP_VERSION` 优先于 `package.json.version`，该值会注入应用、manifest、公告偏好和缓存键。
 
-Web mode 启用 `vite-plugin-pwa` 与自动更新 Service Worker；Electron 和 Android 不注册 Service
-Worker。发布前验证首次在线加载、离线重开、旧版本更新、`/docs/*.md` NetworkFirst 行为，以及
+Web mode 启用 `vite-plugin-pwa` 的提示式 Service Worker 更新；Electron 和 Android 不注册 Service
+Worker。发布前验证首次在线加载、离线重开、更新提醒与用户确认刷新、`/docs/*.md` NetworkFirst 行为，以及
 IndexedDB 中的自定义字体和背景不会因缓存清理丢失。
+
+`scripts/generate-update-manifest.mjs` 从包版本、Android `versionCode` 与 Release Tag 生成
+`update-manifest.json`。Web 默认读取同源清单；Electron/Android 默认读取 GitHub 最新稳定 Release
+附件。Vercel、EdgeOne 和 Nginx 必须让 `/sw.js`、`/update-manifest.json` 禁用存储缓存。
 
 GitHub Release 中的 `immersive-clock-web-<version>.zip` 是可自托管的 Web 正式制品。生产部署必须
 提供 HTTPS、SPA history fallback、`/docs/*` 静态文件，以及 `/api/xiaomi-weather/*` 同源代理。
@@ -30,6 +34,11 @@ GitHub Release 中的 `immersive-clock-web-<version>.zip` 是可自托管的 Web
 打包清单包含 `dist`、`dist-electron`、`public` 和 `package.json`。应用 ID 为
 `io.github.qziky.immersiveclock`，生产运行时通过 `app://local` 提供静态资源和天气代理。
 
+electron-builder 同时生成 `latest.yml`、`latest-linux.yml` 和可用的 `.blockmap`。NSIS 与 AppImage
+通过 `electron-updater` 静默下载，统一清单和更新元数据版本不一致时拒绝下载并回退发布页；Portable、
+deb 和 rpm 只提供下载动作。生产自动更新必须使用可持续复用且受信任的代码签名，仓库不会创建或
+注入未配置的签名证书，当前签名状态仍由发布环境决定。
+
 ## Android
 
 `npm run build:android` 使用相对资源路径构建 Web assets，禁用 Electron、PWA 插件与 Service
@@ -44,6 +53,9 @@ application ID 为 `io.github.qziky.immersiveclock`，最低 API 24，使用 JDK
 Build Tools 36.0.0。Manual Release 从 GitHub Actions Secrets 解码仓库外 keystore，通过
 `apksigner` 验证签名并与 `ANDROID_RELEASE_CERT_SHA256` 仓库变量比对，再用 `aapt` 检查 package、
 `versionName` 和 `versionCode`。Release 只发布正式签名 APK，不发布 Debug APK 或 AAB。
+
+Android 运行时检查统一稳定版清单，点击更新后打开 APK 下载地址，失败时回退到 Release 页面；
+APK 覆盖安装仍依赖相同 application ID 与发布证书。
 
 完整本地与 CI 说明见 [Android APK 构建与发布](android-debug-build.md)。
 
@@ -65,13 +77,14 @@ APK，不参与 Release 附件。
 `.github/workflows/manual-release.yml` 仅允许手动触发，并执行：
 
 1. 用 `npm ci` 安装依赖，校验 Tag、包版本、Android 版本和固定 Release Notes 一致；
-2. 构建 Web ZIP、Windows、Linux、正式签名 Android APK；
+2. 构建 Web ZIP、Windows、Linux、正式签名 Android APK 及 Electron 更新元数据；
 3. 推送四组公开 GHCR 标签并检查 amd64/arm64 manifest；
-4. 汇总全部附件并生成 `SHA256SUMS.txt`；
-5. 从 `docs/marketing/releases/v<version>.md` 创建 GitHub Release。
+4. 生成稳定版 `update-manifest.json`，汇总全部附件并生成 `SHA256SUMS.txt`；
+5. 从 `docs/marketing/releases/v<version>.md` 创建 GitHub Release，并上传 Web ZIP、安装包、APK、
+   更新清单、`latest*.yml`、`.blockmap` 与校验文件。
 
-v4.0.1 的标准流程先以 `draft=true`、`prerelease=false` 创建 Draft Release，下载并验收所有制品后，
-再转为公开稳定版并标记 Latest。
+标准流程先以 `draft=true`、`prerelease=false` 创建 Draft Release，下载并验收所有制品后，再转为
+公开稳定版并标记 Latest。Draft 与 prerelease 不会成为客户端的稳定更新来源。
 
 ## 发布检查清单
 

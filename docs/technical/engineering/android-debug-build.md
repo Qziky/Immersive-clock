@@ -73,4 +73,5 @@ CI 不启动 Android Emulator。没有连接真机时，只能将构建、清单
 - Android 的小米天气请求通过 `CapacitorHttp` 直连固定 HTTPS 上游；Web 依赖部署代理，Electron
   依赖 `app://local` 协议代理。
 - Android 不生成或注册 Service Worker，离线能力来自 APK 内的本地 Web assets。
-- 当前没有后台通知、后台环境监测、原生文件分享、自动更新或商店元数据。
+- 当前没有后台通知、后台环境监测、原生文件分享或商店元数据。应用会检查统一稳定版清单并通过
+  Capacitor Browser 打开 Release APK，但安装仍由 Android 系统确认，不执行应用内静默安装。

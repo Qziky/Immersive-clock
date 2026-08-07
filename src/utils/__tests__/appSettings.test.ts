@@ -96,6 +96,7 @@ describe("appSettings", () => {
       ])
     );
     expect(s.general.quote.customChannels).toEqual([]);
+    expect(s.general.update.autoCheckEnabled).toBe(true);
     expect(s.study.infoCarousel).toMatchObject({ intervalSec: 6 });
     expect(s.study.infoCarousel).not.toHaveProperty("autoRotate");
     expect(s.study.infoCarousel.items.map((item) => item.source)).toEqual([
@@ -126,6 +127,26 @@ describe("appSettings", () => {
         enabled: false,
       }),
     ]);
+  });
+
+  it("v14 设置迁移会补齐更新偏好，并保留显式关闭值", () => {
+    const migrated = normalizeAppSettings({
+      version: 14,
+      general: { update: {} },
+    });
+    expect(migrated.version).toBe(CURRENT_SETTINGS_VERSION);
+    expect(migrated.general.update.autoCheckEnabled).toBe(true);
+
+    const disabled = normalizeAppSettings({
+      version: 14,
+      general: { update: { autoCheckEnabled: false } },
+    });
+    expect(disabled.general.update.autoCheckEnabled).toBe(false);
+  });
+
+  it("更新偏好支持局部保存", () => {
+    updateGeneralSettings({ update: { autoCheckEnabled: false } });
+    expect(getAppSettings().general.update.autoCheckEnabled).toBe(false);
   });
 
   it("normalizeStudyInfoCarousel 会补齐内置配置、按类型去重并依用户顺序限制 20 条", () => {

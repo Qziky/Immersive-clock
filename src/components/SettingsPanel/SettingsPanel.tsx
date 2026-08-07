@@ -22,6 +22,7 @@ import BasicSettingsPanel, { type BasicSettingsSection } from "./sections/BasicS
 import ContentSettingsPanel, { type ContentSettingsSection } from "./sections/ContentSettingsPanel";
 import DataSettingsPanel from "./sections/DataSettingsPanel";
 import StudySettingsPanel from "./sections/StudySettingsPanel";
+import UpdateSettingsPanel from "./sections/UpdateSettingsPanel";
 import WeatherSettingsPanel, { type WeatherSettingsSection } from "./sections/WeatherSettingsPanel";
 import styles from "./SettingsPanel.module.css";
 
@@ -45,6 +46,7 @@ type SettingsPaneId =
   | "timeSync"
   | "privacy"
   | "project"
+  | "updates"
   | "data"
   | "debug";
 
@@ -110,6 +112,14 @@ type SettingsPane =
       icon: AppIconName;
       panel: "data";
       section: "data";
+    }
+  | {
+      value: SettingsPaneId;
+      group: "system";
+      label: string;
+      description: string;
+      icon: AppIconName;
+      panel: "updates";
     };
 
 interface SettingsPanelProps {
@@ -315,6 +325,14 @@ const paneItems: SettingsPane[] = [
     section: "project",
   },
   {
+    value: "updates",
+    group: "system",
+    label: "应用更新",
+    description: "检查 Web、桌面客户端和 Android 版本。",
+    icon: "feature.sync",
+    panel: "updates",
+  },
+  {
     value: "data",
     group: "system",
     label: "设置数据",
@@ -384,6 +402,7 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
   const monitorSaveRef = useRef<() => void>(() => {});
   const quotesSaveRef = useRef<() => void>(() => {});
   const aboutSaveRef = useRef<() => void>(() => {});
+  const updateSaveRef = useRef<() => void>(() => {});
   const wasOpenRef = useRef(isOpen);
 
   useLayoutEffect(() => {
@@ -415,6 +434,9 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
   }, []);
   const registerAboutSave = useCallback((save: () => void) => {
     aboutSaveRef.current = save;
+  }, []);
+  const registerUpdateSave = useCallback((save: () => void) => {
+    updateSaveRef.current = save;
   }, []);
 
   const handleDataBusyChange = useCallback((isBusy: boolean) => {
@@ -455,6 +477,7 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
       if (visitedPanels.has("monitor")) monitorSaveRef.current?.();
       if (visitedPanels.has("quotes")) quotesSaveRef.current?.();
       if (visitedPanels.has("about")) aboutSaveRef.current?.();
+      if (visitedPanels.has("updates")) updateSaveRef.current?.();
       dispatch({ type: "SET_TARGET_YEAR", payload: targetYear });
     } catch (error) {
       logger.error("保存分区设置失败:", error);
@@ -607,6 +630,14 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
               section={aboutSection}
               onAnalyticsReloadRequired={handleDataReloadRequired}
               onRegisterSave={registerAboutSave}
+            />
+          </div>
+        )}
+        {visitedPanels.has("updates") && (
+          <div className={styles.panelMount} hidden={activePaneItem.panel !== "updates"}>
+            <UpdateSettingsPanel
+              key={`updates-${draftSession}`}
+              onRegisterSave={registerUpdateSave}
             />
           </div>
         )}

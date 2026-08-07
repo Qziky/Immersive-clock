@@ -63,6 +63,7 @@ export function Toast({
       )}
       data-ui-motion={motion}
       data-ui-presence="entering"
+      data-ui-closable={onClose ? "true" : undefined}
       role={semanticRole}
       aria-atomic="true"
       style={customAccentStyle}
@@ -81,7 +82,7 @@ export function Toast({
           aria-label="关闭通知"
           icon="action.close"
           size="sm"
-          variant="ghost"
+          variant="minimal"
           onClick={onClose}
         />
       )}
