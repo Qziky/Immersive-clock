@@ -7,6 +7,8 @@ type QuotePreferenceSeed = {
   enabled: boolean;
   weight: number;
   hitokotoCategories?: string[];
+  chinesePoetryDynasty?: string;
+  chinesePoetryTypes?: string[];
   orderMode?: "random" | "sequential";
   quotesOverride?: string[];
 };
@@ -24,6 +26,9 @@ async function seedQuoteSettings(
   channels: QuotePreferenceSeed[],
   animation: QuoteAnimationSeed = {}
 ) {
+  const seededChannels = channels.some((channel) => channel.id === "chinese-poetry-api")
+    ? channels
+    : [...channels, { id: "chinese-poetry-api", enabled: false, weight: 10 }];
   await page.addInitScript(
     ({ quoteAnimation, quoteChannels }) => {
       if (sessionStorage.getItem("quote-e2e-seeded") === "true") return;
@@ -47,7 +52,7 @@ async function seedQuoteSettings(
       );
       sessionStorage.setItem("quote-e2e-seeded", "true");
     },
-    { quoteAnimation: animation, quoteChannels: channels }
+    { quoteAnimation: animation, quoteChannels: seededChannels }
   );
 }
 
@@ -73,6 +78,7 @@ function allOnlineWithLocalFallback(): QuotePreferenceSeed[] {
       hitokotoCategories: ["d", "i", "k"],
     },
     { id: "jinrishici-api", enabled: true, weight: 100 },
+    { id: "chinese-poetry-api", enabled: true, weight: 100 },
     { id: "advice-slip-api", enabled: true, weight: 100 },
   ];
 }
@@ -127,7 +133,7 @@ async function expectSettingsWithoutHorizontalOverflow(page: Page, dialog: Locat
 
 async function expectQuoteChannelGeometry(dialog: Locator) {
   const channelCards = dialog.locator("article");
-  await expect(channelCards).toHaveCount(5);
+  await expect(channelCards).toHaveCount(6);
 
   const layout = await channelCards.evaluateAll((cards) =>
     cards.map((card, cardIndex) => {
@@ -308,6 +314,57 @@ test("在线语录：通过拦截的今日诗词 SDK 展示正文与完整来源
   expect(sdkRequests).toBeGreaterThan(0);
 });
 
+test("在线语录：诗泉携带筛选参数并展示随机单句与完整来源", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await useDeterministicRandom(page, 0.75);
+  await seedQuoteSettings(page, [
+    { id: "local-inspirational", enabled: false, weight: 40 },
+    { id: "university-mottos", enabled: false, weight: 40 },
+    { id: "hitokoto-api", enabled: false, weight: 20 },
+    { id: "jinrishici-api", enabled: false, weight: 10 },
+    {
+      id: "chinese-poetry-api",
+      enabled: true,
+      weight: 10,
+      chinesePoetryDynasty: "唐",
+      chinesePoetryTypes: ["五言绝句", "七言绝句"],
+    },
+    { id: "advice-slip-api", enabled: false, weight: 10 },
+  ]);
+
+  let poetryRequests = 0;
+  await page.route("https://poetry.palemoky.com/api/poems/random**", async (route) => {
+    poetryRequests += 1;
+    const url = new URL(route.request().url());
+    expect(url.searchParams.get("lang")).toBe("zh-Hans");
+    expect(url.searchParams.get("dynasty")).toBe("唐");
+    expect(url.searchParams.getAll("type")).toEqual(["五言绝句", "七言绝句"]);
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        data: {
+          id: 100,
+          title: "静夜思",
+          content: ["床前明月光，疑是地上霜。", "举头望明月，低头思故乡。"],
+          author: { id: 1, name: "李白" },
+          dynasty: { id: 6, name: "唐" },
+          type: { id: 11, name: "五言绝句" },
+        },
+        lang: "zh-Hans",
+      }),
+    });
+  });
+
+  await page.goto("/");
+  await enterStudyMode(page);
+
+  const quoteButton = page.getByRole("button", { name: "刷新语录" });
+  await expect(quoteButton).toContainText("举头望明月，低头思故乡。");
+  await expect(quoteButton).toContainText("唐 · 李白 · 静夜思");
+  expect(poetryRequests).toBeGreaterThan(0);
+});
+
 test("在线语录：一言两条线路失败后切换到 Advice Slip", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   await useDeterministicRandom(page, 0);
@@ -355,7 +412,7 @@ test("在线语录：一言两条线路失败后切换到 Advice Slip", async ({
   expect(adviceRequests).toBeGreaterThan(0);
 });
 
-test("在线语录：三个服务均返回错误时保留本地兜底", async ({ page }) => {
+test("在线语录：四个服务均返回错误时保留本地兜底", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   await useDeterministicRandom(page, 0.999);
   await seedQuoteSettings(page, allOnlineWithLocalFallback());
@@ -363,6 +420,7 @@ test("在线语录：三个服务均返回错误时保留本地兜底", async ({
   let hitokotoRequests = 0;
   let internationalRequests = 0;
   let jinrishiciRequests = 0;
+  let chinesePoetryRequests = 0;
   let adviceRequests = 0;
   await page.route("https://v1.hitokoto.cn/**", async (route) => {
     hitokotoRequests += 1;
@@ -386,6 +444,10 @@ test("在线语录：三个服务均返回错误时保留本地兜底", async ({
     adviceRequests += 1;
     await route.fulfill({ status: 503, contentType: "application/json", body: "{}" });
   });
+  await page.route("https://poetry.palemoky.com/api/poems/random**", async (route) => {
+    chinesePoetryRequests += 1;
+    await route.fulfill({ status: 503, contentType: "application/json", body: "{}" });
+  });
 
   await page.goto("/");
   await enterStudyMode(page);
@@ -396,6 +458,7 @@ test("在线语录：三个服务均返回错误时保留本地兜底", async ({
   await expect.poll(() => hitokotoRequests).toBeGreaterThan(0);
   await expect.poll(() => internationalRequests).toBeGreaterThan(0);
   await expect.poll(() => jinrishiciRequests).toBeGreaterThan(0);
+  await expect.poll(() => chinesePoetryRequests).toBeGreaterThan(0);
   await expect(quoteButton).toContainText(LOCAL_FALLBACK_TEXT);
 });
 
@@ -412,6 +475,7 @@ test("离线启动：应用可访问但外部语录服务断网时显示本地�
   await page.route("https://v1.hitokoto.cn/**", abortAsOffline);
   await page.route("https://international.v1.hitokoto.cn/**", abortAsOffline);
   await page.route("https://sdk.jinrishici.com/v2/browser/jinrishici.js", abortAsOffline);
+  await page.route("https://poetry.palemoky.com/api/poems/random**", abortAsOffline);
   await page.route("https://api.adviceslip.com/advice", abortAsOffline);
 
   await page.goto("/");
@@ -419,16 +483,17 @@ test("离线启动：应用可访问但外部语录服务断网时显示本地�
 
   const quoteButton = page.getByRole("button", { name: "刷新语录" });
   await expect(quoteButton).toContainText(LOCAL_FALLBACK_TEXT);
-  await expect.poll(() => offlineRequests).toBeGreaterThanOrEqual(4);
+  await expect.poll(() => offlineRequests).toBeGreaterThanOrEqual(5);
   await expect(quoteButton).toContainText(LOCAL_FALLBACK_TEXT);
 });
 
-test("语录设置：三个在线频道可见且保存后保持启停与权重", async ({ page }) => {
+test("语录设置：四个在线频道可见且诗泉筛选可保存重载", async ({ page }) => {
   await seedQuoteSettings(page, [
     { id: "local-inspirational", enabled: true, weight: 40 },
     { id: "university-mottos", enabled: true, weight: 40 },
     { id: "hitokoto-api", enabled: false, weight: 20 },
     { id: "jinrishici-api", enabled: false, weight: 10 },
+    { id: "chinese-poetry-api", enabled: false, weight: 10 },
     { id: "advice-slip-api", enabled: false, weight: 10 },
   ]);
 
@@ -436,11 +501,23 @@ test("语录设置：三个在线频道可见且保存后保持启停与权重",
   const dialog = await openQuoteChannels(page);
   await expect(dialog.getByText("一言", { exact: true })).toBeVisible();
   await expect(dialog.getByText("今日诗词", { exact: true })).toBeVisible();
+  await expect(dialog.getByText("诗泉", { exact: true })).toBeVisible();
   await expect(dialog.getByText("Advice Slip", { exact: true })).toBeVisible();
 
   const adviceCard = dialog.locator("article").filter({ hasText: "Advice Slip" });
   await adviceCard.getByRole("switch", { name: "启用Advice Slip" }).click();
   await adviceCard.getByRole("spinbutton").fill("37");
+
+  const poetryCard = dialog.locator("article").filter({ hasText: "诗泉" });
+  await poetryCard.getByRole("switch", { name: "启用诗泉" }).click();
+  await poetryCard.getByRole("spinbutton").fill("29");
+  await poetryCard.getByRole("button", { name: "诗词筛选" }).click();
+  await poetryCard.getByRole("button", { name: "朝代" }).click();
+  await page.getByRole("option", { name: "宋", exact: true }).click();
+  await poetryCard.getByRole("button", { name: "体裁" }).click();
+  await page.getByRole("option", { name: "七言绝句", exact: true }).click();
+  await page.getByRole("option", { name: "宋词", exact: true }).click();
+  await poetryCard.getByRole("button", { name: "体裁" }).click();
   await dialog.getByRole("button", { name: "保存" }).click();
 
   const saved = await page.evaluate(() => {
@@ -448,24 +525,42 @@ test("语录设置：三个在线频道可见且保存后保持启停与权重",
     const quote = raw ? JSON.parse(raw)?.general?.quote : null;
     return {
       advice: quote?.channels?.find((channel: { id?: string }) => channel.id === "advice-slip-api"),
+      poetry: quote?.channels?.find(
+        (channel: { id?: string }) => channel.id === "chinese-poetry-api"
+      ),
       enabled: quote?.autoRefreshEnabled,
       interval: quote?.autoRefreshIntervalSec,
     };
   });
   expect(saved.advice).toMatchObject({ enabled: true, weight: 37 });
+  expect(saved.poetry).toMatchObject({
+    enabled: true,
+    weight: 29,
+    chinesePoetryDynasty: "宋",
+    chinesePoetryTypes: ["七言绝句", "宋词"],
+  });
   expect(saved).toMatchObject({ enabled: false, interval: 600 });
 
   await page.reload();
   const reloadedDialog = await openQuoteChannels(page);
   const reloadedAdvice = reloadedDialog.locator("article").filter({ hasText: "Advice Slip" });
+  const reloadedPoetry = reloadedDialog.locator("article").filter({ hasText: "诗泉" });
   await expect(reloadedAdvice.getByRole("switch", { name: "停用Advice Slip" })).toBeChecked();
   await expect(reloadedAdvice.getByRole("spinbutton")).toHaveValue("37");
+  await expect(reloadedPoetry.getByRole("switch", { name: "停用诗泉" })).toBeChecked();
+  await expect(reloadedPoetry.getByRole("spinbutton")).toHaveValue("29");
+  await reloadedPoetry.getByRole("button", { name: "诗词筛选" }).click();
+  await expect(reloadedPoetry.getByRole("button", { name: "朝代" })).toContainText("宋");
+  await expect(reloadedPoetry.getByRole("button", { name: "体裁" })).toContainText(
+    "七言绝句、宋词"
+  );
 });
 
 for (const viewport of [
   { width: 1440, height: 900 },
   { width: 720, height: 900 },
   { width: 390, height: 844 },
+  { width: 320, height: 568 },
 ]) {
   test(`语录渠道：${viewport.width}px 下控件与展开区保持在卡片内`, async ({ page }) => {
     await page.setViewportSize(viewport);
@@ -475,6 +570,13 @@ for (const viewport of [
       { id: "university-mottos", enabled: true, weight: 40 },
       { id: "hitokoto-api", enabled: true, weight: 20, hitokotoCategories: ["d", "i", "k"] },
       { id: "jinrishici-api", enabled: true, weight: 10 },
+      {
+        id: "chinese-poetry-api",
+        enabled: true,
+        weight: 10,
+        chinesePoetryDynasty: "唐",
+        chinesePoetryTypes: ["五言绝句", "七言绝句"],
+      },
       { id: "advice-slip-api", enabled: true, weight: 10 },
     ]);
 
@@ -518,6 +620,42 @@ for (const viewport of [
     expect(await categoryDetails.getAttribute("inert")).toBeNull();
     await expectQuoteChannelGeometry(dialog);
     await expectExpandedDetailsContained(hitokotoCard, categoryDetails, channelCards.nth(3));
+    await expectSettingsWithoutHorizontalOverflow(page, dialog);
+
+    const poetryCard = channelCards.filter({ hasText: "诗泉" });
+    const poetryFilterButton = poetryCard.getByRole("button", { name: "诗词筛选" });
+    const poetryDetails = dialog.locator(
+      `#${await poetryFilterButton.getAttribute("aria-controls")}`
+    );
+    await poetryFilterButton.click();
+    await expect(poetryFilterButton).toHaveAttribute("aria-expanded", "true");
+    await expect(poetryDetails).toHaveAttribute("aria-hidden", "false");
+    await expectExpandedDetailsContained(
+      poetryCard,
+      poetryDetails,
+      channelCards.filter({ hasText: "Advice Slip" })
+    );
+    await poetryCard.getByRole("button", { name: "体裁" }).click();
+    const menuBounds = await page
+      .locator('[data-dropdown-menu]:not([aria-hidden="true"])')
+      .boundingBox();
+    const listboxBounds = await page.getByRole("listbox").boundingBox();
+    expect(menuBounds).not.toBeNull();
+    expect(listboxBounds).not.toBeNull();
+    expect(menuBounds?.x ?? -1).toBeGreaterThanOrEqual(0);
+    expect((menuBounds?.x ?? 0) + (menuBounds?.width ?? 0)).toBeLessThanOrEqual(viewport.width);
+    expect(menuBounds?.y ?? -1).toBeGreaterThanOrEqual(0);
+    expect((menuBounds?.y ?? 0) + (menuBounds?.height ?? 0)).toBeLessThanOrEqual(viewport.height);
+    expect(listboxBounds?.x ?? -1).toBeGreaterThanOrEqual(0);
+    expect((listboxBounds?.x ?? 0) + (listboxBounds?.width ?? 0)).toBeLessThanOrEqual(
+      viewport.width
+    );
+    expect(listboxBounds?.y ?? -1).toBeGreaterThanOrEqual(0);
+    expect((listboxBounds?.y ?? 0) + (listboxBounds?.height ?? 0)).toBeLessThanOrEqual(
+      viewport.height
+    );
+    await page.keyboard.press("Escape");
+    await expect(poetryCard.getByRole("button", { name: "体裁" })).toBeFocused();
     await expectSettingsWithoutHorizontalOverflow(page, dialog);
   });
 }

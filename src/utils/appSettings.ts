@@ -24,6 +24,8 @@ import {
 import type { AppearanceSettingsV2 } from "../types/appearance";
 import type { NoiseInputDevicePreference } from "../types/noise";
 import type {
+  ChinesePoetryDynasty,
+  ChinesePoetryType,
   CustomQuoteChannel,
   HitokotoCategory,
   PersistedQuoteSettings,
@@ -33,7 +35,11 @@ import type {
   QuoteSettingsState,
   QuoteTypingSpeed,
 } from "../types/quote";
-import { HITOKOTO_CATEGORY_LIST } from "../types/quote";
+import {
+  CHINESE_POETRY_DYNASTIES,
+  CHINESE_POETRY_TYPES,
+  HITOKOTO_CATEGORY_LIST,
+} from "../types/quote";
 import { DEFAULT_SCHEDULE, type StudyPeriod } from "../types/studySchedule";
 import { DeepPartial } from "../types/utilityTypes";
 import type { WeatherCitySelection } from "../types/weather";
@@ -611,6 +617,21 @@ function normalizeQuotePreference(
       (category): category is HitokotoCategory =>
         allowedCategories.has(category as HitokotoCategory)
     );
+  } else if (defaultChannel.providerId === "chinese-poetry") {
+    preference.chinesePoetryDynasty = CHINESE_POETRY_DYNASTIES.find(
+      (dynasty): dynasty is ChinesePoetryDynasty => dynasty === value.chinesePoetryDynasty
+    );
+    const allowedTypes = new Set<string>(CHINESE_POETRY_TYPES);
+    preference.chinesePoetryTypes = Array.isArray(value.chinesePoetryTypes)
+      ? Array.from(
+          new Set(
+            value.chinesePoetryTypes.filter(
+              (type): type is ChinesePoetryType =>
+                typeof type === "string" && allowedTypes.has(type)
+            )
+          )
+        )
+      : [];
   }
 
   return preference;

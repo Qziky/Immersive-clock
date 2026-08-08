@@ -58,22 +58,22 @@
 
 ## E2E 映射
 
-| 流程              | 文件                                                                          |
-| ----------------- | ----------------------------------------------------------------------------- |
-| 首页与时钟        | `tests/e2e/clock.e2e.spec.ts`                                                 |
-| 模式切换          | `tests/e2e/mode-switch.e2e.spec.ts`                                           |
-| 倒计时/秒表       | `tests/e2e/countdown.e2e.spec.ts`、`stopwatch.e2e.spec.ts`                    |
-| 自习 smoke        | `tests/e2e/study-smoke.e2e.spec.ts`                                           |
-| 设置持久化/动效   | `tests/e2e/settings-persistence.e2e.spec.ts`、`settings-motion.e2e.spec.ts`   |
-| 数据管理          | `tests/e2e/data-management.e2e.spec.ts`                                       |
-| 语录              | `tests/e2e/quotes.e2e.spec.ts`                                                |
-| 天气协调          | `tests/e2e/weather-coordination.e2e.spec.ts`                                  |
-| 噪音多标签页      | `tests/e2e/noise-multitab.e2e.spec.ts`                                        |
-| 音频诊断/开发者页 | `tests/e2e/audio-debug.e2e.spec.ts`、`developer-pages.e2e.spec.ts`            |
-| UI 视觉           | `tests/e2e/design-system-visual.e2e.spec.ts`、`visual-regression.e2e.spec.ts` |
-| 弹层与引导        | `modal-redesign.e2e.spec.ts`、`tour-rapid-click.e2e.spec.ts`                  |
-| 公告与发布版本    | `settings-persistence.e2e.spec.ts`、`visual-regression.e2e.spec.ts`           |
-| SEO/GEO           | `tests/e2e/seo.e2e.spec.ts`                                                   |
+| 流程              | 文件                                                                                  |
+| ----------------- | ------------------------------------------------------------------------------------- |
+| 首页与时钟        | `tests/e2e/clock.e2e.spec.ts`                                                         |
+| 模式切换          | `tests/e2e/mode-switch.e2e.spec.ts`                                                   |
+| 倒计时/秒表       | `tests/e2e/countdown.e2e.spec.ts`、`stopwatch.e2e.spec.ts`                            |
+| 自习 smoke        | `tests/e2e/study-smoke.e2e.spec.ts`                                                   |
+| 设置持久化/动效   | `tests/e2e/settings-persistence.e2e.spec.ts`、`settings-motion.e2e.spec.ts`           |
+| 数据管理          | `tests/e2e/data-management.e2e.spec.ts`                                               |
+| 语录              | `tests/e2e/quotes.e2e.spec.ts`（在线故障转移、诗泉筛选/署名、设置持久化、三档响应式） |
+| 天气协调          | `tests/e2e/weather-coordination.e2e.spec.ts`                                          |
+| 噪音多标签页      | `tests/e2e/noise-multitab.e2e.spec.ts`                                                |
+| 音频诊断/开发者页 | `tests/e2e/audio-debug.e2e.spec.ts`、`developer-pages.e2e.spec.ts`                    |
+| UI 视觉           | `tests/e2e/design-system-visual.e2e.spec.ts`、`visual-regression.e2e.spec.ts`         |
+| 弹层与引导        | `modal-redesign.e2e.spec.ts`、`tour-rapid-click.e2e.spec.ts`                          |
+| 公告与发布版本    | `settings-persistence.e2e.spec.ts`、`visual-regression.e2e.spec.ts`                   |
+| SEO/GEO           | `tests/e2e/seo.e2e.spec.ts`                                                           |
 
 ## 维护规则
 

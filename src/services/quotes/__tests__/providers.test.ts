@@ -2,7 +2,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   __resetJinrishiciSdkForTests,
+  CHINESE_POETRY_ENDPOINT,
+  createChinesePoetryCacheScope,
   fetchAdviceSlipQuote,
+  fetchChinesePoetryQuote,
   fetchHitokotoQuote,
   fetchJinrishiciQuote,
   formatQuoteAttribution,
@@ -268,6 +271,102 @@ describe("quote providers", () => {
     controller.abort();
 
     await expect(request).rejects.toMatchObject({ code: "aborted" });
+  });
+
+  it("诗泉发送朝代和重复体裁参数，并从有效正文中确定性随机选句", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse({
+        data: {
+          id: 100,
+          title: "静夜思",
+          content: ["床前明月光，疑是地上霜。", "  ", "举头望明月，低头思故乡。"],
+          author: { id: 1, name: "李白" },
+          dynasty: { id: 6, name: "唐" },
+          type: { id: 11, name: "五言绝句" },
+        },
+        lang: "zh-Hans",
+      })
+    );
+
+    const quote = await fetchChinesePoetryQuote({
+      dynasty: "唐",
+      types: ["七言绝句", "宋词"],
+      fetchImplementation: fetchMock as unknown as typeof fetch,
+      now: () => 654,
+      random: () => 0.75,
+    });
+
+    const url = new URL(String(fetchMock.mock.calls[0][0]));
+    expect(url.origin + url.pathname).toBe(CHINESE_POETRY_ENDPOINT);
+    expect(url.searchParams.get("lang")).toBe("zh-Hans");
+    expect(url.searchParams.get("dynasty")).toBe("唐");
+    expect(url.searchParams.getAll("type")).toEqual(["七言绝句", "宋词"]);
+    expect(quote).toEqual({
+      id: "chinese-poetry:100:2",
+      text: "举头望明月，低头思故乡。",
+      author: "李白",
+      origin: "唐 · 静夜思",
+      cacheScope: createChinesePoetryCacheScope({
+        dynasty: "唐",
+        types: ["七言绝句", "宋词"],
+      }),
+      providerId: "chinese-poetry",
+      language: "zh",
+      fetchedAt: 654,
+    });
+    expect(formatQuoteAttribution(quote)).toBe("唐 · 李白 · 静夜思");
+  });
+
+  it.each([
+    { name: "缺少 data", payload: {} },
+    { name: "正文不是数组", payload: { data: { content: "明月" } } },
+    { name: "正文为空", payload: { data: { content: [" ", null] } } },
+  ])("诗泉拒绝$name", async ({ payload }) => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(payload));
+
+    await expect(
+      fetchChinesePoetryQuote({ fetchImplementation: fetchMock as unknown as typeof fetch })
+    ).rejects.toMatchObject({ code: "invalid-payload", providerId: "chinese-poetry" });
+  });
+
+  it.each([429, 503])("诗泉保留 HTTP %s 状态", async (status) => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response("error", { status }));
+
+    await expect(
+      fetchChinesePoetryQuote({ fetchImplementation: fetchMock as unknown as typeof fetch })
+    ).rejects.toMatchObject({ code: "http", providerId: "chinese-poetry", status });
+  });
+
+  it("诗泉请求超时后返回结构化错误", async () => {
+    vi.useFakeTimers();
+    const fetchMock = createAbortablePendingFetch();
+    const request = fetchChinesePoetryQuote({
+      fetchImplementation: fetchMock as unknown as typeof fetch,
+      timeoutMs: 25,
+    });
+    const rejection = expect(request).rejects.toMatchObject({
+      code: "timeout",
+      providerId: "chinese-poetry",
+    });
+
+    await vi.advanceTimersByTimeAsync(25);
+    await rejection;
+  });
+
+  it("诗泉将调用方 AbortSignal 传递到实际网络请求", async () => {
+    const controller = new AbortController();
+    const fetchMock = createAbortablePendingFetch();
+    const request = fetchChinesePoetryQuote({
+      fetchImplementation: fetchMock as unknown as typeof fetch,
+      signal: controller.signal,
+    });
+
+    controller.abort();
+
+    await expect(request).rejects.toMatchObject({
+      code: "aborted",
+      providerId: "chinese-poetry",
+    });
   });
 
   it("Advice Slip 适配 ID 与英文正文，并拒绝坏 JSON", async () => {

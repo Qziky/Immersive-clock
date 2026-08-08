@@ -92,6 +92,7 @@ describe("appSettings", () => {
         expect.objectContaining({ id: "university-mottos", enabled: true, weight: 40 }),
         expect.objectContaining({ id: "hitokoto-api", enabled: true, weight: 20 }),
         expect.objectContaining({ id: "jinrishici-api", enabled: true, weight: 10 }),
+        expect.objectContaining({ id: "chinese-poetry-api", enabled: true, weight: 10 }),
         expect.objectContaining({ id: "advice-slip-api", enabled: true, weight: 10 }),
       ])
     );
@@ -775,7 +776,7 @@ describe("appSettings", () => {
     { hitokotoEnabled: true, expectedNewRemoteEnabled: true },
     { hitokotoEnabled: false, expectedNewRemoteEnabled: false },
   ])(
-    "v2 一言启用状态为 $hitokotoEnabled 时会为新增在线源选择对应默认值",
+    "v2 一言启用状态为 $hitokotoEnabled 时保留既有迁移逻辑并默认启用诗泉",
     ({ hitokotoEnabled, expectedNewRemoteEnabled }) => {
       localStorage.setItem(
         APP_SETTINGS_KEY,
@@ -811,6 +812,9 @@ describe("appSettings", () => {
       );
       expect(channelMap.get("jinrishici-api")?.enabled).toBe(expectedNewRemoteEnabled);
       expect(channelMap.get("advice-slip-api")?.enabled).toBe(expectedNewRemoteEnabled);
+      expect(channelMap.get("chinese-poetry-api")).toEqual(
+        expect.objectContaining({ enabled: true, weight: 10, chinesePoetryTypes: [] })
+      );
       expect(quote).not.toHaveProperty("lastUpdated");
     }
   );
@@ -941,6 +945,13 @@ describe("appSettings", () => {
             channels: [
               { id: "hitokoto-api", enabled: "bad", weight: "bad" },
               { id: "hitokoto-api", enabled: false, weight: 44 },
+              {
+                id: "chinese-poetry-api",
+                enabled: true,
+                weight: 15,
+                chinesePoetryDynasty: "宋",
+                chinesePoetryTypes: ["宋词", "未知体裁", "宋词"],
+              },
               { id: "missing-api", enabled: true, weight: 100 },
             ],
             customChannels: [null, { id: "empty", quotes: [] }],
@@ -957,6 +968,16 @@ describe("appSettings", () => {
     expect(loaded.general.quote.typewriterBackspaceEnabled).toBe(true);
     expect(loaded.general.quote.channels.find((channel) => channel.id === "hitokoto-api")).toEqual(
       expect.objectContaining({ enabled: true, weight: 20 })
+    );
+    expect(
+      loaded.general.quote.channels.find((channel) => channel.id === "chinese-poetry-api")
+    ).toEqual(
+      expect.objectContaining({
+        enabled: true,
+        weight: 15,
+        chinesePoetryDynasty: "宋",
+        chinesePoetryTypes: ["宋词"],
+      })
     );
     expect(loaded.general.quote.customChannels).toEqual([]);
 

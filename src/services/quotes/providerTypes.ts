@@ -1,13 +1,12 @@
-import type { Quote, QuoteProviderId } from "../../types/quote";
+import type {
+  ChinesePoetryDynasty,
+  ChinesePoetryType,
+  Quote,
+  QuoteProviderId,
+} from "../../types/quote";
 
 export type QuoteProviderErrorCode =
-  | "aborted"
-  | "http"
-  | "invalid-payload"
-  | "network"
-  | "sdk"
-  | "timeout"
-  | "unavailable";
+  "aborted" | "http" | "invalid-payload" | "network" | "sdk" | "timeout" | "unavailable";
 
 export interface QuoteProviderErrorOptions {
   code: QuoteProviderErrorCode;
@@ -39,6 +38,8 @@ export class QuoteProviderError extends Error {
 export interface QuoteProviderRequestOptions {
   signal?: AbortSignal;
   hitokotoCategories?: string[];
+  chinesePoetryDynasty?: ChinesePoetryDynasty;
+  chinesePoetryTypes?: readonly ChinesePoetryType[];
 }
 
 export interface QuoteProvider {

@@ -1,6 +1,8 @@
 import localInspirationalData from "../../data/quotes-1.json";
 import universityMottosData from "../../data/quotes-2.json";
 import type {
+  ChinesePoetryDynasty,
+  ChinesePoetryType,
   CustomQuoteChannel,
   HitokotoCategory,
   LocalQuoteChannel,
@@ -8,7 +10,11 @@ import type {
   QuoteChannelPreference,
   RemoteQuoteChannel,
 } from "../../types/quote";
-import { HITOKOTO_CATEGORY_LIST } from "../../types/quote";
+import {
+  CHINESE_POETRY_DYNASTIES,
+  CHINESE_POETRY_TYPES,
+  HITOKOTO_CATEGORY_LIST,
+} from "../../types/quote";
 
 type BundledQuoteData = {
   quotes?: unknown;
@@ -61,6 +67,18 @@ const BUILT_IN_CHANNELS: readonly QuoteChannel[] = [
     builtIn: true,
   },
   {
+    id: "chinese-poetry-api",
+    name: "诗泉",
+    kind: "remote",
+    providerId: "chinese-poetry",
+    language: "zh",
+    description: "随机古诗词，支持朝代与体裁筛选",
+    weight: 10,
+    enabled: true,
+    builtIn: true,
+    chinesePoetryTypes: [],
+  },
+  {
     id: "advice-slip-api",
     name: "Advice Slip",
     kind: "remote",
@@ -98,6 +116,22 @@ function normalizeCategories(value: unknown): HitokotoCategory[] {
   return categories.length > 0 ? categories : [...DEFAULT_HITOKOTO_CATEGORIES];
 }
 
+function normalizeChinesePoetryDynasty(value: unknown): ChinesePoetryDynasty | undefined {
+  return CHINESE_POETRY_DYNASTIES.find((dynasty) => dynasty === value);
+}
+
+function normalizeChinesePoetryTypes(value: unknown): ChinesePoetryType[] {
+  if (!Array.isArray(value)) return [];
+  const allowed = new Set<string>(CHINESE_POETRY_TYPES);
+  return Array.from(
+    new Set(
+      value.filter(
+        (item): item is ChinesePoetryType => typeof item === "string" && allowed.has(item)
+      )
+    )
+  );
+}
+
 function cloneChannel(channel: QuoteChannel): QuoteChannel {
   if (channel.kind === "local") {
     return { ...channel, quotes: [...channel.quotes] };
@@ -105,6 +139,7 @@ function cloneChannel(channel: QuoteChannel): QuoteChannel {
   return {
     ...channel,
     hitokotoCategories: channel.hitokotoCategories ? [...channel.hitokotoCategories] : undefined,
+    chinesePoetryTypes: channel.chinesePoetryTypes ? [...channel.chinesePoetryTypes] : undefined,
   };
 }
 
@@ -142,6 +177,9 @@ export function resolveQuoteChannels(
       }
     } else if (channel.providerId === "hitokoto") {
       channel.hitokotoCategories = normalizeCategories(preference.hitokotoCategories);
+    } else if (channel.providerId === "chinese-poetry") {
+      channel.chinesePoetryDynasty = normalizeChinesePoetryDynasty(preference.chinesePoetryDynasty);
+      channel.chinesePoetryTypes = normalizeChinesePoetryTypes(preference.chinesePoetryTypes);
     }
     return channel;
   });
@@ -196,6 +234,12 @@ export function serializeQuoteChannels(channels: readonly QuoteChannel[]): {
       }
       if (channel.kind === "remote" && channel.providerId === "hitokoto") {
         preference.hitokotoCategories = normalizeCategories(channel.hitokotoCategories);
+      }
+      if (channel.kind === "remote" && channel.providerId === "chinese-poetry") {
+        preference.chinesePoetryDynasty = normalizeChinesePoetryDynasty(
+          channel.chinesePoetryDynasty
+        );
+        preference.chinesePoetryTypes = normalizeChinesePoetryTypes(channel.chinesePoetryTypes);
       }
       preferences.push(preference);
       continue;

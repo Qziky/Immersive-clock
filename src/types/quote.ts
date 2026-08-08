@@ -1,4 +1,4 @@
-export type QuoteProviderId = "hitokoto" | "jinrishici" | "advice-slip";
+export type QuoteProviderId = "hitokoto" | "jinrishici" | "chinese-poetry" | "advice-slip";
 
 export type QuoteLanguage = "zh" | "en";
 
@@ -8,19 +8,35 @@ export type QuoteAnimationMode = "typewriter" | "crossfade" | "none";
 
 export type QuoteTypingSpeed = "slow" | "normal" | "fast";
 
+export const CHINESE_POETRY_DYNASTIES = [
+  "先秦",
+  "两汉",
+  "魏晋",
+  "南北朝",
+  "唐",
+  "宋",
+  "元",
+  "清",
+] as const;
+
+export type ChinesePoetryDynasty = (typeof CHINESE_POETRY_DYNASTIES)[number];
+
+export const CHINESE_POETRY_TYPES = [
+  "五言绝句",
+  "七言绝句",
+  "五言律诗",
+  "七言律诗",
+  "乐府诗",
+  "宋词",
+  "元曲",
+  "诗经",
+  "楚辞",
+] as const;
+
+export type ChinesePoetryType = (typeof CHINESE_POETRY_TYPES)[number];
+
 export type HitokotoCategory =
-  | "a"
-  | "b"
-  | "c"
-  | "d"
-  | "e"
-  | "f"
-  | "g"
-  | "h"
-  | "i"
-  | "j"
-  | "k"
-  | "l";
+  "a" | "b" | "c" | "d" | "e" | "f" | "g" | "h" | "i" | "j" | "k" | "l";
 
 export const HITOKOTO_CATEGORIES: Record<HitokotoCategory, string> = {
   a: "动画",
@@ -57,6 +73,7 @@ export interface Quote {
   text: string;
   author?: string;
   origin?: string;
+  cacheScope?: string;
   providerId: QuoteProviderId | "local";
   language: QuoteLanguage;
   fetchedAt: number;
@@ -82,6 +99,8 @@ export interface RemoteQuoteChannel extends QuoteChannelBase {
   language: QuoteLanguage;
   description: string;
   hitokotoCategories?: HitokotoCategory[];
+  chinesePoetryDynasty?: ChinesePoetryDynasty;
+  chinesePoetryTypes?: ChinesePoetryType[];
 }
 
 export type QuoteChannel = LocalQuoteChannel | RemoteQuoteChannel;
@@ -92,6 +111,8 @@ export interface QuoteChannelPreference {
   weight: number;
   orderMode?: QuoteOrderMode;
   hitokotoCategories?: HitokotoCategory[];
+  chinesePoetryDynasty?: ChinesePoetryDynasty;
+  chinesePoetryTypes?: ChinesePoetryType[];
   quotesOverride?: string[];
 }
 

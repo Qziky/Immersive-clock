@@ -8,7 +8,12 @@ export const QUOTE_CACHE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 export const QUOTE_CACHE_LIMIT = 20;
 export const QUOTE_RECENT_LIMIT = 20;
 
-const PROVIDER_IDS: readonly QuoteProviderId[] = ["hitokoto", "jinrishici", "advice-slip"];
+const PROVIDER_IDS: readonly QuoteProviderId[] = [
+  "hitokoto",
+  "jinrishici",
+  "chinese-poetry",
+  "advice-slip",
+];
 
 export interface ProviderRuntimeStatus {
   blockedUntil: number;
@@ -53,6 +58,7 @@ function createEmptyState(): QuoteRuntimeState {
     providers: {
       hitokoto: createProviderState(),
       jinrishici: createProviderState(),
+      "chinese-poetry": createProviderState(),
       "advice-slip": createProviderState(),
     },
     recentQuotes: [],
@@ -87,7 +93,8 @@ function isValidQuote(value: unknown, providerId: QuoteProviderId, now: number):
     quote.fetchedAt <= now + 60_000 &&
     now - quote.fetchedAt <= QUOTE_CACHE_MAX_AGE_MS &&
     (quote.author === undefined || typeof quote.author === "string") &&
-    (quote.origin === undefined || typeof quote.origin === "string")
+    (quote.origin === undefined || typeof quote.origin === "string") &&
+    (quote.cacheScope === undefined || typeof quote.cacheScope === "string")
   );
 }
 
@@ -214,7 +221,7 @@ export class QuoteRuntimeStore {
     }
   }
 
-  getCachedQuotes(providerId: QuoteProviderId): Quote[] {
+  getCachedQuotes(providerId: QuoteProviderId, cacheScope?: string): Quote[] {
     const now = this.now();
     const provider = this.state.providers[providerId];
     const valid = provider.quotes.filter(
@@ -224,7 +231,9 @@ export class QuoteRuntimeStore {
       provider.quotes = valid;
       this.persist();
     }
-    return valid.map((quote) => ({ ...quote }));
+    return valid
+      .filter((quote) => cacheScope === undefined || quote.cacheScope === cacheScope)
+      .map((quote) => ({ ...quote }));
   }
 
   addCachedQuote(quote: Quote): void {

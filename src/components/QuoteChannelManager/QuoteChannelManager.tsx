@@ -3,7 +3,11 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAppDispatch, useAppState } from "../../contexts/AppContext";
 import { getDefaultQuoteChannels } from "../../services/quotes/quoteRegistry";
 import {
+  CHINESE_POETRY_DYNASTIES,
+  CHINESE_POETRY_TYPES,
   HITOKOTO_CATEGORY_LIST,
+  type ChinesePoetryDynasty,
+  type ChinesePoetryType,
   type HitokotoCategory,
   type QuoteChannel,
   type QuoteSettingsState,
@@ -11,6 +15,7 @@ import {
 import {
   AppIcon,
   Card,
+  Dropdown,
   FormSection,
   IconButton as FormIconButton,
   InfoPanel,
@@ -37,6 +42,16 @@ const ORDER_MODE_OPTIONS = [
   { value: "random", label: "随机" },
 ];
 
+const CHINESE_POETRY_DYNASTY_OPTIONS = [
+  { value: "", label: "不限朝代" },
+  ...CHINESE_POETRY_DYNASTIES.map((dynasty) => ({ value: dynasty, label: dynasty })),
+];
+
+const CHINESE_POETRY_TYPE_OPTIONS = CHINESE_POETRY_TYPES.map((type) => ({
+  value: type,
+  label: type,
+}));
+
 function cloneChannels(channels: readonly QuoteChannel[]): QuoteChannel[] {
   return channels.map((channel) =>
     channel.kind === "local"
@@ -45,6 +60,9 @@ function cloneChannels(channels: readonly QuoteChannel[]): QuoteChannel[] {
           ...channel,
           hitokotoCategories: channel.hitokotoCategories
             ? [...channel.hitokotoCategories]
+            : undefined,
+          chinesePoetryTypes: channel.chinesePoetryTypes
+            ? [...channel.chinesePoetryTypes]
             : undefined,
         }
   );
@@ -114,6 +132,38 @@ export function QuoteChannelManager({ onRegisterSave }: QuoteChannelManagerProps
       })
     );
   }, []);
+
+  const handleUpdateChinesePoetryDynasty = useCallback((channelId: string, dynasty: string) => {
+    const normalized = CHINESE_POETRY_DYNASTIES.find((candidate) => candidate === dynasty);
+    setChannels((current) =>
+      current.map((channel) =>
+        channel.id === channelId &&
+        channel.kind === "remote" &&
+        channel.providerId === "chinese-poetry"
+          ? { ...channel, chinesePoetryDynasty: normalized as ChinesePoetryDynasty | undefined }
+          : channel
+      )
+    );
+  }, []);
+
+  const handleUpdateChinesePoetryTypes = useCallback(
+    (channelId: string, values: readonly (string | number)[]) => {
+      const allowed = new Set<string>(CHINESE_POETRY_TYPES);
+      const types = values.filter(
+        (value): value is ChinesePoetryType => typeof value === "string" && allowed.has(value)
+      );
+      setChannels((current) =>
+        current.map((channel) =>
+          channel.id === channelId &&
+          channel.kind === "remote" &&
+          channel.providerId === "chinese-poetry"
+            ? { ...channel, chinesePoetryTypes: types }
+            : channel
+        )
+      );
+    },
+    []
+  );
 
   const handleUpdateOrderMode = useCallback(
     (channelId: string, orderMode: "random" | "sequential") => {
@@ -245,7 +295,7 @@ export function QuoteChannelManager({ onRegisterSave }: QuoteChannelManagerProps
   return (
     <FormSection
       title="语录频道管理"
-      description="分别管理本地内容与三个在线服务；在线失败时会自动切换到其他可用来源。"
+      description="分别管理本地内容与四个在线服务；在线失败时会自动切换到其他可用来源。"
       variant="plain"
     >
       <InfoPanel tone="neutral">
@@ -272,6 +322,9 @@ export function QuoteChannelManager({ onRegisterSave }: QuoteChannelManagerProps
       <div className={styles.channelList}>
         {channels.map((channel) => {
           const isHitokoto = channel.kind === "remote" && channel.providerId === "hitokoto";
+          const isChinesePoetry =
+            channel.kind === "remote" && channel.providerId === "chinese-poetry";
+          const hasChannelSettings = isHitokoto || isChinesePoetry;
           const isCategoryExpanded = expandedChannelId === channel.id;
           const isEditorExpanded = expandedEditorChannelId === channel.id;
           const categoryDetailsId = `quote-channel-categories-${channel.id}`;
@@ -333,7 +386,7 @@ export function QuoteChannelManager({ onRegisterSave }: QuoteChannelManagerProps
                 </div>
 
                 <div className={styles.channelActions}>
-                  {isHitokoto && (
+                  {hasChannelSettings && (
                     <FormIconButton
                       onClick={() =>
                         setExpandedChannelId((current) =>
@@ -341,8 +394,8 @@ export function QuoteChannelManager({ onRegisterSave }: QuoteChannelManagerProps
                         )
                       }
                       pressed={isCategoryExpanded}
-                      title="分类设置"
-                      aria-label="分类设置"
+                      title={isChinesePoetry ? "诗词筛选" : "分类设置"}
+                      aria-label={isChinesePoetry ? "诗词筛选" : "分类设置"}
                       aria-expanded={isCategoryExpanded}
                       aria-controls={categoryDetailsId}
                       icon="action.configure"
@@ -370,7 +423,7 @@ export function QuoteChannelManager({ onRegisterSave }: QuoteChannelManagerProps
                 />
               </div>
 
-              {isHitokoto && (
+              {hasChannelSettings && (
                 <div
                   id={categoryDetailsId}
                   className={
@@ -381,25 +434,59 @@ export function QuoteChannelManager({ onRegisterSave }: QuoteChannelManagerProps
                 >
                   <div className={styles.channelDetailsContent}>
                     <div className={styles.categorySettings}>
-                      <SettingGrid columns={2}>
-                        {HITOKOTO_CATEGORY_LIST.map((category) => (
-                          <SettingItem
-                            key={category.key}
-                            title={category.name}
-                            control={
-                              <FormSwitch
-                                checked={
-                                  channel.hitokotoCategories?.includes(category.key) ?? false
-                                }
-                                onCheckedChange={() =>
-                                  handleToggleCategory(channel.id, category.key)
-                                }
-                                aria-label={`${category.name}分类`}
-                              />
+                      {isHitokoto && (
+                        <SettingGrid columns={2}>
+                          {HITOKOTO_CATEGORY_LIST.map((category) => (
+                            <SettingItem
+                              key={category.key}
+                              title={category.name}
+                              control={
+                                <FormSwitch
+                                  checked={
+                                    channel.hitokotoCategories?.includes(category.key) ?? false
+                                  }
+                                  onCheckedChange={() =>
+                                    handleToggleCategory(channel.id, category.key)
+                                  }
+                                  aria-label={`${category.name}分类`}
+                                />
+                              }
+                            />
+                          ))}
+                        </SettingGrid>
+                      )}
+                      {isChinesePoetry && (
+                        <SettingGrid columns={2}>
+                          <Dropdown
+                            label="朝代"
+                            value={channel.chinesePoetryDynasty ?? ""}
+                            options={CHINESE_POETRY_DYNASTY_OPTIONS}
+                            menuWidth="320px"
+                            width="100%"
+                            onChange={(value) =>
+                              handleUpdateChinesePoetryDynasty(
+                                channel.id,
+                                typeof value === "string" ? value : ""
+                              )
                             }
                           />
-                        ))}
-                      </SettingGrid>
+                          <Dropdown
+                            label="体裁"
+                            mode="multiple"
+                            placeholder="不限体裁"
+                            value={channel.chinesePoetryTypes ?? []}
+                            options={CHINESE_POETRY_TYPE_OPTIONS}
+                            menuWidth="320px"
+                            width="100%"
+                            onChange={(value) =>
+                              handleUpdateChinesePoetryTypes(
+                                channel.id,
+                                Array.isArray(value) ? value : []
+                              )
+                            }
+                          />
+                        </SettingGrid>
+                      )}
                     </div>
                   </div>
                 </div>

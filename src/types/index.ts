@@ -233,6 +233,8 @@ export interface StudyState {
 }
 
 export type {
+  ChinesePoetryDynasty,
+  ChinesePoetryType,
   HitokotoCategory,
   Quote,
   QuoteAnimationMode,
@@ -241,7 +243,12 @@ export type {
   QuoteSettingsState,
   QuoteTypingSpeed,
 } from "./quote";
-export { HITOKOTO_CATEGORIES, HITOKOTO_CATEGORY_LIST } from "./quote";
+export {
+  CHINESE_POETRY_DYNASTIES,
+  CHINESE_POETRY_TYPES,
+  HITOKOTO_CATEGORIES,
+  HITOKOTO_CATEGORY_LIST,
+} from "./quote";
 
 /**
  * 应用全局状态接口

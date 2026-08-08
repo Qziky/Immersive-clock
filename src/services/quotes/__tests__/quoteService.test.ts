@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
+  createChinesePoetryCacheScope,
   createQuoteService,
   DEFAULT_FALLBACK_QUOTE,
   QuoteProviderError,
@@ -226,6 +227,99 @@ describe("QuoteService", () => {
 
     await expect(Promise.all([first, second])).resolves.toHaveLength(2);
     expect(fetchQuote).toHaveBeenCalledTimes(1);
+  });
+
+  it("诗泉只合并相同筛选组合的并发请求，并把筛选传给 provider", async () => {
+    const fetchQuote = vi.fn((options) =>
+      Promise.resolve({
+        ...remoteQuote(
+          "chinese-poetry",
+          options?.chinesePoetryDynasty === "唐" ? "唐诗" : "宋词",
+          1_000_000
+        ),
+        cacheScope: createChinesePoetryCacheScope({
+          dynasty: options?.chinesePoetryDynasty,
+          types: options?.chinesePoetryTypes,
+        }),
+      })
+    );
+    const service = createQuoteService({
+      storage: localStorage,
+      random: () => 0,
+      now: () => 1_000_000,
+      providers: [provider("chinese-poetry", fetchQuote)],
+    });
+    const tang = remoteChannel("chinese-poetry", {
+      chinesePoetryDynasty: "唐",
+      chinesePoetryTypes: ["五言绝句", "七言绝句"],
+    });
+    const song = remoteChannel("chinese-poetry", {
+      chinesePoetryDynasty: "宋",
+      chinesePoetryTypes: ["宋词"],
+    });
+
+    const [firstTang, secondTang, songQuote] = await Promise.all([
+      service.getManualQuote({ channels: [tang] }),
+      service.getManualQuote({ channels: [tang] }),
+      service.getManualQuote({ channels: [song] }),
+    ]);
+
+    expect([firstTang.text, secondTang.text, songQuote.text]).toEqual(["唐诗", "唐诗", "宋词"]);
+    expect(fetchQuote).toHaveBeenCalledTimes(2);
+    expect(fetchQuote).toHaveBeenCalledWith(
+      expect.objectContaining({
+        chinesePoetryDynasty: "唐",
+        chinesePoetryTypes: ["五言绝句", "七言绝句"],
+      })
+    );
+    expect(fetchQuote).toHaveBeenCalledWith(
+      expect.objectContaining({ chinesePoetryDynasty: "宋", chinesePoetryTypes: ["宋词"] })
+    );
+  });
+
+  it("诗泉故障时只使用当前筛选组合的缓存", async () => {
+    const now = 2_000_000;
+    const tangScope = createChinesePoetryCacheScope({ dynasty: "唐", types: ["五言绝句"] });
+    const runtime = new QuoteRuntimeStore({ storage: localStorage, now: () => now });
+    runtime.addCachedQuote({
+      ...remoteQuote("chinese-poetry", "唐诗缓存", now - 1000),
+      cacheScope: tangScope,
+    });
+    const failing = vi.fn().mockRejectedValue(networkError("chinese-poetry"));
+    const service = createQuoteService({
+      storage: localStorage,
+      random: () => 0,
+      now: () => now,
+      providers: [provider("chinese-poetry", failing)],
+    });
+
+    const song = await service.getManualQuoteResolution({
+      channels: [remoteChannel("chinese-poetry", { chinesePoetryDynasty: "宋" }), localChannel()],
+    });
+    expect(song.quote.providerId).toBe("local");
+
+    localStorage.clear();
+    const tangRuntime = new QuoteRuntimeStore({ storage: localStorage, now: () => now });
+    tangRuntime.addCachedQuote({
+      ...remoteQuote("chinese-poetry", "唐诗缓存", now - 1000),
+      cacheScope: tangScope,
+    });
+    const tangService = createQuoteService({
+      storage: localStorage,
+      random: () => 0,
+      now: () => now,
+      providers: [provider("chinese-poetry", failing)],
+    });
+    const tang = await tangService.getManualQuoteResolution({
+      channels: [
+        remoteChannel("chinese-poetry", {
+          chinesePoetryDynasty: "唐",
+          chinesePoetryTypes: ["五言绝句"],
+        }),
+        localChannel(),
+      ],
+    });
+    expect(tang).toMatchObject({ quote: { text: "唐诗缓存" }, isFallback: true });
   });
 
   it("单个订阅者取消时不终止其他订阅者共享的请求", async () => {

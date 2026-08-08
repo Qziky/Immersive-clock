@@ -7,7 +7,13 @@ import type {
   RemoteQuoteChannel,
 } from "../../types/quote";
 
-import { fetchAdviceSlipQuote, fetchHitokotoQuote, fetchJinrishiciQuote } from "./providers";
+import {
+  createChinesePoetryCacheScope,
+  fetchAdviceSlipQuote,
+  fetchChinesePoetryQuote,
+  fetchHitokotoQuote,
+  fetchJinrishiciQuote,
+} from "./providers";
 import {
   createStableQuoteId,
   isQuoteAbortError,
@@ -50,6 +56,7 @@ export interface QuoteServiceOptions extends QuoteRuntimeStoreOptions {
 export const QUOTE_PROVIDER_MIN_INTERVAL_MS: Record<QuoteProviderId, number> = {
   hitokoto: 5000,
   jinrishici: 10 * 60 * 1000,
+  "chinese-poetry": 5000,
   "advice-slip": 2000,
 };
 
@@ -70,6 +77,16 @@ function createDefaultProviders(): QuoteProvider[] {
       fetchQuote: (options) => fetchJinrishiciQuote({ signal: options?.signal }),
     },
     {
+      id: "chinese-poetry",
+      minIntervalMs: QUOTE_PROVIDER_MIN_INTERVAL_MS["chinese-poetry"],
+      fetchQuote: (options) =>
+        fetchChinesePoetryQuote({
+          dynasty: options?.chinesePoetryDynasty,
+          types: options?.chinesePoetryTypes,
+          signal: options?.signal,
+        }),
+    },
+    {
       id: "advice-slip",
       minIntervalMs: QUOTE_PROVIDER_MIN_INTERVAL_MS["advice-slip"],
       fetchQuote: (options) => fetchAdviceSlipQuote({ signal: options?.signal }),
@@ -84,6 +101,18 @@ function isUsableChannel(channel: QuoteChannel): boolean {
     channel.weight > 0 &&
     (channel.kind === "remote" || channel.quotes.some((quote) => Boolean(quote.trim())))
   );
+}
+
+function getRemoteChannelCacheScope(channel: RemoteQuoteChannel): string | undefined {
+  if (channel.providerId !== "chinese-poetry") return undefined;
+  return createChinesePoetryCacheScope({
+    dynasty: channel.chinesePoetryDynasty,
+    types: channel.chinesePoetryTypes,
+  });
+}
+
+function getRemoteRequestKey(channel: RemoteQuoteChannel): string {
+  return `${channel.providerId}:${getRemoteChannelCacheScope(channel) ?? "default"}`;
 }
 
 function splitLocalQuote(value: string): Pick<Quote, "text" | "origin"> {
@@ -122,7 +151,7 @@ export class QuoteService {
   private readonly runtimeStore: QuoteRuntimeStore;
   private readonly random: () => number;
   private readonly now: () => number;
-  private readonly inFlight = new Map<QuoteProviderId, InFlightQuoteRequest>();
+  private readonly inFlight = new Map<string, InFlightQuoteRequest>();
 
   constructor(options: QuoteServiceOptions = {}) {
     for (const provider of options.providers ?? createDefaultProviders()) {
@@ -249,11 +278,12 @@ export class QuoteService {
         providerId: channel.providerId,
       });
     }
-    const existing = this.inFlight.get(provider.id);
+    const requestKey = getRemoteRequestKey(channel);
+    const existing = this.inFlight.get(requestKey);
     if (existing && !existing.settled && !existing.controller.signal.aborted) {
       return this.subscribeToProviderRequest(existing, signal);
     }
-    if (existing) this.inFlight.delete(provider.id);
+    if (existing) this.inFlight.delete(requestKey);
 
     const status = this.runtimeStore.getProviderStatus(provider.id);
     const now = this.now();
@@ -271,6 +301,8 @@ export class QuoteService {
       .then(() =>
         provider.fetchQuote({
           hitokotoCategories: channel.hitokotoCategories,
+          chinesePoetryDynasty: channel.chinesePoetryDynasty,
+          chinesePoetryTypes: channel.chinesePoetryTypes,
           signal: controller.signal,
         })
       )
@@ -284,10 +316,10 @@ export class QuoteService {
         throw error;
       })
       .finally(() => {
-        const current = this.inFlight.get(provider.id);
+        const current = this.inFlight.get(requestKey);
         if (current?.controller !== controller) return;
         current.settled = true;
-        this.inFlight.delete(provider.id);
+        this.inFlight.delete(requestKey);
       });
     const request: InFlightQuoteRequest = {
       controller,
@@ -295,7 +327,7 @@ export class QuoteService {
       settled: false,
       subscribers: 0,
     };
-    this.inFlight.set(provider.id, request);
+    this.inFlight.set(requestKey, request);
     return this.subscribeToProviderRequest(request, signal);
   }
 
@@ -323,7 +355,7 @@ export class QuoteService {
   ): Quote | undefined {
     for (const channel of remoteChannels) {
       const cached = this.runtimeStore
-        .getCachedQuotes(channel.providerId)
+        .getCachedQuotes(channel.providerId, getRemoteChannelCacheScope(channel))
         .filter((quote) => quote.id !== currentQuoteId && !this.runtimeStore.isRecentlyUsed(quote));
       const selected = this.pickFrom(cached);
       if (selected) return selected;
@@ -419,7 +451,10 @@ export function createQuoteService(options: QuoteServiceOptions = {}): QuoteServ
 export const quoteService = createQuoteService();
 
 export function formatQuoteAttribution(quote: Quote): string {
-  if (quote.providerId === "jinrishici" && quote.origin?.includes(" · ")) {
+  if (
+    (quote.providerId === "jinrishici" || quote.providerId === "chinese-poetry") &&
+    quote.origin?.includes(" · ")
+  ) {
     const [dynasty, ...title] = quote.origin.split(" · ");
     return [dynasty, quote.author, title.join(" · ")].filter(Boolean).join(" · ");
   }

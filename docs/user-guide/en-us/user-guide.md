@@ -173,9 +173,9 @@ The app stores local feature data and derived scores, not playable PCM recording
 
 ## Quotes and content
 
-Built-in channels are Local Inspirational Quotes, University Mottos, Hitokoto, Jinrishici, and Advice Slip. Each channel can be enabled or disabled and given a weight; a higher weight increases selection probability.
+Built-in channels are Local Inspirational Quotes, University Mottos, Hitokoto, Jinrishici, Shiquan (`诗泉`), and Advice Slip. Each channel can be enabled or disabled and given a weight; a higher weight increases selection probability.
 
-Hitokoto supports 12 categories. Local channels can play sequentially or randomly and can be edited line by line. Importing a `.txt` file creates a custom local channel: one quote per line, up to 200 characters per quote and 1,000 entries.
+Hitokoto supports 12 categories. Shiquan can be filtered by one dynasty and multiple poetry forms; clearing the form selection means no restriction. It displays one random non-empty line and formats the attribution as dynasty, author, and title. Local channels can play sequentially or randomly and can be edited line by line. Importing a `.txt` file creates a custom local channel: one quote per line, up to 200 characters per quote and 1,000 entries.
 
 Automatic rotation can be set from 30 seconds to 30 minutes. Turning it off does not disable manual refresh: click the quote in Study mode. Automatic refresh favors immediately available cached or local content and refreshes online content in the background; manual refresh tries online channels first.
 
@@ -183,7 +183,7 @@ If an online provider fails, the app tries other enabled providers, recent cache
 
 Display modes are Natural Typing, Crossfade, and Immediate. Natural Typing has three speeds and an optional backspace-before-switch effect. Reduced-motion system settings override these animations.
 
-Jinrishici's free service has non-commercial-use restrictions and processes public IP information. Online provider availability and content licensing are not guaranteed by this project; use curated local channels for public or classroom displays.
+Jinrishici's free service has non-commercial-use restrictions and processes public IP information. Shiquan connects directly to `https://poetry.palemoky.com` and receives the selected language, dynasty, and poetry-form filters together with normal network request metadata. Online provider availability and content licensing are not guaranteed by this project; use curated local channels for public or classroom displays.
 
 ## Local data, backup, and reset
 

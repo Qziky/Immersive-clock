@@ -61,6 +61,37 @@ describe("QuoteRuntimeStore", () => {
     expect(localStorage.getItem(QUOTE_RUNTIME_STORAGE_KEY)).not.toContain("过期句子");
   });
 
+  it("按筛选作用域读取诗泉缓存并跨重载保留作用域", () => {
+    const now = 1_000_000_000;
+    const store = new QuoteRuntimeStore({ storage: localStorage, now: () => now });
+    store.addCachedQuote({
+      id: "chinese-poetry:tang",
+      text: "唐诗缓存",
+      cacheScope: "dynasty=tang",
+      providerId: "chinese-poetry",
+      language: "zh",
+      fetchedAt: now,
+    });
+    store.addCachedQuote({
+      id: "chinese-poetry:song",
+      text: "宋词缓存",
+      cacheScope: "dynasty=song",
+      providerId: "chinese-poetry",
+      language: "zh",
+      fetchedAt: now,
+    });
+
+    const reloaded = new QuoteRuntimeStore({ storage: localStorage, now: () => now });
+
+    expect(reloaded.getCachedQuotes("chinese-poetry", "dynasty=tang")).toMatchObject([
+      { text: "唐诗缓存" },
+    ]);
+    expect(reloaded.getCachedQuotes("chinese-poetry", "dynasty=song")).toMatchObject([
+      { text: "宋词缓存" },
+    ]);
+    expect(reloaded.getCachedQuotes("chinese-poetry", "dynasty=missing")).toEqual([]);
+  });
+
   it("用规范化正文跨提供商记录最近 20 条", () => {
     const store = new QuoteRuntimeStore({ storage: localStorage });
     store.rememberQuote({ text: "  Keep   going. " });

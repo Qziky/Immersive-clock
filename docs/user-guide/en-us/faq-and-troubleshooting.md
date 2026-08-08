@@ -120,7 +120,11 @@ Check the network and make sure an online channel is enabled. The app then tries
 
 ### Quotes switch between Chinese and English
 
-Advice Slip provides English content. Disable it to avoid most English quotes.
+Advice Slip provides English content. Hitokoto, Jinrishici, and Shiquan (`诗泉`) primarily provide Chinese content. Disable Advice Slip to avoid most English quotes.
+
+### Shiquan does not follow my filters
+
+Open **Content and Quotes → Quote Channels (`语录渠道`)**, expand **Poetry Filters (`诗词筛选`)** on the Shiquan card, change the dynasty or forms, and select the main **Save (`保存`)** button. Cache entries are isolated by filter combination; if the public service is unavailable, the app falls back to another enabled provider or local content.
 
 ### TXT import fails
 
