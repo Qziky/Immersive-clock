@@ -10,7 +10,7 @@ export const SETTINGS_EVENTS = {
   SettingsPanelClosed: "settingsPanelClosed",
   AppearanceResourcesMigrated: "appearanceResourcesMigrated",
   NoiseControlSettingsUpdated: "noiseControlSettingsUpdated",
-  StudyScheduleUpdated: "studyScheduleUpdated",
+  StudyTimetableUpdated: "studyTimetableUpdated",
   WeatherSettingsUpdated: "weatherSettingsUpdated",
 } as const;
 

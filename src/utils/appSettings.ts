@@ -40,7 +40,7 @@ import {
   CHINESE_POETRY_TYPES,
   HITOKOTO_CATEGORY_LIST,
 } from "../types/quote";
-import { DEFAULT_SCHEDULE, type StudyPeriod } from "../types/studySchedule";
+import type { StudyTimetableSettings } from "../types/studySchedule";
 import { DeepPartial } from "../types/utilityTypes";
 import type { WeatherCitySelection } from "../types/weather";
 
@@ -51,6 +51,12 @@ import {
 } from "./appearanceModel";
 import { logger } from "./logger";
 import { StudyBackgroundType } from "./studyBackgroundStorage";
+import {
+  createDefaultStudyTimetable,
+  migrateLegacyStudySchedule,
+  normalizeStudyTimetable,
+  validateStudyTimetable,
+} from "./studyTimetable";
 
 export interface AppSettings {
   version: number;
@@ -130,7 +136,7 @@ export interface AppSettings {
       airQuality: boolean;
       sunriseSunset: boolean;
     };
-    schedule: StudyPeriod[];
+    timetable: StudyTimetableSettings;
     background: {
       type: StudyBackgroundType;
       color?: string;
@@ -154,7 +160,7 @@ export interface AppSettings {
 
 export const APP_SETTINGS_KEY = "AppSettings";
 export const APP_SETTINGS_QUARANTINE_KEY = "immersive-clock:quarantine:app-settings";
-export const CURRENT_SETTINGS_VERSION = 15;
+export const CURRENT_SETTINGS_VERSION = 16;
 
 /** 中央信息轮播的硬上限，配置与运行时都应遵守该值。 */
 export const MAX_STUDY_INFO_ITEMS = 20;
@@ -858,7 +864,7 @@ const DEFAULT_SETTINGS: AppSettings = {
       airQuality: false,
       sunriseSunset: false,
     },
-    schedule: DEFAULT_SCHEDULE,
+    timetable: createDefaultStudyTimetable(),
     background: {
       type: "default",
     },
@@ -1053,6 +1059,16 @@ export function normalizeAppSettings(value: unknown): AppSettings {
   const parsedDisplay = isRecord(parsedStudy.display) ? parsedStudy.display : {};
   const parsedStyle = isRecord(parsedStudy.style) ? parsedStudy.style : {};
   const parsedStudyBackground = isRecord(parsedStudy.background) ? parsedStudy.background : {};
+  const {
+    schedule: legacyStudySchedule,
+    timetable: storedTimetable,
+    ...parsedStudyWithoutLegacySchedule
+  } = parsedStudy;
+  const normalizedTimetable = validateStudyTimetable(storedTimetable).valid
+    ? normalizeStudyTimetable(storedTimetable)
+    : Array.isArray(legacyStudySchedule)
+      ? migrateLegacyStudySchedule(legacyStudySchedule)
+      : createDefaultStudyTimetable();
 
   const legacyErrorCenterEnabled =
     typeof parsedAlerts.errorCenterEnabled === "boolean"
@@ -1130,7 +1146,7 @@ export function normalizeAppSettings(value: unknown): AppSettings {
     } as AppSettings["general"],
     study: {
       ...DEFAULT_SETTINGS.study,
-      ...parsedStudy,
+      ...parsedStudyWithoutLegacySchedule,
       infoCarousel: normalizeStoredStudyInfoCarousel(
         parsedStudy.infoCarousel,
         storedVersion,
@@ -1139,6 +1155,7 @@ export function normalizeAppSettings(value: unknown): AppSettings {
       display: normalizeStudyDisplaySettings(parsedDisplay),
       style: { ...DEFAULT_SETTINGS.study.style, ...parsedStyle },
       alerts: mergedStudyAlerts,
+      timetable: normalizedTimetable,
       background: { ...DEFAULT_SETTINGS.study.background, ...parsedStudyBackground },
     } as AppSettings["study"],
     noiseControl: {
@@ -1301,7 +1318,9 @@ export function updateAppSettings(
         alerts: studyUpdates.alerts
           ? { ...current.study.alerts, ...studyUpdates.alerts }
           : current.study.alerts,
-        schedule: studyUpdates.schedule ?? current.study.schedule,
+        timetable: studyUpdates.timetable
+          ? normalizeStudyTimetable(studyUpdates.timetable)
+          : current.study.timetable,
         background: studyUpdates.background
           ? { ...current.study.background, ...studyUpdates.background }
           : current.study.background,
@@ -1380,7 +1399,7 @@ export function resetAppSettingsPreservingUserContent(): AppSettings {
         ...defaults.study.infoCarousel,
         items: [...defaults.study.infoCarousel.items, ...structuredClone(preservedInfoItems)],
       }),
-      schedule: structuredClone(current.study.schedule),
+      timetable: structuredClone(current.study.timetable),
     },
   };
   localStorage.setItem(APP_SETTINGS_KEY, JSON.stringify(next));

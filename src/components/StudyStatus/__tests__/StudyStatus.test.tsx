@@ -16,7 +16,7 @@ import StudyStatus, {
 
 const mocks = vi.hoisted(() => ({
   getAdjustedDate: vi.fn(),
-  readStudySchedule: vi.fn(),
+  readStudyTimetable: vi.fn(),
   minutelySnapshot: {
     cache: null,
     stats: null,
@@ -65,8 +65,8 @@ vi.mock("../../../utils/logger", () => ({
   logger: { error: vi.fn() },
 }));
 
-vi.mock("../../../utils/studyScheduleStorage", () => ({
-  readStudySchedule: mocks.readStudySchedule,
+vi.mock("../../../utils/studyTimetableStorage", () => ({
+  readStudyTimetable: mocks.readStudyTimetable,
 }));
 
 vi.mock("../../../utils/timeSync", () => ({
@@ -74,9 +74,40 @@ vi.mock("../../../utils/timeSync", () => ({
 }));
 
 const schedule = [
-  { id: "1", startTime: "19:10", endTime: "20:20", name: "第1节自习" },
-  { id: "2", startTime: "20:30", endTime: "21:30", name: "第2节自习" },
+  { id: "1", startTime: "19:10:00", endTime: "20:20:00", name: "第1节自习" },
+  { id: "2", startTime: "20:30:00", endTime: "21:30:00", name: "第2节自习" },
 ];
+
+const timetable = {
+  cycleAnchorDate: "2026-07-13",
+  document: {
+    version: 2 as const,
+    configuration: {
+      name: "测试课表",
+      description: "StudyStatus 测试",
+      cycle: {
+        work_count: 5,
+        rest_count: 2,
+        spans: [
+          { activity: "work" as const, count: 5 },
+          { activity: "rest" as const, count: 2 },
+        ],
+      },
+    },
+    subjects: schedule.map((period) => ({ name: period.name })),
+    schedules: [
+      {
+        name: "工作日",
+        enable_day: [1, 2, 3, 4, 5],
+        classes: schedule.map((period) => ({
+          subject: period.name,
+          start_time: period.startTime,
+          end_time: period.endTime,
+        })),
+      },
+    ],
+  },
+};
 
 function atTime(hours: number, minutes: number, seconds = 0): Date {
   return new Date(2026, 6, 13, hours, minutes, seconds);
@@ -166,6 +197,16 @@ describe("StudyStatus 进度模型", () => {
     expect(status.statusText).toBe("第1节自习");
   });
 
+  it("课时结束秒使用左闭右开边界并立即进入课间", () => {
+    const finalSecond = calculateStudyStatus(schedule, atTime(20, 19, 59));
+    const breakStart = calculateStudyStatus(schedule, atTime(20, 20, 0));
+
+    expect(finalSecond.isInClass).toBe(true);
+    expect(finalSecond.remainingSeconds).toBe(1);
+    expect(breakStart.isInClass).toBe(false);
+    expect(breakStart.remainingSeconds).toBe(10 * 60);
+  });
+
   it("为课间提供独立节奏文案和下一节倒计时", () => {
     const status = calculateStudyStatus(schedule, atTime(20, 25));
 
@@ -187,7 +228,7 @@ describe("StudyStatus 进度模型", () => {
 
 describe("StudyStatus 界面", () => {
   it("默认显示今日进度、剩余时间和向下取整的百分比", () => {
-    mocks.readStudySchedule.mockReturnValue(schedule);
+    mocks.readStudyTimetable.mockReturnValue(timetable);
     mocks.getAdjustedDate.mockImplementation(() => atTime(3, 59));
 
     render(<StudyStatus />);
@@ -204,7 +245,7 @@ describe("StudyStatus 界面", () => {
   it("跨过问候时段边界后自动更新可见文案和读屏文本", () => {
     vi.useFakeTimers();
     let now = atTime(4, 59, 59);
-    mocks.readStudySchedule.mockReturnValue(schedule);
+    mocks.readStudyTimetable.mockReturnValue(timetable);
     mocks.getAdjustedDate.mockImplementation(() => now);
 
     render(<StudyStatus />);
@@ -221,7 +262,7 @@ describe("StudyStatus 界面", () => {
   });
 
   it("显示中央节奏信息，不渲染轨道圆点", () => {
-    mocks.readStudySchedule.mockReturnValue(schedule);
+    mocks.readStudyTimetable.mockReturnValue(timetable);
     mocks.getAdjustedDate.mockImplementation(() => atTime(20, 13));
     writeInfoCarousel([
       {
@@ -246,7 +287,7 @@ describe("StudyStatus 界面", () => {
 
   it("轮播时原子切换中央文案、背景进度和无障碍属性", () => {
     vi.useFakeTimers();
-    mocks.readStudySchedule.mockReturnValue(schedule);
+    mocks.readStudyTimetable.mockReturnValue(timetable);
     mocks.getAdjustedDate.mockImplementation(() => atTime(20, 13));
     writeInfoCarousel(
       [
@@ -287,7 +328,7 @@ describe("StudyStatus 界面", () => {
     const current = atTime(22, 0);
     const rainStartAt = current.getTime() + 10 * 60 * 1000;
     const rainEndAt = rainStartAt + 18 * 60 * 1000;
-    mocks.readStudySchedule.mockReturnValue(schedule);
+    mocks.readStudyTimetable.mockReturnValue(timetable);
     mocks.getAdjustedDate.mockImplementation(() => current);
     mocks.minutelySnapshot = {
       cache: null,
@@ -339,7 +380,7 @@ describe("StudyStatus 界面", () => {
   it("隐藏天气组件后仍独立订阅并逐条显示天气预警", () => {
     vi.useFakeTimers();
     const current = atTime(22, 0);
-    mocks.readStudySchedule.mockReturnValue(schedule);
+    mocks.readStudyTimetable.mockReturnValue(timetable);
     mocks.getAdjustedDate.mockImplementation(() => current);
     mocks.weatherAlertSnapshot = {
       alerts: [
@@ -410,7 +451,7 @@ describe("StudyStatus 界面", () => {
   });
 
   it("当天没有后续课时且只有进度信息时不暴露无效果按钮", () => {
-    mocks.readStudySchedule.mockReturnValue(schedule);
+    mocks.readStudyTimetable.mockReturnValue(timetable);
     mocks.getAdjustedDate.mockImplementation(() => atTime(22, 0));
 
     render(<StudyStatus />);
@@ -421,7 +462,7 @@ describe("StudyStatus 界面", () => {
 
   it("设置保存事件早于持久化时在下一任务读取最新中央信息配置", () => {
     vi.useFakeTimers();
-    mocks.readStudySchedule.mockReturnValue(schedule);
+    mocks.readStudyTimetable.mockReturnValue(timetable);
     mocks.getAdjustedDate.mockImplementation(() => atTime(22, 0));
 
     render(<StudyStatus />);
@@ -447,7 +488,7 @@ describe("StudyStatus 界面", () => {
   });
 
   it("提示型信息使用条目绑定的课时背景进度", () => {
-    mocks.readStudySchedule.mockReturnValue(schedule);
+    mocks.readStudyTimetable.mockReturnValue(timetable);
     mocks.getAdjustedDate.mockImplementation(() => atTime(20, 13));
     writeInfoCarousel([
       {
@@ -472,7 +513,7 @@ describe("StudyStatus 界面", () => {
   });
 
   it("条件提示暂时无内容时保留首项背景，中央区域留空", () => {
-    mocks.readStudySchedule.mockReturnValue(schedule);
+    mocks.readStudyTimetable.mockReturnValue(timetable);
     mocks.getAdjustedDate.mockImplementation(() => atTime(22, 0));
     writeInfoCarousel([
       {
@@ -497,7 +538,7 @@ describe("StudyStatus 界面", () => {
   });
 
   it("课时空态仍可通过点击、Enter 和空格切换其他信息", () => {
-    mocks.readStudySchedule.mockReturnValue(schedule);
+    mocks.readStudyTimetable.mockReturnValue(timetable);
     mocks.getAdjustedDate.mockImplementation(() => atTime(22, 0));
     writeInfoCarousel([
       {
@@ -530,7 +571,7 @@ describe("StudyStatus 界面", () => {
   });
 
   it("列表没有任何启用条目时不渲染顶部组件", () => {
-    mocks.readStudySchedule.mockReturnValue(schedule);
+    mocks.readStudyTimetable.mockReturnValue(timetable);
     mocks.getAdjustedDate.mockImplementation(() => atTime(22, 0));
     writeInfoCarousel([]);
 

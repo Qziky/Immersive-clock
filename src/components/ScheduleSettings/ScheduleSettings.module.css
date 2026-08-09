@@ -1,72 +1,398 @@
 .editor {
   display: grid;
-  gap: var(--ui-space-5);
+  gap: var(--ui-space-4);
   min-width: 0;
 }
 
-.editorActions {
-  flex-wrap: wrap;
-  justify-content: flex-end;
+.metricGrid,
+.subjectFields,
+.scheduleSetup,
+.classFields,
+.spanFields {
+  gap: var(--ui-space-3);
 }
 
-.importSummary {
+.subjectList,
+.scheduleList,
+.classList,
+.spanList {
   display: grid;
+  min-width: 0;
+}
+
+.subjectList,
+.spanList {
+  border-top: 1px solid var(--ui-color-border);
+}
+
+.subjectRow,
+.spanRow {
+  border-bottom: 1px solid var(--ui-color-border);
+  min-width: 0;
+}
+
+.subjectRow {
+  display: grid;
+  gap: var(--ui-space-2);
+  padding: 10px 0;
+}
+
+.dataRowHeader,
+.scheduleHeader,
+.subsectionHeader {
+  align-items: center;
+  display: flex;
+  gap: var(--ui-space-3);
+  justify-content: space-between;
+  min-width: 0;
+}
+
+.dataRowIdentity,
+.spanSummary {
+  align-items: center;
+  display: flex;
   gap: var(--ui-space-3);
   min-width: 0;
 }
 
-.importErrors {
-  background: var(--ui-color-danger-soft);
-  border: 1px solid var(--ui-color-danger-border);
-  border-radius: var(--ui-radius-md);
+.dataRowIdentity > div,
+.spanSummary > div {
   display: grid;
-  gap: 6px;
+  gap: 2px;
   min-width: 0;
-  padding: 10px 12px;
 }
 
-.importErrorItem {
+.dataRowIdentity h4,
+.subsectionHeader h5 {
   color: var(--ui-color-text);
-  font-size: var(--ui-font-size-xs);
-  line-height: 1.45;
+  font-size: var(--ui-font-size-md);
+  line-height: 1.25;
+  margin: 0;
   overflow-wrap: anywhere;
 }
 
-.importErrorMore {
+.dataRowIdentity > div > span,
+.spanSummary > div > span,
+.subsectionHeader > div > span {
   color: var(--ui-color-text-muted);
   font-size: var(--ui-font-size-xs);
-  line-height: 1.35;
+  line-height: 1.4;
 }
 
-.importActions,
-.rowActions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--ui-space-2);
+.dataRowIndex {
+  align-items: center;
+  background: var(--ui-color-accent-soft);
+  border: 1px solid var(--ui-color-accent-border);
+  border-radius: var(--ui-radius-md);
+  color: var(--ui-color-accent);
+  display: inline-flex;
+  flex: 0 0 auto;
+  font-family: var(--ui-font-number);
+  font-size: var(--ui-font-size-xs);
+  font-weight: 700;
+  height: 30px;
+  justify-content: center;
+  width: 30px;
+}
+
+.subjectFields {
+  display: grid;
+  grid-template-columns: minmax(180px, 1.6fr) repeat(3, minmax(130px, 1fr));
   min-width: 0;
 }
 
 .scheduleList {
+  gap: var(--ui-space-4);
+}
+
+.scheduleSection {
+  background: var(--ui-color-bg);
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-lg);
+  min-width: 0;
+  overflow: hidden;
+}
+
+.scheduleHeader {
+  background: var(--ui-color-bg-muted);
+  border-bottom: 1px solid var(--ui-color-border);
+  padding: 12px 14px;
+}
+
+.scheduleSetup {
+  align-items: end;
   display: grid;
-  gap: var(--ui-space-3);
+  grid-template-columns: minmax(220px, 0.8fr) minmax(320px, 1.4fr);
+  min-width: 0;
+  padding: 14px;
+}
+
+.dayGroup {
+  border: 0;
+  display: grid;
+  gap: var(--ui-space-2);
+  margin: 0;
+  min-width: 0;
+  padding: 0;
+}
+
+.dayGroup legend {
+  color: var(--ui-color-text);
+  font-size: 13px;
+  font-weight: 500;
+  padding: 0;
+}
+
+.daySelector {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ui-space-2) var(--ui-space-4);
+  min-height: 40px;
   min-width: 0;
 }
 
-@media (max-width: 760px) {
+.classSection {
+  border-top: 1px solid var(--ui-color-border);
+  min-width: 0;
+}
+
+.subsectionHeader {
+  padding: 12px 14px;
+}
+
+.classList {
+  border-top: 1px solid var(--ui-color-border);
+}
+
+.classRow {
+  align-items: end;
+  display: grid;
+  gap: var(--ui-space-3);
+  grid-template-columns: 68px minmax(0, 1fr) auto;
+  min-width: 0;
+  padding: 12px 14px;
+}
+
+.classRow + .classRow {
+  border-top: 1px solid var(--ui-color-border);
+}
+
+.classRow:focus-within {
+  background: var(--ui-color-bg-muted);
+}
+
+.classOrder {
+  align-self: stretch;
+  border-right: 1px solid var(--ui-color-border);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
+  padding-right: var(--ui-space-3);
+}
+
+.classOrder strong {
+  color: var(--ui-color-accent);
+  font-family: var(--ui-font-number);
+  font-size: var(--ui-font-size-lg);
+  line-height: 1;
+}
+
+.classOrder span {
+  color: var(--ui-color-text-muted);
+  font-family: var(--ui-font-number);
+  font-size: 9px;
+  margin-top: 5px;
+  white-space: nowrap;
+}
+
+.classFields {
+  align-items: end;
+  display: grid;
+  grid-template-columns: minmax(180px, 1.5fr) repeat(2, minmax(130px, 0.8fr));
+  min-width: 0;
+}
+
+.classSubjectField {
+  min-width: 0;
+}
+
+.classActions,
+.spanActions {
+  align-self: end;
+  padding-bottom: 2px;
+}
+
+.classActions {
+  border-left: 1px solid var(--ui-color-border);
+  padding-left: var(--ui-space-2);
+}
+
+.spanRow {
+  align-items: end;
+  display: grid;
+  gap: var(--ui-space-4);
+  grid-template-columns: minmax(160px, 0.6fr) minmax(280px, 1fr) auto;
+  padding: 12px 0;
+}
+
+.spanRow[data-activity="rest"] .dataRowIndex {
+  background: var(--ui-color-warning-soft);
+  border-color: var(--ui-color-warning);
+  color: var(--ui-color-warning);
+}
+
+.spanSummary strong {
+  color: var(--ui-color-text);
+  font-size: var(--ui-font-size-md);
+  line-height: 1.25;
+}
+
+.spanFields {
+  align-items: end;
+  display: grid;
+  grid-template-columns: minmax(160px, 1fr) minmax(120px, 0.55fr);
+  min-width: 0;
+}
+
+.issueList {
+  display: grid;
+  gap: var(--ui-space-2);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.issueList li {
+  align-items: baseline;
+  display: grid;
+  gap: var(--ui-space-2);
+  grid-template-columns: minmax(120px, max-content) minmax(0, 1fr);
+}
+
+.issueList code {
+  color: var(--ui-color-danger);
+  font-family: var(--ui-font-number);
+  font-size: var(--ui-font-size-xs);
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 1080px) {
+  .subjectFields {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .scheduleSetup {
+    grid-template-columns: minmax(200px, 0.75fr) minmax(280px, 1.25fr);
+  }
+}
+
+@media (max-width: 860px) {
+  .scheduleSetup {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .classRow {
+    grid-template-columns: 56px minmax(0, 1fr);
+  }
+
+  .classActions {
+    border-left: 0;
+    grid-column: 2;
+    justify-self: end;
+    padding-left: 0;
+  }
+
+  .spanRow {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .spanFields {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+
+  .spanActions {
+    grid-column: 2;
+    grid-row: 1;
+  }
+}
+
+@media (max-width: 600px) {
   .editor {
-    gap: var(--ui-space-4);
+    gap: var(--ui-space-3);
   }
 
-  .editorActions {
-    justify-content: flex-start;
+  .scheduleList {
+    gap: var(--ui-space-3);
   }
 
-  .importActions,
-  .rowActions {
-    justify-content: flex-start;
+  .subjectFields {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .scheduleHeader,
+  .subsectionHeader {
+    align-items: flex-start;
+  }
+
+  .scheduleSetup,
+  .classRow,
+  .subsectionHeader {
+    padding: 12px;
+  }
+
+  .daySelector {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .subsectionHeader {
+    display: grid;
+  }
+
+  .classRow {
+    gap: var(--ui-space-2);
+    grid-template-columns: 40px minmax(0, 1fr);
+  }
+
+  .classOrder {
+    padding-right: var(--ui-space-2);
+  }
+
+  .classFields {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .classSubjectField {
+    grid-column: 1 / -1;
+  }
+
+  .classActions {
+    grid-column: 2;
+    justify-self: start;
+  }
+
+  .spanRow {
+    gap: var(--ui-space-3);
+  }
+
+  .spanFields {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .issueList li {
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .editor button {
     min-height: 44px;
+  }
+}
+
+@media (max-width: 360px) {
+  .subjectFields {
+    grid-template-columns: minmax(0, 1fr);
   }
 }

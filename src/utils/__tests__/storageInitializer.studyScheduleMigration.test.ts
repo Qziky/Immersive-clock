@@ -57,8 +57,19 @@ describe("storageInitializer - study schedule migration", () => {
     expect(localStorage.getItem("study-schedule")).toBeNull();
     expect(localStorage.getItem("studySchedule")).toBeNull();
 
-    const schedule = getAppSettings().study.schedule;
-    expect(schedule).toEqual(legacySchedule);
+    const timetable = getAppSettings().study.timetable;
+    expect(timetable.cycleAnchorDate).toBe("2000-01-03");
+    expect(timetable.document.configuration.cycle).toMatchObject({
+      work_count: 5,
+      rest_count: 2,
+    });
+    expect(timetable.document.schedules[0]).toMatchObject({
+      enable_day: [1, 2, 3, 4, 5],
+      classes: [
+        { subject: "早读", start_time: "08:00:00", end_time: "09:00:00" },
+        { subject: "自习", start_time: "09:10:00", end_time: "10:00:00" },
+      ],
+    });
   });
 
   it("当 AppSettings 已显式保存课表时，不覆盖但会清理 legacy 键", () => {
@@ -78,7 +89,15 @@ describe("storageInitializer - study schedule migration", () => {
     expect(localStorage.getItem("study-schedule")).toBeNull();
     expect(localStorage.getItem("studySchedule")).toBeNull();
 
-    const schedule = getAppSettings().study.schedule;
-    expect(schedule).toEqual(appSettingsSchedule);
+    const timetable = getAppSettings().study.timetable;
+    expect(timetable.document.subjects).toEqual([{ name: "晚自习" }]);
+    expect(timetable.document.schedules[0].classes).toEqual([
+      { subject: "晚自习", start_time: "19:00:00", end_time: "20:00:00" },
+    ]);
+    const raw = JSON.parse(localStorage.getItem("AppSettings") ?? "{}") as {
+      study?: Record<string, unknown>;
+    };
+    expect(raw.study).not.toHaveProperty("schedule");
+    expect(raw.study).toHaveProperty("timetable");
   });
 });

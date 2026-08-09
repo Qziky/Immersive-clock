@@ -67,25 +67,24 @@ HUD 默认隐藏，页面交互后显示，8 秒无操作后自动隐藏。输�
 
 ## 课表与进度
 
-课表统一存储在 `AppSettings.study.schedule`，结构为 `StudyPeriod`：`id`、`name`、
-`startTime`、`endTime`。默认课表由 `src/types/studySchedule.ts` 提供。
+课表统一存储在 `AppSettings.study.timetable`：`document` 是完整 CSES v2 文档，
+`cycleAnchorDate` 是应用私有的周期首日日期，不参与 YAML 导入导出。旧版 `study.schedule` 和
+`study-schedule` / `studySchedule` 会迁移为固定周一锚点的上 5 休 2 工作日课程表。
 
-校验规则集中在 `studyScheduleValidation.ts`：
+`studyTimetable.ts` 集中负责：
 
-- 时间必须是有效 `HH:mm`；
-- 结束晚于开始；
-- 排序后不能重叠；
-- 智能新增会根据现有时段选择可用区间。
-
-Excel 导入由 `read-excel-file` 解析第一个工作表，识别中文或英文的名称/开始/结束表头，兼容
-Excel 数字时间、Date 和文本时间。无效行保留行号错误；合并导入时重新生成 ID，避免冲突。
+- CSES v2 YAML 解析和生成，并保留 schema 允许的未知扩展字段；
+- 课程引用、`HH:mm:ss`、周期 spans 总数和实际启用日课时重叠的严格校验；
+- 根据本地日期、周期锚点和 spans 计算第几个上课日；
+- 将匹配的日课程表合并为包含稳定 ID、教师和地点的运行时 `StudyPeriod[]`。
 
 `StudyStatus` 每秒从同一校时时刻派生两套进度：
 
 - `day`：当天 24 小时进度；
 - `schedule`：当前课时或课间进度。
 
-它监听设置事件和跨标签页 `AppSettings` 变化，避免设置页保存后继续显示旧课表。
+它监听课程表设置事件和跨标签页 `AppSettings` 变化，避免设置页保存后继续显示旧课表。休息日、
+周期开始前或空日课程表不会产生课时进度与自动噪音报告。
 
 ## 中央信息轮播
 

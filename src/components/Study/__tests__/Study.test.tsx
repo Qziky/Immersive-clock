@@ -62,10 +62,39 @@ vi.mock("../../../utils/noiseReportSettings", () => ({
   getNoiseReportSettings: () => reportSettings.value,
 }));
 
-vi.mock("../../../utils/studyScheduleStorage", () => ({
-  readStudySchedule: () => [
-    { id: "morning", name: "上午自习", startTime: "10:00", endTime: "11:00" },
-  ],
+vi.mock("../../../utils/studyTimetableStorage", () => ({
+  readStudyTimetable: () => ({
+    cycleAnchorDate: "2026-08-02",
+    document: {
+      version: 2,
+      configuration: {
+        name: "测试课表",
+        description: "Study 测试",
+        cycle: {
+          work_count: 2,
+          rest_count: 2,
+          spans: [
+            { activity: "work", count: 2 },
+            { activity: "rest", count: 2 },
+          ],
+        },
+      },
+      subjects: [{ name: "上午自习" }],
+      schedules: [
+        {
+          name: "测试日",
+          enable_day: [1],
+          classes: [
+            {
+              subject: "上午自习",
+              start_time: "10:00:00",
+              end_time: "11:00:00",
+            },
+          ],
+        },
+      ],
+    },
+  }),
 }));
 
 vi.mock("../../../utils/timeSync", () => ({

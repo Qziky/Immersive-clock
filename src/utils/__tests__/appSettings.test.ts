@@ -24,6 +24,7 @@ import {
   saveNormalBackground,
   saveStudyBackground,
 } from "../studyBackgroundStorage";
+import { migrateLegacyStudySchedule } from "../studyTimetable";
 
 class MemoryStorage implements Storage {
   private store = new Map<string, string>();
@@ -1289,9 +1290,9 @@ describe("appSettings", () => {
         },
       ],
     };
-    current.study.schedule = [
+    current.study.timetable = migrateLegacyStudySchedule([
       { id: "morning", startTime: "08:00", endTime: "09:00", name: "数学" },
-    ];
+    ]);
     current.appearance.global.background = { type: "black" };
     localStorage.setItem(APP_SETTINGS_KEY, JSON.stringify(current));
 
@@ -1304,7 +1305,7 @@ describe("appSettings", () => {
     expect(reset.general.quote.typewriterBackspaceEnabled).toBe(false);
     expect(reset.general.quote.customChannels[0]?.quotes).toEqual(["保留内容"]);
     expect(reset.study.countdownItems[0]?.name).toBe("考试");
-    expect(reset.study.schedule[0]?.name).toBe("数学");
+    expect(reset.study.timetable.document.subjects[0]?.name).toBe("数学");
     expect(reset.study.infoCarousel.intervalSec).toBe(6);
     expect(
       reset.study.infoCarousel.items.find(

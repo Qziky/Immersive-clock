@@ -64,7 +64,7 @@
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
     "react-router-dom": "^7.14.2",
-    "read-excel-file": "^9.0.6"
+    "yaml": "2.8.1"
   },
   "devDependencies": {
     "@capacitor/cli": "8.5.0",

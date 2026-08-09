@@ -4,12 +4,16 @@ import { useComponentAppearance } from "../../contexts/AppearanceContext";
 import { useMinutelyWeatherSnapshot } from "../../hooks/useMinutelyWeatherSnapshot";
 import { useWeatherAlertSnapshot } from "../../hooks/useWeatherAlertSnapshot";
 import type { StudyInfoCarouselSettings, StudyProgressKind } from "../../types";
-import { DEFAULT_SCHEDULE } from "../../types/studySchedule";
-import type { StudyPeriod } from "../../types/studySchedule";
+import type { StudyPeriod, StudyTimetableSettings } from "../../types/studySchedule";
 import { getAppSettings, getDefaultStudyInfoCarousel } from "../../utils/appSettings";
 import { logger } from "../../utils/logger";
 import { subscribeSettingsEvent, SETTINGS_EVENTS } from "../../utils/settingsEvents";
-import { readStudySchedule } from "../../utils/studyScheduleStorage";
+import {
+  createDefaultStudyTimetable,
+  parseCsesTime,
+  resolveStudyDaySchedule,
+} from "../../utils/studyTimetable";
+import { readStudyTimetable } from "../../utils/studyTimetableStorage";
 import { getAdjustedDate } from "../../utils/timeSync";
 import { summarizeWeatherAlert } from "../../utils/weatherAlert";
 
@@ -51,8 +55,7 @@ export interface StudyProgressSnapshot {
 const SECONDS_PER_DAY = 24 * 60 * 60;
 
 function timeStringToSeconds(timeString: string): number {
-  const [hours, minutes] = timeString.split(":").map(Number);
-  return hours * 60 * 60 + minutes * 60;
+  return parseCsesTime(timeString) ?? 0;
 }
 
 export function getProgressStage(progress: number, isInClass: boolean): string {
@@ -108,7 +111,7 @@ export function calculateStudyStatus(targetSchedule: StudyPeriod[], now: Date): 
     const startSeconds = timeStringToSeconds(period.startTime);
     const endSeconds = timeStringToSeconds(period.endTime);
 
-    if (currentSeconds >= startSeconds && currentSeconds <= endSeconds) {
+    if (currentSeconds >= startSeconds && currentSeconds < endSeconds) {
       const totalDuration = endSeconds - startSeconds;
       const elapsed = currentSeconds - startSeconds;
       const progress = Math.min(100, Math.max(0, (elapsed / totalDuration) * 100));
@@ -132,7 +135,7 @@ export function calculateStudyStatus(targetSchedule: StudyPeriod[], now: Date): 
     const currentEndSeconds = timeStringToSeconds(currentPeriod.endTime);
     const nextStartSeconds = timeStringToSeconds(sortedSchedule[index + 1].startTime);
 
-    if (currentSeconds > currentEndSeconds && currentSeconds <= nextStartSeconds) {
+    if (currentSeconds >= currentEndSeconds && currentSeconds < nextStartSeconds) {
       const totalBreakDuration = nextStartSeconds - currentEndSeconds;
       const breakElapsed = currentSeconds - currentEndSeconds;
       const progress = Math.min(100, Math.max(0, (breakElapsed / totalBreakDuration) * 100));
@@ -212,7 +215,7 @@ const StudyStatus: React.FC<StudyStatusProps> = () => {
   const labelAppearance = useComponentAppearance("studyStatus", "label");
   const progressAppearance = useComponentAppearance("studyStatus", "progress");
   const fillAppearance = useComponentAppearance("studyStatus", "fill", { kind: "surface" });
-  const [schedule, setSchedule] = useState<StudyPeriod[]>(DEFAULT_SCHEDULE);
+  const [timetable, setTimetable] = useState<StudyTimetableSettings>(createDefaultStudyTimetable);
   const [currentTime, setCurrentTime] = useState<Date>(getAdjustedDate);
   const [infoCarouselSettings, setInfoCarouselSettings] =
     useState<StudyInfoCarouselSettings>(readInfoCarouselSettings);
@@ -225,67 +228,46 @@ const StudyStatus: React.FC<StudyStatusProps> = () => {
   const minutelyWeather = useMinutelyWeatherSnapshot(rainSourceEnabled);
   const weatherAlerts = useWeatherAlertSnapshot(weatherAlertSourceEnabled);
 
-  const normalizeSchedule = useCallback((input: StudyPeriod[]): StudyPeriod[] => {
-    return input.map((p, index) => {
-      const safeName = typeof p.name === "string" ? p.name.trim() : "";
-      return {
-        ...p,
-        id: String(p.id ?? ""),
-        startTime: String(p.startTime ?? ""),
-        endTime: String(p.endTime ?? ""),
-        name: safeName.length > 0 ? safeName : `自定义时段${index + 1}`,
-      };
-    });
-  }, []);
-
-  /**
-   * 加载课程表（函数级注释：优先从 AppSettings 读取，读取失败则回退默认课程表）
-   */
-  const loadSchedule = useCallback(() => {
+  /** 从 AppSettings 加载 CSES 课程表，读取失败时使用默认 5+2 模板。 */
+  const loadTimetable = useCallback(() => {
     try {
-      const data = readStudySchedule();
-      if (Array.isArray(data) && data.length > 0) {
-        const next = normalizeSchedule(data);
-        setSchedule(next);
-        return;
-      }
+      setTimetable(readStudyTimetable());
+      return;
     } catch (error) {
       logger.error("加载课程表失败:", error);
     }
-    // 如果加载失败或没有保存的数据，使用默认课程表
-    setSchedule(DEFAULT_SCHEDULE);
-  }, [normalizeSchedule]);
+    setTimetable(createDefaultStudyTimetable());
+  }, []);
 
   // 组件初始化时加载课程表
   useEffect(() => {
     let settingsSavedTimer: number | undefined;
-    loadSchedule();
+    loadTimetable();
     setInfoCarouselSettings(readInfoCarouselSettings());
-    const offSchedule = subscribeSettingsEvent(SETTINGS_EVENTS.StudyScheduleUpdated, () =>
-      loadSchedule()
+    const offTimetable = subscribeSettingsEvent(SETTINGS_EVENTS.StudyTimetableUpdated, () =>
+      loadTimetable()
     );
     const offSaved = subscribeSettingsEvent(SETTINGS_EVENTS.SettingsSaved, () => {
       if (settingsSavedTimer !== undefined) window.clearTimeout(settingsSavedTimer);
       settingsSavedTimer = window.setTimeout(() => {
         settingsSavedTimer = undefined;
-        loadSchedule();
+        loadTimetable();
         setInfoCarouselSettings(readInfoCarouselSettings());
       }, 0);
     });
     const onStorage = (e: StorageEvent) => {
-      if (e.key === "AppSettings" || e.key === "study-schedule" || e.key === "studySchedule") {
-        loadSchedule();
-        if (e.key === "AppSettings") setInfoCarouselSettings(readInfoCarouselSettings());
-      }
+      if (e.key !== "AppSettings") return;
+      loadTimetable();
+      setInfoCarouselSettings(readInfoCarouselSettings());
     };
     window.addEventListener("storage", onStorage);
     return () => {
       if (settingsSavedTimer !== undefined) window.clearTimeout(settingsSavedTimer);
-      offSchedule();
+      offTimetable();
       offSaved();
       window.removeEventListener("storage", onStorage);
     };
-  }, [loadSchedule]);
+  }, [loadTimetable]);
 
   // 每秒读取一次校准时间，两种进度快照都从同一时刻派生。
   useEffect(() => {
@@ -293,6 +275,11 @@ const StudyStatus: React.FC<StudyStatusProps> = () => {
 
     return () => clearInterval(interval);
   }, []);
+
+  const schedule = useMemo(
+    () => resolveStudyDaySchedule(timetable, currentTime).periods,
+    [currentTime, timetable]
+  );
 
   const progressSnapshots = useMemo<Record<StudyProgressKind, StudyProgressSnapshot>>(
     () => ({

@@ -10,6 +10,7 @@ import {
   getAppSettings,
   getDefaultAppSettings,
 } from "../../utils/appSettings";
+import { migrateLegacyStudySchedule } from "../../utils/studyTimetable";
 import {
   BACKUP_FORMAT,
   BACKUP_VERSION,
@@ -734,9 +735,9 @@ describe("dataManagement", () => {
 
   it("恢复默认偏好时保留课程、倒计时、语录、资源和噪声历史", async () => {
     const settings = settingsWithBackground("background-unused-after-reset");
-    settings.study.schedule = [
+    settings.study.timetable = migrateLegacyStudySchedule([
       { id: "lesson", name: "数学", startTime: "08:00", endTime: "08:45" },
-    ];
+    ]);
     settings.study.countdownItems = [
       {
         id: "exam",
@@ -771,7 +772,7 @@ describe("dataManagement", () => {
     await resetPreferences();
     const reset = getAppSettings();
 
-    expect(reset.study.schedule).toEqual(settings.study.schedule);
+    expect(reset.study.timetable).toEqual(settings.study.timetable);
     expect(reset.study.countdownItems).toEqual(settings.study.countdownItems);
     expect(reset.study.infoCarousel.items).toEqual(
       expect.arrayContaining([

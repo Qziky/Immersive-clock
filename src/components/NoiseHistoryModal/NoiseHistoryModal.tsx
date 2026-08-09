@@ -2,7 +2,6 @@ import React, { useEffect, useId, useMemo, useState } from "react";
 
 import { DEFAULT_NOISE_REPORT_RETENTION_DAYS } from "../../constants/noiseReport";
 import type { NoiseSliceSummary } from "../../types/noise";
-import { DEFAULT_SCHEDULE, StudyPeriod } from "../../types/studySchedule";
 import {
   AppIcon,
   Button as FormButton,
@@ -15,7 +14,8 @@ import {
 import { formatDateTimeLocal, parseDateTimeLocal } from "../../utils/dateTimeLocal";
 import { buildNoiseHistoryListItems } from "../../utils/noiseHistoryBuilder";
 import { readNoiseSlices, subscribeNoiseSlicesUpdated } from "../../utils/noiseSliceService";
-import { readStudySchedule } from "../../utils/studyScheduleStorage";
+import { createDefaultStudyTimetable } from "../../utils/studyTimetable";
+import { readStudyTimetable } from "../../utils/studyTimetableStorage";
 import type { NoiseReportPeriod } from "../NoiseReportModal/NoiseReportModal";
 
 import styles from "./NoiseHistoryModal.module.css";
@@ -96,12 +96,11 @@ const NoiseHistoryModal: React.FC<NoiseHistoryModalProps> = ({ isOpen, onClose, 
 
   const items = useMemo(() => {
     if (!isOpen) return [];
-    let schedule: StudyPeriod[] = DEFAULT_SCHEDULE;
+    let timetable = createDefaultStudyTimetable();
     try {
-      const s = readStudySchedule();
-      if (Array.isArray(s) && s.length > 0) schedule = s;
+      timetable = readStudyTimetable();
     } catch {}
-    return buildNoiseHistoryListItems({ slices, schedule, windowMs: maxCustomRangeMs });
+    return buildNoiseHistoryListItems({ slices, timetable, windowMs: maxCustomRangeMs });
   }, [isOpen, slices, maxCustomRangeMs]);
 
   /** 查看自定义报告（函数级注释：校验起止时间并回传 NoiseReportPeriod，让上层复用统一报告弹窗展示） */

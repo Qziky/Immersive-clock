@@ -202,7 +202,7 @@ const paneItems: SettingsPane[] = [
     value: "schedule",
     group: "workspace",
     label: "课程表",
-    description: "管理自习课程时间段和导入数据。",
+    description: "管理 CSES 课程、日课表、周期与 YAML 文件。",
     icon: "feature.schedule",
     panel: "basic",
     section: "schedule",

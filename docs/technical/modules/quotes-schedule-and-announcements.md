@@ -59,11 +59,14 @@
 
 ## 课表内容存储
 
-课表保存在 `AppSettings.study.schedule`。设置 UI 可增删、排序、智能插入和导入 Excel；写入前
-统一通过 `validateStudySchedule()`。应用启动会把旧 `study-schedule` / `studySchedule` 迁移到
-AppSettings，只有在新结构没有显式课表时才采用 legacy 内容，防止覆盖用户已保存课表。
+课表保存在 `AppSettings.study.timetable`。其中 `document` 是可交换的 CSES v2 文档，
+`cycleAnchorDate` 是仅供 Immersive Clock 把周期映射到实际日期的本地字段。设置 UI 维护课程库、
+日课程表和 spans；YAML 导入在覆盖草稿前必须通过结构、引用、时间与重叠校验。
 
-同标签页保存通过 `SETTINGS_EVENTS.StudyScheduleUpdated` 触发自习状态重读；其他标签页通过
+应用启动会把旧 `study.schedule`、`study-schedule` / `studySchedule` 迁移成上 5 休 2 的工作日
+CSES 文档；已有 `study.timetable` 时不会被 legacy 内容覆盖。迁移完成后显式清除旧字段和旧键。
+
+同标签页保存通过 `SETTINGS_EVENTS.StudyTimetableUpdated` 触发自习状态重读；其他标签页通过
 `storage` 事件读取新的 AppSettings。课表是用户内容，重置偏好时保留，删除全部本地数据时清除。
 
 ## 公告与更新日志

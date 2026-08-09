@@ -1,3 +1,5 @@
+import { readFile } from "node:fs/promises";
+
 import { expect, test, type Locator, type Page } from "@playwright/test";
 
 import { CURRENT_APP_VERSION, showHud } from "./e2eUtils";
@@ -531,7 +533,7 @@ test("设置持久化：修改目标年份并保存", async ({ page }) => {
   const targetYearInput = dialog.getByLabel("年份");
   await targetYearInput.fill("2029");
 
-  await dialog.getByRole("button", { name: "保存" }).click();
+  await dialog.getByRole("button", { name: "保存", exact: true }).click();
 
   const storedYear = await page.evaluate(() => {
     const raw = localStorage.getItem("AppSettings");
@@ -1452,6 +1454,7 @@ test("课程表：随设置统一保存并在取消时丢弃草稿", async ({ pa
 
   const dialog = await openStudySettings(page);
   await dialog.getByRole("button", { name: "课程表" }).click();
+  await dialog.getByRole("tab", { name: "课程库" }).click();
 
   const firstCourseName = dialog.getByLabel("课程名称").first();
   await firstCourseName.fill("晨间数学");
@@ -1460,13 +1463,14 @@ test("课程表：随设置统一保存并在取消时丢弃草稿", async ({ pa
   const savedName = await page.evaluate(() => {
     const raw = localStorage.getItem("AppSettings");
     if (!raw) return null;
-    return JSON.parse(raw)?.study?.schedule?.[0]?.name ?? null;
+    return JSON.parse(raw)?.study?.timetable?.document?.subjects?.[0]?.name ?? null;
   });
   expect(savedName).toBe("晨间数学");
 
   await page.getByRole("button", { name: "打开设置" }).click();
   const secondDialog = page.getByRole("dialog", { name: "设置" });
   await secondDialog.getByRole("button", { name: "课程表" }).click();
+  await secondDialog.getByRole("tab", { name: "课程库" }).click();
   await secondDialog.getByLabel("课程名称").first().fill("未保存课程");
   await secondDialog.getByRole("button", { name: "取消" }).click();
   await expect(secondDialog).toBeHidden();
@@ -1474,7 +1478,69 @@ test("课程表：随设置统一保存并在取消时丢弃草稿", async ({ pa
   await page.getByRole("button", { name: "打开设置" }).click();
   const reopenedDialog = page.getByRole("dialog", { name: "设置" });
   await reopenedDialog.getByRole("button", { name: "课程表" }).click();
+  await reopenedDialog.getByRole("tab", { name: "课程库" }).click();
   await expect(reopenedDialog.getByLabel("课程名称").first()).toHaveValue("晨间数学");
+});
+
+/** 端到端用例：CSES YAML 严格拒绝无效文件，并支持预览、应用和导出草稿。 */
+test("课程表：严格导入并导出 CSES v2 YAML", async ({ page }) => {
+  await page.goto("/");
+  const dialog = await openStudySettings(page);
+  await dialog.getByRole("button", { name: "课程表" }).click();
+
+  const fileInput = dialog.getByLabel("CSES YAML 文件", { exact: true });
+  await fileInput.setInputFiles({
+    name: "invalid.yaml",
+    mimeType: "application/yaml",
+    buffer: Buffer.from("version: 1\nsubjects: []\nschedules: []"),
+  });
+  await expect(dialog.getByText("导入被拒绝")).toBeVisible();
+
+  const yaml = `version: 2
+configuration:
+  name: e2e 课表
+  description: 设置页 CSES 流程
+  cycle:
+    work_count: 5
+    rest_count: 2
+    spans:
+      - activity: work
+        count: 5
+      - activity: rest
+        count: 2
+subjects:
+  - name: 物理
+schedules:
+  - name: 周一
+    enable_day: [1]
+    classes:
+      - subject: 物理
+        start_time: "08:00:00"
+        end_time: "08:45:00"
+`;
+  await fileInput.setInputFiles({
+    name: "valid.yaml",
+    mimeType: "application/yaml",
+    buffer: Buffer.from(yaml),
+  });
+  await expect(dialog.getByText("文件校验通过")).toBeVisible();
+  await dialog.getByRole("button", { name: "覆盖当前草稿" }).click();
+
+  const downloadPromise = page.waitForEvent("download");
+  await dialog.getByRole("button", { name: "导出 YAML" }).click();
+  const download = await downloadPromise;
+  expect(download.suggestedFilename()).toMatch(/^e2e-课表-\d{4}-\d{2}-\d{2}\.yaml$/);
+  const downloadPath = await download.path();
+  expect(downloadPath).not.toBeNull();
+  expect(await readFile(downloadPath!, "utf8")).toContain("name: 物理");
+
+  await dialog.getByRole("button", { name: "保存", exact: true }).click();
+  expect(
+    await page.evaluate(() => {
+      const raw = localStorage.getItem("AppSettings");
+      return raw ? JSON.parse(raw)?.study?.timetable?.document?.subjects?.[0]?.name : null;
+    })
+  ).toBe("物理");
 });
 
 /** 端到端用例：切换“错误与调试-记录方式”时不应在保存前清空持久化记录（函数级注释） */

@@ -98,7 +98,7 @@ export const PUBLIC_ROUTE_SEO: Record<string, RouteSeoData> = {
       {
         question: "能导入课程表吗？",
         answer:
-          "可以。自习模式支持从 Excel 导入课程表，并在导入前校验数据，用于显示下一课程与课程进度。",
+          "可以。自习模式支持严格导入和导出 CSES v2 YAML，并按周期锚点自动解析当天课程，用于显示下一课程与课程进度。",
       },
       {
         question: "支持哪些平台？",
@@ -214,7 +214,7 @@ export const PUBLIC_ROUTE_SEO: Record<string, RouteSeoData> = {
       "自习模式把时间、日期、天气、噪音监测、励志语录、课程进度与目标日期倒计时整合为一个学习看板，各辅助组件可独立显示或隐藏，主时间始终居中，专为教室多媒体大屏与专注自习设计。",
     featureList: [
       "集中式学习看板",
-      "Excel 导入课程表与“下一课程”提示",
+      "CSES v2 课程表导入导出与“下一课程”提示",
       "高考及自定义目标日期倒计时",
       "实时天气与分钟级降水、气象预警",
       "环境噪音实时监测与历史报告",
@@ -228,7 +228,8 @@ export const PUBLIC_ROUTE_SEO: Record<string, RouteSeoData> = {
       },
       {
         question: "能导入课程表吗？",
-        answer: "可以。支持从 Excel 导入课程表并在导入前校验数据，用于显示下一课程与课程进度。",
+        answer:
+          "可以。支持严格导入和导出 CSES v2 YAML，并在应用草稿前校验周期、课程引用、时间和重叠。",
       },
       {
         question: "噪音监测准确吗？",

@@ -1,3 +1,5 @@
+import type { LegacyStudyPeriod } from "../types/studySchedule";
+
 import {
   getAppSettings,
   migrateStoredAppSettings,
@@ -5,6 +7,7 @@ import {
   updateStudySettings,
 } from "./appSettings";
 import { logger } from "./logger";
+import { migrateLegacyStudySchedule } from "./studyTimetable";
 
 const LEGACY_KEYS = [
   "quote-auto-refresh-interval",
@@ -71,18 +74,11 @@ const LEGACY_KEYS = [
   "weather.alert.lastTag",
 ];
 
-type LegacyStudyPeriod = {
-  id: string;
-  startTime: string;
-  endTime: string;
-  name: string;
-};
-
 function isValidLegacyStudyPeriod(value: unknown): value is LegacyStudyPeriod {
   if (!value || typeof value !== "object") return false;
   const v = value as Record<string, unknown>;
   return (
-    typeof v.id === "string" &&
+    (v.id === undefined || typeof v.id === "string") &&
     typeof v.startTime === "string" &&
     typeof v.endTime === "string" &&
     typeof v.name === "string"
@@ -102,13 +98,21 @@ function readLegacyStudySchedule(): LegacyStudyPeriod[] | null {
   }
 }
 
-function hasExplicitScheduleInRawAppSettings(rawSettings: string | null): boolean {
-  if (!rawSettings) return false;
+function readRawStudyStorageShape(rawSettings: string | null): {
+  hasLegacySchedule: boolean;
+  hasTimetable: boolean;
+} {
+  if (!rawSettings) return { hasLegacySchedule: false, hasTimetable: false };
   try {
-    const parsed = JSON.parse(rawSettings) as { study?: { schedule?: unknown } };
-    return Array.isArray(parsed?.study?.schedule);
+    const parsed = JSON.parse(rawSettings) as {
+      study?: { schedule?: unknown; timetable?: unknown };
+    };
+    return {
+      hasLegacySchedule: Array.isArray(parsed?.study?.schedule),
+      hasTimetable: Boolean(parsed?.study?.timetable),
+    };
   } catch {
-    return false;
+    return { hasLegacySchedule: false, hasTimetable: false };
   }
 }
 
@@ -117,7 +121,7 @@ export function initializeStorage() {
 
   // 1. 检查是否存在 AppSettings
   const rawSettings = localStorage.getItem("AppSettings");
-  const explicitScheduleExists = hasExplicitScheduleInRawAppSettings(rawSettings);
+  const rawStudyStorage = readRawStudyStorageShape(rawSettings);
   if (!rawSettings) {
     logger.info("AppSettings not found. Creating default settings...");
     resetAppSettings();
@@ -127,20 +131,20 @@ export function initializeStorage() {
   migrateStoredAppSettings();
 
   // 2. 迁移：旧课程表键 -> AppSettings（避免被 legacy 清理误删）
-  if (!explicitScheduleExists) {
+  if (!rawStudyStorage.hasTimetable && !rawStudyStorage.hasLegacySchedule) {
     const legacySchedule = readLegacyStudySchedule();
     if (legacySchedule) {
       try {
-        updateStudySettings({ schedule: legacySchedule });
+        updateStudySettings({ timetable: migrateLegacyStudySchedule(legacySchedule) });
         localStorage.removeItem("study-schedule");
         localStorage.removeItem("studySchedule");
-        logger.info("Migrated legacy study schedule to AppSettings.");
+        logger.info("Migrated legacy study schedule to the CSES timetable model.");
       } catch (error) {
         logger.warn("Failed to migrate legacy study schedule:", error);
       }
     }
   }
-  if (explicitScheduleExists) {
+  if (rawStudyStorage.hasTimetable || rawStudyStorage.hasLegacySchedule) {
     localStorage.removeItem("study-schedule");
     localStorage.removeItem("studySchedule");
   }

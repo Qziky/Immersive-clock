@@ -6,7 +6,6 @@ import { useNoiseStream } from "../../hooks/useNoiseStream";
 import { useTimer } from "../../hooks/useTimer";
 import { acquireWeatherRuntime } from "../../services/weatherRuntime";
 import { CountdownItem, type StudyDisplaySettings } from "../../types";
-import { DEFAULT_SCHEDULE, StudyPeriod } from "../../types/studySchedule";
 import { appearanceBackgroundToCss } from "../../utils/appearanceModel";
 import {
   getCountdownEventPreset,
@@ -15,7 +14,12 @@ import {
 } from "../../utils/countdownEvents";
 import { formatClock } from "../../utils/formatTime";
 import { getNoiseReportSettings } from "../../utils/noiseReportSettings";
-import { readStudySchedule } from "../../utils/studyScheduleStorage";
+import {
+  createDefaultStudyTimetable,
+  parseCsesTime,
+  resolveStudyDaySchedule,
+} from "../../utils/studyTimetable";
+import { readStudyTimetable } from "../../utils/studyTimetableStorage";
 import { getAdjustedDate } from "../../utils/timeSync";
 import { MotivationalQuote } from "../MotivationalQuote";
 import NoiseHistoryModal from "../NoiseHistoryModal/NoiseHistoryModal";
@@ -73,30 +77,30 @@ export function Study() {
 
   // 自动在本节课结束前1分钟弹出统计报告（按设置自动关闭；关闭后本课时不再弹出）
   useEffect(() => {
-    let schedule: StudyPeriod[] = DEFAULT_SCHEDULE;
+    let timetable = createDefaultStudyTimetable();
     try {
-      const data = readStudySchedule();
-      if (Array.isArray(data) && data.length > 0) schedule = data;
+      timetable = readStudyTimetable();
     } catch {}
 
-    const now = getAdjustedDate();
-    const nowMin = now.getHours() * 60 + now.getMinutes();
+    const now = currentTime;
+    const nowSeconds = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
+    const schedule = resolveStudyDaySchedule(timetable, now).periods;
 
     const toDate = (timeStr: string) => {
-      const [h, m] = timeStr.split(":").map(Number);
-      const d = getAdjustedDate();
-      d.setHours(h, m, 0, 0);
+      const seconds = parseCsesTime(timeStr) ?? 0;
+      const d = new Date(now);
+      d.setHours(Math.floor(seconds / 3600), Math.floor((seconds % 3600) / 60), seconds % 60, 0);
       return d;
     };
 
     for (const p of schedule) {
       const start = toDate(p.startTime);
       const end = toDate(p.endTime);
-      const startMin = start.getHours() * 60 + start.getMinutes();
-      const endMin = end.getHours() * 60 + end.getMinutes();
+      const startSeconds = parseCsesTime(p.startTime) ?? 0;
+      const endSeconds = parseCsesTime(p.endTime) ?? 0;
 
       // 课时已结束，重置当前课时的弹出/关闭标记
-      if (nowMin >= endMin) {
+      if (nowSeconds >= endSeconds) {
         if (lastPopupPeriodIdRef.current === p.id) {
           lastPopupPeriodIdRef.current = null;
         }
@@ -106,7 +110,7 @@ export function Study() {
       }
 
       // 正在本节课内，并且进入结束前1分钟窗口（[end-1min, end)）
-      if (nowMin >= startMin && nowMin < endMin && endMin - nowMin <= 1) {
+      if (nowSeconds >= startSeconds && nowSeconds < endSeconds && endSeconds - nowSeconds <= 60) {
         // 检查是否启用自动弹出设置
         const autoPopupEnabled = getNoiseReportSettings().autoPopup;
 

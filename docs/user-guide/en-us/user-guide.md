@@ -95,9 +95,9 @@ Zhongkao, postgraduate entrance exam, and civil service exam dates can vary by r
 
 ### Schedule
 
-Open **Workspace → Schedule (`课程表`)** to add, duplicate, reorder, sort, or delete sessions. Each entry needs a name, start time, and end time. Overlapping or invalid entries must be corrected before Settings can be saved.
+Open **Workspace → Schedule (`课程表`)** to manage the CSES course library, daily schedules, work/rest spans, and the local cycle anchor date. Daily schedules select courses from the library, use second-precision times, and can be enabled for one or more work-day indexes. Invalid references, times, cycle totals, or overlaps must be corrected before Settings can be saved.
 
-Excel import accepts `.xlsx` and `.xls`. Selecting a file only creates a preview. Choose **Replace Current Schedule (`替换当前课表`)** or **Append (`合并追加`)**, fix any conflicts, and then select the main Settings **Save** button.
+CSES v2 import accepts UTF-8 `.yaml` and `.yml`. A valid file first creates a preview; select **Apply to Draft (`覆盖当前草稿`)**, confirm the cycle anchor, and then select the main Settings **Save** button. Export downloads the current valid draft and does not include the app-only anchor date.
 
 When automatic noise reports are enabled, Study mode opens the current session report roughly one minute before its scheduled end. Closing it manually prevents the same session from reopening it.
 

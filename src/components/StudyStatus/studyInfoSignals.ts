@@ -102,13 +102,14 @@ function formatMinutes(minutes: number): string {
 }
 
 function parseTimeOnDate(date: Date, time: string): number | null {
-  const match = /^(\d{1,2}):(\d{2})$/.exec(time.trim());
+  const match = /^(\d{1,2}):(\d{2})(?::(\d{2}))?$/.exec(time.trim());
   if (!match) return null;
   const hours = Number(match[1]);
   const minutes = Number(match[2]);
-  if (hours > 23 || minutes > 59) return null;
+  const seconds = Number(match[3] ?? 0);
+  if (hours > 23 || minutes > 59 || seconds > 59) return null;
   const result = new Date(date);
-  result.setHours(hours, minutes, 0, 0);
+  result.setHours(hours, minutes, seconds, 0);
   return result.getTime();
 }
 
