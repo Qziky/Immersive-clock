@@ -8,7 +8,7 @@
 <p>A local-first fullscreen time dashboard for classrooms, study spaces, and personal focus.</p>
 
 <p>
-  <a href="https://github.com/Qziky/Immersive-clock/releases/latest"><strong>Download v4.0.1</strong></a>
+  <a href="https://github.com/Qziky/Immersive-clock/releases/latest"><strong>Download v4.0.2</strong></a>
   ·
   <a href="docs/user-guide/en-us/user-guide.md"><strong>User Guide</strong></a>
   ·
@@ -108,7 +108,7 @@ Windows, Linux, and Android builds are available from [GitHub Releases](https://
 - Android: release-signed sideload APK; the system may require allowing installs from unknown apps;
 - macOS: no native installer is currently published; use a self-hosted Web/PWA build instead.
 
-> External website deployments are outside the v4.0.1 release scope. This README does not guarantee their current version or availability.
+> External website deployments are outside the v4.0.2 release scope. This README does not guarantee their current version or availability.
 
 ## 🔒 Privacy and capability boundaries
 
