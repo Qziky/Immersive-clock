@@ -58,7 +58,7 @@
     "@capacitor/browser": "8.0.4",
     "@capacitor/core": "8.5.0",
     "@microsoft/clarity": "^1.0.2",
-    "driver.js": "^1.4.0",
+    "driver.js": "^1.8.0",
     "lucide-react": "^1.21.0",
     "marked": "^18.0.2",
     "react": "^19.2.5",
