@@ -83,7 +83,9 @@ describe("主模式按需加载", () => {
       </MemoryRouter>
     );
 
-    expect(screen.getByRole("tabpanel")).toHaveAttribute("id", `${mode}-panel`);
+    const panel = screen.getByRole("tabpanel");
+    expect(panel).toHaveAttribute("id", `${mode}-panel`);
+    expect(panel).not.toHaveAttribute("data-clarity-mask");
     expect(await screen.findByTestId(`mode-${mode}`)).toBeVisible();
   });
 });

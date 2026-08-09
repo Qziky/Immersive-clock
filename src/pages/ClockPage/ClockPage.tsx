@@ -434,7 +434,6 @@ export function ClockPage() {
         className={`${styles.timeDisplay} ${displayMode === "study" ? styles.studyTimeDisplay : ""}`}
         id={`${displayMode}-panel`}
         role="tabpanel"
-        data-clarity-mask="true"
         data-appearance-content
         data-tour="clock-area"
       >

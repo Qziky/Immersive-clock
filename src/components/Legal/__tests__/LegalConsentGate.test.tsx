@@ -90,6 +90,10 @@ describe("LegalConsentGate", () => {
 
     expect(await screen.findAllByRole("heading", { name: "隐私政策", level: 1 })).toHaveLength(2);
     expect(screen.getByText(/本隐私政策由作者制定/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/普通页面内容的可见性取决于 Clarity 后台的屏蔽模式/)
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/使用页面遮罩降低暴露风险/)).not.toBeInTheDocument();
     expect(screen.queryByText(/Qziky|1816078482@qq\.com/)).not.toBeInTheDocument();
     expect(screen.queryByRole("dialog", { name: "在开始使用前" })).not.toBeInTheDocument();
   });

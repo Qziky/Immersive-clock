@@ -115,6 +115,7 @@ describe("SettingsShell", () => {
     expect(main?.children).toHaveLength(2);
     expect(main?.children[0]).toHaveTextContent("短内容");
     expect(main?.children[1]?.tagName).toBe("FOOTER");
+    expect(container.querySelector("[data-clarity-mask]")).toBeNull();
     expect(screen.queryByRole("heading", { name: "启动页面", level: 2 })).toBeNull();
   });
 

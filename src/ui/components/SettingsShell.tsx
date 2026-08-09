@@ -471,11 +471,7 @@ export function SettingsShell<TValue extends string = string, TGroupValue extend
           aria-labelledby={resolvedContentTitle ? contentTitleId : undefined}
         >
           {(resolvedContentTitle || resolvedContentDescription) && (
-            <header
-              className={styles.settingsContentHeader}
-              data-clarity-mask="true"
-              key={activeItem}
-            >
+            <header className={styles.settingsContentHeader} key={activeItem}>
               {activeGroup?.label && (
                 <span className={styles.settingsContentGroup}>{activeGroup.label}</span>
               )}
@@ -483,7 +479,7 @@ export function SettingsShell<TValue extends string = string, TGroupValue extend
               {resolvedContentDescription && <p>{resolvedContentDescription}</p>}
             </header>
           )}
-          <div ref={contentRef} className={styles.settingsBody} data-clarity-mask="true">
+          <div ref={contentRef} className={styles.settingsBody}>
             {children}
           </div>
           {footer && <footer className={styles.settingsFooter}>{footer}</footer>}
