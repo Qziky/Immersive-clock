@@ -175,3 +175,8 @@ Windows、Linux 和 Android 构建可从 [GitHub Releases](https://github.com/Qz
 本项目采用 [GPL-3.0-only](LICENSE) 许可证。
 
 Copyright © 2025–2026 [Qziky](https://github.com/Qziky)
+
+## 🕰️ 历史代码
+
+沉浸式时钟 v3 的历史代码、版本记录与早期讨论，请访问
+[QQHKX/Immersive-clock](https://github.com/QQHKX/Immersive-clock)。
