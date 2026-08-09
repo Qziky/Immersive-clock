@@ -203,7 +203,7 @@ jobs:
               continue
             }
 
-            npm run pack:electron
+            npm run pack:electron -- --publish never
             if ($LASTEXITCODE -eq 0) { break }
             if ($attempt -eq $maxAttempts) { throw "pack:electron failed" }
             Start-Sleep -Seconds 10
@@ -280,7 +280,7 @@ jobs:
           NODE_ENV: production
         run: |
           npm run build:electron
-          npm run pack:electron
+          npm run pack:electron -- --publish never
 
       - name: Verify Linux artifacts
         shell: bash
