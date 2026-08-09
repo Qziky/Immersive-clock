@@ -1,6 +1,13 @@
+import path from "path";
+
 import { defineConfig } from "vitest/config";
 
 export default defineConfig({
+  resolve: {
+    alias: {
+      "virtual:pwa-register": path.resolve(process.cwd(), "src/pwa-register.noop.ts"),
+    },
+  },
   server: {
     host: "127.0.0.1",
     hmr: false,

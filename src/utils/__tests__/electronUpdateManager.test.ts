@@ -104,6 +104,7 @@ describe("ElectronUpdateManager", () => {
       status: "ready",
       progress: 100,
       canInstall: true,
+      action: "install",
     });
     expect(mocks.autoUpdater.downloadUpdate).toHaveBeenCalledTimes(1);
 

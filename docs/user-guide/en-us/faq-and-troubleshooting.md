@@ -146,11 +146,11 @@ This is expected. Core timers and local content can work offline, but new weathe
 
 ### The PWA still shows an old version
 
-Open **System Data → App Updates (`应用更新`)** and select **Check for Updates (`检查更新`)**. If resources are still being prepared, stay online and retry. If the old version remains after **Update Now (`立即更新`)**, close every Immersive Clock tab and PWA window, then reopen. Clear **Temporary Cache (`临时缓存`)** only after that; do not clear all site data until you have created a backup.
+Open **System Data → App Updates (`应用更新`)** to view the current status and stay online. Web/PWA activates a newly detected Service Worker and reloads automatically. If the old version remains, close every Immersive Clock tab and PWA window, then reopen. Clear **Temporary Cache (`临时缓存`)** only after that; do not clear all site data until you have created a backup.
 
 ### A desktop update cannot be downloaded
 
-Retry from App Updates, then use the Release-page fallback. Portable, deb, and rpm packages intentionally do not replace themselves. Verify that manual downloads come from the project GitHub Release and match `SHA256SUMS.txt`.
+Review the error in App Updates, restore the network connection, and restart the app to trigger another automatic check. Portable, deb, and rpm packages intentionally do not replace themselves; use the download or Release-page action in the update notice. Verify that manual downloads come from the project GitHub Release and match `SHA256SUMS.txt`.
 
 ### Android does not open the APK download
 

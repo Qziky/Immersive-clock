@@ -223,8 +223,8 @@ Windows and Linux desktop packages and a release-signed Android sideload APK are
 
 After the first successful online load, the PWA normally keeps the core clock interface and local content available offline. New weather, city search, online quotes, network time sources, and external feedback still require a connection.
 
-Web/PWA checks the stable channel at startup and again after returning to the foreground when the last check is more than six hours old. A persistent bottom-right notice appears instead of refreshing automatically; select **Update Now (`立即更新`)** to activate the waiting Service Worker and reload. Use **System Data → App Updates (`应用更新`)** to check manually, view status, or save the automatic-check preference.
+Web/PWA checks the stable channel at startup and again after returning to the foreground when the last check is more than six hours old. When the browser finds a waiting Service Worker, the app activates it and reloads automatically without showing an update button. Use **System Data → App Updates (`应用更新`)** to view status or save the automatic-check preference; the page no longer provides manual check or install actions.
 
-Windows NSIS and Linux AppImage builds silently download a verified stable update, then offer **Restart and Install (`重启并安装`)**; a downloaded update is also installed on normal exit. Windows Portable and Linux deb/rpm builds open the matching download or Release page. Android opens the release APK URL and falls back to the Release page if needed; Android still asks for installation confirmation.
+Windows NSIS and Linux AppImage builds silently download a verified stable update. When it is ready, a persistent message asks you to restart the app, without an action button; the downloaded update installs on normal exit. Windows Portable and Linux deb/rpm notices retain the matching download or Release-page action. Android retains its APK download action and still asks for installation confirmation.
 
 For troubleshooting, see [FAQ and troubleshooting](faq-and-troubleshooting.md).

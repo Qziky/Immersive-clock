@@ -12,11 +12,8 @@ const mocks = vi.hoisted(() => ({
     currentVersion: "4.0.1",
     latestVersion: "4.1.0",
     status: "available",
-    source: "manual",
-    action: "update",
+    source: "auto",
   } as UpdateSnapshot,
-  checkForUpdates: vi.fn(),
-  executeUpdateAction: vi.fn(),
   updateGeneralSettings: vi.fn(),
 }));
 
@@ -25,8 +22,6 @@ vi.mock("../../../../hooks/useUpdateRuntime", () => ({
 }));
 
 vi.mock("../../../../services/update/updateRuntime", () => ({
-  checkForUpdates: mocks.checkForUpdates,
-  executeUpdateAction: mocks.executeUpdateAction,
   startUpdateRuntime: () => vi.fn(),
 }));
 
@@ -54,32 +49,19 @@ describe("UpdateSettingsPanel", () => {
       currentVersion: "4.0.1",
       latestVersion: "4.1.0",
       status: "available",
-      source: "manual",
-      action: "update",
+      source: "auto",
     };
-    mocks.checkForUpdates.mockReset().mockResolvedValue({
-      ...mocks.snapshot,
-      latestVersion: "4.0.1",
-      status: "current",
-    });
-    mocks.executeUpdateAction.mockReset();
     mocks.updateGeneralSettings.mockReset();
   });
 
-  it("展示版本与平台，并提供手动检查和更新动作", async () => {
-    const user = userEvent.setup();
+  it("展示版本与平台，但不提供手动检查或更新动作", () => {
     renderPanel();
 
     expect(screen.getByText("v4.0.1")).toBeInTheDocument();
     expect(screen.getByText("v4.1.0")).toBeInTheDocument();
     expect(screen.getByText("Web / PWA")).toBeInTheDocument();
-
-    await user.click(screen.getByRole("button", { name: "检查更新" }));
-    expect(mocks.checkForUpdates).toHaveBeenCalledWith({ manual: true });
-    expect(await screen.findByText("已是最新版本")).toBeInTheDocument();
-
-    await user.click(screen.getByRole("button", { name: "立即更新" }));
-    expect(mocks.executeUpdateAction).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("button", { name: "检查更新" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /立即更新|重启并安装/ })).not.toBeInTheDocument();
   });
 
   it("自动检查开关沿用设置页保存流程", async () => {
@@ -113,5 +95,22 @@ describe("UpdateSettingsPanel", () => {
       "aria-valuenow",
       "42"
     );
+  });
+
+  it("桌面客户端就绪后只展示重启说明", () => {
+    mocks.snapshot = {
+      platform: "electron",
+      currentVersion: "4.0.1",
+      latestVersion: "4.1.0",
+      status: "ready",
+      source: "auto",
+      action: "install",
+    };
+
+    renderPanel();
+
+    expect(screen.getByText("新版本已下载")).toBeInTheDocument();
+    expect(screen.getByText("请重启应用，退出时会自动安装。")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /重启|安装/ })).not.toBeInTheDocument();
   });
 });

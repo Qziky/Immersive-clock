@@ -1,8 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import type { ElectronUpdateState } from "../../../types/update";
+
 const mocks = vi.hoisted(() => ({
   autoCheckEnabled: true,
-  platform: "web" as "web" | "android",
+  platform: "web" as "web" | "electron" | "android",
   fetchUpdateManifest: vi.fn(),
 }));
 
@@ -59,6 +61,7 @@ describe("updateRuntime", () => {
   });
 
   afterEach(() => {
+    Reflect.deleteProperty(window, "electronAPI");
     vi.useRealTimers();
   });
 
@@ -100,7 +103,85 @@ describe("updateRuntime", () => {
     await Promise.resolve();
 
     const result = await runtime.checkForUpdates({ manual: true });
-    expect(result).toMatchObject({ status: "available", action: "retry" });
+    expect(result).toMatchObject({ status: "available", action: undefined });
+  });
+
+  it("启动时发现等待中的 Service Worker 会直接应用", async () => {
+    const runtime = await loadRuntime();
+    const update = vi.fn().mockResolvedValue(undefined);
+
+    runtime.configurePwaUpdateControl({ check: vi.fn().mockResolvedValue(true), update });
+    await vi.waitFor(() => expect(update).toHaveBeenCalledTimes(1));
+
+    expect(runtime.getUpdateSnapshot()).toMatchObject({
+      platform: "web",
+      status: "available",
+      action: undefined,
+      source: "platform",
+    });
+  });
+
+  it("重复的 Web 更新事件会复用同一个激活任务", async () => {
+    const runtime = await loadRuntime();
+    let resolveUpdate: (() => void) | undefined;
+    const update = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveUpdate = resolve;
+        })
+    );
+    runtime.configurePwaUpdateControl({ check: vi.fn().mockResolvedValue(false), update });
+    await Promise.resolve();
+
+    runtime.markPwaUpdateAvailable();
+    runtime.markPwaUpdateAvailable();
+
+    expect(update).toHaveBeenCalledTimes(1);
+    resolveUpdate?.();
+    await Promise.resolve();
+    runtime.markPwaUpdateAvailable();
+    expect(update).toHaveBeenCalledTimes(1);
+  });
+
+  it("Electron 保留主进程提供的下载与安装状态语义", async () => {
+    mocks.platform = "electron";
+    let updateListener: ((state: ElectronUpdateState) => void) | undefined;
+    Object.defineProperty(window, "electronAPI", {
+      configurable: true,
+      value: {
+        updates: {
+          check: vi.fn().mockResolvedValue({
+            status: "available",
+            currentVersion: "4.0.0",
+            latestVersion: "4.1.0",
+            action: "download",
+          }),
+          getState: vi.fn(),
+          install: vi.fn(),
+          openRelease: vi.fn(),
+          subscribe: vi.fn((listener: (state: ElectronUpdateState) => void) => {
+            updateListener = listener;
+            return vi.fn();
+          }),
+        },
+      },
+    });
+    const runtime = await loadRuntime();
+
+    await expect(runtime.checkForUpdates({ manual: true })).resolves.toMatchObject({
+      platform: "electron",
+      status: "available",
+      action: "download",
+    });
+
+    updateListener?.({
+      status: "ready",
+      currentVersion: "4.0.0",
+      latestVersion: "4.1.0",
+      canInstall: true,
+      action: "install",
+    });
+    expect(runtime.getUpdateSnapshot()).toMatchObject({ status: "ready", action: "install" });
   });
 
   it("启动检查后，前台恢复会按 6 小时节流", async () => {

@@ -35,6 +35,8 @@ let electronBridge: ElectronUpdateBridge | null = null;
 let started = false;
 let runtimeConsumers = 0;
 let checkPromise: Promise<UpdateSnapshot> | null = null;
+let pwaUpdatePromise: Promise<void> | null = null;
+let pwaUpdateRequested = false;
 let lastCheckAt = 0;
 let foregroundHandler: (() => void) | null = null;
 let visibilityHandler: (() => void) | null = null;
@@ -75,13 +77,14 @@ function platformReleaseUrl(
 
 function fromElectronState(state: ElectronUpdateState, source: "auto" | "manual"): UpdateSnapshot {
   const action =
-    state.status === "ready" && state.canInstall
+    state.action ??
+    (state.status === "ready" && state.canInstall
       ? "install"
       : state.status === "available"
         ? "open"
         : state.status === "error"
           ? "retry"
-          : undefined;
+          : undefined);
   return {
     platform: "electron",
     currentVersion: state.currentVersion,
@@ -122,6 +125,24 @@ function getElectronBridge(): ElectronUpdateBridge | null {
   return candidate;
 }
 
+function applyWaitingPwaUpdate(): Promise<void> {
+  if (!pwaControl) return Promise.resolve();
+  if (pwaUpdatePromise) return pwaUpdatePromise;
+  if (pwaUpdateRequested) return Promise.resolve();
+
+  pwaUpdateRequested = true;
+  pwaUpdatePromise = pwaControl
+    .update()
+    .catch((error) => {
+      pwaUpdateRequested = false;
+      setError(error, "auto");
+    })
+    .finally(() => {
+      pwaUpdatePromise = null;
+    });
+  return pwaUpdatePromise;
+}
+
 export function getUpdateSnapshot(): UpdateSnapshot {
   return snapshot;
 }
@@ -132,19 +153,25 @@ export function subscribeUpdateRuntime(listener: () => void): () => void {
 }
 
 export function configurePwaUpdateControl(control: PwaUpdateControl | null): void {
+  if (pwaControl !== control) pwaUpdateRequested = false;
   pwaControl = control;
   if (control && snapshot.platform === "web") {
-    void control.check().then((waiting) => {
-      if (waiting) {
+    void control
+      .check()
+      .then((waiting) => {
+        if (!waiting) return;
         emit({
           ...snapshot,
           status: "available",
           latestVersion: snapshot.latestVersion ?? snapshot.currentVersion,
-          action: "update",
+          action: undefined,
           source: "platform",
         });
-      }
-    });
+        return applyWaitingPwaUpdate();
+      })
+      .catch((error) => {
+        setError(error, "auto");
+      });
   }
 }
 
@@ -154,9 +181,10 @@ export function markPwaUpdateAvailable(): void {
     ...snapshot,
     status: "available",
     latestVersion: snapshot.latestVersion ?? snapshot.currentVersion,
-    action: "update",
+    action: undefined,
     source: "platform",
   });
+  void applyWaitingPwaUpdate();
 }
 
 export async function checkForUpdates(options: UpdateCheckOptions = {}): Promise<UpdateSnapshot> {
@@ -195,17 +223,24 @@ export async function checkForUpdates(options: UpdateCheckOptions = {}): Promise
       lastCheckAt = Date.now();
       const newerVersion = compareVersions(latestVersion, snapshot.currentVersion) > 0;
       if (waiting || newerVersion) {
-        return emit({
+        const next = emit({
           ...snapshot,
           status: "available",
           latestVersion,
           manifest,
           checkedAt: lastCheckAt,
           source,
-          action: waiting || !pwaControl ? "update" : "retry",
+          action:
+            snapshot.platform === "web"
+              ? undefined
+              : snapshot.platform === "android"
+                ? "download"
+                : "open",
           minimumVersionWarning,
           error: undefined,
         });
+        if (waiting) void applyWaitingPwaUpdate();
+        return next;
       }
       return emit({
         ...snapshot,
