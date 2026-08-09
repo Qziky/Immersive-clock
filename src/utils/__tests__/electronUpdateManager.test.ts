@@ -51,10 +51,12 @@ async function createManager() {
 }
 
 describe("ElectronUpdateManager", () => {
+  const originalPlatform = process.platform;
   const originalPortableExecutableFile = process.env.PORTABLE_EXECUTABLE_FILE;
 
   beforeEach(() => {
     vi.resetModules();
+    Object.defineProperty(process, "platform", { configurable: true, value: "win32" });
     mocks.handlers.clear();
     mocks.openExternal.mockReset().mockResolvedValue(undefined);
     mocks.autoUpdater.on.mockClear();
@@ -71,6 +73,7 @@ describe("ElectronUpdateManager", () => {
 
   afterEach(() => {
     vi.unstubAllGlobals();
+    Object.defineProperty(process, "platform", { configurable: true, value: originalPlatform });
     if (originalPortableExecutableFile === undefined) delete process.env.PORTABLE_EXECUTABLE_FILE;
     else process.env.PORTABLE_EXECUTABLE_FILE = originalPortableExecutableFile;
   });
