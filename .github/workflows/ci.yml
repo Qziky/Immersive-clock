@@ -204,7 +204,7 @@ jobs:
               continue
             }
 
-            npm run pack:electron
+            npm run pack:electron -- --publish never
             if ($LASTEXITCODE -eq 0) {
               break
             }
@@ -286,7 +286,7 @@ jobs:
           NODE_ENV: production
         run: |
           npm run build:electron
-          npm run pack:electron
+          npm run pack:electron -- --publish never
 
       - name: Verify Linux artifacts
         shell: bash
