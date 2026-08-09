@@ -87,9 +87,11 @@ Rain countdowns appear only when the location and weather timestamps are trustwo
 
 Open **Workspace → Countdown (`倒计时`)**. This controls the event countdown in Study mode, not the separate Countdown page.
 
-- **Gaokao (`高考`)** uses June 7 of the selected year.
+- **Quick Events (`快捷事件`)** includes Gaokao, Zhongkao, postgraduate entrance exams, and civil service exams, using the selected target year.
 - **Single Event (`单事件`)** uses a custom name and date.
-- **Multiple Events (`多事件`)** rotates an ordered list of Gaokao and custom events.
+- **Multiple Events (`多事件`)** rotates an ordered list of quick and custom events.
+
+Zhongkao, postgraduate entrance exam, and civil service exam dates can vary by region or year. Use Single Event when the official date differs from the preset.
 
 ### Schedule
 

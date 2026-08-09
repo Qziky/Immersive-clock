@@ -3,7 +3,7 @@ import type { QuoteChannelState, QuoteSettingsState } from "./quote";
 /**
  * 公告选项卡类型
  */
-export type AnnouncementTab = "announcement" | "changelog" | "feedback";
+export type AnnouncementTab = "announcement" | "quick-start" | "changelog" | "feedback";
 
 /**
  * 公告选项卡配置接口
@@ -11,7 +11,7 @@ export type AnnouncementTab = "announcement" | "changelog" | "feedback";
 export type AnnouncementTabConfig =
   | {
       /** 选项卡标识 */
-      key: "announcement" | "changelog";
+      key: "announcement" | "quick-start" | "changelog";
       /** 显示标题 */
       title: string;
       /** 对应的Markdown文件名 */
@@ -133,11 +133,13 @@ export interface StudyDisplaySettings {
 }
 
 /** 新增：多倒计时项目配置 */
+export type CountdownQuickEventKind = "gaokao" | "zhongkao" | "kaoyan" | "gongkao";
+
 export interface CountdownItem {
   /** 唯一标识 */
   id: string;
-  /** 类型：高考或自定义 */
-  kind: "gaokao" | "custom";
+  /** 类型：快捷事件或自定义 */
+  kind: CountdownQuickEventKind | "custom";
   /** 显示名称，例如“2026高考”或“期末考试” */
   name: string;
   /** 目标日期（YYYY-MM-DD，仅自定义项目使用） */
@@ -206,9 +208,9 @@ export interface StudyInfoCarouselSettings {
  * 自习状态接口
  */
 export interface StudyState {
-  /** 目标高考年份 */
+  /** 快捷事件目标年份 */
   targetYear: number;
-  /** 倒计时类型：高考或自定义事件 */
+  /** 旧版倒计时类型：高考或自定义事件 */
   countdownType?: "gaokao" | "custom";
   /** 自定义事件名称（当为自定义时使用） */
   customName?: string;

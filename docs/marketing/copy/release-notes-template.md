@@ -81,4 +81,5 @@
 - [ ] 噪音、天气、隐私和离线能力使用了正确限定语。
 - [ ] 数据迁移、权限请求和不可逆操作已说明。
 - [ ] 所有链接可访问，反馈入口仍有效。
-- [ ] `public/docs/announcement.md` 与 `public/docs/changelog.md` 各自承担公告和历史记录，没有复制冲突。
+- [ ] `public/docs/announcement.md`、`public/docs/quick-start.md` 与 `public/docs/changelog.md`
+      分别承担公告、入门与历史记录，没有复制冲突。

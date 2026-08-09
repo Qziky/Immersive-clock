@@ -179,4 +179,24 @@ describe("AnnouncementModal", () => {
     expect(setDontShowForWeekMock).toHaveBeenCalledTimes(1);
     expect(onClose).toHaveBeenCalledTimes(1);
   });
+
+  it("切换到快速上手后按需加载对应的运行时文档", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const content = String(input).endsWith("docs/quick-start.md")
+        ? "# 快速上手\n\n快速上手内容已加载。"
+        : "# 系统公告\n\n公告内容已加载。";
+      return new Response(content, { status: 200 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderAnnouncementModal();
+    await act(async () => {
+      fireEvent.click(screen.getByRole("tab", { name: "快速上手" }));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(screen.getByText("快速上手内容已加载。")).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining("docs/quick-start.md"));
+  });
 });

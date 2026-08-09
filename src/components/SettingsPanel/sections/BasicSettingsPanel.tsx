@@ -2,8 +2,13 @@ import React, { useEffect, useMemo, useState } from "react";
 
 import { useAppDispatch, useAppState } from "../../../contexts/AppContext";
 import { useKeepAwakeRuntime } from "../../../hooks/useKeepAwakeRuntime";
-import { AppMode, CountdownItem } from "../../../types";
-import type { StudyDisplaySettings, StudyInfoCarouselSettings } from "../../../types";
+import {
+  AppMode,
+  CountdownItem,
+  type CountdownQuickEventKind,
+  type StudyDisplaySettings,
+  type StudyInfoCarouselSettings,
+} from "../../../types";
 import {
   Button as FormButton,
   FormSection,
@@ -29,6 +34,13 @@ import {
   updateStudySettings,
   updateTimeSyncSettings,
 } from "../../../utils/appSettings";
+import {
+  COUNTDOWN_EVENT_PRESETS,
+  formatCountdownEventDate,
+  getCountdownEventPreset,
+  getCountdownEventTargetDate,
+  isCountdownQuickEventKind,
+} from "../../../utils/countdownEvents";
 import { resolveStartupMode } from "../../../utils/startupMode";
 import { ScheduleEditor } from "../../ScheduleSettings/ScheduleSettings";
 
@@ -37,7 +49,7 @@ import { StudyInfoList } from "./StudyInfoList";
 
 /**
  * 基础设置分段组件的属性
- * - `targetYear`：目标高考年份
+ * - `targetYear`：快捷事件目标年份
  * - `onTargetYearChange`：更新目标年份的回调
  */
 export interface BasicSettingsPanelProps {
@@ -69,8 +81,9 @@ export const BasicSettingsPanel: React.FC<BasicSettingsPanelProps> = ({
   const [persistedKeepAwakeEnabled, setPersistedKeepAwakeEnabled] = useState(false);
   const [keepAwakeEnabled, setKeepAwakeEnabled] = useState(false);
 
-  // 倒计时模式（重构）：'gaokao' | 'single' | 'multi'
-  const [countdownMode, setCountdownMode] = useState<"gaokao" | "single" | "multi">("gaokao");
+  // 倒计时模式：快捷事件、单事件或多事件。gaokao 是旧版持久化值，仅用于迁移。
+  const [countdownMode, setCountdownMode] = useState<"quick" | "single" | "multi">("quick");
+  const [quickEvent, setQuickEvent] = useState<CountdownQuickEventKind>("gaokao");
 
   // 倒计时设置草稿（保留兼容字段）
   const [draftCustomName, setDraftCustomName] = useState<string>(study.customName ?? "");
@@ -143,7 +156,10 @@ export const BasicSettingsPanel: React.FC<BasicSettingsPanelProps> = ({
       setPersistedKeepAwakeEnabled(general.keepAwakeEnabled);
       setKeepAwakeEnabled(general.keepAwakeEnabled);
       const saved = getAppSettings().study.countdownMode;
-      if (saved === "gaokao" || saved === "single" || saved === "multi") {
+      if (saved === "gaokao") {
+        setCountdownMode("quick");
+        setQuickEvent("gaokao");
+      } else if (saved === "quick" || saved === "single" || saved === "multi") {
         setCountdownMode(saved);
       }
     } catch {}
@@ -208,9 +224,9 @@ export const BasicSettingsPanel: React.FC<BasicSettingsPanelProps> = ({
       setCountdownMode("multi");
     } else if (Array.isArray(items) && items.length === 1) {
       const it = items[0];
-      if (it.kind === "gaokao") {
-        setCountdownMode("gaokao");
-        // 名称可编辑但不需要日期
+      if (isCountdownQuickEventKind(it.kind)) {
+        setCountdownMode("quick");
+        setQuickEvent(it.kind);
         setDraftCustomName(it.name || "");
         setDraftCustomDate("");
       } else {
@@ -220,7 +236,8 @@ export const BasicSettingsPanel: React.FC<BasicSettingsPanelProps> = ({
       }
     } else {
       // 兼容旧逻辑：无 items 时用 countdownType 决定模式
-      setCountdownMode((study.countdownType ?? "gaokao") === "gaokao" ? "gaokao" : "single");
+      setCountdownMode((study.countdownType ?? "gaokao") === "gaokao" ? "quick" : "single");
+      if ((study.countdownType ?? "gaokao") === "gaokao") setQuickEvent("gaokao");
     }
   }, [
     study.countdownType,
@@ -237,8 +254,9 @@ export const BasicSettingsPanel: React.FC<BasicSettingsPanelProps> = ({
     onRegisterSave?.(() => {
       scheduleSaveRef.current?.();
 
-      // 倒计时模式映射到旧字段：多事件作为自定义类型
-      const nextType: "gaokao" | "custom" = countdownMode === "gaokao" ? "gaokao" : "custom";
+      // 倒计时模式映射到旧字段，保留旧配置的回退能力。
+      const nextType: "gaokao" | "custom" =
+        countdownMode === "quick" && quickEvent === "gaokao" ? "gaokao" : "custom";
       dispatch({ type: "SET_COUNTDOWN_TYPE", payload: nextType });
 
       // 单事件时更新旧字段（用于兼容回退显示）
@@ -262,12 +280,13 @@ export const BasicSettingsPanel: React.FC<BasicSettingsPanelProps> = ({
       }
 
       // 保存倒计时项目
-      if (countdownMode === "gaokao") {
+      if (countdownMode === "quick") {
+        const preset = getCountdownEventPreset(quickEvent);
         const one: CountdownItem[] = [
           {
-            id: "gaokao-default",
-            kind: "gaokao",
-            name: "高考倒计时",
+            id: `${quickEvent}-default`,
+            kind: quickEvent,
+            name: preset.name,
             order: 0,
           },
         ];
@@ -317,6 +336,7 @@ export const BasicSettingsPanel: React.FC<BasicSettingsPanelProps> = ({
   }, [
     onRegisterSave,
     countdownMode,
+    quickEvent,
     draftCustomName,
     draftCustomDate,
     draftDisplay,
@@ -441,11 +461,11 @@ export const BasicSettingsPanel: React.FC<BasicSettingsPanelProps> = ({
           <FormSegmented
             value={countdownMode}
             options={[
-              { label: "高考", value: "gaokao" },
+              { label: "快捷事件", value: "quick" },
               { label: "单事件", value: "single" },
               { label: "多事件", value: "multi" },
             ]}
-            onChange={(v) => setCountdownMode(v as "gaokao" | "single" | "multi")}
+            onChange={(v) => setCountdownMode(v as "quick" | "single" | "multi")}
           />
         </SettingItem>
 
@@ -468,15 +488,34 @@ export const BasicSettingsPanel: React.FC<BasicSettingsPanelProps> = ({
           </SettingItem>
         )}
 
-        {countdownMode === "gaokao" && (
+        {countdownMode === "quick" && (
           <>
-            <InfoPanel tone="neutral" title="自动目标">
-              使用高考日期（6月7日）自动计算，目标年份保存后即时应用到倒计时。
+            <SettingItem
+              icon="feature.event"
+              title="快捷事件"
+              description="选择常用考试预设，自动计算目标日期。"
+            >
+              <FormSegmented
+                value={quickEvent}
+                options={COUNTDOWN_EVENT_PRESETS.map((preset) => ({
+                  label: preset.label,
+                  value: preset.kind,
+                }))}
+                onChange={(value) => setQuickEvent(value as CountdownQuickEventKind)}
+              />
+            </SettingItem>
+            <InfoPanel
+              tone="neutral"
+              title={`${getCountdownEventPreset(quickEvent).label}自动目标`}
+            >
+              {getCountdownEventPreset(quickEvent).description}，按
+              {getCountdownEventPreset(quickEvent).targetDescription}计算。
+              {quickEvent !== "gaokao" && " 具体日期以官方通知为准，日期不同时请使用单事件。"}
             </InfoPanel>
             <SettingItem
               icon="feature.event"
               title="目标年份"
-              description="用于计算下一次高考倒计时。"
+              description={`用于计算下一次${getCountdownEventPreset(quickEvent).label}倒计时，目标日期为 ${formatCountdownEventDate(getCountdownEventTargetDate(quickEvent, targetYear))}。`}
             >
               <FormInput
                 label="年份"
@@ -572,7 +611,7 @@ export const BasicSettingsPanel: React.FC<BasicSettingsPanelProps> = ({
           <SettingItem
             icon="feature.countdown"
             title="倒计时"
-            description="在自习页显示高考或自定义事件倒计时。"
+            description="在自习页显示快捷事件或自定义事件倒计时。"
             control={
               <FormSwitch
                 checked={!!draftDisplay.showCountdown}

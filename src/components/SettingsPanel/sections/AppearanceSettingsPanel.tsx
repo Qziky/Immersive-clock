@@ -43,6 +43,7 @@ import {
   resolveAppearanceBackground,
   resolveAppearanceEditorStyle,
 } from "../../../utils/appearanceModel";
+import { getCountdownEventPreset, isCountdownQuickEventKind } from "../../../utils/countdownEvents";
 import { importFontFile, removeImportedFont } from "../../../utils/studyFontStorage";
 
 import { AppearancePreview } from "./AppearancePreview";
@@ -900,8 +901,12 @@ export function AppearanceSettingsPanel({
                 componentId={definition.id}
                 instanceId={instanceId}
                 instanceLabel={
-                  selectedInstance?.name ||
-                  (selectedInstance?.kind === "gaokao" ? "高考" : selectedInstance?.id)
+                  selectedInstance
+                    ? selectedInstance.name ||
+                      (isCountdownQuickEventKind(selectedInstance.kind)
+                        ? getCountdownEventPreset(selectedInstance.kind).label
+                        : selectedInstance.id)
+                    : undefined
                 }
                 selectedSlot={slot}
                 showClockSeconds={draftTimeDisplay.showClockSeconds}
@@ -927,7 +932,11 @@ export function AppearanceSettingsPanel({
                         label="指定事件"
                         value={instanceId}
                         options={countdownItems.map((item) => ({
-                          label: item.name || (item.kind === "gaokao" ? "高考倒计时" : item.id),
+                          label:
+                            item.name ||
+                            (isCountdownQuickEventKind(item.kind)
+                              ? getCountdownEventPreset(item.kind).name
+                              : item.id),
                           value: item.id,
                         }))}
                         onChange={(value) => {

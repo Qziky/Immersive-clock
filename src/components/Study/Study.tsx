@@ -8,6 +8,11 @@ import { acquireWeatherRuntime } from "../../services/weatherRuntime";
 import { CountdownItem, type StudyDisplaySettings } from "../../types";
 import { DEFAULT_SCHEDULE, StudyPeriod } from "../../types/studySchedule";
 import { appearanceBackgroundToCss } from "../../utils/appearanceModel";
+import {
+  getCountdownEventPreset,
+  getCountdownEventTargetDate,
+  isCountdownQuickEventKind,
+} from "../../utils/countdownEvents";
 import { formatClock } from "../../utils/formatTime";
 import { getNoiseReportSettings } from "../../utils/noiseReportSettings";
 import { readStudySchedule } from "../../utils/studyScheduleStorage";
@@ -131,15 +136,18 @@ export function Study() {
     return Math.max(0, diffDays);
   }, []);
 
-  /** 计算到最近一次高考（6月7日）的剩余天数（函数级注释：根据设置的目标年份计算到6月7日的剩余天数，返回非负整数） */
-  const calcDaysToNextGaokao = useCallback(() => {
-    const now = getAdjustedDate();
-    const year = study.targetYear || now.getFullYear();
-    const target = new Date(year, 5, 7);
-    const diffTime = target.getTime() - now.getTime();
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return Math.max(0, diffDays);
-  }, [study.targetYear]);
+  /** 计算快捷考试事件的剩余天数。 */
+  const calcDaysToQuickEvent = useCallback(
+    (kind: Parameters<typeof getCountdownEventTargetDate>[0]) => {
+      const now = getAdjustedDate();
+      const year = study.targetYear || now.getFullYear();
+      const target = getCountdownEventTargetDate(kind, year);
+      const diffTime = target.getTime() - now.getTime();
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      return Math.max(0, diffDays);
+    },
+    [study.targetYear]
+  );
 
   const timeString = formatClock(currentTime, timeDisplay.showStudySeconds);
   const [hours = "00", minutes = "00", seconds = "00"] = timeString.split(":");
@@ -317,14 +325,16 @@ export function Study() {
 
   // 计算每个项的文案与天数（函数级注释：前缀与天数分离，便于窄容器下优先保留核心天数）
   const renderItem = (item: (typeof countdownItems)[number]) => {
-    const days = item.kind === "gaokao" ? calcDaysToNextGaokao() : calcDaysToDate(item.targetDate);
-    // 高考事件：优先从名称中解析年份，否则使用设置中的目标年份
+    const days = isCountdownQuickEventKind(item.kind)
+      ? calcDaysToQuickEvent(item.kind)
+      : calcDaysToDate(item.targetDate);
     let nameText: string;
-    if (item.kind === "gaokao") {
+    if (isCountdownQuickEventKind(item.kind)) {
       const rawName = (item.name || "").trim();
-      const m = rawName.match(/\b(19|20)\d{2}\b/); // 尝试从名称中提取四位年份
+      const preset = getCountdownEventPreset(item.kind);
+      const m = rawName.match(/\b(19|20)\d{2}\b/);
       const year = m ? parseInt(m[0], 10) : study.targetYear || getAdjustedDate().getFullYear();
-      nameText = `${year}高考`;
+      nameText = `${year}${preset.label}`;
     } else {
       nameText = item.name && item.name.trim().length > 0 ? item.name!.trim() : "自定义事件";
     }

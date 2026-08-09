@@ -71,13 +71,15 @@ AppSettings，只有在新结构没有显式课表时才采用 legacy 内容，�
 公告组件固定读取：
 
 - `public/docs/announcement.md`
+- `public/docs/quick-start.md`
 - `public/docs/changelog.md`
 
 请求路径为 `${import.meta.env.BASE_URL}docs/<filename>`，因此 Web `/` base 和 Electron `./` base
 都能工作。Markdown 使用 `marked` 的 GFM 和换行模式渲染；运行时失败显示可重试错误。
 
-公告第三个 tab 是腾讯问卷 iframe，使用受限 sandbox，并提供新窗口 fallback。公告/更新日志在
-连续 120 秒无活动后关闭，最后 60 秒显示倒计时；反馈 tab 填写期间暂停自动关闭。
+公告、快速上手与更新日志使用 Markdown 标签；第四个 tab 是腾讯问卷 iframe，使用受限 sandbox，并
+提供新窗口 fallback。前三个标签在连续 120 秒无活动后关闭，最后 60 秒显示倒计时；反馈 tab 填写
+期间暂停自动关闭。
 
 ## 公告展示偏好
 

@@ -31,6 +31,11 @@ const ANNOUNCEMENT_TABS: AnnouncementTabConfig[] = [
     filename: "announcement.md",
   },
   {
+    key: "quick-start",
+    title: "快速上手",
+    filename: "quick-start.md",
+  },
+  {
     key: "changelog",
     title: "更新日志",
     filename: "changelog.md",
@@ -44,6 +49,7 @@ const ANNOUNCEMENT_TABS: AnnouncementTabConfig[] = [
 
 const ANNOUNCEMENT_TAB_ICONS: Record<AnnouncementTab, AppIconName> = {
   announcement: "feature.announcement",
+  "quick-start": "status.help",
   changelog: "feature.changelog",
   feedback: "feature.feedback",
 };
@@ -82,8 +88,9 @@ const AnnouncementModal: React.FC<AnnouncementModalProps> = ({
   const [dontShowAgain, setDontShowAgain] = useState(false);
   // Markdown文档状态
   const [documents, setDocuments] = useState<Record<MarkdownAnnouncementTab, MarkdownDocument>>({
-    announcement: { content: "", loading: true, filename: "announcement.md" },
-    changelog: { content: "", loading: true, filename: "changelog.md" },
+    announcement: { content: "", loading: false, filename: "announcement.md" },
+    "quick-start": { content: "", loading: false, filename: "quick-start.md" },
+    changelog: { content: "", loading: false, filename: "changelog.md" },
   });
 
   /**
@@ -91,8 +98,7 @@ const AnnouncementModal: React.FC<AnnouncementModalProps> = ({
    * @param tab - 当前选项卡
    */
   const isMarkdownTab = useCallback(
-    (tab: AnnouncementTab): tab is MarkdownAnnouncementTab =>
-      tab === "announcement" || tab === "changelog",
+    (tab: AnnouncementTab): tab is MarkdownAnnouncementTab => tab !== "feedback",
     []
   );
 
@@ -176,12 +182,6 @@ const AnnouncementModal: React.FC<AnnouncementModalProps> = ({
    */
   const handleTabChange = (tab: AnnouncementTab) => {
     setActiveTab(tab);
-    if (isMarkdownTab(tab)) {
-      // 如果文档还未加载，则加载它
-      if (!documents[tab].content && !documents[tab].loading) {
-        loadDocument(tab);
-      }
-    }
   };
 
   // 切换选项卡时将模态内容滚动到顶部
@@ -196,14 +196,17 @@ const AnnouncementModal: React.FC<AnnouncementModalProps> = ({
     }
   }, [activeTab, isOpen]);
 
-  // 组件挂载时加载初始选项卡的文档
+  // 弹窗打开或切换到 Markdown 标签时按需加载文档。
   useEffect(() => {
-    if (isOpen && isMarkdownTab(activeTab)) {
+    if (!isOpen || !isMarkdownTab(activeTab)) return;
+
+    const document = documents[activeTab];
+    if (!document.content && !document.loading && !document.error) {
       loadDocument(activeTab);
     }
-  }, [isOpen, activeTab, isMarkdownTab, loadDocument]);
+  }, [activeTab, documents, isMarkdownTab, isOpen, loadDocument]);
 
-  // 公告和更新日志在连续无操作 120 秒后自动关闭；反馈问卷填写期间暂停计时。
+  // 公告、快速上手和更新日志在连续无操作 120 秒后自动关闭；反馈问卷填写期间暂停计时。
   useEffect(() => {
     if (!isOpen || activeTab === "feedback") {
       inactivityDeadlineRef.current = null;

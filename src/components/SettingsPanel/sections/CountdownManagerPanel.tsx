@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from "react";
 
 import { useAppDispatch, useAppState } from "../../../contexts/AppContext";
-import { CountdownItem } from "../../../types";
+import { CountdownItem, type CountdownQuickEventKind } from "../../../types";
 import {
   Button as FormButton,
   InfoPanel,
@@ -11,11 +11,16 @@ import {
   SettingItem,
   StatusPill,
 } from "../../../ui";
+import {
+  COUNTDOWN_EVENT_PRESETS,
+  getCountdownEventPreset,
+  isCountdownQuickEventKind,
+} from "../../../utils/countdownEvents";
 import styles from "../SettingsPanel.module.css";
 
 interface CountdownDraftItem {
   id: string;
-  kind: "gaokao" | "custom";
+  kind: CountdownItem["kind"];
   name?: string;
   targetDate?: string; // YYYY-MM-DD
   order?: number;
@@ -54,8 +59,8 @@ export const CountdownManagerPanel: React.FC<CountdownManagerPanelProps> = ({ on
         name:
           it.name && it.name.trim().length > 0
             ? it.name.trim()
-            : it.kind === "gaokao"
-              ? "高考倒计时"
+            : isCountdownQuickEventKind(it.kind)
+              ? getCountdownEventPreset(it.kind).name
               : "自定义事件",
         targetDate:
           it.kind === "custom" ? (it.targetDate && it.targetDate.trim()) || "" : undefined,
@@ -80,19 +85,22 @@ export const CountdownManagerPanel: React.FC<CountdownManagerPanelProps> = ({ on
     ]);
   }, [items]);
 
-  const addGaokao = useCallback(() => {
-    const id = `gaokao-${Date.now()}`;
-    const nextOrder = items.length;
-    setItems([
-      ...items,
-      {
-        id,
-        kind: "gaokao",
-        name: "高考倒计时",
-        order: nextOrder,
-      },
-    ]);
-  }, [items]);
+  const addQuickEvent = useCallback(
+    (kind: CountdownQuickEventKind) => {
+      const id = `${kind}-${Date.now()}`;
+      const nextOrder = items.length;
+      setItems([
+        ...items,
+        {
+          id,
+          kind,
+          name: getCountdownEventPreset(kind).name,
+          order: nextOrder,
+        },
+      ]);
+    },
+    [items]
+  );
 
   const updateItem = useCallback((id: string, patch: Partial<CountdownDraftItem>) => {
     setItems((prev) => prev.map((it) => (it.id === id ? { ...it, ...patch } : it)));
@@ -137,9 +145,15 @@ export const CountdownManagerPanel: React.FC<CountdownManagerPanelProps> = ({ on
             onDragEnd={onDragEnd}
             aria-grabbed={draggingId === it.id}
             icon="action.drag"
-            title={it.kind === "gaokao" ? "高考倒计时" : it.name || "自定义事件"}
+            title={
+              isCountdownQuickEventKind(it.kind)
+                ? getCountdownEventPreset(it.kind).name
+                : it.name || "自定义事件"
+            }
             description={
-              it.kind === "gaokao" ? "自动计算至最近 6 月 7 日" : it.targetDate || "请选择日期"
+              isCountdownQuickEventKind(it.kind)
+                ? getCountdownEventPreset(it.kind).targetDescription
+                : it.targetDate || "请选择日期"
             }
             tone={draggingId === it.id ? "accent" : "neutral"}
             control={
@@ -153,14 +167,22 @@ export const CountdownManagerPanel: React.FC<CountdownManagerPanelProps> = ({ on
               </FormButton>
             }
           >
-            <StatusPill tone="neutral">{it.kind === "gaokao" ? "高考" : "自定义"}</StatusPill>
+            <StatusPill tone="neutral">
+              {isCountdownQuickEventKind(it.kind)
+                ? getCountdownEventPreset(it.kind).label
+                : "自定义"}
+            </StatusPill>
             <SettingGrid columns={2}>
               <FormInput
                 label="名称"
                 type="text"
                 value={it.name || ""}
                 onChange={(e) => updateItem(it.id, { name: e.target.value })}
-                placeholder={it.kind === "gaokao" ? "例如：2026高考" : "例如：期末考试"}
+                placeholder={
+                  isCountdownQuickEventKind(it.kind)
+                    ? `例如：2027${getCountdownEventPreset(it.kind).label}`
+                    : "例如：期末考试"
+                }
               />
 
               {it.kind === "custom" && (
@@ -177,9 +199,16 @@ export const CountdownManagerPanel: React.FC<CountdownManagerPanelProps> = ({ on
       </SettingGrid>
 
       <FormButtonGroup align="left">
-        <FormButton variant="secondary" onClick={addGaokao} icon="feature.date">
-          添加高考倒计时
-        </FormButton>
+        {COUNTDOWN_EVENT_PRESETS.map((preset) => (
+          <FormButton
+            key={preset.kind}
+            variant="secondary"
+            onClick={() => addQuickEvent(preset.kind)}
+            icon="feature.date"
+          >
+            添加{preset.label}
+          </FormButton>
+        ))}
         <FormButton variant="primary" onClick={addCustom} icon="action.add">
           添加自定义倒计时
         </FormButton>

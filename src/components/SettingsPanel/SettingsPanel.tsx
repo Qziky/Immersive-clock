@@ -193,7 +193,7 @@ const paneItems: SettingsPane[] = [
     value: "countdown",
     group: "workspace",
     label: "倒计时",
-    description: "配置高考、单事件或多事件倒计时。",
+    description: "配置快捷事件、单事件或多事件倒计时。",
     icon: "feature.countdown",
     panel: "basic",
     section: "countdown",

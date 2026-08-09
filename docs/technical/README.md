@@ -36,8 +36,8 @@
 - 本目录描述当前代码和配置，不承诺未来版本的实现。
 - 用户操作说明放在 `docs/user-guide/`；产品方向放在 `docs/product/`；宣传素材放在
   `docs/marketing/`。
-- `public/docs/announcement.md` 与 `public/docs/changelog.md` 是应用运行时加载的内容，
-  不属于本知识库的技术事实源。
+- `public/docs/announcement.md`、`public/docs/quick-start.md` 与 `public/docs/changelog.md`
+  是应用运行时加载的内容，不属于本知识库的技术事实源。
 - 涉及数据格式、缓存名称、IPC 通道或模型参数的改动必须同时更新相关专题和测试。
 
 ## 快速定位

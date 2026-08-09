@@ -212,6 +212,10 @@ const AboutSettingsPanel: React.FC<AboutSettingsPanelProps> = ({
         description="查看版本、授权、法律文档与用户体验改进设置。"
         hidden={isSectionHidden("project")}
       >
+        <SettingGrid columns={2}>
+          <MetricCard icon="feature.about" label="版本" value={`v${version}`} />
+          <MetricCard icon="feature.license" label="授权" value={license} />
+        </SettingGrid>
         <SettingGrid>
           <SettingItem
             icon="feature.privacy"
@@ -249,10 +253,6 @@ const AboutSettingsPanel: React.FC<AboutSettingsPanelProps> = ({
               <a href={document.path}>公开查看</a>
             </SettingItem>
           ))}
-        </SettingGrid>
-        <SettingGrid columns={2}>
-          <MetricCard icon="feature.about" label="版本" value={`v${version}`} />
-          <MetricCard icon="feature.license" label="授权" value={license} />
         </SettingGrid>
         <SettingGrid>
           <SettingItem icon="feature.authorWebsite" title="项目作者" description={authorName}>

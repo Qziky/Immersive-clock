@@ -9,6 +9,9 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const ASSET_DIR = path.join(ROOT, "docs", "marketing", "assets", "readme");
 const SOURCE_DIR = path.join(ASSET_DIR, "source");
 const LEGACY_HERO_PATH = path.join(ROOT, "public", "assets", "readme-hero.png");
+const README_HERO_PATH = path.join(ASSET_DIR, "readme-hero.png");
+const LEGAL_CONSENT_STORAGE_KEY = "immersive-clock:legal-consent:v1";
+const LEGAL_DOCUMENT_VERSION = "2026-08-06";
 const BASE_URL = process.env.README_CAPTURE_BASE_URL || "http://127.0.0.1:3005";
 const FIXED_TIME = new Date("2026-08-05T08:30:00+08:00");
 const VIEWPORT = { width: 1440, height: 900 };
@@ -240,10 +243,18 @@ async function startServer() {
 async function seedDemoState(page) {
   await page.goto(`${BASE_URL}/clock`, { waitUntil: "domcontentloaded" });
   await page.evaluate(
-    ({ fixedTime, settings, weatherCache }) => {
+    ({ fixedTime, legalConsentStorageKey, legalDocumentVersion, settings, weatherCache }) => {
       localStorage.clear();
       sessionStorage.clear();
       localStorage.setItem("immersive-clock:has-seen-tour", "true");
+      localStorage.setItem(
+        legalConsentStorageKey,
+        JSON.stringify({
+          schemaVersion: 1,
+          documentVersion: legalDocumentVersion,
+          acceptedAt: fixedTime,
+        })
+      );
       localStorage.setItem("AppSettings", JSON.stringify(settings));
       localStorage.setItem("weather-cache", JSON.stringify(weatherCache));
       localStorage.setItem(
@@ -263,6 +274,8 @@ async function seedDemoState(page) {
     },
     {
       fixedTime: FIXED_TIME.getTime(),
+      legalConsentStorageKey: LEGAL_CONSENT_STORAGE_KEY,
+      legalDocumentVersion: LEGAL_DOCUMENT_VERSION,
       settings: createDemoSettings(FIXED_TIME.getTime()),
       weatherCache: createWeatherCache(FIXED_TIME.getTime()),
     }
@@ -273,7 +286,7 @@ async function preparePage(page, pathname) {
   await page.goto(`${BASE_URL}${pathname}`, { waitUntil: "domcontentloaded" });
   await page.addStyleTag({ content: MOTION_RESET });
   await page.evaluate(() => document.fonts.ready);
-  await page.getByRole("main", { name: "时钟应用主界面" }).waitFor({ state: "visible" });
+  await page.locator('main[aria-label="时钟应用主界面"]').waitFor({ state: "visible" });
   await page.locator("#loading-screen").waitFor({ state: "detached" });
 }
 
@@ -313,7 +326,7 @@ async function captureSources(browser) {
   });
 
   await preparePage(page, "/countdown");
-  await page.getByRole("main", { name: "时钟应用主界面" }).click({ position: { x: 20, y: 20 } });
+  await page.locator('main[aria-label="时钟应用主界面"]').click({ position: { x: 20, y: 20 } });
   const countdownToolbar = page.getByRole("toolbar", { name: "时钟控制" });
   await countdownToolbar.getByRole("button", { name: "设置倒计时" }).click();
   const countdownDialog = page.getByRole("dialog", { name: "设置倒计时" });
@@ -331,7 +344,7 @@ async function captureSources(browser) {
   });
 
   await preparePage(page, "/stopwatch");
-  await page.getByRole("main", { name: "时钟应用主界面" }).click({ position: { x: 20, y: 20 } });
+  await page.locator('main[aria-label="时钟应用主界面"]').click({ position: { x: 20, y: 20 } });
   const stopwatchToolbar = page.getByRole("toolbar", { name: "时钟控制" });
   await stopwatchToolbar.getByRole("button", { name: "开始秒表" }).click();
   await page.waitForTimeout(8_250);
@@ -407,147 +420,6 @@ async function renderPng(browser, viewport, html, outputPath) {
   await context.close();
 }
 
-async function buildHero(browser) {
-  const [clock, study] = await Promise.all([
-    imageDataUri(path.join(SOURCE_DIR, "clock.png")),
-    imageDataUri(path.join(SOURCE_DIR, "study.png")),
-  ]);
-  const css = `
-    body {
-      display: grid;
-      place-items: center;
-      background:
-        radial-gradient(circle at 15% 18%, rgba(79, 214, 177, 0.18), transparent 28%),
-        radial-gradient(circle at 86% 75%, rgba(54, 177, 219, 0.16), transparent 30%),
-        linear-gradient(135deg, #020504 0%, #07110e 48%, #030706 100%);
-      color: #f4f8f6;
-    }
-    .noise {
-      position: absolute;
-      inset: 0;
-      opacity: 0.16;
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120' viewBox='0 0 120 120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.86' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.22'/%3E%3C/svg%3E");
-      mix-blend-mode: soft-light;
-    }
-    .orbit {
-      position: absolute;
-      border: 1px solid rgba(99, 228, 192, 0.17);
-      border-radius: 50%;
-      transform: rotate(-12deg);
-    }
-    .orbit.one { width: 1260px; height: 420px; left: 180px; top: 245px; }
-    .orbit.two { width: 980px; height: 300px; left: 350px; top: 315px; opacity: .55; }
-    .dot {
-      position: absolute;
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: #6de4c0;
-      box-shadow: 0 0 24px rgba(109, 228, 192, 0.9);
-    }
-    .dot.a { left: 173px; top: 415px; }
-    .dot.b { right: 204px; top: 560px; background: #57c5e8; }
-    .frame {
-      position: relative;
-      width: 1280px;
-      height: 800px;
-      overflow: hidden;
-      border: 1px solid rgba(177, 255, 232, 0.2);
-      border-radius: 30px;
-      background: #07100d;
-      box-shadow:
-        0 42px 110px rgba(0, 0, 0, 0.62),
-        0 0 80px rgba(70, 210, 169, 0.12),
-        inset 0 1px 0 rgba(255, 255, 255, 0.06);
-    }
-    .frame::after {
-      content: "";
-      position: absolute;
-      inset: 0;
-      z-index: 3;
-      pointer-events: none;
-      background: linear-gradient(135deg, rgba(255,255,255,.04), transparent 28%);
-    }
-    .frame img { display: block; width: 100%; height: 100%; object-fit: cover; }
-    .hero-copy {
-      position: absolute;
-      z-index: 2;
-      top: 74px;
-      right: 80px;
-      left: 80px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      text-align: center;
-      text-shadow: 0 3px 24px rgba(0, 0, 0, 0.72);
-    }
-    .brand {
-      color: #75e5c3;
-      font-size: 14px;
-      font-weight: 700;
-      letter-spacing: 0.28em;
-    }
-    .tagline {
-      margin: 18px 0 0;
-      font-size: 46px;
-      font-weight: 650;
-      line-height: 1.25;
-      letter-spacing: 0.035em;
-    }
-    .tagline-en {
-      margin-top: 10px;
-      color: rgba(225, 241, 235, 0.66);
-      font-size: 16px;
-      font-weight: 500;
-      letter-spacing: 0.08em;
-    }
-    .study-preview {
-      position: absolute;
-      z-index: 2;
-      right: 28px;
-      bottom: 145px;
-      left: 28px;
-      height: 43px;
-      overflow: hidden;
-      border-radius: 9px;
-      box-shadow:
-        0 16px 38px rgba(0, 0, 0, 0.28),
-        0 0 28px rgba(62, 213, 174, 0.07);
-    }
-    .study-preview img {
-      position: absolute;
-      top: -18px;
-      left: -28px;
-      width: 1280px;
-      height: 800px;
-      max-width: none;
-      object-fit: cover;
-    }
-  `;
-  const body = `
-    <div class="noise"></div>
-    <div class="orbit one"></div>
-    <div class="orbit two"></div>
-    <div class="dot a"></div>
-    <div class="dot b"></div>
-    <div class="frame">
-      <img src="${clock}" alt="" />
-      <div class="hero-copy">
-        <div class="brand">IMMERSIVE CLOCK · 沉浸式时钟</div>
-        <div class="tagline">让时间管理更优雅，让学习更专注。</div>
-        <div class="tagline-en">Elegant time management. Deeper focus.</div>
-      </div>
-      <div class="study-preview"><img src="${study}" alt="" /></div>
-    </div>
-  `;
-  await renderPng(
-    browser,
-    VIEWPORT,
-    htmlDocument(body, css),
-    path.join(ASSET_DIR, "readme-hero.png")
-  );
-}
-
 async function buildModesGrid(browser) {
   const modes = await Promise.all(
     [
@@ -573,9 +445,7 @@ async function buildModesGrid(browser) {
   const css = `
     body {
       padding: 54px;
-      background:
-        radial-gradient(circle at 48% 44%, rgba(71, 197, 160, .1), transparent 38%),
-        #050907;
+      background: #121212;
     }
     .grid {
       display: grid;
@@ -590,7 +460,7 @@ async function buildModesGrid(browser) {
       overflow: hidden;
       border: 1px solid rgba(149, 231, 207, .16);
       border-radius: 24px;
-      background: #09100e;
+      background: #121212;
       box-shadow: 0 20px 56px rgba(0, 0, 0, .35);
     }
     .card img { width: 100%; height: 100%; object-fit: cover; display: block; }
@@ -633,8 +503,11 @@ async function main() {
   const browser = await chromium.launch({ channel: "msedge", headless: true });
   try {
     await captureSources(browser);
-    await Promise.all([buildHero(browser), buildModesGrid(browser), copyFinalScreenshots()]);
-    await rm(LEGACY_HERO_PATH, { force: true });
+    await Promise.all([buildModesGrid(browser), copyFinalScreenshots()]);
+    await Promise.all([
+      rm(README_HERO_PATH, { force: true }),
+      rm(LEGACY_HERO_PATH, { force: true }),
+    ]);
   } finally {
     await browser.close();
     server?.kill();

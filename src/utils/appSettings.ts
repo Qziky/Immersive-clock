@@ -109,7 +109,7 @@ export interface AppSettings {
   study: {
     targetYear: number;
     countdownType: "gaokao" | "custom";
-    countdownMode: "gaokao" | "single" | "multi"; // 新增
+    countdownMode: "quick" | "single" | "multi" | "gaokao"; // gaokao 为旧版兼容值
     customCountdown: { name: string; date: string };
     display: StudyDisplaySettings;
     countdownItems: CountdownItem[];
@@ -836,7 +836,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   study: {
     targetYear: new Date().getFullYear() + 1,
     countdownType: "gaokao",
-    countdownMode: "gaokao", // 默认值
+    countdownMode: "quick",
     customCountdown: { name: "", date: "" },
     display: {
       showWeather: true,

@@ -43,7 +43,7 @@
 | 噪音重算           | `noiseRescoreService.test.ts`                                                                                                                                                                                                   | `src/services/noise/noiseRescoreService.ts`、`noiseRescoreCore.ts`                         |
 | 噪音 UI            | `NoiseMonitor.test.tsx`、`NoiseReportModal.test.tsx`、`NoiseSettings/RealTimeNoiseChart.test.tsx`                                                                                                                               | `src/components/Noise*`                                                                    |
 | 语录               | `src/services/quotes/__tests__/*.test.ts`、`src/hooks/__tests__/useQuoteRotation.test.ts`、`QuoteChannelManager.test.tsx`、`MotivationalQuote*.test.tsx`                                                                        | `src/services/quotes`、`src/components/MotivationalQuote`                                  |
-| 公告/反馈          | `src/components/AnnouncementModal/__tests__/AnnouncementModal.test.tsx`、`src/utils/__tests__/announcementStorage.test.ts`                                                                                                      | `AnnouncementModal`、`announcementStorage.ts`                                              |
+| 公告弹窗           | `src/components/AnnouncementModal/__tests__/AnnouncementModal.test.tsx`、`src/utils/__tests__/announcementStorage.test.ts`                                                                                                      | `AnnouncementModal`、`announcementStorage.ts`                                                        |
 | 公共 UI            | `src/ui/components/__tests__/*.test.tsx`、`src/ui/icons/__tests__/AppIcon.test.tsx`、`src/ui/__tests__/uiGovernance.test.ts`                                                                                                    | `src/ui`、`src/pages/DesignSystem/componentCatalog.tsx`                                    |
 | Clarity 回放可见性 | `src/ui/components/__tests__/SettingsShell.test.tsx`、`src/pages/ClockPage/__tests__/modeLazyLoading.test.tsx`、`src/components/Legal/__tests__/LegalConsentGate.test.tsx`                                                  | `src/ui/components/SettingsShell.tsx`、`src/pages/ClockPage/ClockPage.tsx`、`src/constants/legal.ts` |
 | 全屏               | `src/hooks/__tests__/useFullscreen.test.ts`                                                                                                                                                                                     | `src/hooks/useFullscreen.ts`                                                               |
@@ -85,5 +85,7 @@
   `settings-persistence.e2e.spec.ts` 共同覆盖。
 - 公共 UI 的 TimeStage 响应式布局契约由 `src/ui/components/__tests__/TimeStage.test.tsx` 覆盖。
 - 公共浮层的进入、退出和交互隔离由 `src/ui/components/__tests__/motion.test.tsx` 覆盖。
+- 自习倒计时快捷事件由 `BasicSettingsPanel.test.tsx`、`CountdownManagerPanel.test.tsx` 和
+  `src/utils/__tests__/countdownEvents.test.ts` 覆盖。
 - 若文件移动，优先更新本页相对路径，不保留失效旧链接或本机绝对链接。
 - 视觉基线只提交稳定视口和确定数据，临时截图放在 `output/`，不放入知识库。

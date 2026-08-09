@@ -89,8 +89,8 @@
 - `docs/product/`：定位、原则、用户场景和边界。
 - `docs/user-guide/`：面向普通用户的操作说明，不出现源码术语。
 - `docs/marketing/`：宣传文案、素材清单和发布模板。
-- `public/docs/announcement.md`、`public/docs/changelog.md`：应用内运行时内容，不与知识库
-  文档混写。
+- `public/docs/announcement.md`、`public/docs/quick-start.md`、`public/docs/changelog.md`：
+  应用内运行时内容，不与知识库文档混写。
 
 文件名和目录使用英文小写 kebab-case；技术正文可以中文。文档相互引用使用相对路径，不提交
 本机绝对链接或构建产物路径。

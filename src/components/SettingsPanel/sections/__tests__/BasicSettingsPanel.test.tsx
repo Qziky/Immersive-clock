@@ -16,12 +16,7 @@ const keepAwakeRuntime = vi.hoisted(() => ({
   platform: "web" as const,
   preferenceEnabled: false,
   status: "disabled" as
-    | "active"
-    | "disabled"
-    | "error"
-    | "requesting"
-    | "suspended"
-    | "unsupported",
+    "active" | "disabled" | "error" | "requesting" | "suspended" | "unsupported",
   updatedAt: 0,
 }));
 const infoCarousel = vi.hoisted<StudyInfoCarouselSettings>(() => ({
@@ -107,7 +102,7 @@ async function selectAddInformation(user: ReturnType<typeof userEvent.setup>, op
   await user.click(screen.getByRole("option", { name: optionName }));
 }
 
-describe("BasicSettingsPanel 中央信息设置", () => {
+describe("BasicSettingsPanel", () => {
   let registeredSave: (() => void) | undefined;
 
   beforeEach(() => {
@@ -120,6 +115,8 @@ describe("BasicSettingsPanel 中央信息设置", () => {
     keepAwakeRuntime.message = null;
     keepAwakeRuntime.preferenceEnabled = false;
     keepAwakeRuntime.status = "disabled";
+    studyState.countdownItems.splice(0);
+    studyState.countdownType = "gaokao";
   });
 
   function renderPanel() {
@@ -185,6 +182,50 @@ describe("BasicSettingsPanel 中央信息设置", () => {
     expect(screen.getByRole("switch", { name: "防止屏幕自动关闭" })).toBeChecked();
     expect(screen.getByText("当前环境暂不可用")).toBeInTheDocument();
     expect(screen.getByText("系统暂未允许屏幕常亮，设置已保留。")).toBeInTheDocument();
+  });
+
+  it("把常用考试统一为快捷事件并保存所选预设", () => {
+    render(
+      <BasicSettingsPanel
+        section="countdown"
+        targetYear={2027}
+        onTargetYearChange={vi.fn()}
+        onRegisterSave={(save) => {
+          registeredSave = save;
+        }}
+      />
+    );
+
+    expect(screen.getByRole("radio", { name: "快捷事件" })).toBeChecked();
+    expect(screen.getByRole("radio", { name: "高考" })).toBeChecked();
+    expect(screen.getByRole("radio", { name: "中考" })).toBeEnabled();
+    expect(screen.getByRole("radio", { name: "考研" })).toBeEnabled();
+    expect(screen.getByRole("radio", { name: "考公" })).toBeEnabled();
+
+    fireEvent.click(screen.getByRole("radio", { name: "考研" }));
+    expect(screen.getByText("考研自动目标")).toBeInTheDocument();
+    expect(screen.getByText(/2027年12月20日/)).toBeInTheDocument();
+
+    act(() => registeredSave?.());
+
+    expect(dispatch).toHaveBeenCalledWith({
+      type: "SET_COUNTDOWN_ITEMS",
+      payload: [
+        {
+          id: "kaoyan-default",
+          kind: "kaoyan",
+          name: "考研倒计时",
+          order: 0,
+        },
+      ],
+    });
+    expect(dispatch).toHaveBeenCalledWith({
+      type: "SET_COUNTDOWN_TYPE",
+      payload: "custom",
+    });
+    expect(JSON.parse(localStorage.getItem(APP_SETTINGS_KEY) ?? "{}")).toMatchObject({
+      study: { countdownMode: "quick" },
+    });
   });
 
   function getSavedCarousel(): StudyInfoCarouselSettings {

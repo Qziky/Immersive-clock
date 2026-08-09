@@ -6,7 +6,6 @@
 
 | 路径                                                          |           尺寸 | 当前用途                           | 状态与注意事项                                              |
 | ------------------------------------------------------------- | -------------: | ---------------------------------- | ----------------------------------------------------------- |
-| `docs/marketing/assets/readme/readme-hero.png`                |     1440 × 900 | 中文及英文 README 主视觉           | 真实时钟截图与代码绘制的渐变、光晕和轨迹装饰                |
 | `docs/marketing/assets/readme/readme-study-dashboard.png`     |     1440 × 900 | README 自习看板展示                | 固定演示天气、进度、目标和原创语录；噪音组件已关闭          |
 | `docs/marketing/assets/readme/readme-modes-grid.png`          |     1440 × 900 | README 四模式拼图                  | 时钟、30 分钟倒计时、暂停秒表和自习模式                     |
 | `docs/marketing/assets/readme/readme-appearance-settings.png` |     1440 × 900 | README 外观设置展示                | 当前设置中心；预览卡日期时间为应用内置样式示例              |
@@ -30,7 +29,7 @@
 - `study.png`：天气、进度、目标与语录演示数据；
 - `appearance-settings.png`：当前外观设置中心。
 
-运行以下命令可重新采集原图并生成四张 README 成品图和 SVG 分隔装饰：
+运行以下命令可重新采集原图并生成三张 README 成品图：
 
 ```bash
 npm run assets:readme

@@ -67,6 +67,11 @@ describe("AboutSettingsPanel", () => {
   it("在项目信息中展示用户体验改进设置、开源许可、第三方声明与服务边界", () => {
     render(<AboutSettingsPanel section="project" />);
 
+    const versionMetric = screen.getByText("版本");
+    const experienceProgram = screen.getByText("用户体验改进计划");
+    expect(versionMetric.compareDocumentPosition(experienceProgram)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING
+    );
     expect(screen.getByRole("switch", { name: "用户体验改进计划" })).toBeChecked();
     expect(screen.getByRole("link", { name: "Qziky" })).toHaveAttribute(
       "href",

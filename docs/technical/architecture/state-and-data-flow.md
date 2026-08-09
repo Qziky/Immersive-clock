@@ -94,8 +94,9 @@ sequenceDiagram
 ## 消息弹窗与公告
 
 领域服务通过 `CustomEvent("messagePopup:open")` 发布消息，`ClockPage` 按当前模式过滤并
-转成 Feedback Toast。公告弹窗的内容从 `public/docs/announcement.md`、`public/docs/changelog.md`
-按 `BASE_URL` 运行时获取；“一周内不再显示”只写入 `AppSettings.general.announcement`。
+转成 Feedback Toast。公告弹窗的内容从 `public/docs/announcement.md`、
+`public/docs/quick-start.md` 与 `public/docs/changelog.md` 按 `BASE_URL` 运行时获取；
+“一周内不再显示”只写入 `AppSettings.general.announcement`。
 
 ## 数据流不变量
 

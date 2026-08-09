@@ -3,28 +3,38 @@ import { expect, test } from "@playwright/test";
 import { showHud } from "./e2eUtils";
 
 test.describe("弹层重设计", () => {
-  test("320px 公告 Tabs 可完整访问且保留底栏说明", async ({ page }) => {
-    await page.setViewportSize({ width: 320, height: 568 });
-    await page.goto("/");
-    await showHud(page);
+  test("公告 Tabs 在桌面及窄屏可完整访问且保留底栏说明", async ({ page }) => {
+    for (const viewport of [
+      { width: 1440, height: 900 },
+      { width: 390, height: 844 },
+      { width: 320, height: 568 },
+    ]) {
+      await page.setViewportSize(viewport);
+      await page.goto("/");
+      await showHud(page);
 
-    await page.getByRole("button", { name: /版本 v.+点击查看更新公告/ }).click();
-    const dialog = page.getByRole("dialog", { name: "系统公告" });
-    await expect(dialog).toBeVisible();
+      await page.getByRole("button", { name: /版本 v.+点击查看更新公告/ }).click();
+      const dialog = page.getByRole("dialog", { name: "系统公告" });
+      await expect(dialog).toBeVisible();
 
-    const tabs = dialog.getByRole("tablist");
-    for (const name of ["公告", "更新日志", "意见反馈"]) {
-      const tab = tabs.getByRole("tab", { name });
-      await tab.scrollIntoViewIfNeeded();
-      await tab.click();
-      await expect(tab).toHaveAttribute("aria-selected", "true");
+      const tabs = dialog.getByRole("tablist");
+      for (const name of ["公告", "快速上手", "更新日志", "意见反馈"]) {
+        const tab = tabs.getByRole("tab", { name });
+        await tab.scrollIntoViewIfNeeded();
+        await tab.click();
+        await expect(tab).toHaveAttribute("aria-selected", "true");
+
+        if (name === "快速上手") {
+          await expect(dialog.getByRole("heading", { name: "快速上手" })).toBeVisible();
+        }
+      }
+
+      await expect(dialog.locator('iframe[title="意见反馈（腾讯问卷）"]')).toBeVisible();
+      await expect(dialog.getByText("之后仍可点击版本号重新打开公告。")).toBeVisible();
+      expect(
+        await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)
+      ).toBe(true);
     }
-
-    await expect(dialog.locator('iframe[title="意见反馈（腾讯问卷）"]')).toBeVisible();
-    await expect(dialog.getByText("之后仍可点击版本号重新打开公告。")).toBeVisible();
-    expect(
-      await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)
-    ).toBe(true);
   });
 
   test("噪音历史可展开并进入无图表的报告空态", async ({ page }) => {
