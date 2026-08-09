@@ -24,7 +24,7 @@ import {
   saveNormalBackground,
   saveStudyBackground,
 } from "../studyBackgroundStorage";
-import { migrateLegacyStudySchedule } from "../studyTimetable";
+import { createDefaultStudyTimetable, migrateLegacyStudySchedule } from "../studyTimetable";
 
 class MemoryStorage implements Storage {
   private store = new Map<string, string>();
@@ -144,6 +144,56 @@ describe("appSettings", () => {
       general: { update: { autoCheckEnabled: false } },
     });
     expect(disabled.general.update.autoCheckEnabled).toBe(false);
+  });
+
+  it("v17 及更早版本只替换未修改的默认课表并保留自定义课表", () => {
+    const legacyDefault = createDefaultStudyTimetable();
+    legacyDefault.document.configuration.name = "迁移的工作日课表";
+    legacyDefault.document.configuration.description = "由旧版每日课表迁移，仅在周一至周五生效";
+    legacyDefault.document.subjects = [{ name: "第1节自习" }, { name: "第2节自习" }];
+    legacyDefault.document.schedules = [
+      {
+        name: "周一至周五",
+        enable_day: [1, 2, 3, 4, 5],
+        classes: [
+          { subject: "第1节自习", start_time: "19:10:00", end_time: "20:20:00" },
+          { subject: "第2节自习", start_time: "20:30:00", end_time: "22:20:00" },
+        ],
+      },
+    ];
+
+    const upgraded = normalizeAppSettings({
+      version: 16,
+      study: { timetable: legacyDefault },
+    });
+    const v17Default = createDefaultStudyTimetable();
+    v17Default.document.subjects = [{ name: "自习", simplified_name: "自习" }];
+    const v17Upgraded = normalizeAppSettings({
+      version: 17,
+      study: { timetable: v17Default },
+    });
+    const customTimetable = migrateLegacyStudySchedule([
+      { id: "math", name: "数学", startTime: "08:00", endTime: "08:45" },
+    ]);
+    const preserved = normalizeAppSettings({
+      version: 16,
+      study: { timetable: customTimetable },
+    });
+
+    expect(upgraded.study.timetable.document.configuration.name).toBe("工作日晚自习");
+    expect(upgraded.study.timetable.document.subjects).toEqual([
+      { name: "自习", simplified_name: "自习" },
+      { name: "语文", simplified_name: "语" },
+      { name: "数学", simplified_name: "数" },
+      { name: "英语", simplified_name: "英" },
+    ]);
+    expect(v17Upgraded.study.timetable.document.subjects).toEqual([
+      { name: "自习", simplified_name: "自习" },
+      { name: "语文", simplified_name: "语" },
+      { name: "数学", simplified_name: "数" },
+      { name: "英语", simplified_name: "英" },
+    ]);
+    expect(preserved.study.timetable.document.subjects[0]?.name).toBe("数学");
   });
 
   it("更新偏好支持局部保存", () => {

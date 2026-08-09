@@ -83,6 +83,8 @@
 - 测试覆盖的是行为/契约；迁移或模型版本变化要在本页和相应专题同时更新。
 - 外观背景默认值与预设迁移由 `appearanceModel.test.ts`、`appSettings.test.ts` 和
   `settings-persistence.e2e.spec.ts` 共同覆盖。
+- 课程表默认模板及 v17 及更早版本默认值的精准升级由 `studyTimetable.test.ts` 与
+  `appSettings.test.ts` 共同覆盖，并验证自定义课表不会被覆盖。
 - 公共 UI 的 TimeStage 响应式布局契约由 `src/ui/components/__tests__/TimeStage.test.tsx` 覆盖。
 - 公共浮层的进入、退出和交互隔离由 `src/ui/components/__tests__/motion.test.tsx` 覆盖。
 - 自习倒计时快捷事件由 `BasicSettingsPanel.test.tsx`、`CountdownManagerPanel.test.tsx` 和

@@ -381,7 +381,7 @@ export const ScheduleEditor: React.FC<ScheduleEditorProps> = ({ onRegisterSave }
         value={activeTab}
         items={[...EDITOR_TABS]}
         label="课程表编辑分区"
-        variant="pill"
+        variant="browser"
         onChange={setActiveTab}
       />
 

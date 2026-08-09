@@ -210,7 +210,7 @@
 .classFields {
   align-items: end;
   display: grid;
-  grid-template-columns: minmax(180px, 1.5fr) repeat(2, minmax(130px, 0.8fr));
+  grid-template-columns: minmax(140px, 1.5fr) repeat(2, minmax(120px, 0.8fr));
   min-width: 0;
 }
 
@@ -286,12 +286,6 @@
   .scheduleSetup {
     grid-template-columns: minmax(200px, 0.75fr) minmax(280px, 1.25fr);
   }
-}
-
-@media (max-width: 860px) {
-  .scheduleSetup {
-    grid-template-columns: minmax(0, 1fr);
-  }
 
   .classRow {
     grid-template-columns: 56px minmax(0, 1fr);
@@ -302,6 +296,12 @@
     grid-column: 2;
     justify-self: end;
     padding-left: 0;
+  }
+}
+
+@media (max-width: 860px) {
+  .scheduleSetup {
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .spanRow {

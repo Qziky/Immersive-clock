@@ -7,7 +7,7 @@ IndexedDB，网络结果和可重新生成内容作为缓存处理。设置页�
 ## AppSettings
 
 - 主键：`AppSettings`。
-- 当前设置版本：`CURRENT_SETTINGS_VERSION = 11`。
+- 当前设置版本：`CURRENT_SETTINGS_VERSION = 18`。
 - 顶层分区：`appearance`、`general`、`study`、`noiseControl`，并带 `version`、`modifiedAt`。
 - 读路径：`getAppSettings()` 解析 JSON 后调用 `normalizeAppSettings()`；缺失字段补默认值，
   非法值被夹取或回退。

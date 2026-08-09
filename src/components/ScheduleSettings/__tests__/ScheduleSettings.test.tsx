@@ -57,7 +57,7 @@ describe("ScheduleEditor", () => {
     expect(screen.getByText("仅支持 CSES v2")).toBeInTheDocument();
 
     await user.click(screen.getByRole("tab", { name: "课程库" }));
-    expect(screen.getAllByLabelText("课程名称")[0]).toHaveValue("第1节自习");
+    expect(screen.getAllByLabelText("课程名称")[0]).toHaveValue("自习");
   });
 
   it("有效 YAML 先预览，再由用户应用到草稿并保留本地锚点", async () => {

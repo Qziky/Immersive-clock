@@ -53,6 +53,7 @@ import { logger } from "./logger";
 import { StudyBackgroundType } from "./studyBackgroundStorage";
 import {
   createDefaultStudyTimetable,
+  isSupersededDefaultStudyTimetable,
   migrateLegacyStudySchedule,
   normalizeStudyTimetable,
   validateStudyTimetable,
@@ -160,7 +161,7 @@ export interface AppSettings {
 
 export const APP_SETTINGS_KEY = "AppSettings";
 export const APP_SETTINGS_QUARANTINE_KEY = "immersive-clock:quarantine:app-settings";
-export const CURRENT_SETTINGS_VERSION = 16;
+export const CURRENT_SETTINGS_VERSION = 18;
 
 /** 中央信息轮播的硬上限，配置与运行时都应遵守该值。 */
 export const MAX_STUDY_INFO_ITEMS = 20;
@@ -1064,11 +1065,14 @@ export function normalizeAppSettings(value: unknown): AppSettings {
     timetable: storedTimetable,
     ...parsedStudyWithoutLegacySchedule
   } = parsedStudy;
-  const normalizedTimetable = validateStudyTimetable(storedTimetable).valid
-    ? normalizeStudyTimetable(storedTimetable)
-    : Array.isArray(legacyStudySchedule)
-      ? migrateLegacyStudySchedule(legacyStudySchedule)
-      : createDefaultStudyTimetable();
+  const normalizedTimetable =
+    storedVersion < 18 && isSupersededDefaultStudyTimetable(storedTimetable)
+      ? createDefaultStudyTimetable()
+      : validateStudyTimetable(storedTimetable).valid
+        ? normalizeStudyTimetable(storedTimetable)
+        : Array.isArray(legacyStudySchedule)
+          ? migrateLegacyStudySchedule(legacyStudySchedule)
+          : createDefaultStudyTimetable();
 
   const legacyErrorCenterEnabled =
     typeof parsedAlerts.errorCenterEnabled === "boolean"

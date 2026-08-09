@@ -12,6 +12,37 @@ import {
 } from "../studyTimetable";
 
 describe("studyTimetable", () => {
+  it("提供语义正确的工作日晚自习默认模板", () => {
+    const timetable = createDefaultStudyTimetable();
+
+    expect(timetable).toMatchObject({
+      cycleAnchorDate: "2000-01-03",
+      document: {
+        configuration: {
+          name: "工作日晚自习",
+          description: "默认上 5 休 2 的晚自习模板，可按实际作息修改",
+          cycle: { work_count: 5, rest_count: 2 },
+        },
+        subjects: [
+          { name: "自习", simplified_name: "自习" },
+          { name: "语文", simplified_name: "语" },
+          { name: "数学", simplified_name: "数" },
+          { name: "英语", simplified_name: "英" },
+        ],
+        schedules: [
+          {
+            name: "工作日",
+            enable_day: [1, 2, 3, 4, 5],
+            classes: [
+              { subject: "自习", start_time: "19:10:00", end_time: "20:20:00" },
+              { subject: "自习", start_time: "20:30:00", end_time: "22:20:00" },
+            ],
+          },
+        ],
+      },
+    });
+  });
+
   it("严格解析 CSES v2 并在导出时保留扩展字段", () => {
     const document = parseCsesYaml(`
 version: 2
@@ -136,6 +167,25 @@ schedules:
           ],
         },
       ],
+    });
+  });
+
+  it("把未修改的旧默认时段升级为新的工作日晚自习模板", () => {
+    const timetable = migrateLegacyStudySchedule([
+      { id: "1", name: "第1节自习", startTime: "19:10", endTime: "20:20" },
+      { id: "2", name: "第2节自习", startTime: "20:30", endTime: "22:20" },
+    ]);
+
+    expect(timetable.document.configuration.name).toBe("工作日晚自习");
+    expect(timetable.document.subjects).toEqual([
+      { name: "自习", simplified_name: "自习" },
+      { name: "语文", simplified_name: "语" },
+      { name: "数学", simplified_name: "数" },
+      { name: "英语", simplified_name: "英" },
+    ]);
+    expect(timetable.document.schedules[0]).toMatchObject({
+      name: "工作日",
+      classes: [{ subject: "自习" }, { subject: "自习" }],
     });
   });
 });

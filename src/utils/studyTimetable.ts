@@ -384,8 +384,8 @@ function createDefaultDocument(): CsesDocument {
   return {
     version: CSES_VERSION,
     configuration: {
-      name: "工作日自习课表",
-      description: "Immersive Clock 默认课程表",
+      name: "工作日晚自习",
+      description: "默认上 5 休 2 的晚自习模板，可按实际作息修改",
       cycle: {
         work_count: 5,
         rest_count: 2,
@@ -395,14 +395,19 @@ function createDefaultDocument(): CsesDocument {
         ],
       },
     },
-    subjects: [{ name: "第1节自习" }, { name: "第2节自习" }],
+    subjects: [
+      { name: "自习", simplified_name: "自习" },
+      { name: "语文", simplified_name: "语" },
+      { name: "数学", simplified_name: "数" },
+      { name: "英语", simplified_name: "英" },
+    ],
     schedules: [
       {
-        name: "周一至周五",
+        name: "工作日",
         enable_day: [1, 2, 3, 4, 5],
         classes: [
-          { subject: "第1节自习", start_time: "19:10:00", end_time: "20:20:00" },
-          { subject: "第2节自习", start_time: "20:30:00", end_time: "22:20:00" },
+          { subject: "自习", start_time: "19:10:00", end_time: "20:20:00" },
+          { subject: "自习", start_time: "20:30:00", end_time: "22:20:00" },
         ],
       },
     ],
@@ -417,6 +422,92 @@ export function createDefaultStudyTimetable(): StudyTimetableSettings {
 }
 
 export const DEFAULT_TIMETABLE = createDefaultStudyTimetable();
+
+function canonicalizeStructure(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(canonicalizeStructure);
+  if (!isRecord(value)) return value;
+  return Object.fromEntries(
+    Object.keys(value)
+      .sort()
+      .map((key) => [key, canonicalizeStructure(value[key])])
+  );
+}
+
+function createLegacyDefaultTimetable(name: string, description: string): StudyTimetableSettings {
+  return {
+    cycleAnchorDate: DEFAULT_CYCLE_ANCHOR_DATE,
+    document: {
+      version: CSES_VERSION,
+      configuration: {
+        name,
+        description,
+        cycle: {
+          work_count: 5,
+          rest_count: 2,
+          spans: [
+            { activity: "work", count: 5 },
+            { activity: "rest", count: 2 },
+          ],
+        },
+      },
+      subjects: [{ name: "第1节自习" }, { name: "第2节自习" }],
+      schedules: [
+        {
+          name: "周一至周五",
+          enable_day: [1, 2, 3, 4, 5],
+          classes: [
+            { subject: "第1节自习", start_time: "19:10:00", end_time: "20:20:00" },
+            { subject: "第2节自习", start_time: "20:30:00", end_time: "22:20:00" },
+          ],
+        },
+      ],
+    },
+  };
+}
+
+function createV17DefaultTimetable(): StudyTimetableSettings {
+  return {
+    cycleAnchorDate: DEFAULT_CYCLE_ANCHOR_DATE,
+    document: {
+      version: CSES_VERSION,
+      configuration: {
+        name: "工作日晚自习",
+        description: "默认上 5 休 2 的晚自习模板，可按实际作息修改",
+        cycle: {
+          work_count: 5,
+          rest_count: 2,
+          spans: [
+            { activity: "work", count: 5 },
+            { activity: "rest", count: 2 },
+          ],
+        },
+      },
+      subjects: [{ name: "自习", simplified_name: "自习" }],
+      schedules: [
+        {
+          name: "工作日",
+          enable_day: [1, 2, 3, 4, 5],
+          classes: [
+            { subject: "自习", start_time: "19:10:00", end_time: "20:20:00" },
+            { subject: "自习", start_time: "20:30:00", end_time: "22:20:00" },
+          ],
+        },
+      ],
+    },
+  };
+}
+
+export function isSupersededDefaultStudyTimetable(value: unknown): boolean {
+  const canonicalValue = JSON.stringify(canonicalizeStructure(value));
+  const supersededCandidates = [
+    createLegacyDefaultTimetable("工作日自习课表", "Immersive Clock 默认课程表"),
+    createLegacyDefaultTimetable("迁移的工作日课表", "由旧版每日课表迁移，仅在周一至周五生效"),
+    createV17DefaultTimetable(),
+  ];
+  return supersededCandidates.some(
+    (candidate) => JSON.stringify(canonicalizeStructure(candidate)) === canonicalValue
+  );
+}
 
 export function migrateLegacyStudySchedule(value: unknown): StudyTimetableSettings {
   const rows = Array.isArray(value) ? value : [];
@@ -441,7 +532,7 @@ export function migrateLegacyStudySchedule(value: unknown): StudyTimetableSettin
 
   if (classes.length === 0) return createDefaultStudyTimetable();
 
-  return {
+  const migrated: StudyTimetableSettings = {
     cycleAnchorDate: DEFAULT_CYCLE_ANCHOR_DATE,
     document: {
       version: CSES_VERSION,
@@ -467,6 +558,7 @@ export function migrateLegacyStudySchedule(value: unknown): StudyTimetableSettin
       ],
     },
   };
+  return isSupersededDefaultStudyTimetable(migrated) ? createDefaultStudyTimetable() : migrated;
 }
 
 export function normalizeStudyTimetable(value: unknown): StudyTimetableSettings {
