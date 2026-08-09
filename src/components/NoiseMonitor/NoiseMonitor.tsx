@@ -100,7 +100,7 @@ const NoiseMonitor: React.FC<NoiseMonitorProps> = ({ onBreathingLightClick, onSt
   }, [alertSoundEnabled, quietnessScore, scoreAlertThreshold, status]);
 
   const statusText = useMemo(() => {
-    if (signalHealth === "signal-anomaly") return "信号异常";
+    if (signalHealth === "signal-anomaly") return "麦克风异常";
     switch (status) {
       case "disabled":
         return "监测已关闭";
@@ -123,9 +123,7 @@ const NoiseMonitor: React.FC<NoiseMonitorProps> = ({ onBreathingLightClick, onSt
   }, [signalHealth, status]);
 
   const subtext = useMemo(() => {
-    if (signalHealth === "signal-anomaly") {
-      return status === "signal-unavailable" ? "无有效信号" : "测量可信度低";
-    }
+    if (signalHealth === "signal-anomaly") return undefined;
     if (signalHealth === "below-range") return "低于量程";
     if (status === "collecting") {
       return `${Math.round(scoring.coverageRatio * 100)}%`;

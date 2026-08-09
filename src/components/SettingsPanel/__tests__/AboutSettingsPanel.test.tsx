@@ -64,9 +64,10 @@ describe("AboutSettingsPanel", () => {
     aboutMocks.runtimePlatform = "web";
   });
 
-  it("在项目信息中展示开源许可、第三方声明与服务边界", () => {
+  it("在项目信息中展示用户体验改进设置、开源许可、第三方声明与服务边界", () => {
     render(<AboutSettingsPanel section="project" />);
 
+    expect(screen.getByRole("switch", { name: "用户体验改进计划" })).toBeChecked();
     expect(screen.getByRole("link", { name: "Qziky" })).toHaveAttribute(
       "href",
       "https://github.com/Qziky"
@@ -89,6 +90,7 @@ describe("AboutSettingsPanel", () => {
       "该限制只适用于这一可选第三方服务"
     );
     expect(screen.getByText(/今日诗词免费版仅限非商业使用/)).toHaveTextContent("Token/Cookie");
+    expect(screen.queryByText(/分析只在生产环境/)).not.toBeInTheDocument();
   });
 
   it("仅在开发者模式草稿开启后展示调试页面，并在保存时持久化", () => {
@@ -144,7 +146,7 @@ describe("AboutSettingsPanel", () => {
     const onAnalyticsReloadRequired = vi.fn();
     render(
       <AboutSettingsPanel
-        section="privacy"
+        section="project"
         onAnalyticsReloadRequired={onAnalyticsReloadRequired}
         onRegisterSave={(registeredSave) => {
           save = registeredSave;

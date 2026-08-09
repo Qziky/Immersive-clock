@@ -127,7 +127,7 @@ test("关闭用户体验改进计划后保存、刷新且不请求 Clarity", asy
   await page.getByRole("button", { name: "打开设置" }).click();
   const settings = page.getByRole("dialog", { name: "设置" });
   await settings.getByRole("button", { name: "系统数据" }).click();
-  await settings.getByRole("button", { name: "隐私与分析" }).click();
+  await settings.getByRole("button", { name: "项目信息" }).click();
 
   const experienceSwitch = settings.getByRole("switch", { name: "用户体验改进计划" });
   await expect(experienceSwitch).toBeChecked();

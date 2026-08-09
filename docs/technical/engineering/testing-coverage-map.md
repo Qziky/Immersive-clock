@@ -24,6 +24,7 @@
 | AppSettings        | `src/utils/__tests__/appSettings.test.ts`                                                                                                                                                                                       | `src/utils/appSettings.ts`                                                                 |
 | 法律同意与分析     | `src/utils/__tests__/legalConsent.test.ts`、`src/services/__tests__/clarityAnalytics.test.ts`、`src/components/Legal/__tests__/LegalConsentGate.test.tsx`、`AboutSettingsPanel.test.tsx`、`tests/e2e/legal-consent.e2e.spec.ts` | `src/utils/legalConsent.ts`、`src/components/Legal`、`src/services/clarityAnalytics.ts`    |
 | 启动与资源预加载   | `src/App.test.tsx`、`modeLazyLoading.test.tsx`、`resourcePreloading.test.ts`、`src/components/SettingsPanel/__tests__/SettingsPanel.test.tsx`                                                                                   | `main.tsx`、`App.tsx`、`ClockPage/modeComponents.ts`、`SettingsPanel.tsx`                  |
+| 权限按需激活       | `src/components/Study/__tests__/Study.test.tsx`、`SettingsPanel.test.tsx`、`StudySettingsPanel.test.tsx`、`WeatherSettingsPanel.test.tsx`、`weatherRuntime.test.ts`                                                             | `ClockPage.tsx`、`Study.tsx`、`useNoiseStream.ts`、`SettingsPanel.tsx`、`weatherRuntime.ts` |
 | Storage migration  | `src/utils/__tests__/storageInitializer*.test.ts`                                                                                                                                                                               | `src/utils/storageInitializer.ts`                                                          |
 | 数据管理           | `src/services/__tests__/dataManagement.test.ts`                                                                                                                                                                                 | `src/services/dataManagement.ts`                                                           |
 | 课表               | `src/utils/__tests__/studyScheduleValidation.test.ts`、`src/utils/__tests__/storageInitializer.studyScheduleMigration.test.ts`                                                                                                  | `src/utils/studySchedule*.ts`                                                              |
@@ -68,7 +69,7 @@
 | 设置持久化/动效   | `tests/e2e/settings-persistence.e2e.spec.ts`、`settings-motion.e2e.spec.ts`           |
 | 数据管理          | `tests/e2e/data-management.e2e.spec.ts`                                               |
 | 语录              | `tests/e2e/quotes.e2e.spec.ts`（在线故障转移、诗泉筛选/署名、设置持久化、三档响应式） |
-| 天气协调          | `tests/e2e/weather-coordination.e2e.spec.ts`                                          |
+| 天气协调          | `tests/e2e/weather-coordination.e2e.spec.ts`（普通首页不启动、自习页按需启动与双标签同步） |
 | 噪音多标签页      | `tests/e2e/noise-multitab.e2e.spec.ts`                                                |
 | 音频诊断/开发者页 | `tests/e2e/audio-debug.e2e.spec.ts`、`developer-pages.e2e.spec.ts`                    |
 | UI 视觉           | `tests/e2e/design-system-visual.e2e.spec.ts`、`visual-regression.e2e.spec.ts`         |

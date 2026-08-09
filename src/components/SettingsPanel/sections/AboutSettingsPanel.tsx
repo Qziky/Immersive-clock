@@ -44,7 +44,7 @@ export interface AboutSettingsPanelProps {
   section?: AboutSettingsSection;
 }
 
-export type AboutSettingsSection = "privacy" | "project" | "debug";
+export type AboutSettingsSection = "project" | "debug";
 
 const AboutSettingsPanel: React.FC<AboutSettingsPanelProps> = ({
   onAnalyticsReloadRequired,
@@ -207,10 +207,10 @@ const AboutSettingsPanel: React.FC<AboutSettingsPanelProps> = ({
   return (
     <Stack id="about-panel" gap="xl">
       <FormSection
-        title="隐私与分析"
+        title="项目信息"
         variant="plain"
-        description="查看公开法律文档，并控制是否帮助作者改进应用。"
-        hidden={isSectionHidden("privacy")}
+        description="查看版本、授权、法律文档与用户体验改进设置。"
+        hidden={isSectionHidden("project")}
       >
         <SettingGrid>
           <SettingItem
@@ -250,17 +250,6 @@ const AboutSettingsPanel: React.FC<AboutSettingsPanelProps> = ({
             </SettingItem>
           ))}
         </SettingGrid>
-        <InfoPanel tone="info">
-          分析只在生产环境、部署已配置、当前协议已同意且此开关开启时运行。关闭后保存设置会自动刷新应用。
-        </InfoPanel>
-      </FormSection>
-
-      <FormSection
-        title="项目信息"
-        variant="plain"
-        description="当前应用版本、授权信息与项目链接。"
-        hidden={isSectionHidden("project")}
-      >
         <SettingGrid columns={2}>
           <MetricCard icon="feature.about" label="版本" value={`v${version}`} />
           <MetricCard icon="feature.license" label="授权" value={license} />

@@ -53,26 +53,37 @@ vi.mock("../sections/AppearanceSettingsPanel", () => ({
 
 vi.mock("../sections/WeatherSettingsPanel", () => ({
   default: function WeatherSettingsPanelMock({
+    isActive,
     section,
     onRegisterSave,
   }: {
+    isActive?: boolean;
     section: string;
     onRegisterSave?: (save: () => void) => void;
   }) {
     const [instanceId] = useState(() => ++weatherPanelInstances.count);
     useEffect(() => onRegisterSave?.(() => saveCalls.push("weather")), [onRegisterSave]);
-    return <div data-testid="weather-panel" data-instance={instanceId} data-section={section} />;
+    return (
+      <div
+        data-testid="weather-panel"
+        data-active={isActive ? "true" : "false"}
+        data-instance={instanceId}
+        data-section={section}
+      />
+    );
   },
 }));
 
 vi.mock("../sections/StudySettingsPanel", () => ({
   default: function StudySettingsPanelMock({
+    isActive,
     onRegisterSave,
   }: {
+    isActive?: boolean;
     onRegisterSave?: (save: () => void) => void;
   }) {
     useEffect(() => onRegisterSave?.(() => saveCalls.push("monitor")), [onRegisterSave]);
-    return <div data-testid="monitor-panel" />;
+    return <div data-testid="monitor-panel" data-active={isActive ? "true" : "false"} />;
   },
 }));
 
@@ -342,6 +353,7 @@ describe("SettingsPanel", () => {
     const noiseButton = within(environmentPanes).getByRole("button", { name: "噪音监测" });
     expect(noiseButton.querySelector('[data-app-icon="feature.noise"]')).not.toBeNull();
     expect(await screen.findByTestId("monitor-panel")).toBeInTheDocument();
+    expect(screen.getByTestId("monitor-panel")).toHaveAttribute("data-active", "true");
     expect(within(dialog).queryByRole("heading", { name: "噪音监测" })).toBeNull();
     expect(within(dialog).queryByText("调整阈值与校准，并查看报告、实时监控和统计。")).toBeNull();
 
@@ -349,6 +361,8 @@ describe("SettingsPanel", () => {
     expect(weatherButton.querySelector('[data-app-icon="feature.weather"]')).not.toBeNull();
     await user.click(weatherButton);
     expect(await screen.findByTestId("weather-panel")).toHaveAttribute("data-section", "weather");
+    expect(screen.getByTestId("weather-panel")).toHaveAttribute("data-active", "true");
+    expect(screen.getByTestId("monitor-panel")).toHaveAttribute("data-active", "false");
     expect(screen.getByTestId("weather-panel")).toHaveAttribute("data-instance", "1");
     expect(within(dialog).queryByRole("heading", { name: "天气服务" })).toBeNull();
     expect(within(dialog).queryByText("管理天气提醒与刷新策略，并查看完整天气数据。")).toBeNull();
@@ -357,6 +371,7 @@ describe("SettingsPanel", () => {
     expect(locationButton.querySelector('[data-app-icon="feature.location"]')).not.toBeNull();
     await user.click(locationButton);
     expect(screen.getByTestId("weather-panel")).toHaveAttribute("data-section", "location");
+    expect(screen.getByTestId("weather-panel")).toHaveAttribute("data-active", "true");
     expect(screen.getByTestId("weather-panel")).toHaveAttribute("data-instance", "1");
     expect(within(dialog).queryByRole("heading", { name: "定位服务" })).toBeNull();
     expect(within(dialog).queryByText("选择自动或手动定位，并查看坐标、地址和诊断。")).toBeNull();
@@ -411,6 +426,22 @@ describe("SettingsPanel", () => {
       "about",
     ]);
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("将隐私与分析合并到项目信息入口", async () => {
+    await renderSettings();
+
+    const dialog = screen.getByRole("dialog", { name: "设置" });
+    const navigation = within(within(dialog).getByRole("complementary", { name: "设置导航" }));
+    fireEvent.click(navigation.getByRole("button", { name: /系统数据/ }));
+    const systemPanes = navigation.getByRole("group", { name: "系统数据" });
+    finishGroupExpansion(systemPanes);
+
+    expect(within(systemPanes).queryByRole("button", { name: "隐私与分析" })).toBeNull();
+    fireEvent.click(within(systemPanes).getByRole("button", { name: "项目信息" }));
+
+    expect(await screen.findByTestId("about-panel")).toBeInTheDocument();
+    expect(within(dialog).getByText("查看版本、授权、隐私与用户体验改进设置。")).toBeVisible();
   });
 
   it("取消设置不会提交任何面板草稿", async () => {

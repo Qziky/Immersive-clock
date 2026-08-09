@@ -20,12 +20,16 @@ const inputDeviceMocks = vi.hoisted(() => ({
   subscribe: vi.fn(() => () => undefined),
 }));
 
+const noiseStreamMocks = vi.hoisted(() => ({
+  useNoiseStream: vi.fn(),
+}));
+
 vi.mock("../../../../contexts/AppContext", () => ({
   useAppState: () => ({ study: { errorPopupEnabled: false } }),
 }));
 
 vi.mock("../../../../hooks/useNoiseStream", () => ({
-  useNoiseStream: () => ({
+  useNoiseStream: noiseStreamMocks.useNoiseStream.mockReturnValue({
     calibration: { status: "idle", progress: 0, error: null },
     calibrationAvailable: false,
     calibrate: vi.fn(),
@@ -96,6 +100,7 @@ describe("StudySettingsPanel", () => {
       { deviceId: "built-in", label: "内置麦克风" },
       { deviceId: "usb-mic", label: "USB 麦克风" },
     ]);
+    noiseStreamMocks.useNoiseStream.mockClear();
   });
 
   it("通过四个内部标签隔离噪音功能、合并监测内容并保留草稿", async () => {
@@ -138,6 +143,13 @@ describe("StudySettingsPanel", () => {
     expect(panel).toHaveAttribute("aria-labelledby", controlTab.id);
     expect(screen.getByRole("heading", { name: "噪音控制" })).toBeVisible();
     expect(screen.getByRole("switch", { name: "显示实时数值" })).not.toBeChecked();
+  });
+
+  it("隐藏的设置分区不订阅麦克风数据流", () => {
+    render(<StudySettingsPanel isActive={false} />);
+
+    expect(noiseStreamMocks.useNoiseStream).toHaveBeenCalledWith(false);
+    expect(inputDeviceMocks.list).not.toHaveBeenCalled();
   });
 
   it("自动关闭时长保留为统一保存草稿，并随自动弹出开关禁用", async () => {

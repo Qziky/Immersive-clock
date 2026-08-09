@@ -16,7 +16,6 @@ import { SeoContent } from "../../components/Seo/SeoContent";
 import { SettingsButton } from "../../components/SettingsButton";
 import { useAppState, useAppDispatch } from "../../contexts/AppContext";
 import { useAppearance } from "../../contexts/AppearanceContext";
-import { startWeatherRuntime } from "../../services/weatherRuntime";
 import type { AppMode } from "../../types";
 import type { MessagePopupOpenDetail, MessagePopupType } from "../../types/messagePopup";
 import { IconButton, useFeedback, type ToastVariant } from "../../ui";
@@ -187,10 +186,6 @@ export function ClockPage() {
 
   useEffect(() => {
     return startTimeSyncManager();
-  }, []);
-
-  useEffect(() => {
-    return startWeatherRuntime();
   }, []);
 
   useEffect(() => {

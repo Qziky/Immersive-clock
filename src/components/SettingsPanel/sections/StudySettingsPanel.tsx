@@ -45,6 +45,7 @@ import { RealTimeNoiseChart } from "../../NoiseSettings/RealTimeNoiseChart";
 import styles from "./StudySettingsPanel.module.css";
 
 export interface StudySettingsPanelProps {
+  isActive?: boolean;
   onRegisterSave?: (fn: () => void) => void;
 }
 
@@ -78,10 +79,13 @@ function formatInputDeviceError(error: unknown): string {
   return error instanceof Error ? error.message : "无法读取麦克风设备。";
 }
 
-export const StudySettingsPanel: React.FC<StudySettingsPanelProps> = ({ onRegisterSave }) => {
+export const StudySettingsPanel: React.FC<StudySettingsPanelProps> = ({
+  isActive = true,
+  onRegisterSave,
+}) => {
   const { study } = useAppState();
   const { confirm } = useFeedback();
-  const noiseStream = useNoiseStream();
+  const noiseStream = useNoiseStream(isActive);
   const initialControl = getNoiseControlSettings();
   const initialReport = getNoiseReportSettings();
   const [activeTab, setActiveTab] = useState<NoiseSettingsTab>("control");
@@ -124,9 +128,10 @@ export const StudySettingsPanel: React.FC<StudySettingsPanelProps> = ({ onRegist
   }, []);
 
   useEffect(() => {
+    if (!isActive) return undefined;
     void refreshInputDevices();
     return subscribeNoiseInputDeviceChanges(() => void refreshInputDevices());
-  }, [refreshInputDevices]);
+  }, [isActive, refreshInputDevices]);
 
   useEffect(() => {
     onRegisterSave?.(() => {
@@ -453,10 +458,10 @@ export const StudySettingsPanel: React.FC<StudySettingsPanelProps> = ({ onRegist
 
         <div className={styles.monitoringSections} hidden={activeTab !== "live"}>
           <FormSection title="实时监控" variant="plain">
-            <RealTimeNoiseChart />
+            <RealTimeNoiseChart enabled={isActive} />
           </FormSection>
           <FormSection title="统计数据" variant="plain">
-            <NoiseStatsSummary />
+            <NoiseStatsSummary enabled={isActive} />
           </FormSection>
         </div>
       </div>

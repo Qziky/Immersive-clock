@@ -4,6 +4,7 @@ import { useAppDispatch, useAppState } from "../../../contexts/AppContext";
 import { useMinutelyWeatherSnapshot } from "../../../hooks/useMinutelyWeatherSnapshot";
 import { useWeatherRuntimeSnapshot } from "../../../hooks/useWeatherRuntimeSnapshot";
 import {
+  acquireWeatherRuntime,
   refreshLocation,
   refreshWeather,
   searchWeatherCities,
@@ -32,6 +33,7 @@ import { WeatherLivePanel } from "./WeatherLivePanel";
 import styles from "./WeatherSettingsPanel.module.css";
 
 export interface WeatherSettingsPanelProps {
+  isActive?: boolean;
   onRegisterSave?: (fn: () => void) => void;
   section: WeatherSettingsSection;
 }
@@ -73,7 +75,11 @@ function candidateValue(candidate: WeatherCitySelection, index: number): string 
   return `${candidate.locationKey}:${candidate.lon}:${candidate.lat}:${index}`;
 }
 
-const WeatherSettingsPanel: React.FC<WeatherSettingsPanelProps> = ({ onRegisterSave, section }) => {
+const WeatherSettingsPanel: React.FC<WeatherSettingsPanelProps> = ({
+  isActive = true,
+  onRegisterSave,
+  section,
+}) => {
   const { study } = useAppState();
   const dispatch = useAppDispatch();
   const runtime = useWeatherRuntimeSnapshot();
@@ -109,6 +115,11 @@ const WeatherSettingsPanel: React.FC<WeatherSettingsPanelProps> = ({ onRegisterS
   );
   const [citySearchError, setCitySearchError] = useState<string | null>(null);
   const [isSearchingCities, setIsSearchingCities] = useState(false);
+
+  useEffect(() => {
+    if (!isActive) return undefined;
+    return acquireWeatherRuntime();
+  }, [isActive]);
 
   const isRefreshing =
     runtime.status === "locating" ||

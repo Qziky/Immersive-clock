@@ -25,8 +25,12 @@ function formatSignalHealth(health: NoiseSignalHealth): string {
   return health === "signal-anomaly" ? "信号异常" : health;
 }
 
-export const NoiseStatsSummary: React.FC = () => {
-  const { latestSlice } = useNoiseStream();
+interface NoiseStatsSummaryProps {
+  enabled?: boolean;
+}
+
+export const NoiseStatsSummary: React.FC<NoiseStatsSummaryProps> = ({ enabled = true }) => {
+  const { latestSlice } = useNoiseStream(enabled);
   const [storedLatestSlice, setStoredLatestSlice] = useState<NoiseSliceSummary | null>(null);
 
   useEffect(() => {

@@ -11,9 +11,10 @@ import {
 
 /**
  * 订阅环境噪音数据流的 Hook
+ * @param enabled 是否持有实时采集订阅
  * @returns 包含噪音快照数据和重试函数的对象
  */
-export function useNoiseStream(): NoiseStreamSnapshot & {
+export function useNoiseStream(enabled = true): NoiseStreamSnapshot & {
   retry: () => void;
   calibrate: (referenceDbA: number) => Promise<void>;
   clearCalibration: () => Promise<void>;
@@ -21,6 +22,7 @@ export function useNoiseStream(): NoiseStreamSnapshot & {
   const [snap, setSnap] = useState<NoiseStreamSnapshot>(() => getNoiseStreamSnapshot());
 
   useEffect(() => {
+    if (!enabled) return undefined;
     let mounted = true;
     const update = () => {
       if (!mounted) return;
@@ -32,7 +34,7 @@ export function useNoiseStream(): NoiseStreamSnapshot & {
       mounted = false;
       unsubscribe();
     };
-  }, []);
+  }, [enabled]);
 
   const retry = useCallback(() => {
     void restartNoiseStream();

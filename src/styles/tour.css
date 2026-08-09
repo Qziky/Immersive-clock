@@ -18,10 +18,13 @@
   padding: 18px !important;
 }
 
-/* QQ 浏览器部分内核会保留 driver.js 的 all: unset 回退样式，
- * 因此为文字与按钮保留不依赖 CSS 变量的静态颜色。 */
+/* QQ 浏览器部分内核会自动重映射深色页面，并保留 driver.js 的 all: unset
+ * 回退样式；锁定深色方案，并为文字与按钮保留不依赖 CSS 变量的静态颜色。 */
 .driver-popover,
 .driver-popover * {
+  color-scheme: dark;
+  color-scheme: only dark;
+  forced-color-adjust: none;
   -webkit-text-fill-color: currentColor;
 }
 
@@ -169,11 +172,17 @@
 /* driver.js 1.4 uses an SVG path for the page mask. */
 .driver-overlay {
   fill: #020504 !important;
+  color-scheme: dark;
+  color-scheme: only dark;
+  forced-color-adjust: none;
   opacity: 1 !important;
 }
 
 .driver-overlay path {
   fill: #020504 !important;
+  -webkit-filter: brightness(0) !important;
+  filter: brightness(0) !important;
+  forced-color-adjust: none;
   opacity: 0.62 !important;
 }
 

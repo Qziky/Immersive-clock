@@ -357,4 +357,18 @@ describe("WeatherRuntime", () => {
     });
     stop();
   });
+
+  it("多个使用者共享天气运行时，最后释放后才停止", async () => {
+    const runtime = await import("../weatherRuntime");
+
+    const releaseFirst = runtime.acquireWeatherRuntime();
+    const releaseSecond = runtime.acquireWeatherRuntime();
+    await vi.waitFor(() => expect(mocks.settingsListener).not.toBeNull());
+
+    releaseFirst();
+    expect(mocks.settingsListener).not.toBeNull();
+
+    releaseSecond();
+    expect(mocks.settingsListener).toBeNull();
+  });
 });

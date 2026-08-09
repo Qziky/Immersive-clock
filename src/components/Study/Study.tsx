@@ -4,6 +4,7 @@ import { useAppState } from "../../contexts/AppContext";
 import { useAppearance, useComponentAppearance } from "../../contexts/AppearanceContext";
 import { useNoiseStream } from "../../hooks/useNoiseStream";
 import { useTimer } from "../../hooks/useTimer";
+import { acquireWeatherRuntime } from "../../services/weatherRuntime";
 import { CountdownItem, type StudyDisplaySettings } from "../../types";
 import { DEFAULT_SCHEDULE, StudyPeriod } from "../../types/studySchedule";
 import { appearanceBackgroundToCss } from "../../utils/appearanceModel";
@@ -42,6 +43,8 @@ export function Study() {
   // 记录当前课时是否已弹出过报告，以及是否被手动关闭以避免重复弹出
   const lastPopupPeriodIdRef = useRef<string | null>(null);
   const dismissedPeriodIdRef = useRef<string | null>(null);
+
+  useEffect(() => acquireWeatherRuntime(), []);
 
   // 轮播：容器与尺寸测量
   const countdownRef = useRef<HTMLDivElement | null>(null);

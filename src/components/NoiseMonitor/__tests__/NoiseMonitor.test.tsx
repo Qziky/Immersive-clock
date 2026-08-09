@@ -111,7 +111,7 @@ describe("NoiseMonitor", () => {
     );
   });
 
-  it("不再区分降噪与连续零值，统一显示信号异常", () => {
+  it("信号异常时显示麦克风异常且不显示辅助文案", () => {
     hooks.snapshot = createSnapshot({
       status: "signal-unavailable",
       signalHealth: "signal-anomaly",
@@ -120,8 +120,9 @@ describe("NoiseMonitor", () => {
 
     render(<NoiseMonitor />);
 
-    expect(screen.getByText("信号异常")).toBeVisible();
-    expect(screen.getByText("无有效信号")).toBeVisible();
+    expect(screen.getByText("麦克风异常")).toBeVisible();
+    expect(screen.queryByText("无有效信号")).not.toBeInTheDocument();
+    expect(screen.queryByText("测量可信度低")).not.toBeInTheDocument();
     expect(screen.queryByText("疑似设备降噪")).not.toBeInTheDocument();
     expect(screen.queryByText("数字静音")).not.toBeInTheDocument();
   });

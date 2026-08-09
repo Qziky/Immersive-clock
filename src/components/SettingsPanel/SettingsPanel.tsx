@@ -44,7 +44,6 @@ type SettingsPaneId =
   | "quoteEffects"
   | "quoteChannels"
   | "timeSync"
-  | "privacy"
   | "project"
   | "updates"
   | "data"
@@ -307,19 +306,10 @@ const paneItems: SettingsPane[] = [
     section: "timeSync",
   },
   {
-    value: "privacy",
-    group: "system",
-    label: "隐私与分析",
-    description: "查看法律文档并控制用户体验改进计划。",
-    icon: "feature.privacy",
-    panel: "about",
-    section: "privacy",
-  },
-  {
     value: "project",
     group: "system",
     label: "项目信息",
-    description: "查看版本、授权信息和项目链接。",
+    description: "查看版本、授权、隐私与用户体验改进设置。",
     icon: "feature.about",
     panel: "about",
     section: "project",
@@ -601,6 +591,7 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
           <div className={styles.panelMount} hidden={activePaneItem.panel !== "weather"}>
             <WeatherSettingsPanel
               key={`weather-${draftSession}`}
+              isActive={isOpen && activePaneItem.panel === "weather"}
               section={weatherSection}
               onRegisterSave={registerWeatherSave}
             />
@@ -610,6 +601,7 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
           <div className={styles.panelMount} hidden={activePaneItem.panel !== "monitor"}>
             <StudySettingsPanel
               key={`monitor-${draftSession}`}
+              isActive={isOpen && activePaneItem.panel === "monitor"}
               onRegisterSave={registerMonitorSave}
             />
           </div>

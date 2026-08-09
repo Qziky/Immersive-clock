@@ -1,12 +1,16 @@
 @import "./tokens.css";
 
 [data-ui-root] {
-  background: var(--ui-color-bg);
+  background: #0c1110;
+  background: var(--ui-color-bg, #0c1110);
 }
 
 [data-ui-root],
 [data-ui-scope] {
-  color: var(--ui-color-text);
+  color: #f0f1ec;
+  color: var(--ui-color-text, #f0f1ec);
+  color-scheme: dark;
+  color-scheme: only dark;
   font-family: var(--ui-font-sans);
   font-size: var(--ui-font-size-md);
   letter-spacing: 0;

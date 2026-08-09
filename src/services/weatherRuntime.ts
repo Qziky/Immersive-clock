@@ -95,6 +95,7 @@ let pending: WeatherRefreshOptions | null = null;
 let timer: ReturnType<typeof setTimeout> | null = null;
 let notificationTimer: ReturnType<typeof setInterval> | null = null;
 let runtimeStarted = false;
+let runtimeConsumers = 0;
 let failureCount = 0;
 let stopListeners: (() => void) | null = null;
 
@@ -476,6 +477,22 @@ export function stopWeatherRuntime(): void {
   runtimeStarted = false;
 }
 
+/**
+ * 获取天气运行时的使用权。最后一个使用者释放后，停止自动定位与天气刷新。
+ */
+export function acquireWeatherRuntime(): () => void {
+  runtimeConsumers += 1;
+  if (runtimeConsumers === 1) startWeatherRuntime();
+
+  let released = false;
+  return () => {
+    if (released) return;
+    released = true;
+    runtimeConsumers = Math.max(0, runtimeConsumers - 1);
+    if (runtimeConsumers === 0) stopWeatherRuntime();
+  };
+}
+
 export function getWeatherRuntimeSnapshot(): WeatherRuntimeSnapshot {
   return snapshot;
 }
@@ -488,6 +505,7 @@ export function subscribeWeatherRuntime(listener: Listener): () => void {
 
 export function __resetWeatherRuntimeForTests(): void {
   stopWeatherRuntime();
+  runtimeConsumers = 0;
   snapshot = {
     cache: {},
     error: null,

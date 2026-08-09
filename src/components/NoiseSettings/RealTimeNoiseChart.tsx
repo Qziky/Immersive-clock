@@ -6,8 +6,12 @@ import { LineChart, type ChartLineSeries, type ChartTick } from "../../ui";
 
 import styles from "./NoiseSettings.module.css";
 
-export const RealTimeNoiseChart: React.FC = () => {
-  const { ringBuffer, primaryMetric, scoreAlertThreshold, status } = useNoiseStream();
+interface RealTimeNoiseChartProps {
+  enabled?: boolean;
+}
+
+export const RealTimeNoiseChart: React.FC<RealTimeNoiseChartProps> = ({ enabled = true }) => {
+  const { ringBuffer, primaryMetric, scoreAlertThreshold, status } = useNoiseStream(enabled);
 
   const chart = useMemo(() => {
     const scoreMode = primaryMetric === "quietness-score";

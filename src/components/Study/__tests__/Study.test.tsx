@@ -8,6 +8,10 @@ const reportSettings = vi.hoisted(() => ({
   value: { autoPopup: true, autoCloseMinutes: 10 },
 }));
 
+const weatherRuntimeMocks = vi.hoisted(() => ({
+  acquire: vi.fn(() => () => undefined),
+}));
+
 vi.mock("../../../contexts/AppContext", () => ({
   useAppState: () => ({
     timeDisplay: { showStudySeconds: true },
@@ -44,6 +48,10 @@ vi.mock("../../../hooks/useNoiseStream", () => ({
 
 vi.mock("../../../hooks/useTimer", () => ({
   useTimer: () => undefined,
+}));
+
+vi.mock("../../../services/weatherRuntime", () => ({
+  acquireWeatherRuntime: weatherRuntimeMocks.acquire,
 }));
 
 vi.mock("../../../utils/appearanceModel", () => ({
@@ -167,6 +175,7 @@ describe("Study 自习报告自动关闭", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     reportSettings.value = { autoPopup: true, autoCloseMinutes: 10 };
+    weatherRuntimeMocks.acquire.mockClear();
   });
 
   afterEach(() => {
@@ -187,6 +196,12 @@ describe("Study 自习报告自动关闭", () => {
 
     act(() => vi.advanceTimersByTime(1));
     expect(screen.queryByRole("dialog", { name: "噪音统计报告" })).not.toBeInTheDocument();
+  });
+
+  it("挂载自习页时才启动天气运行时", () => {
+    render(<Study />);
+
+    expect(weatherRuntimeMocks.acquire).toHaveBeenCalledTimes(1);
   });
 
   it("手动关闭自动报告时清理待执行的关闭计时器", () => {

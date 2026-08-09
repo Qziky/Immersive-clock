@@ -16,6 +16,7 @@ const createDriverMockImpl = (): Driver => ({
   getActiveElement: vi.fn(),
   getPreviousElement: vi.fn(),
   getPreviousStep: vi.fn(),
+  getNextStep: vi.fn(),
   moveNext: vi.fn(),
   movePrevious: vi.fn(),
   moveTo: vi.fn(),
@@ -81,7 +82,12 @@ describe("tour 默认焦点", () => {
         previousButton,
         closeButton,
       } as unknown as PopoverDOM,
-      { config: config!, state: {} as State, driver: createActiveDriverMockImpl() }
+      {
+        config: config!,
+        state: {} as State,
+        driver: createActiveDriverMockImpl(),
+        index: undefined,
+      }
     );
 
     expect(closeButton.disabled).toBe(true);
@@ -115,7 +121,12 @@ describe("tour 默认焦点", () => {
         previousButton,
         closeButton,
       } as unknown as PopoverDOM,
-      { config: config!, state: {} as State, driver: createActiveDriverMockImpl() }
+      {
+        config: config!,
+        state: {} as State,
+        driver: createActiveDriverMockImpl(),
+        index: undefined,
+      }
     );
 
     expect(closeButton.disabled).toBe(true);
@@ -151,7 +162,12 @@ describe("tour 默认焦点", () => {
         previousButton,
         closeButton,
       } as unknown as PopoverDOM,
-      { config: config!, state: {} as State, driver: createActiveDriverMockImpl() }
+      {
+        config: config!,
+        state: {} as State,
+        driver: createActiveDriverMockImpl(),
+        index: undefined,
+      }
     );
 
     expect(previousButton.disabled).toBe(true);

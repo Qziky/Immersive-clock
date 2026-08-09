@@ -6,6 +6,7 @@ import type { WeatherLocation } from "../../../../types/weather";
 import WeatherSettingsPanel from "../WeatherSettingsPanel";
 
 const mocks = vi.hoisted(() => ({
+  acquireRuntime: vi.fn(() => () => undefined),
   broadcast: vi.fn(),
   dispatch: vi.fn(),
   refreshLocation: vi.fn(),
@@ -48,6 +49,7 @@ vi.mock("../../../../hooks/useWeatherRuntimeSnapshot", () => ({
 }));
 
 vi.mock("../../../../services/weatherRuntime", () => ({
+  acquireWeatherRuntime: mocks.acquireRuntime,
   refreshLocation: mocks.refreshLocation,
   refreshWeather: mocks.refreshWeather,
   searchWeatherCities: mocks.searchCities,
@@ -110,6 +112,14 @@ describe("WeatherSettingsPanel", () => {
     expect(screen.queryByText("刷新档位")).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "刷新天气" }));
     expect(mocks.refreshWeather).toHaveBeenCalledWith({ force: true, reason: "manual" });
+  });
+
+  it("仅在当前设置分区激活时持有天气运行时", () => {
+    const { rerender } = render(<WeatherSettingsPanel isActive={false} section="weather" />);
+    expect(mocks.acquireRuntime).not.toHaveBeenCalled();
+
+    rerender(<WeatherSettingsPanel isActive section="weather" />);
+    expect(mocks.acquireRuntime).toHaveBeenCalledTimes(1);
   });
 
   it("手动城市必须搜索、选择候选并保存完整 locationKey", async () => {

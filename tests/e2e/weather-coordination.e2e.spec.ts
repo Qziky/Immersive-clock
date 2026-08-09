@@ -26,6 +26,9 @@ test("同设备双标签页只执行一次全量天气请求并同步缓存", as
             manualLocation: { query: "", selected: null },
           },
         },
+        noiseControl: {
+          monitoringEnabled: false,
+        },
       })
     );
     localStorage.setItem(
@@ -138,6 +141,13 @@ test("同设备双标签页只执行一次全量天气请求并同步缓存", as
 
   const secondPage = await context.newPage();
   await Promise.all([page.goto("/"), secondPage.goto("/")]);
+
+  await page.waitForTimeout(500);
+  expect(allRequestCount).toBe(0);
+  expect(locationRequestCount).toBe(0);
+  expect(minutelyRequestCount).toBe(0);
+
+  await Promise.all([page.goto("/study"), secondPage.goto("/study")]);
 
   await expect.poll(() => allRequestCount).toBe(1);
   await expect

@@ -31,6 +31,7 @@ const createDriverMockImpl = (): Driver => {
     getActiveElement: vi.fn(),
     getPreviousElement: vi.fn(),
     getPreviousStep: vi.fn(),
+    getNextStep: vi.fn(),
     moveNext: vi.fn(() => {
       if (state.activeIndex !== undefined) state.activeIndex += 1;
     }),
@@ -115,6 +116,7 @@ const invokeNext = (
     config,
     state: { activeIndex: driverInstance.getActiveIndex(), popover } as State,
     driver: driverInstance,
+    index: driverInstance.getActiveIndex(),
   });
   return popover;
 };
@@ -168,11 +170,13 @@ describe("tour 守卫式下一步", () => {
       config,
       state: { popover } as State,
       driver: driverInstance,
+      index: driverInstance.getActiveIndex(),
     });
     config.onPopoverRender?.(popover, {
       config,
       state: { popover } as State,
       driver: driverInstance,
+      index: driverInstance.getActiveIndex(),
     });
 
     expect(popover.nextButton).toBeDisabled();
@@ -182,6 +186,7 @@ describe("tour 守卫式下一步", () => {
       config,
       state: { popover } as State,
       driver: driverInstance,
+      index: driverInstance.getActiveIndex(),
     });
     expect(driverInstance.moveNext).not.toHaveBeenCalled();
 
@@ -189,6 +194,7 @@ describe("tour 守卫式下一步", () => {
       config,
       state: { popover } as State,
       driver: driverInstance,
+      index: driverInstance.getActiveIndex(),
     });
     expect(popover.nextButton).toBeEnabled();
     expect(popover.nextButton).toHaveTextContent("下一步");
@@ -197,11 +203,13 @@ describe("tour 守卫式下一步", () => {
       config,
       state: { popover } as State,
       driver: driverInstance,
+      index: driverInstance.getActiveIndex(),
     });
     config.onNextClick?.(undefined, runtimeStep, {
       config,
       state: { popover } as State,
       driver: driverInstance,
+      index: driverInstance.getActiveIndex(),
     });
     expect(driverInstance.moveNext).toHaveBeenCalledTimes(1);
   });
@@ -226,6 +234,7 @@ describe("tour 守卫式下一步", () => {
       config,
       state: {} as State,
       driver: driverInstance,
+      index: driverInstance.getActiveIndex(),
     });
 
     expect(driverInstance.destroy).toHaveBeenCalledTimes(1);
@@ -248,6 +257,7 @@ describe("tour 守卫式下一步", () => {
       config,
       state: { activeIndex: 2 } as State,
       driver: driverInstance,
+      index: driverInstance.getActiveIndex(),
     });
 
     expect(completedListener).not.toHaveBeenCalled();
@@ -386,11 +396,13 @@ describe("tour 守卫式下一步", () => {
       config,
       state: {} as State,
       driver: driverInstance,
+      index: driverInstance.getActiveIndex(),
     });
     config.onHighlighted?.(undefined, closeStep, {
       config,
       state: {} as State,
       driver: driverInstance,
+      index: driverInstance.getActiveIndex(),
     });
     invokeNext(config, driverInstance, closeStep);
     expect(document.querySelector('[data-tour="noise-history-modal"]')).toBeFalsy();

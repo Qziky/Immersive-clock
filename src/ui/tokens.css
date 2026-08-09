@@ -1,5 +1,7 @@
 :root {
   color-scheme: dark;
+  /* QQ 浏览器的自动网页配色会错误重映射深色令牌；only 锁定作者定义的深色方案。 */
+  color-scheme: only dark;
 
   --ui-color-bg: #0c1110;
   --ui-color-bg-raised: #111715;

@@ -20,6 +20,7 @@ html {
   background-color: var(--ui-color-bg);
   color: var(--ui-color-text);
   color-scheme: dark;
+  color-scheme: only dark;
   /* 防止双击缩放 */
   touch-action: manipulation;
   -webkit-touch-callout: none;
@@ -33,6 +34,7 @@ body {
   background-color: var(--ui-color-bg);
   color: var(--ui-color-text);
   color-scheme: dark;
+  color-scheme: only dark;
   font-family: var(--ui-font-sans);
   font-size: 16px;
   line-height: 1.5;
