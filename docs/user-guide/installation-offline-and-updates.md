@@ -12,11 +12,21 @@
 
 PWA 会把网页版安装到桌面、开始菜单或主屏幕，打开时更像独立应用。
 
-### Windows 或 Linux 的 Chrome / Edge
+### Windows 或 Linux 的 Edge
 
 1. 打开已正确部署的 Web 版并等待页面完成加载。
-2. 点击地址栏中的安装图标，或打开浏览器菜单选择“安装应用”。
-3. 确认安装。
+2. 点击地址栏右侧的安装图标。
+3. 在“安装 沉浸式时钟 应用”弹窗中点击“安装”。
+
+<img src="../marketing/assets/readme/pwa-install-edge.png" width="720" alt="Edge 地址栏安装图标和安装沉浸式时钟应用弹窗" />
+
+### Windows 或 Linux 的 Chrome
+
+1. 打开已正确部署的 Web 版并等待页面完成加载。
+2. 点击地址栏右侧的安装图标。
+3. 在“安装应用”对话框中点击“安装”。
+
+<img src="../marketing/assets/readme/pwa-install-chrome.png" width="720" alt="Chrome 地址栏安装图标和安装应用对话框" />
 
 ### Android Chrome
 

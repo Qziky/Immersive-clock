@@ -9,6 +9,10 @@
 | `docs/marketing/assets/readme/readme-study-dashboard.png`     |     1440 × 900 | README 自习看板展示                | 固定演示天气、进度、目标和原创语录；噪音组件已关闭          |
 | `docs/marketing/assets/readme/readme-modes-grid.png`          |     1440 × 900 | README 四模式拼图                  | 时钟、30 分钟倒计时、暂停秒表和自习模式                     |
 | `docs/marketing/assets/readme/readme-appearance-settings.png` |     1440 × 900 | README 外观设置展示                | 当前设置中心；预览卡日期时间为应用内置样式示例              |
+| `docs/marketing/assets/readme/pwa-install-edge.png`           |     1440 × 860 | README 与 Edge 安装指南截图        | Edge 地址栏安装图标及确认弹窗；等比缩放自用户提供截图       |
+| `docs/marketing/assets/readme/pwa-install-chrome.png`         |     1440 × 860 | README 与 Chrome 安装指南截图      | Chrome 地址栏安装图标及确认对话框；等比缩放自用户提供截图   |
+| `public/docs/assets/pwa-install-edge.webp`                    |      960 × 573 | 网站快速上手 Edge 安装截图         | WebP 压缩副本，在快速上手安装指南中展示                     |
+| `public/docs/assets/pwa-install-chrome.webp`                  |      960 × 573 | 网站快速上手 Chrome 安装截图       | WebP 压缩副本，在快速上手安装指南中展示                     |
 | `public/og-image.png`                                         |     1200 × 630 | Open Graph、Twitter Card、PWA 截图 | 已在 `index.html` 与 manifest 中引用；更新时保持 1200 × 630 |
 | `public/favicon.svg`                                          |         可缩放 | 浏览器首选图标、README 品牌图      | 主图标源，适合网页和矢量场景                                |
 | `public/favicon.png`                                          |      256 × 256 | Linux 安装包图标、PNG 兼容         | 保持与 SVG 视觉一致                                         |

@@ -78,7 +78,17 @@ PWA 会把网页版安装到桌面、开始菜单或主屏幕，打开时更像�
 
 1. 从 [GitHub Releases](https://github.com/Qziky/Immersive-clock/releases/latest) 下载 Web ZIP，并部署到支持 HTTPS 与 SPA fallback 的 Web 服务。
 2. 使用 Chrome、Edge 或其他支持 PWA 的浏览器打开部署后的地址。
-3. 点击地址栏中的“安装应用”图标，或在浏览器菜单中选择“安装应用”／“添加到主屏幕”，然后确认安装。
+3. 根据浏览器完成安装：
+   - **Edge**：点击地址栏右侧的安装图标，然后在“安装 沉浸式时钟 应用”弹窗中点击“安装”。
+   - **Chrome**：点击地址栏右侧的安装图标，然后在“安装应用”对话框中点击“安装”。
+
+#### Edge 安装示例
+
+<img src="docs/marketing/assets/readme/pwa-install-edge.png" width="720" alt="Edge 地址栏安装图标和安装沉浸式时钟应用弹窗" />
+
+#### Chrome 安装示例
+
+<img src="docs/marketing/assets/readme/pwa-install-chrome.png" width="720" alt="Chrome 地址栏安装图标和安装应用对话框" />
 
 ### 🌐 方式二：在浏览器中直接使用
 
@@ -94,7 +104,6 @@ Windows、Linux 和 Android 构建可从 [GitHub Releases](https://github.com/Qz
 - Linux：AppImage、deb 与 rpm；
 - Android：正式签名的侧载 APK，系统可能要求允许“安装未知应用”；
 - macOS：当前没有对外发布原生安装包，可使用自托管 Web/PWA 版。
-
 
 ## 🔒 隐私与能力边界
 

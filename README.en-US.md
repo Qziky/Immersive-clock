@@ -91,7 +91,19 @@ A PWA installs the web build on your desktop, Start menu, or home screen. It ope
 
 1. Download the Web ZIP from [GitHub Releases](https://github.com/Qziky/Immersive-clock/releases/latest), then deploy it to an HTTPS web server with SPA fallback support.
 2. Open the deployed address in Chrome, Edge, or another browser that supports PWAs.
-3. Select the address-bar install icon, or choose “Install app” / “Add to Home Screen” from the browser menu, then confirm.
+3. Complete the browser-specific installation:
+   - **Edge**: select the install icon at the right side of the address bar, then choose “Install” in the “Install Immersive Clock app” prompt.
+   - **Chrome**: select the install icon at the right side of the address bar, then choose “Install” in the “Install app” dialog.
+
+#### Edge installation example
+
+<img src="docs/marketing/assets/readme/pwa-install-edge.png" width="720" alt="Edge address-bar install icon and Install Immersive Clock app prompt" />
+
+#### Chrome installation example
+
+<img src="docs/marketing/assets/readme/pwa-install-chrome.png" width="720" alt="Chrome address-bar install icon and Install app dialog" />
+
+The screenshots show the Chinese browser interface; the install icon and confirmation action are in the same locations in English browser builds.
 
 ### 🌐 Option 2: Use it directly in a browser
 

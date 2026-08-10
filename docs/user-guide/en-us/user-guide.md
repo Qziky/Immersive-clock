@@ -215,7 +215,24 @@ Create the required JSON and `.icnoise` exports before erasing data.
 
 Download the versioned Web ZIP from [GitHub Releases](https://github.com/Qziky/Immersive-clock/releases), deploy it over HTTPS with SPA fallback and the required weather proxy, or install that deployment as a PWA. External website deployments are outside the GitHub Release scope.
 
-- Chrome/Edge desktop: use the address-bar or browser-menu Install command.
+On Windows or Linux desktop, wait for the deployed page to finish loading, then follow the browser-specific steps:
+
+### Edge
+
+1. Select the install icon at the right side of the address bar.
+2. Select “Install” in the “Install Immersive Clock app” prompt.
+
+<img src="../../marketing/assets/readme/pwa-install-edge.png" width="720" alt="Edge address-bar install icon and Install Immersive Clock app prompt" />
+
+### Chrome
+
+1. Select the install icon at the right side of the address bar.
+2. Select “Install” in the “Install app” dialog.
+
+<img src="../../marketing/assets/readme/pwa-install-chrome.png" width="720" alt="Chrome address-bar install icon and Install app dialog" />
+
+The screenshots show the Chinese browser interface; the install icon and confirmation action are in the same locations in English browser builds.
+
 - Android Chrome: use Install App or Add to Home Screen.
 - iPhone/iPad Safari: use Share → Add to Home Screen.
 
