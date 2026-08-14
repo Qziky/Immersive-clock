@@ -52,15 +52,15 @@ const manifest = {
       version,
       appImageUrl: envOrDefault(
         "UPDATE_LINUX_APPIMAGE_URL",
-        `${releaseAssetBase}/immersive-clock-${version}-x64.AppImage`
+        `${releaseAssetBase}/immersive-clock-${version}-x86_64.AppImage`
       ),
       debUrl: envOrDefault(
         "UPDATE_LINUX_DEB_URL",
-        `${releaseAssetBase}/immersive-clock-${version}-x64.deb`
+        `${releaseAssetBase}/immersive-clock-${version}-amd64.deb`
       ),
       rpmUrl: envOrDefault(
         "UPDATE_LINUX_RPM_URL",
-        `${releaseAssetBase}/immersive-clock-${version}-x64.rpm`
+        `${releaseAssetBase}/immersive-clock-${version}-x86_64.rpm`
       ),
     },
     android: {

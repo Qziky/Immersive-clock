@@ -525,8 +525,25 @@ jobs:
           mkdir release-files
           find release-assets -type f -exec cp '{}' release-files/ \;
 
+          shopt -s nullglob
+          appimage_files=(release-files/immersive-clock-${version}-*.AppImage)
+          deb_files=(release-files/immersive-clock-${version}-*.deb)
+          rpm_files=(release-files/immersive-clock-${version}-*.rpm)
+          if [ ${#appimage_files[@]} -ne 1 ] || [ ${#deb_files[@]} -ne 1 ] || [ ${#rpm_files[@]} -ne 1 ]; then
+            echo "Expected exactly one Linux AppImage, deb, and rpm artifact" >&2
+            find release-files -maxdepth 1 -type f -print
+            exit 1
+          fi
+          appimage_name="$(basename "${appimage_files[0]}")"
+          deb_name="$(basename "${deb_files[0]}")"
+          rpm_name="$(basename "${rpm_files[0]}")"
+          release_asset_base="https://github.com/${GITHUB_REPOSITORY}/releases/download/${{ needs.prepare.outputs.tag }}"
+
           VITE_APP_VERSION="$version" \
             UPDATE_RELEASE_TAG="${{ needs.prepare.outputs.tag }}" \
+            UPDATE_LINUX_APPIMAGE_URL="${release_asset_base}/${appimage_name}" \
+            UPDATE_LINUX_DEB_URL="${release_asset_base}/${deb_name}" \
+            UPDATE_LINUX_RPM_URL="${release_asset_base}/${rpm_name}" \
             UPDATE_MANIFEST_OUTPUT_DIR=release-files \
             node scripts/generate-update-manifest.mjs
 
@@ -538,15 +555,24 @@ jobs:
           test -s release-files/latest.yml
           test -s release-files/latest-linux.yml
 
-          for extension in AppImage deb rpm; do
-            shopt -s nullglob
-            files=(release-files/immersive-clock-${version}-*.${extension})
-            if [ ${#files[@]} -ne 1 ] || [ ! -s "${files[0]}" ]; then
-              echo "Expected one non-empty ${extension} release file" >&2
-              find release-files -maxdepth 1 -type f -print
-              exit 1
-            fi
-          done
+          EXPECTED_APPIMAGE_URL="${release_asset_base}/${appimage_name}" \
+            EXPECTED_DEB_URL="${release_asset_base}/${deb_name}" \
+            EXPECTED_RPM_URL="${release_asset_base}/${rpm_name}" \
+            node --input-type=module <<'NODE'
+          import fs from "node:fs";
+
+          const manifest = JSON.parse(fs.readFileSync("release-files/update-manifest.json", "utf8"));
+          const expected = {
+            appImageUrl: process.env.EXPECTED_APPIMAGE_URL,
+            debUrl: process.env.EXPECTED_DEB_URL,
+            rpmUrl: process.env.EXPECTED_RPM_URL,
+          };
+          for (const [key, value] of Object.entries(expected)) {
+            if (manifest.platforms.linux[key] !== value) {
+              throw new Error(`Linux update manifest mismatch for ${key}`);
+            }
+          }
+          NODE
 
           (cd release-files && sha256sum * | sort -k2 > SHA256SUMS.txt)
           test -s release-files/SHA256SUMS.txt
