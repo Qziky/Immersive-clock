@@ -73,6 +73,11 @@
   margin-left: auto;
 }
 
+.customPresetLabel {
+  display: inline-block;
+  white-space: nowrap;
+}
+
 @media (max-width: 480px) {
   .countdownModal {
     max-height: calc(100dvh - 16px);

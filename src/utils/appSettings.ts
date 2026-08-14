@@ -64,6 +64,10 @@ export interface AppSettings {
   modifiedAt: number;
   appearance: AppearanceSettingsV2;
 
+  countdown: {
+    customQuickPresetSeconds: number | null;
+  };
+
   general: {
     developerModeEnabled: boolean;
     keepAwakeEnabled: boolean;
@@ -161,7 +165,9 @@ export interface AppSettings {
 
 export const APP_SETTINGS_KEY = "AppSettings";
 export const APP_SETTINGS_QUARANTINE_KEY = "immersive-clock:quarantine:app-settings";
-export const CURRENT_SETTINGS_VERSION = 18;
+export const CURRENT_SETTINGS_VERSION = 19;
+
+export const MAX_COUNTDOWN_QUICK_PRESET_SECONDS = 23 * 60 * 60 + 59 * 60 + 59;
 
 /** 中央信息轮播的硬上限，配置与运行时都应遵守该值。 */
 export const MAX_STUDY_INFO_ITEMS = 20;
@@ -178,6 +184,18 @@ export function normalizeNoiseReportAutoCloseMinutes(value: unknown): number {
     MIN_NOISE_REPORT_AUTO_CLOSE_MINUTES,
     Math.min(MAX_NOISE_REPORT_AUTO_CLOSE_MINUTES, Math.round(value))
   );
+}
+
+export function normalizeCountdownQuickPresetSeconds(value: unknown): number | null {
+  if (
+    typeof value !== "number" ||
+    !Number.isInteger(value) ||
+    value < 1 ||
+    value > MAX_COUNTDOWN_QUICK_PRESET_SECONDS
+  ) {
+    return null;
+  }
+  return value;
 }
 
 export const STUDY_INFO_BUILTIN_IDS = {
@@ -793,6 +811,9 @@ const DEFAULT_SETTINGS: AppSettings = {
   version: CURRENT_SETTINGS_VERSION,
   modifiedAt: Date.now(),
   appearance: createDefaultAppearance(),
+  countdown: {
+    customQuickPresetSeconds: null,
+  },
   general: {
     developerModeEnabled: false,
     keepAwakeEnabled: false,
@@ -1044,6 +1065,7 @@ export function normalizeAppSettings(value: unknown): AppSettings {
     throw new UnsupportedSettingsVersionError(storedVersion);
   }
   const parsedGeneral = isRecord(parsed.general) ? parsed.general : {};
+  const parsedCountdown = isRecord(parsed.countdown) ? parsed.countdown : {};
   const parsedTimeDisplay = isRecord(parsedGeneral.timeDisplay) ? parsedGeneral.timeDisplay : {};
   const parsedStudy = isRecord(parsed.study) ? parsed.study : {};
   const parsedAlerts = isRecord(parsedStudy.alerts) ? parsedStudy.alerts : {};
@@ -1114,6 +1136,11 @@ export function normalizeAppSettings(value: unknown): AppSettings {
     version: CURRENT_SETTINGS_VERSION,
     modifiedAt,
     appearance,
+    countdown: {
+      customQuickPresetSeconds: normalizeCountdownQuickPresetSeconds(
+        parsedCountdown.customQuickPresetSeconds
+      ),
+    },
     general: {
       ...DEFAULT_SETTINGS.general,
       ...parsedGeneral,
@@ -1246,6 +1273,17 @@ export function updateAppSettings(
     // 注意：上方的展开运算是浅拷贝，嵌套对象的部分更新需要单独处理
     // 通常调用方会传入完整的嵌套对象，或通过专门的更新函数进行修改
     // 为安全起见，这里在 updates 含有对应分区时再做一次合并
+
+    if (updates.countdown) {
+      const countdownUpdates = updates.countdown;
+      nextSettings.countdown = {
+        ...current.countdown,
+        customQuickPresetSeconds:
+          countdownUpdates.customQuickPresetSeconds === undefined
+            ? current.countdown.customQuickPresetSeconds
+            : normalizeCountdownQuickPresetSeconds(countdownUpdates.customQuickPresetSeconds),
+      };
+    }
 
     if (updates.general) {
       const generalUpdates = updates.general;
@@ -1509,6 +1547,7 @@ export function migrateStoredAppSettings(): AppSettings {
     return getAppSettings();
   }
   const parsedGeneral = isRecord(parsed.general) ? parsed.general : {};
+  const parsedCountdown = isRecord(parsed.countdown) ? parsed.countdown : {};
   const parsedStudy = isRecord(parsed.study) ? parsed.study : {};
   const parsedDisplay = isRecord(parsedStudy.display) ? parsedStudy.display : {};
   if (
@@ -1563,12 +1602,16 @@ export function migrateStoredAppSettings(): AppSettings {
   const infoCarouselNeedsNormalization =
     !Object.prototype.hasOwnProperty.call(parsedStudy, "infoCarousel") ||
     JSON.stringify(parsedStudy.infoCarousel) !== JSON.stringify(normalized.study.infoCarousel);
+  const countdownNeedsNormalization =
+    !Object.prototype.hasOwnProperty.call(parsed, "countdown") ||
+    JSON.stringify(parsedCountdown) !== JSON.stringify(normalized.countdown);
   if (
     storedVersion < CURRENT_SETTINGS_VERSION ||
     !parsed.appearance ||
     quoteNeedsNormalization ||
     displayNeedsNormalization ||
-    infoCarouselNeedsNormalization
+    infoCarouselNeedsNormalization ||
+    countdownNeedsNormalization
   ) {
     localStorage.setItem(APP_SETTINGS_KEY, JSON.stringify(normalized));
   }

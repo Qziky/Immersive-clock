@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 
 import { useAppDispatch, useAppState } from "../../contexts/AppContext";
 import {
@@ -9,7 +9,8 @@ import {
   Modal,
   RadioGroup,
 } from "../../ui";
-import { timeToSeconds } from "../../utils/formatTime";
+import { getAppSettings, updateAppSettings } from "../../utils/appSettings";
+import { secondsToTime, timeToSeconds } from "../../utils/formatTime";
 
 import styles from "./CountdownModal.module.css";
 
@@ -17,9 +18,32 @@ const COUNTDOWN_PRESETS = [
   { label: "10分钟", minutes: 10 },
   { label: "30分钟", minutes: 30 },
   { label: "1小时", minutes: 60 },
-  { label: "1小时15分", minutes: 75 },
-  { label: "2小时", minutes: 120 },
 ] as const;
+
+const CUSTOM_PRESET_VALUE = "custom";
+
+type CountdownDraft = {
+  hours: number;
+  minutes: number;
+  seconds: number;
+  selectedPreset: string;
+  customQuickPresetSeconds: number | null;
+};
+
+function formatQuickPresetLabel(totalSeconds: number): string {
+  const { hours, minutes, seconds } = secondsToTime(totalSeconds);
+  if (hours > 0) {
+    return `${hours}小时${minutes > 0 ? `${minutes}分` : ""}${seconds > 0 ? `${seconds}秒` : ""}`;
+  }
+  if (minutes > 0) {
+    return `${minutes}分钟${seconds > 0 ? `${seconds}秒` : ""}`;
+  }
+  return `${seconds}秒`;
+}
+
+function getTimeDraft(totalSeconds: number): Pick<CountdownDraft, "hours" | "minutes" | "seconds"> {
+  return secondsToTime(totalSeconds);
+}
 
 /**
  * 倒计时设置模态框组件
@@ -32,11 +56,41 @@ export function CountdownModal() {
   const [hours, setHours] = useState(0);
   const [minutes, setMinutes] = useState(10);
   const [seconds, setSeconds] = useState(0);
+  const [selectedPreset, setSelectedPreset] = useState(String(COUNTDOWN_PRESETS[0].minutes));
+  const [customQuickPresetSeconds, setCustomQuickPresetSeconds] = useState<number | null>(
+    () => getAppSettings().countdown.customQuickPresetSeconds
+  );
+  const wasModalOpenRef = useRef(false);
+  const draftSnapshotRef = useRef<CountdownDraft | null>(null);
+
+  useEffect(() => {
+    const isOpening = isModalOpen && !wasModalOpenRef.current;
+    wasModalOpenRef.current = isModalOpen;
+    if (!isOpening) return;
+
+    const latestCustomQuickPresetSeconds = getAppSettings().countdown.customQuickPresetSeconds;
+    setCustomQuickPresetSeconds(latestCustomQuickPresetSeconds);
+    draftSnapshotRef.current = {
+      hours,
+      minutes,
+      seconds,
+      selectedPreset,
+      customQuickPresetSeconds: latestCustomQuickPresetSeconds,
+    };
+  }, [hours, isModalOpen, minutes, seconds, selectedPreset]);
 
   /**
    * 关闭模态框
    */
   const handleClose = useCallback(() => {
+    const snapshot = draftSnapshotRef.current;
+    if (snapshot) {
+      setHours(snapshot.hours);
+      setMinutes(snapshot.minutes);
+      setSeconds(snapshot.seconds);
+      setSelectedPreset(snapshot.selectedPreset);
+      setCustomQuickPresetSeconds(snapshot.customQuickPresetSeconds);
+    }
     dispatch({ type: "CLOSE_MODAL" });
   }, [dispatch]);
 
@@ -46,26 +100,51 @@ export function CountdownModal() {
   const handleConfirm = useCallback(() => {
     const totalSeconds = timeToSeconds(hours, minutes, seconds);
     if (totalSeconds > 0) {
+      if (selectedPreset === CUSTOM_PRESET_VALUE) {
+        updateAppSettings({
+          countdown: {
+            customQuickPresetSeconds: totalSeconds,
+          },
+        });
+        setCustomQuickPresetSeconds(totalSeconds);
+      }
       dispatch({ type: "SET_COUNTDOWN", payload: totalSeconds });
-      handleClose();
+      dispatch({ type: "CLOSE_MODAL" });
     }
-  }, [hours, minutes, seconds, dispatch, handleClose]);
+  }, [hours, minutes, seconds, selectedPreset, dispatch]);
 
   /**
    * 设置预设时间
    */
-  const handlePreset = useCallback((presetMinutes: number) => {
-    const presetHours = Math.floor(presetMinutes / 60);
-    const remainingMinutes = presetMinutes % 60;
-    setHours(presetHours);
-    setMinutes(remainingMinutes);
-    setSeconds(0);
-  }, []);
+  const handlePreset = useCallback(
+    (presetValue: string) => {
+      if (presetValue === CUSTOM_PRESET_VALUE) {
+        setSelectedPreset(CUSTOM_PRESET_VALUE);
+        if (customQuickPresetSeconds !== null) {
+          const draft = getTimeDraft(customQuickPresetSeconds);
+          setHours(draft.hours);
+          setMinutes(draft.minutes);
+          setSeconds(draft.seconds);
+        }
+        return;
+      }
+
+      const presetMinutes = Number(presetValue);
+      const presetHours = Math.floor(presetMinutes / 60);
+      const remainingMinutes = presetMinutes % 60;
+      setSelectedPreset(presetValue);
+      setHours(presetHours);
+      setMinutes(remainingMinutes);
+      setSeconds(0);
+    },
+    [customQuickPresetSeconds]
+  );
 
   /**
    * 调整时间值
    */
   const adjustTime = useCallback((type: "hours" | "minutes" | "seconds", delta: number) => {
+    setSelectedPreset(CUSTOM_PRESET_VALUE);
     switch (type) {
       case "hours":
         setHours((prev) => Math.max(0, Math.min(23, prev + delta)));
@@ -85,10 +164,11 @@ export function CountdownModal() {
 
   const totalSeconds = timeToSeconds(hours, minutes, seconds);
   const isValid = totalSeconds > 0;
-  const selectedPreset =
-    seconds === 0 && COUNTDOWN_PRESETS.some((preset) => preset.minutes === hours * 60 + minutes)
-      ? String(hours * 60 + minutes)
-      : "";
+  const customPresetLabel =
+    customQuickPresetSeconds === null
+      ? "自定义"
+      : `自定义（${formatQuickPresetLabel(customQuickPresetSeconds)}）`;
+  const customPresetVisualLabel = "自定义";
 
   return (
     <Modal
@@ -203,11 +283,21 @@ export function CountdownModal() {
           <RadioGroup
             ariaLabel="快速设置倒计时时长"
             value={selectedPreset}
-            options={COUNTDOWN_PRESETS.map(({ label, minutes: presetMinutes }) => ({
-              value: String(presetMinutes),
-              label,
-            }))}
-            onChange={(value) => handlePreset(Number(value))}
+            options={[
+              ...COUNTDOWN_PRESETS.map(({ label, minutes: presetMinutes }) => ({
+                value: String(presetMinutes),
+                label,
+              })),
+              {
+                value: CUSTOM_PRESET_VALUE,
+                label: (
+                  <span className={styles.customPresetLabel} aria-label={customPresetLabel}>
+                    {customPresetVisualLabel}
+                  </span>
+                ),
+              },
+            ]}
+            onChange={handlePreset}
           />
         </FormSection>
       </div>

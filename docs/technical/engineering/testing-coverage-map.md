@@ -87,6 +87,9 @@
   `appSettings.test.ts` 共同覆盖，并验证自定义课表不会被覆盖。
 - 公共 UI 的 TimeStage 响应式布局契约由 `src/ui/components/__tests__/TimeStage.test.tsx` 覆盖。
 - 公共浮层的进入、退出和交互隔离由 `src/ui/components/__tests__/motion.test.tsx` 覆盖。
+- 倒计时快速设置、自定义时长与持久化由
+  `src/components/CountdownModal/__tests__/CountdownModal.test.tsx` 和
+  `tests/e2e/countdown.e2e.spec.ts` 覆盖。
 - 自习倒计时快捷事件由 `BasicSettingsPanel.test.tsx`、`CountdownManagerPanel.test.tsx` 和
   `src/utils/__tests__/countdownEvents.test.ts` 覆盖。
 - 若文件移动，优先更新本页相对路径，不保留失效旧链接或本机绝对链接。

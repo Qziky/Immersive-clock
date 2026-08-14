@@ -6,16 +6,19 @@ import {
   APP_SETTINGS_KEY,
   APP_SETTINGS_QUARANTINE_KEY,
   CURRENT_SETTINGS_VERSION,
+  MAX_COUNTDOWN_QUICK_PRESET_SECONDS,
   MAX_STUDY_INFO_ITEMS,
   consumeStudyInfoLimitAdjustedNotice,
   getAppSettings,
   getQuarantinedAppSettings,
   migrateStoredAppSettings,
   normalizeAppSettings,
+  normalizeCountdownQuickPresetSeconds,
   normalizeStudyInfoCarousel,
   resetAppSettingsPreservingUserContent,
   saveQuoteSettings,
   updateGeneralSettings,
+  updateAppSettings,
   updateTimeSyncSettings,
   updateStudySettings,
 } from "../appSettings";
@@ -70,6 +73,7 @@ describe("appSettings", () => {
   it("getAppSettings 在无存储时返回默认配置", () => {
     const s = getAppSettings();
     expect(s.version).toBe(CURRENT_SETTINGS_VERSION);
+    expect(s.countdown.customQuickPresetSeconds).toBeNull();
     expect(s.general.developerModeEnabled).toBe(false);
     expect(s.general.keepAwakeEnabled).toBe(false);
     expect(s.general.analytics.experienceProgramEnabled).toBe(true);
@@ -129,6 +133,32 @@ describe("appSettings", () => {
         enabled: false,
       }),
     ]);
+  });
+
+  it("倒计时自定义快速设置会校验范围、支持保存并迁移旧版本", () => {
+    expect(normalizeCountdownQuickPresetSeconds(1)).toBe(1);
+    expect(normalizeCountdownQuickPresetSeconds(MAX_COUNTDOWN_QUICK_PRESET_SECONDS)).toBe(
+      MAX_COUNTDOWN_QUICK_PRESET_SECONDS
+    );
+    expect(normalizeCountdownQuickPresetSeconds(0)).toBeNull();
+    expect(normalizeCountdownQuickPresetSeconds(-1)).toBeNull();
+    expect(normalizeCountdownQuickPresetSeconds(MAX_COUNTDOWN_QUICK_PRESET_SECONDS + 1)).toBeNull();
+    expect(normalizeCountdownQuickPresetSeconds(1.5)).toBeNull();
+    expect(normalizeCountdownQuickPresetSeconds("1800")).toBeNull();
+
+    updateAppSettings({ countdown: { customQuickPresetSeconds: 2700 } });
+    expect(getAppSettings().countdown.customQuickPresetSeconds).toBe(2700);
+
+    localStorage.setItem(
+      APP_SETTINGS_KEY,
+      JSON.stringify({ version: 18, countdown: { customQuickPresetSeconds: 90000 } })
+    );
+    const migrated = migrateStoredAppSettings();
+    expect(migrated.version).toBe(CURRENT_SETTINGS_VERSION);
+    expect(migrated.countdown.customQuickPresetSeconds).toBeNull();
+    expect(JSON.parse(localStorage.getItem(APP_SETTINGS_KEY) ?? "{}").countdown).toEqual({
+      customQuickPresetSeconds: null,
+    });
   });
 
   it("v14 设置迁移会补齐更新偏好，并保留显式关闭值", () => {
