@@ -2,8 +2,9 @@
 
 ## 使用 Web / PWA 构建
 
-从 [GitHub Releases](https://github.com/Qziky/Immersive-clock/releases) 下载版本化 Web ZIP 后，可部署
-到支持 HTTPS、SPA fallback 和天气同源代理的 Web 服务。仓库外的在线站点不属于 GitHub Release
+直接打开[沉浸式时钟在线版](https://clock.qqhkx.com)即可使用 Web/PWA，默认安装流程不需要下载或部署 Web ZIP。
+如果要自行托管，再从 [GitHub Releases](https://github.com/Qziky/Immersive-clock/releases) 下载版本化 Web ZIP，
+并部署到支持 HTTPS、SPA fallback 和天气同源代理的 Web 服务。仓库外的在线站点不属于 GitHub Release
 的发布或验收范围，请勿仅凭站点内容判断当前仓库版本。
 
 位置和麦克风通常要求安全连接；如果浏览器提示当前页面不安全，相关权限可能不可用。建议使用官方 HTTPS 地址或可信的自托管环境。
@@ -14,7 +15,7 @@ PWA 会把网页版安装到桌面、开始菜单或主屏幕，打开时更像�
 
 ### Windows 或 Linux 的 Edge
 
-1. 打开已正确部署的 Web 版并等待页面完成加载。
+1. 打开[沉浸式时钟在线版](https://clock.qqhkx.com)并等待页面完成加载。
 2. 点击地址栏右侧的安装图标。
 3. 在“安装 沉浸式时钟 应用”弹窗中点击“安装”。
 
@@ -22,7 +23,7 @@ PWA 会把网页版安装到桌面、开始菜单或主屏幕，打开时更像�
 
 ### Windows 或 Linux 的 Chrome
 
-1. 打开已正确部署的 Web 版并等待页面完成加载。
+1. 打开[沉浸式时钟在线版](https://clock.qqhkx.com)并等待页面完成加载。
 2. 点击地址栏右侧的安装图标。
 3. 在“安装应用”对话框中点击“安装”。
 

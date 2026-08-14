@@ -213,7 +213,7 @@ Create the required JSON and `.icnoise` exports before erasing data.
 
 ## Installation, offline use, and updates
 
-Download the versioned Web ZIP from [GitHub Releases](https://github.com/Qziky/Immersive-clock/releases), deploy it over HTTPS with SPA fallback and the required weather proxy, or install that deployment as a PWA. External website deployments are outside the GitHub Release scope.
+Open the [Immersive Clock online app](https://clock.qqhkx.com) to use the Web/PWA build; the normal installation flow does not require downloading or deploying a Web ZIP. If you want to self-host it, download the versioned Web ZIP from [GitHub Releases](https://github.com/Qziky/Immersive-clock/releases) and deploy it over HTTPS with SPA fallback and the required weather proxy. External website deployments are outside the GitHub Release scope.
 
 On Windows or Linux desktop, wait for the deployed page to finish loading, then follow the browser-specific steps:
 
@@ -233,7 +233,7 @@ On Windows or Linux desktop, wait for the deployed page to finish loading, then 
 
 The screenshots show the Chinese browser interface; the install icon and confirmation action are in the same locations in English browser builds.
 
-- Android Chrome: use Install App or Add to Home Screen.
+- Android Chrome: use Install App or Add to Home Screen on the already deployed website.
 - iPhone/iPad Safari: use Share → Add to Home Screen.
 
 Windows and Linux desktop packages and a release-signed Android sideload APK are available from [GitHub Releases](https://github.com/Qziky/Immersive-clock/releases). Install the Android APK only from the project Release and allow “Install unknown apps” when prompted. There is currently no published macOS desktop package; self-host the Web/PWA build on macOS.

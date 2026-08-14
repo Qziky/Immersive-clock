@@ -87,10 +87,10 @@ Choose the option that best fits your device and how you use the clock.
 
 ### 📱 Option 1: Install as a PWA (recommended)
 
-A PWA installs the web build on your desktop, Start menu, or home screen. It opens like a standalone app and caches core pages and static assets for offline use.
+A PWA installs the deployed website you are already visiting on your desktop, Start menu, or home screen. It opens like a standalone app and caches core pages and static assets for offline use.
 
-1. Download the Web ZIP from [GitHub Releases](https://github.com/Qziky/Immersive-clock/releases/latest), then deploy it to an HTTPS web server with SPA fallback support.
-2. Open the deployed address in Chrome, Edge, or another browser that supports PWAs.
+1. Open the [Immersive Clock online app](https://clock.qqhkx.com) and wait for it to finish loading; you do not need to download or deploy a Web ZIP first.
+2. Visit that website in Chrome, Edge, or another browser that supports PWAs.
 3. Complete the browser-specific installation:
    - **Edge**: select the install icon at the right side of the address bar, then choose “Install” in the “Install Immersive Clock app” prompt.
    - **Chrome**: select the install icon at the right side of the address bar, then choose “Install” in the “Install app” dialog.
@@ -104,6 +104,8 @@ A PWA installs the web build on your desktop, Start menu, or home screen. It ope
 <img src="docs/marketing/assets/readme/pwa-install-chrome.png" width="720" alt="Chrome address-bar install icon and Install app dialog" />
 
 The screenshots show the Chinese browser interface; the install icon and confirmation action are in the same locations in English browser builds.
+
+If you want to self-host the Web/PWA build, download the Web ZIP from [GitHub Releases](https://github.com/Qziky/Immersive-clock/releases/latest) and deploy it to an HTTPS web server with SPA fallback support.
 
 ### 🌐 Option 2: Use it directly in a browser
 
