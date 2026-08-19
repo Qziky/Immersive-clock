@@ -12,6 +12,10 @@ const weatherRuntimeMocks = vi.hoisted(() => ({
   acquire: vi.fn(() => () => undefined),
 }));
 
+const appContextMocks = vi.hoisted(() => ({
+  dispatch: vi.fn(),
+}));
+
 vi.mock("../../../contexts/AppContext", () => ({
   useAppState: () => ({
     timeDisplay: { showStudySeconds: true },
@@ -31,6 +35,7 @@ vi.mock("../../../contexts/AppContext", () => ({
       targetYear: 2027,
     },
   }),
+  useAppDispatch: () => appContextMocks.dispatch,
 }));
 
 vi.mock("../../../contexts/AppearanceContext", () => ({
@@ -135,10 +140,21 @@ vi.mock("../../NoiseHistoryModal/NoiseHistoryModal", () => ({
 }));
 
 vi.mock("../../NoiseMonitor", () => ({
-  default: ({ onStatusClick }: { onStatusClick?: () => void }) => (
-    <button type="button" onClick={onStatusClick}>
-      查看噪音历史
-    </button>
+  default: ({
+    onPersistentAnomalyAutoHide,
+    onStatusClick,
+  }: {
+    onPersistentAnomalyAutoHide?: () => void;
+    onStatusClick?: () => void;
+  }) => (
+    <div>
+      <button type="button" onClick={onStatusClick}>
+        查看噪音历史
+      </button>
+      <button type="button" onClick={onPersistentAnomalyAutoHide}>
+        自动隐藏噪音监测
+      </button>
+    </div>
   ),
 }));
 
@@ -205,6 +221,7 @@ describe("Study 自习报告自动关闭", () => {
     vi.useFakeTimers();
     reportSettings.value = { autoPopup: true, autoCloseMinutes: 10 };
     weatherRuntimeMocks.acquire.mockClear();
+    appContextMocks.dispatch.mockClear();
   });
 
   afterEach(() => {
@@ -231,6 +248,17 @@ describe("Study 自习报告自动关闭", () => {
     render(<Study />);
 
     expect(weatherRuntimeMocks.acquire).toHaveBeenCalledTimes(1);
+  });
+
+  it("麦克风异常自动隐藏会同步关闭现有噪音监测显示设置", () => {
+    render(<Study />);
+
+    fireEvent.click(screen.getByRole("button", { name: "自动隐藏噪音监测" }));
+
+    expect(appContextMocks.dispatch).toHaveBeenCalledWith({
+      type: "SET_STUDY_DISPLAY",
+      payload: expect.objectContaining({ showNoiseMonitor: false }),
+    });
   });
 
   it("手动关闭自动报告时清理待执行的关闭计时器", () => {

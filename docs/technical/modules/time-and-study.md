@@ -67,13 +67,13 @@ HUD 默认隐藏，页面交互后显示，8 秒无操作后自动隐藏。输�
 
 ## 课表与进度
 
-课表统一存储在 `AppSettings.study.timetable`：`document` 是完整 CSES v2 文档，
-`cycleAnchorDate` 是应用私有的周期首日日期，不参与 YAML 导入导出。旧版 `study.schedule` 和
+课表统一存储在 `AppSettings.study.timetable`：`document` 基于 CSES v2，并支持
+`rest_count: 1` 的单休兼容扩展；`cycleAnchorDate` 是应用私有的周期首日日期，不参与 YAML 导入导出。旧版 `study.schedule` 和
 `study-schedule` / `studySchedule` 会迁移为固定周一锚点的上 5 休 2 工作日课程表。
 
 `studyTimetable.ts` 集中负责：
 
-- CSES v2 YAML 解析和生成，并保留 schema 允许的未知扩展字段；
+- CSES v2 YAML 解析和生成，并接受单休兼容扩展与保留 schema 允许的未知扩展字段；
 - 课程引用、`HH:mm:ss`、周期 spans 总数和实际启用日课时重叠的严格校验；
 - 根据本地日期、周期锚点和 spans 计算第几个上课日；
 - 将匹配的日课程表合并为包含稳定 ID、教师和地点的运行时 `StudyPeriod[]`。

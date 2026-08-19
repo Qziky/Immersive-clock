@@ -14,6 +14,7 @@ const mocks = vi.hoisted(() => ({
     status: "available",
     source: "auto",
   } as UpdateSnapshot,
+  checkForUpdates: vi.fn(),
   updateGeneralSettings: vi.fn(),
 }));
 
@@ -22,6 +23,7 @@ vi.mock("../../../../hooks/useUpdateRuntime", () => ({
 }));
 
 vi.mock("../../../../services/update/updateRuntime", () => ({
+  checkForUpdates: mocks.checkForUpdates,
   startUpdateRuntime: () => vi.fn(),
 }));
 
@@ -51,17 +53,37 @@ describe("UpdateSettingsPanel", () => {
       status: "available",
       source: "auto",
     };
+    mocks.checkForUpdates.mockReset().mockResolvedValue(mocks.snapshot);
     mocks.updateGeneralSettings.mockReset();
   });
 
-  it("展示版本与平台，但不提供手动检查或更新动作", () => {
+  it("展示版本与平台，并提供手动检查入口", () => {
     renderPanel();
 
     expect(screen.getByText("v4.0.1")).toBeInTheDocument();
     expect(screen.getByText("v4.1.0")).toBeInTheDocument();
     expect(screen.getByText("Web / PWA")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "检查更新" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "检查更新" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /立即更新|重启并安装/ })).not.toBeInTheDocument();
+  });
+
+  it("点击手动检查会以 manual 标记发起更新检查", async () => {
+    const user = userEvent.setup();
+    renderPanel();
+
+    await user.click(screen.getByRole("button", { name: "检查更新" }));
+
+    expect(mocks.checkForUpdates).toHaveBeenCalledWith({ manual: true });
+  });
+
+  it("检查中禁用手动检查入口", () => {
+    mocks.snapshot = {
+      ...mocks.snapshot,
+      status: "checking",
+    };
+    renderPanel();
+
+    expect(screen.getByRole("button", { name: "检查更新" })).toBeDisabled();
   });
 
   it("自动检查开关沿用设置页保存流程", async () => {

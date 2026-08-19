@@ -90,6 +90,7 @@ describe("StudySettingsPanel", () => {
       primaryMetric: "quietness-score",
       scoreAlertThreshold: 70,
       showRealtimeValue: true,
+      autoHidePersistentAnomaly: true,
     });
     noiseReportMocks.get.mockReturnValue({ autoPopup: true, autoCloseMinutes: 10 });
     inputDeviceMocks.list.mockResolvedValue([
@@ -183,6 +184,29 @@ describe("StudySettingsPanel", () => {
     });
   });
 
+  it("麦克风异常自动隐藏默认开启，并随统一保存提交", async () => {
+    const user = userEvent.setup();
+    let saveHandler: (() => void) | undefined;
+    render(
+      <StudySettingsPanel
+        onRegisterSave={(handler) => {
+          saveHandler = handler;
+        }}
+      />
+    );
+
+    const autoHideSwitch = screen.getByRole("switch", { name: "麦克风异常后自动隐藏" });
+    expect(autoHideSwitch).toBeChecked();
+    await user.click(autoHideSwitch);
+    expect(autoHideSwitch).not.toBeChecked();
+    expect(noiseControlMocks.save).not.toHaveBeenCalled();
+
+    act(() => saveHandler?.());
+    expect(noiseControlMocks.save).toHaveBeenCalledWith(
+      expect.objectContaining({ autoHidePersistentAnomaly: false })
+    );
+  });
+
   it("为校准引导暴露真实标签、区域、状态和开始按钮标记", async () => {
     const user = userEvent.setup();
     render(<StudySettingsPanel />);
@@ -233,6 +257,7 @@ describe("StudySettingsPanel", () => {
       primaryMetric: "quietness-score",
       scoreAlertThreshold: 70,
       showRealtimeValue: true,
+      autoHidePersistentAnomaly: true,
     });
     inputDeviceMocks.list.mockResolvedValue([{ deviceId: "built-in", label: "内置麦克风" }]);
 

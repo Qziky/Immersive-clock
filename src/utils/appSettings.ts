@@ -1,3 +1,4 @@
+import { CURRENT_SETTINGS_VERSION } from "../constants/settings";
 import {
   DEFAULT_NOISE_REPORT_AUTO_CLOSE_MINUTES,
   MAX_NOISE_REPORT_AUTO_CLOSE_MINUTES,
@@ -156,6 +157,7 @@ export interface AppSettings {
     preferredInputDevice: NoiseInputDevicePreference | null;
     primaryMetric: "quietness-score" | "estimated-dba";
     showRealtimeValue: boolean;
+    autoHidePersistentAnomaly: boolean;
     scoreAlertThreshold: number;
     reportAutoPopup: boolean;
     reportAutoCloseMinutes: number;
@@ -165,7 +167,7 @@ export interface AppSettings {
 
 export const APP_SETTINGS_KEY = "AppSettings";
 export const APP_SETTINGS_QUARANTINE_KEY = "immersive-clock:quarantine:app-settings";
-export const CURRENT_SETTINGS_VERSION = 19;
+export { CURRENT_SETTINGS_VERSION };
 
 export const MAX_COUNTDOWN_QUICK_PRESET_SECONDS = 23 * 60 * 60 + 59 * 60 + 59;
 
@@ -897,6 +899,7 @@ const DEFAULT_SETTINGS: AppSettings = {
     preferredInputDevice: null,
     primaryMetric: "quietness-score",
     showRealtimeValue: true,
+    autoHidePersistentAnomaly: true,
     scoreAlertThreshold: 70,
     reportAutoPopup: true,
     reportAutoCloseMinutes: DEFAULT_NOISE_REPORT_AUTO_CLOSE_MINUTES,
@@ -1212,6 +1215,10 @@ export function normalizeAppSettings(value: unknown): AppSettings {
           : typeof parsedNoiseControl.showRealtimeDb === "boolean"
             ? parsedNoiseControl.showRealtimeDb
             : DEFAULT_SETTINGS.noiseControl.showRealtimeValue,
+      autoHidePersistentAnomaly:
+        typeof parsedNoiseControl.autoHidePersistentAnomaly === "boolean"
+          ? parsedNoiseControl.autoHidePersistentAnomaly
+          : DEFAULT_SETTINGS.noiseControl.autoHidePersistentAnomaly,
       scoreAlertThreshold:
         typeof parsedNoiseControl.scoreAlertThreshold === "number" &&
         Number.isFinite(parsedNoiseControl.scoreAlertThreshold)

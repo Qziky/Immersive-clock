@@ -97,7 +97,7 @@ Zhongkao, postgraduate entrance exam, and civil service exam dates can vary by r
 
 Open **Workspace → Schedule (`课程表`)** to manage the CSES course library, daily schedules, work/rest spans, and the local cycle anchor date. Daily schedules select courses from the library, use second-precision times, and can be enabled for one or more work-day indexes. Invalid references, times, cycle totals, or overlaps must be corrected before Settings can be saved.
 
-CSES v2 import accepts UTF-8 `.yaml` and `.yml`. A valid file first creates a preview; select **Apply to Draft (`覆盖当前草稿`)**, confirm the cycle anchor, and then select the main Settings **Save** button. Export downloads the current valid draft and does not include the app-only anchor date.
+CSES v2 import accepts UTF-8 `.yaml` and `.yml`. The app also supports single-rest cycles (`rest_count: 1`) as a compatibility extension. A valid file first creates a preview; select **Apply to Draft (`覆盖当前草稿`)**, confirm the cycle anchor, and then select the main Settings **Save** button. Export downloads the current valid draft and does not include the app-only anchor date. Strict CSES v2 tools may reject exported single-rest documents.
 
 When automatic noise reports are enabled, Study mode opens the current session report roughly one minute before its scheduled end. Closing it manually prevents the same session from reopening it.
 
@@ -146,13 +146,13 @@ The primary metric is a `0–100` **quietness score**. Higher is quieter. It doe
 2. Select **Authorize and Refresh (`授权并刷新`)** and allow microphone access.
 3. Select the system default or a specific input.
 4. Turn on **Enable Environment Monitoring (`启用环境监测`)**.
-5. Optionally turn on **Save Monitoring Data (`保存监测数据`)** and **Show Live Value (`显示实时数值`)**.
+5. Optionally turn on **Save Monitoring Data (`保存监测数据`)**, **Show Live Value (`显示实时数值`)**, and **Auto-hide after microphone anomaly (`麦克风异常后自动隐藏`)**.
 6. Configure the score alert sound and threshold if needed.
 7. Select the main Settings **Save** button.
 
 Only one tab captures the microphone. Other open tabs follow the leader's summary. If the preferred input is unavailable, the app temporarily uses the system default while keeping the preference.
 
-“Below range” means there is a non-zero but very low signal. “Signal anomaly” can mean sustained zero input or audio processing that makes the measurement unreliable. Permission, device, or signal failures can be retried by clicking the status text.
+“Below range” means there is a non-zero but very low signal. “Signal anomaly” can mean sustained zero input or audio processing that makes the measurement unreliable. With **Auto-hide after microphone anomaly** enabled by default, a continuous anomaly for five minutes hides the Study noise monitor while monitoring continues; re-enable it manually from the Study display settings when needed. Permission, device, or signal failures can be retried by clicking the status text.
 
 ### Estimated dB(A)
 

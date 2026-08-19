@@ -69,13 +69,13 @@ configuration:
   name: 导入课表
   description: 测试导入
   cycle:
-    work_count: 5
-    rest_count: 2
+    work_count: 6
+    rest_count: 1
     spans:
       - activity: work
-        count: 5
+        count: 6
       - activity: rest
-        count: 2
+        count: 1
 subjects:
   - name: 物理
 schedules:
@@ -89,10 +89,49 @@ schedules:
     await user.upload(screen.getByLabelText("CSES YAML 文件"), new File([yaml], "valid.yaml"));
 
     expect(await screen.findByText("文件校验通过")).toBeInTheDocument();
+    expect(screen.getByText("单休兼容提示")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "覆盖当前草稿" }));
     await user.click(screen.getByRole("tab", { name: "课程库" }));
     await waitFor(() => expect(screen.getByLabelText("课程名称")).toHaveValue("物理"));
     await user.click(screen.getByRole("tab", { name: "周期与锚点" }));
     expect(screen.getByLabelText("周期锚点")).toHaveValue("2000-01-03");
+    expect(screen.getAllByLabelText("连续天数")[0]).toHaveValue(6);
+    expect(screen.getAllByLabelText("连续天数")[1]).toHaveValue(1);
+  });
+
+  it("支持配置、保存和提示单休周期", async () => {
+    const user = userEvent.setup();
+    let save: () => void = () => undefined;
+    renderEditor((registeredSave) => {
+      save = registeredSave;
+    });
+
+    await user.click(screen.getByRole("tab", { name: "周期与锚点" }));
+    const spanDayInputs = screen.getAllByLabelText("连续天数");
+    await user.clear(spanDayInputs[0]);
+    await user.type(spanDayInputs[0], "6");
+    await user.clear(spanDayInputs[1]);
+    await user.type(spanDayInputs[1], "1");
+
+    await user.click(screen.getByRole("tab", { name: "概览与文件" }));
+    expect(await screen.findByText("单休兼容提示")).toBeVisible();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    save();
+
+    const settings = JSON.parse(localStorage.getItem("AppSettings") ?? "{}") as {
+      study?: {
+        timetable?: {
+          document?: {
+            configuration?: {
+              cycle?: { rest_count?: number; work_count?: number };
+            };
+          };
+        };
+      };
+    };
+    expect(settings.study?.timetable?.document?.configuration?.cycle).toMatchObject({
+      work_count: 6,
+      rest_count: 1,
+    });
   });
 });

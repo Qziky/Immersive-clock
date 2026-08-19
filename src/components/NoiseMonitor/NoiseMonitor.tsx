@@ -10,11 +10,13 @@ import { NoisePresentation, type NoisePresentationState } from "./NoisePresentat
 
 interface NoiseMonitorProps {
   onBreathingLightClick?: () => void;
+  onPersistentAnomalyAutoHide?: () => void;
   onStatusClick?: () => void;
 }
 
 const MIN_ALERT_INTERVAL = 200;
 const MAX_ALERT_INTERVAL = 2000;
+const MICROPHONE_ANOMALY_AUTO_HIDE_MS = 5 * 60 * 1000;
 
 function persistenceLabel(enabled: boolean, available: boolean, pendingFrames: number): string {
   if (!enabled) return "不保存";
@@ -22,7 +24,11 @@ function persistenceLabel(enabled: boolean, available: boolean, pendingFrames: n
   return pendingFrames > 0 ? "写入中" : "已保存";
 }
 
-const NoiseMonitor: React.FC<NoiseMonitorProps> = ({ onBreathingLightClick, onStatusClick }) => {
+const NoiseMonitor: React.FC<NoiseMonitorProps> = ({
+  onBreathingLightClick,
+  onPersistentAnomalyAutoHide,
+  onStatusClick,
+}) => {
   const {
     status,
     signalHealth,
@@ -31,6 +37,7 @@ const NoiseMonitor: React.FC<NoiseMonitorProps> = ({ onBreathingLightClick, onSt
     estimatedDbA,
     primaryMetric,
     showRealtimeValue,
+    autoHidePersistentAnomaly,
     scoreAlertThreshold,
     alertSoundEnabled,
     diagnostics,
@@ -74,6 +81,7 @@ const NoiseMonitor: React.FC<NoiseMonitorProps> = ({ onBreathingLightClick, onSt
   const lastNoisyAlertPlayedAtRef = useRef(0);
   const lastIsNoisyRef = useRef(false);
   const hasShownPermissionErrorRef = useRef(false);
+  const hasAutoHiddenPersistentAnomalyRef = useRef(false);
 
   useEffect(() => {
     playNoisyAlertRef.current = playNoisyAlert;
@@ -98,6 +106,25 @@ const NoiseMonitor: React.FC<NoiseMonitorProps> = ({ onBreathingLightClick, onSt
     }
     lastIsNoisyRef.current = true;
   }, [alertSoundEnabled, quietnessScore, scoreAlertThreshold, status]);
+
+  useEffect(() => {
+    if (
+      !autoHidePersistentAnomaly ||
+      signalHealth !== "signal-anomaly" ||
+      !onPersistentAnomalyAutoHide
+    ) {
+      hasAutoHiddenPersistentAnomalyRef.current = false;
+      return undefined;
+    }
+
+    const timeout = window.setTimeout(() => {
+      if (hasAutoHiddenPersistentAnomalyRef.current) return;
+      hasAutoHiddenPersistentAnomalyRef.current = true;
+      onPersistentAnomalyAutoHide();
+    }, MICROPHONE_ANOMALY_AUTO_HIDE_MS);
+
+    return () => window.clearTimeout(timeout);
+  }, [autoHidePersistentAnomaly, onPersistentAnomalyAutoHide, signalHealth]);
 
   const statusText = useMemo(() => {
     if (signalHealth === "signal-anomaly") return "麦克风异常";

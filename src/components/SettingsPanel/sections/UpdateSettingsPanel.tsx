@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { useUpdateSnapshot } from "../../../hooks/useUpdateRuntime";
-import { startUpdateRuntime } from "../../../services/update/updateRuntime";
+import { checkForUpdates, startUpdateRuntime } from "../../../services/update/updateRuntime";
 import type { UpdateStatus } from "../../../types/update";
 import {
+  Button,
   FormSection,
   InfoPanel,
   MetricCard,
@@ -69,6 +70,11 @@ export default function UpdateSettingsPanel({ onRegisterSave }: UpdateSettingsPa
     onRegisterSave?.(() => updateGeneralSettings({ update: { autoCheckEnabled } }));
   }, [autoCheckEnabled, onRegisterSave]);
 
+  const handleManualCheck = useCallback(() => {
+    void checkForUpdates({ manual: true });
+  }, []);
+  const isChecking = snapshot.status === "checking";
+
   return (
     <Stack gap="lg">
       <FormSection
@@ -103,6 +109,16 @@ export default function UpdateSettingsPanel({ onRegisterSave }: UpdateSettingsPa
         </SettingGrid>
 
         <SettingGrid>
+          <SettingItem
+            icon="feature.sync"
+            title="手动检查更新"
+            description="立即连接更新服务，检查当前平台的稳定版更新。"
+            control={
+              <Button icon="feature.sync" loading={isChecking} onClick={handleManualCheck}>
+                检查更新
+              </Button>
+            }
+          />
           <SettingItem
             icon="feature.sync"
             title="自动检查更新"

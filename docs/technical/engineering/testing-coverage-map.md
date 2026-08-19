@@ -51,7 +51,7 @@
 | SEO/GEO            | `src/utils/seo/__tests__/routeSeo.test.ts`、`src/components/Seo/__tests__/RouteSeo.test.tsx`                                                                                                                                        | `src/utils/seo/routeSeo.ts`、`src/components/Seo/RouteSeo.tsx`、`SeoContent.tsx`                     |
 
 应用更新由 `src/__tests__/pwa-register.test.ts`、`src/services/update/__tests__/updateManifest.test.ts`、`updateManifestGeneration.test.ts`、`updateRuntime.test.ts`、
-`src/components/UpdateNotice/__tests__/UpdateNotice.test.tsx`、`UpdateSettingsPanel.test.tsx`、
+`src/components/UpdateNotice/__tests__/UpdateNotice.test.tsx`、`UpdateSettingsPanel.test.tsx`（含手动检查入口）、
 `src/utils/__tests__/electronUpdateManager.test.ts` 和 `appSettings.test.ts` 覆盖；实现入口为
 `src/services/update`、`src/components/UpdateNotice`、`UpdateSettingsPanel.tsx`、
 `electron/updateManager.ts` 与 `src/utils/appSettings.ts`。
@@ -85,11 +85,16 @@
   `settings-persistence.e2e.spec.ts` 共同覆盖。
 - 课程表默认模板及 v17 及更早版本默认值的精准升级由 `studyTimetable.test.ts` 与
   `appSettings.test.ts` 共同覆盖，并验证自定义课表不会被覆盖。
+- 单休周期（`rest_count: 1`）的校验、YAML 往返、运行时解析和设置页持久化由
+  `studyTimetable.test.ts`、`ScheduleSettings.test.tsx` 与 `settings-persistence.e2e.spec.ts` 覆盖。
 - 公共 UI 的 TimeStage 响应式布局契约由 `src/ui/components/__tests__/TimeStage.test.tsx` 覆盖。
 - 公共浮层的进入、退出和交互隔离由 `src/ui/components/__tests__/motion.test.tsx` 覆盖。
 - 倒计时快速设置、自定义时长与持久化由
   `src/components/CountdownModal/__tests__/CountdownModal.test.tsx` 和
   `tests/e2e/countdown.e2e.spec.ts` 覆盖。
+- 麦克风异常持续 5 分钟后的显示自动隐藏、设置持久化和运行时同步由
+  `NoiseMonitor.test.tsx`、`Study.test.tsx`、`StudySettingsPanel.test.tsx`、
+  `noiseControlSettings.test.ts`、`appSettings.test.ts` 与 `noiseStreamService.test.ts` 覆盖。
 - 自习倒计时快捷事件由 `BasicSettingsPanel.test.tsx`、`CountdownManagerPanel.test.tsx` 和
   `src/utils/__tests__/countdownEvents.test.ts` 覆盖。
 - 若文件移动，优先更新本页相对路径，不保留失效旧链接或本机绝对链接。

@@ -242,6 +242,7 @@ export interface NoiseMonitoringSnapshot {
   estimatedDbA: number | null;
   realtimeDbfsA: number | null;
   showRealtimeValue: boolean;
+  autoHidePersistentAnomaly: boolean;
   primaryMetric: "quietness-score" | "estimated-dba";
   scoreAlertThreshold: number;
   alertSoundEnabled: boolean;

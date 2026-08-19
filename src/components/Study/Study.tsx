@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect, useRef, useMemo } from "react";
 
-import { useAppState } from "../../contexts/AppContext";
+import { useAppDispatch, useAppState } from "../../contexts/AppContext";
 import { useAppearance, useComponentAppearance } from "../../contexts/AppearanceContext";
 import { useNoiseStream } from "../../hooks/useNoiseStream";
 import { useTimer } from "../../hooks/useTimer";
@@ -42,6 +42,7 @@ import { StudyTopDockPresentation } from "./StudyTopDockPresentation";
 export function Study() {
   useNoiseStream();
   const { study, timeDisplay } = useAppState();
+  const dispatch = useAppDispatch();
   const { getBackgroundImage, resolveBackground, resolveStyle } = useAppearance();
   const [currentTime, setCurrentTime] = useState<Date>(getAdjustedDate());
   const [reportOpen, setReportOpen] = useState(false);
@@ -217,6 +218,13 @@ export function Study() {
       ) ?? true,
     [study.infoCarousel]
   );
+  const handlePersistentAnomalyAutoHide = useCallback(() => {
+    if (!display.showNoiseMonitor) return;
+    dispatch({
+      type: "SET_STUDY_DISPLAY",
+      payload: { ...display, showNoiseMonitor: false },
+    });
+  }, [dispatch, display]);
 
   /** 测量倒计时可视项尺寸（函数级注释：读取轮播容器高度，保证切换时位移与单项高度一致） */
   const measureCountdown = useCallback(() => {
@@ -396,6 +404,7 @@ export function Study() {
             display.showNoiseMonitor ? (
               <NoiseMonitor
                 onBreathingLightClick={handleOpenHistory}
+                onPersistentAnomalyAutoHide={handlePersistentAnomalyAutoHide}
                 onStatusClick={handleOpenHistory}
               />
             ) : undefined

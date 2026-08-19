@@ -1,5 +1,5 @@
-import { render, screen } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { act, render, screen } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { NoiseMonitoringSnapshot } from "../../../types/noise";
 import NoiseMonitor from "../NoiseMonitor";
@@ -38,6 +38,7 @@ function createSnapshot(overrides: Partial<NoiseMonitoringSnapshot> = {}): Noise
     estimatedDbA: null,
     realtimeDbfsA: -50,
     showRealtimeValue: true,
+    autoHidePersistentAnomaly: true,
     primaryMetric: "quietness-score",
     scoreAlertThreshold: 70,
     alertSoundEnabled: false,
@@ -72,6 +73,10 @@ function createSnapshot(overrides: Partial<NoiseMonitoringSnapshot> = {}): Noise
 describe("NoiseMonitor", () => {
   beforeEach(() => {
     hooks.snapshot = createSnapshot();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it("首个评分前仅显示采集中和覆盖百分比", () => {
@@ -125,5 +130,59 @@ describe("NoiseMonitor", () => {
     expect(screen.queryByText("测量可信度低")).not.toBeInTheDocument();
     expect(screen.queryByText("疑似设备降噪")).not.toBeInTheDocument();
     expect(screen.queryByText("数字静音")).not.toBeInTheDocument();
+  });
+
+  it("麦克风异常连续 5 分钟后仅触发一次自动隐藏", () => {
+    vi.useFakeTimers();
+    const onPersistentAnomalyAutoHide = vi.fn();
+    hooks.snapshot = createSnapshot({ signalHealth: "signal-anomaly" });
+
+    render(<NoiseMonitor onPersistentAnomalyAutoHide={onPersistentAnomalyAutoHide} />);
+
+    act(() => {
+      vi.advanceTimersByTime(5 * 60 * 1000 - 1);
+    });
+    expect(onPersistentAnomalyAutoHide).not.toHaveBeenCalled();
+
+    act(() => {
+      vi.advanceTimersByTime(1);
+    });
+    expect(onPersistentAnomalyAutoHide).toHaveBeenCalledTimes(1);
+
+    act(() => {
+      vi.advanceTimersByTime(5 * 60 * 1000);
+    });
+    expect(onPersistentAnomalyAutoHide).toHaveBeenCalledTimes(1);
+  });
+
+  it("异常恢复或关闭选项时取消自动隐藏计时", () => {
+    vi.useFakeTimers();
+    const onPersistentAnomalyAutoHide = vi.fn();
+    hooks.snapshot = createSnapshot({ signalHealth: "signal-anomaly" });
+    const { rerender } = render(
+      <NoiseMonitor onPersistentAnomalyAutoHide={onPersistentAnomalyAutoHide} />
+    );
+
+    act(() => {
+      vi.advanceTimersByTime(2 * 60 * 1000);
+    });
+    hooks.snapshot = createSnapshot({ signalHealth: "healthy" });
+    rerender(<NoiseMonitor onPersistentAnomalyAutoHide={onPersistentAnomalyAutoHide} />);
+
+    act(() => {
+      vi.advanceTimersByTime(5 * 60 * 1000);
+    });
+    expect(onPersistentAnomalyAutoHide).not.toHaveBeenCalled();
+
+    hooks.snapshot = createSnapshot({
+      autoHidePersistentAnomaly: false,
+      signalHealth: "signal-anomaly",
+    });
+    rerender(<NoiseMonitor onPersistentAnomalyAutoHide={onPersistentAnomalyAutoHide} />);
+
+    act(() => {
+      vi.advanceTimersByTime(5 * 60 * 1000);
+    });
+    expect(onPersistentAnomalyAutoHide).not.toHaveBeenCalled();
   });
 });

@@ -13,6 +13,7 @@ function installServiceMocks(
   const coordinatorStop = vi.fn();
   const releaseLeadership = vi.fn();
   let preferredInputDevice = initialPreferredInputDevice;
+  let autoHidePersistentAnomaly = true;
   let settingsListener: (() => void) | null = null;
 
   vi.doMock("../noiseCaptureRuntime", () => ({
@@ -90,6 +91,7 @@ function installServiceMocks(
       preferredInputDevice,
       primaryMetric: "quietness-score",
       showRealtimeValue: true,
+      autoHidePersistentAnomaly,
       scoreAlertThreshold: 70,
       alertSoundEnabled: false,
     }),
@@ -112,6 +114,9 @@ function installServiceMocks(
     runtimeStop,
     setPreferredInputDevice: (preference: { deviceId: string; label: string } | null) => {
       preferredInputDevice = preference;
+    },
+    setAutoHidePersistentAnomaly: (enabled: boolean) => {
+      autoHidePersistentAnomaly = enabled;
     },
     notifySettingsUpdated: () => settingsListener?.(),
   };
@@ -149,6 +154,7 @@ function installFollowerMocks() {
       preferredInputDevice: null,
       primaryMetric: "quietness-score",
       showRealtimeValue: true,
+      autoHidePersistentAnomaly: true,
       scoreAlertThreshold: 70,
       alertSoundEnabled: false,
     }),
@@ -259,6 +265,22 @@ describe("noiseStreamService v2 lifecycle", () => {
     expect(mocks.runtimeOptions).toHaveBeenLastCalledWith(
       expect.objectContaining({ preferredInputDeviceId: "usb-mic" })
     );
+
+    unsubscribe();
+    await settleAsyncWork();
+  });
+
+  it("设置更新会同步麦克风异常自动隐藏选项到运行时快照", async () => {
+    const mocks = installServiceMocks();
+    const { getNoiseStreamSnapshot, subscribeNoiseStream } = await import("../noiseStreamService");
+    const unsubscribe = subscribeNoiseStream(() => undefined);
+
+    expect(getNoiseStreamSnapshot().autoHidePersistentAnomaly).toBe(true);
+
+    mocks.setAutoHidePersistentAnomaly(false);
+    mocks.notifySettingsUpdated();
+
+    expect(getNoiseStreamSnapshot().autoHidePersistentAnomaly).toBe(false);
 
     unsubscribe();
     await settleAsyncWork();

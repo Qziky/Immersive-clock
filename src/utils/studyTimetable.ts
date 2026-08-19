@@ -137,8 +137,8 @@ function validateCycle(value: unknown, issues: CsesValidationIssue[]): CsesCycle
   if (!isIntegerAtLeast(workCount, 2)) {
     pushIssue(issues, "configuration.cycle.work_count", "必须是大于等于 2 的整数");
   }
-  if (!isIntegerAtLeast(restCount, 2)) {
-    pushIssue(issues, "configuration.cycle.rest_count", "必须是大于等于 2 的整数");
+  if (!isIntegerAtLeast(restCount, 1)) {
+    pushIssue(issues, "configuration.cycle.rest_count", "必须是大于等于 1 的整数");
   }
   if (!Array.isArray(value.spans)) {
     pushIssue(issues, "configuration.cycle.spans", "必须是数组");

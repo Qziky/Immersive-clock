@@ -56,6 +56,7 @@ function createSnapshot(overrides: Partial<NoiseMonitoringSnapshot> = {}): Noise
     estimatedDbA: null,
     realtimeDbfsA: null,
     showRealtimeValue: true,
+    autoHidePersistentAnomaly: true,
     primaryMetric: "quietness-score",
     scoreAlertThreshold: 70,
     alertSoundEnabled: false,

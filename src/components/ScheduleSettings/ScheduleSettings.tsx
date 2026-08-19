@@ -110,6 +110,10 @@ function describeResolvedDay(activity: ReturnType<typeof resolveStudyDaySchedule
   return `周期第 ${activity.cycleDay} 天 · 第 ${activity.workDay} 个上课日`;
 }
 
+function usesSingleRestExtension(document: CsesDocument): boolean {
+  return document.configuration.cycle.rest_count === 1;
+}
+
 function ValidationIssues({ issues }: { issues: CsesValidationIssue[] }) {
   return (
     <ul className={styles.issueList}>
@@ -137,6 +141,7 @@ export const ScheduleEditor: React.FC<ScheduleEditorProps> = ({ onRegisterSave }
   const validation = useMemo(() => validateStudyTimetable(draft), [draft]);
   const resolvedToday = useMemo(() => resolveStudyDaySchedule(draft, getAdjustedDate()), [draft]);
   const cycle = draft.document.configuration.cycle;
+  const draftUsesSingleRestExtension = usesSingleRestExtension(draft.document);
 
   const loadSaved = useCallback(() => {
     try {
@@ -430,7 +435,7 @@ export const ScheduleEditor: React.FC<ScheduleEditorProps> = ({ onRegisterSave }
 
           <FormSection
             title="CSES YAML"
-            description="仅支持 CSES v2。导入先进入预览，导出使用当前已校验草稿。"
+            description="基于 CSES v2。导入先进入预览，导出使用当前已校验草稿；单休周期为本应用兼容扩展。"
             variant="plain"
             action={
               <Button icon="action.download" onClick={handleExport} disabled={!validation.valid}>
@@ -438,6 +443,12 @@ export const ScheduleEditor: React.FC<ScheduleEditorProps> = ({ onRegisterSave }
               </Button>
             }
           >
+            {draftUsesSingleRestExtension && (
+              <InfoPanel tone="warning" title="单休兼容提示">
+                当前草稿使用单休周期（rest_count: 1）。本应用支持保存、导入和导出；部分严格 CSES v2
+                工具可能无法识别此文件。
+              </InfoPanel>
+            )}
             <SettingItem
               icon="action.upload"
               title="导入课程表"
@@ -460,22 +471,30 @@ export const ScheduleEditor: React.FC<ScheduleEditorProps> = ({ onRegisterSave }
               </InfoPanel>
             )}
             {importDocument && (
-              <InfoPanel tone="success" title="文件校验通过">
-                <Stack gap="sm">
-                  <span>
-                    {importDocument.configuration.name} · {importDocument.subjects.length} 门课程 ·{" "}
-                    {importDocument.schedules.length} 个日课程表
-                  </span>
-                  <Inline align="left">
-                    <Button variant="primary" icon="action.apply" onClick={applyImport}>
-                      覆盖当前草稿
-                    </Button>
-                    <Button variant="secondary" onClick={clearImport}>
-                      取消预览
-                    </Button>
-                  </Inline>
-                </Stack>
-              </InfoPanel>
+              <>
+                <InfoPanel tone="success" title="文件校验通过">
+                  <Stack gap="sm">
+                    <span>
+                      {importDocument.configuration.name} · {importDocument.subjects.length} 门课程
+                      · {importDocument.schedules.length} 个日课程表
+                    </span>
+                    <Inline align="left">
+                      <Button variant="primary" icon="action.apply" onClick={applyImport}>
+                        覆盖当前草稿
+                      </Button>
+                      <Button variant="secondary" onClick={clearImport}>
+                        取消预览
+                      </Button>
+                    </Inline>
+                  </Stack>
+                </InfoPanel>
+                {usesSingleRestExtension(importDocument) && (
+                  <InfoPanel tone="warning" title="单休兼容提示">
+                    该文件使用单休周期（rest_count: 1）。本应用可正常导入；部分严格 CSES v2
+                    工具可能无法识别此文件。
+                  </InfoPanel>
+                )}
+              </>
             )}
           </FormSection>
 

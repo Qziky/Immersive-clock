@@ -321,6 +321,18 @@ export const StudySettingsPanel: React.FC<StudySettingsPanelProps> = ({
               }
             />
             <SettingItem
+              icon="feature.microphone"
+              title="麦克风异常后自动隐藏"
+              description="异常连续 5 分钟后关闭自习页噪音监测显示，但不会停止监测。"
+              control={
+                <Switch
+                  checked={draft.autoHidePersistentAnomaly}
+                  onCheckedChange={(value) => updateDraft("autoHidePersistentAnomaly", value)}
+                  aria-label="麦克风异常后自动隐藏"
+                />
+              }
+            />
+            <SettingItem
               icon="feature.notification"
               title="低于提醒分数播放提示音"
               control={

@@ -14,6 +14,7 @@ export interface NoiseControlSettings {
   preferredInputDevice: NoiseInputDevicePreference | null;
   primaryMetric: "quietness-score" | "estimated-dba";
   showRealtimeValue: boolean;
+  autoHidePersistentAnomaly: boolean;
   scoreAlertThreshold: number;
   alertSoundEnabled: boolean;
 }
@@ -24,6 +25,7 @@ const DEFAULT_SETTINGS: NoiseControlSettings = {
   preferredInputDevice: null,
   primaryMetric: "quietness-score",
   showRealtimeValue: true,
+  autoHidePersistentAnomaly: true,
   scoreAlertThreshold: 70,
   alertSoundEnabled: false,
 };
@@ -46,6 +48,10 @@ function normalize(settings: Partial<NoiseControlSettings>): NoiseControlSetting
       typeof settings.showRealtimeValue === "boolean"
         ? settings.showRealtimeValue
         : DEFAULT_SETTINGS.showRealtimeValue,
+    autoHidePersistentAnomaly:
+      typeof settings.autoHidePersistentAnomaly === "boolean"
+        ? settings.autoHidePersistentAnomaly
+        : DEFAULT_SETTINGS.autoHidePersistentAnomaly,
     scoreAlertThreshold:
       typeof settings.scoreAlertThreshold === "number" &&
       Number.isFinite(settings.scoreAlertThreshold)
@@ -68,6 +74,7 @@ function areNoiseControlSettingsEqual(
     current.preferredInputDevice?.label === next.preferredInputDevice?.label &&
     current.primaryMetric === next.primaryMetric &&
     current.showRealtimeValue === next.showRealtimeValue &&
+    current.autoHidePersistentAnomaly === next.autoHidePersistentAnomaly &&
     current.scoreAlertThreshold === next.scoreAlertThreshold &&
     current.alertSoundEnabled === next.alertSoundEnabled
   );

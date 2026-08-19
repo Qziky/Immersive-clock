@@ -63,6 +63,7 @@ function createInitialSnapshot(): NoiseMonitoringSnapshot {
     estimatedDbA: null,
     realtimeDbfsA: null,
     showRealtimeValue: settings.showRealtimeValue,
+    autoHidePersistentAnomaly: settings.autoHidePersistentAnomaly,
     primaryMetric: settings.primaryMetric,
     scoreAlertThreshold: settings.scoreAlertThreshold,
     alertSoundEnabled: settings.alertSoundEnabled,
@@ -264,6 +265,7 @@ function applySettings(restartLeader: boolean): void {
   const settings = readSettings();
   patchSnapshot({
     showRealtimeValue: settings.showRealtimeValue,
+    autoHidePersistentAnomaly: settings.autoHidePersistentAnomaly,
     primaryMetric: settings.primaryMetric,
     scoreAlertThreshold: settings.scoreAlertThreshold,
     alertSoundEnabled: settings.alertSoundEnabled,

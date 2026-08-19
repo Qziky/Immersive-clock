@@ -82,6 +82,7 @@ describe("appSettings", () => {
       showStudySeconds: true,
     });
     expect(s.noiseControl.reportAutoCloseMinutes).toBe(10);
+    expect(s.noiseControl.autoHidePersistentAnomaly).toBe(true);
     expect(s.general.timeSync.provider).toBe("httpDate");
     expect(s.study.display).not.toHaveProperty("showStatusBar");
     expect(s.study.display).not.toHaveProperty("timeProgressMode");
@@ -174,6 +175,27 @@ describe("appSettings", () => {
       general: { update: { autoCheckEnabled: false } },
     });
     expect(disabled.general.update.autoCheckEnabled).toBe(false);
+  });
+
+  it("麦克风异常自动隐藏会补齐旧设置、拒绝非法值并保留显式关闭", () => {
+    expect(
+      normalizeAppSettings({ version: 19, noiseControl: {} }).noiseControl.autoHidePersistentAnomaly
+    ).toBe(true);
+    expect(
+      normalizeAppSettings({
+        version: 19,
+        noiseControl: { autoHidePersistentAnomaly: "invalid" },
+      }).noiseControl.autoHidePersistentAnomaly
+    ).toBe(true);
+    expect(
+      normalizeAppSettings({
+        version: 19,
+        noiseControl: { autoHidePersistentAnomaly: false },
+      }).noiseControl.autoHidePersistentAnomaly
+    ).toBe(false);
+
+    updateAppSettings({ noiseControl: { autoHidePersistentAnomaly: false } });
+    expect(getAppSettings().noiseControl.autoHidePersistentAnomaly).toBe(false);
   });
 
   it("v17 及更早版本只替换未修改的默认课表并保留自定义课表", () => {

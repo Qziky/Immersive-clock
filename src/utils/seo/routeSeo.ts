@@ -98,7 +98,7 @@ export const PUBLIC_ROUTE_SEO: Record<string, RouteSeoData> = {
       {
         question: "能导入课程表吗？",
         answer:
-          "可以。自习模式支持严格导入和导出 CSES v2 YAML，并按周期锚点自动解析当天课程，用于显示下一课程与课程进度。",
+          "可以。自习模式支持基于 CSES v2 的 YAML 导入和导出，并支持单休周期（rest_count: 1）；它会按周期锚点自动解析当天课程，用于显示下一课程与课程进度。",
       },
       {
         question: "支持哪些平台？",
@@ -229,7 +229,7 @@ export const PUBLIC_ROUTE_SEO: Record<string, RouteSeoData> = {
       {
         question: "能导入课程表吗？",
         answer:
-          "可以。支持严格导入和导出 CSES v2 YAML，并在应用草稿前校验周期、课程引用、时间和重叠。",
+          "可以。支持基于 CSES v2 的 YAML 导入和导出，并支持单休周期（rest_count: 1）；在应用草稿前会校验周期、课程引用、时间和重叠。",
       },
       {
         question: "噪音监测准确吗？",

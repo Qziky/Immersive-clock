@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 
 import { expect, test, type Locator, type Page } from "@playwright/test";
 
+import { CURRENT_SETTINGS_VERSION } from "../../src/constants/settings";
 import { CURRENT_APP_VERSION, showHud } from "./e2eUtils";
 
 async function openStudySettings(page: Parameters<typeof showHud>[0]) {
@@ -713,7 +714,7 @@ test("天气设置：移除分钟降水弹窗并在天气数据保留完整数�
     };
   });
   expect(migrated).toMatchObject({
-    version: 12,
+    version: CURRENT_SETTINGS_VERSION,
     hasSchedule: false,
     hasLegacyField: false,
     rain: {
@@ -900,7 +901,7 @@ test("噪音设置：选择麦克风只在保存后持久化，并在重开后�
       return { version: settings.version, preference: settings.noiseControl?.preferredInputDevice };
     })
   ).toEqual({
-    version: 12,
+    version: CURRENT_SETTINGS_VERSION,
     preference: { deviceId: "usb-mic", label: "USB 麦克风" },
   });
 
@@ -909,6 +910,46 @@ test("噪音设置：选择麦克风只在保存后持久化，并在重开后�
   await expect(dialog.getByRole("button", { name: "麦克风设备", exact: true })).toContainText(
     "USB 麦克风"
   );
+});
+
+test("噪音设置：麦克风异常自动隐藏默认开启并随统一保存持久化", async ({ page }) => {
+  await page.addInitScript((appVersion) => {
+    localStorage.setItem("immersive-clock:has-seen-tour", "true");
+    localStorage.setItem(
+      "AppSettings",
+      JSON.stringify({
+        version: 19,
+        general: {
+          announcement: {
+            hideUntil: Date.now() + 7 * 24 * 60 * 60 * 1000,
+            version: appVersion,
+          },
+        },
+        noiseControl: { monitoringEnabled: false },
+      })
+    );
+  }, CURRENT_APP_VERSION);
+  await page.goto("/");
+
+  let dialog = await openStudySettings(page);
+  await openEnvironmentSettingsPage(page, dialog, "噪音监测");
+  const autoHideSwitch = dialog.getByRole("switch", { name: "麦克风异常后自动隐藏" });
+  await expect(autoHideSwitch).toBeChecked();
+  await autoHideSwitch.click();
+  await expect(autoHideSwitch).not.toBeChecked();
+  await dialog.getByRole("button", { name: "保存" }).click();
+
+  expect(
+    await page.evaluate(
+      () =>
+        JSON.parse(localStorage.getItem("AppSettings") ?? "{}").noiseControl
+          ?.autoHidePersistentAnomaly
+    )
+  ).toBe(false);
+
+  dialog = await openStudySettings(page);
+  await openEnvironmentSettingsPage(page, dialog, "噪音监测");
+  await expect(dialog.getByRole("switch", { name: "麦克风异常后自动隐藏" })).not.toBeChecked();
 });
 
 test("噪音报告：自动关闭时长随统一保存持久化，取消时丢弃草稿", async ({ page }) => {
@@ -1482,8 +1523,38 @@ test("课程表：随设置统一保存并在取消时丢弃草稿", async ({ pa
   await expect(reopenedDialog.getByLabel("课程名称").first()).toHaveValue("晨间数学");
 });
 
-/** 端到端用例：CSES YAML 严格拒绝无效文件，并支持预览、应用和导出草稿。 */
-test("课程表：严格导入并导出 CSES v2 YAML", async ({ page }) => {
+/** 端到端用例：单休周期可通过设置页保存并在重新打开后保留。 */
+test("课程表：单休周期可保存并重新读取", async ({ page }) => {
+  await page.goto("/");
+
+  const dialog = await openStudySettings(page);
+  await dialog.getByRole("button", { name: "课程表" }).click();
+  await dialog.getByRole("tab", { name: "周期与锚点" }).click();
+
+  const spanDayInputs = dialog.getByLabel("连续天数");
+  await spanDayInputs.nth(0).fill("6");
+  await spanDayInputs.nth(1).fill("1");
+  await dialog.getByRole("tab", { name: "概览与文件" }).click();
+  await expect(dialog.getByText("单休兼容提示")).toBeVisible();
+  await expect(dialog.getByText(/草稿包含/)).toHaveCount(0);
+  await dialog.getByRole("button", { name: "保存", exact: true }).click();
+
+  expect(
+    await page.evaluate(() => {
+      const raw = localStorage.getItem("AppSettings");
+      return raw ? JSON.parse(raw)?.study?.timetable?.document?.configuration?.cycle : null;
+    })
+  ).toMatchObject({ work_count: 6, rest_count: 1 });
+
+  await page.getByRole("button", { name: "打开设置" }).click();
+  const reopenedDialog = page.getByRole("dialog", { name: "设置" });
+  await reopenedDialog.getByRole("button", { name: "课程表" }).click();
+  await expect(reopenedDialog.getByText("6 上 / 1 休").first()).toBeVisible();
+  await expect(reopenedDialog.getByText("单休兼容提示")).toBeVisible();
+});
+
+/** 端到端用例：CSES YAML 严格拒绝无效文件，并支持单休扩展的预览、应用和导出。 */
+test("课程表：拒绝无效 YAML 并导入导出单休扩展", async ({ page }) => {
   await page.goto("/");
   const dialog = await openStudySettings(page);
   await dialog.getByRole("button", { name: "课程表" }).click();
@@ -1501,13 +1572,13 @@ configuration:
   name: e2e 课表
   description: 设置页 CSES 流程
   cycle:
-    work_count: 5
-    rest_count: 2
+    work_count: 6
+    rest_count: 1
     spans:
       - activity: work
-        count: 5
+        count: 6
       - activity: rest
-        count: 2
+        count: 1
 subjects:
   - name: 物理
 schedules:
@@ -1524,6 +1595,7 @@ schedules:
     buffer: Buffer.from(yaml),
   });
   await expect(dialog.getByText("文件校验通过")).toBeVisible();
+  await expect(dialog.getByText("单休兼容提示")).toBeVisible();
   await dialog.getByRole("button", { name: "覆盖当前草稿" }).click();
 
   const downloadPromise = page.waitForEvent("download");
@@ -1532,7 +1604,10 @@ schedules:
   expect(download.suggestedFilename()).toMatch(/^e2e-课表-\d{4}-\d{2}-\d{2}\.yaml$/);
   const downloadPath = await download.path();
   expect(downloadPath).not.toBeNull();
-  expect(await readFile(downloadPath!, "utf8")).toContain("name: 物理");
+  const exportedYaml = await readFile(downloadPath!, "utf8");
+  expect(exportedYaml).toContain("name: 物理");
+  expect(exportedYaml).toContain("work_count: 6");
+  expect(exportedYaml).toContain("rest_count: 1");
 
   await dialog.getByRole("button", { name: "保存", exact: true }).click();
   expect(

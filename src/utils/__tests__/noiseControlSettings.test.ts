@@ -30,6 +30,7 @@ const CURRENT_SETTINGS: NoiseControlSettings = {
   preferredInputDevice: { deviceId: "usb-mic", label: "USB 麦克风" },
   primaryMetric: "quietness-score",
   showRealtimeValue: true,
+  autoHidePersistentAnomaly: true,
   scoreAlertThreshold: 70,
   alertSoundEnabled: false,
 };
@@ -52,9 +53,9 @@ describe("noiseControlSettings", () => {
   });
 
   it("设置值变化时仍写入并广播更新", () => {
-    saveNoiseControlSettings({ showRealtimeValue: false });
+    saveNoiseControlSettings({ autoHidePersistentAnomaly: false });
 
-    const next = { ...CURRENT_SETTINGS, showRealtimeValue: false };
+    const next = { ...CURRENT_SETTINGS, autoHidePersistentAnomaly: false };
     expect(mocks.updateNoiseSettings).toHaveBeenCalledWith(next);
     expect(mocks.broadcastSettingsEvent).toHaveBeenCalledWith("noiseControlSettingsUpdated", {
       settings: next,
