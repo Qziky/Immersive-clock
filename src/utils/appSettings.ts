@@ -1,9 +1,9 @@
-import { CURRENT_SETTINGS_VERSION } from "../constants/settings";
 import {
   DEFAULT_NOISE_REPORT_AUTO_CLOSE_MINUTES,
   MAX_NOISE_REPORT_AUTO_CLOSE_MINUTES,
   MIN_NOISE_REPORT_AUTO_CLOSE_MINUTES,
 } from "../constants/noiseReport";
+import { CURRENT_SETTINGS_VERSION } from "../constants/settings";
 import {
   getDefaultQuoteChannels,
   resolveQuoteChannels,
