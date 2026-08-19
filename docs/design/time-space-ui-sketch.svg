@@ -1,0 +1,143 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="900" viewBox="0 0 1440 900" fill="none">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1440" y2="900" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0B1211"/>
+      <stop offset="0.48" stop-color="#101A17"/>
+      <stop offset="1" stop-color="#070B0B"/>
+    </linearGradient>
+    <radialGradient id="ambient" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(760 320) rotate(90) scale(520 760)">
+      <stop stop-color="#2FECC6" stop-opacity="0.12"/>
+      <stop offset="1" stop-color="#2FECC6" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="focus" x1="290" y1="300" x2="690" y2="620" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#1C4E47" stop-opacity="0.86"/>
+      <stop offset="1" stop-color="#0D2421" stop-opacity="0.62"/>
+    </linearGradient>
+    <linearGradient id="exam" x1="750" y1="300" x2="1150" y2="620" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#5A4630" stop-opacity="0.74"/>
+      <stop offset="1" stop-color="#241A16" stop-opacity="0.66"/>
+    </linearGradient>
+    <linearGradient id="rest" x1="290" y1="640" x2="690" y2="820" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#233C55" stop-opacity="0.78"/>
+      <stop offset="1" stop-color="#111C2B" stop-opacity="0.64"/>
+    </linearGradient>
+    <linearGradient id="review" x1="750" y1="640" x2="1150" y2="820" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#3B3154" stop-opacity="0.76"/>
+      <stop offset="1" stop-color="#1D172D" stop-opacity="0.66"/>
+    </linearGradient>
+    <filter id="blur-xl" x="-30%" y="-30%" width="160%" height="160%" color-interpolation-filters="sRGB">
+      <feGaussianBlur stdDeviation="42"/>
+    </filter>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="160%" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="18" stdDeviation="24" flood-color="#000" flood-opacity="0.34"/>
+    </filter>
+    <filter id="soft-shadow" x="-20%" y="-20%" width="140%" height="160%" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="10" stdDeviation="14" flood-color="#000" flood-opacity="0.24"/>
+    </filter>
+  </defs>
+
+  <rect width="1440" height="900" fill="url(#bg)"/>
+  <rect width="1440" height="900" fill="url(#ambient)"/>
+
+  <circle cx="1250" cy="110" r="210" fill="#2FECC6" fill-opacity="0.035" filter="url(#blur-xl)"/>
+  <circle cx="180" cy="760" r="190" fill="#6A7CFF" fill-opacity="0.03" filter="url(#blur-xl)"/>
+
+  <path d="M0 160H1440M0 740H1440" stroke="#E8E9E0" stroke-opacity="0.045"/>
+  <path d="M180 0V900M1260 0V900" stroke="#E8E9E0" stroke-opacity="0.035"/>
+
+  <!-- Header -->
+  <g>
+    <circle cx="74" cy="62" r="18" fill="#2FECC6" fill-opacity="0.12" stroke="#2FECC6" stroke-opacity="0.45"/>
+    <circle cx="68" cy="56" r="3" fill="#2FECC6"/>
+    <circle cx="80" cy="56" r="3" fill="#2FECC6"/>
+    <circle cx="68" cy="68" r="3" fill="#2FECC6"/>
+    <circle cx="80" cy="68" r="3" fill="#2FECC6"/>
+    <text x="108" y="58" fill="#F0F1EC" font-family="Inter, Microsoft YaHei, sans-serif" font-size="17" font-weight="600">时间空间</text>
+    <text x="108" y="80" fill="#8F9994" font-family="Inter, Microsoft YaHei, sans-serif" font-size="12">Immersive Clock</text>
+
+    <g transform="translate(1010 45)">
+      <rect width="170" height="36" rx="18" fill="#101B18" fill-opacity="0.76" stroke="#E8E9E0" stroke-opacity="0.13"/>
+      <circle cx="20" cy="18" r="5" fill="#2FECC6"/>
+      <text x="36" y="23" fill="#DCE4DF" font-family="Inter, Microsoft YaHei, sans-serif" font-size="13">当前：自习模式</text>
+    </g>
+    <text x="1212" y="59" fill="#C5CDC8" font-family="Roboto Mono, monospace" font-size="13">2026.08.14</text>
+    <text x="1212" y="80" fill="#7E8983" font-family="Inter, Microsoft YaHei, sans-serif" font-size="12">星期五 · 22:18</text>
+
+    <g transform="translate(1345 45)">
+      <rect width="68" height="36" rx="18" fill="#111A18" stroke="#E8E9E0" stroke-opacity="0.14"/>
+      <path d="M29 18H39M29 18L34 13M29 18L34 23" stroke="#B8C3BD" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+      <text x="45" y="23" fill="#B8C3BD" font-family="Inter, Microsoft YaHei, sans-serif" font-size="12">返回</text>
+    </g>
+  </g>
+
+  <!-- Main intro -->
+  <g>
+    <text x="720" y="164" text-anchor="middle" fill="#2FECC6" fill-opacity="0.88" font-family="Inter, Microsoft YaHei, sans-serif" font-size="12" letter-spacing="3">CHOOSE YOUR RHYTHM</text>
+    <text x="720" y="214" text-anchor="middle" fill="#F0F1EC" font-family="Inter, Microsoft YaHei, sans-serif" font-size="34" font-weight="600">今天，想进入什么节奏？</text>
+    <text x="720" y="248" text-anchor="middle" fill="#9BA7A1" font-family="Inter, Microsoft YaHei, sans-serif" font-size="14">选择一个场景，时钟会为你调整接下来的专注方式。</text>
+  </g>
+
+  <!-- Feature zones -->
+  <g filter="url(#shadow)">
+    <rect x="210" y="300" width="470" height="278" rx="20" fill="url(#focus)" stroke="#2FECC6" stroke-opacity="0.38"/>
+    <rect x="760" y="300" width="470" height="278" rx="20" fill="url(#exam)" stroke="#E6B36A" stroke-opacity="0.34"/>
+    <rect x="210" y="616" width="470" height="178" rx="20" fill="url(#rest)" stroke="#79B5E8" stroke-opacity="0.30"/>
+    <rect x="760" y="616" width="470" height="178" rx="20" fill="url(#review)" stroke="#B7A2F3" stroke-opacity="0.30"/>
+  </g>
+
+  <!-- Focus -->
+  <g>
+    <circle cx="258" cy="350" r="24" fill="#2FECC6" fill-opacity="0.14" stroke="#2FECC6" stroke-opacity="0.55"/>
+    <path d="M258 338V350L266 356" stroke="#2FECC6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="298" y="351" fill="#F0F1EC" font-family="Inter, Microsoft YaHei, sans-serif" font-size="25" font-weight="600">专注</text>
+    <text x="298" y="378" fill="#A9C4BC" font-family="Inter, Microsoft YaHei, sans-serif" font-size="13">把接下来的时间留给一件事</text>
+    <text x="258" y="448" fill="#EFFAF6" font-family="Roboto Mono, monospace" font-size="48" font-weight="500">02:00:00</text>
+    <text x="260" y="480" fill="#A9C4BC" font-family="Inter, Microsoft YaHei, sans-serif" font-size="13">最近一次：晚间自习 · 38 分钟</text>
+    <rect x="258" y="516" width="136" height="34" rx="17" fill="#2FECC6"/>
+    <text x="326" y="538" text-anchor="middle" fill="#071411" font-family="Inter, Microsoft YaHei, sans-serif" font-size="13" font-weight="600">开始专注</text>
+    <text x="592" y="539" text-anchor="end" fill="#B8D9D0" font-family="Inter, Microsoft YaHei, sans-serif" font-size="12">自习设置 →</text>
+  </g>
+
+  <!-- Exam -->
+  <g>
+    <circle cx="808" cy="350" r="24" fill="#E6B36A" fill-opacity="0.14" stroke="#E6B36A" stroke-opacity="0.50"/>
+    <path d="M800 340H816V360H800V340ZM804 336H812V340H804V336Z" stroke="#E6B36A" stroke-width="1.7" stroke-linejoin="round"/>
+    <text x="848" y="351" fill="#F4F0E8" font-family="Inter, Microsoft YaHei, sans-serif" font-size="25" font-weight="600">考试</text>
+    <text x="848" y="378" fill="#D4BFA2" font-family="Inter, Microsoft YaHei, sans-serif" font-size="13">围绕一个目标持续推进</text>
+    <text x="808" y="448" fill="#F7E7CC" font-family="Roboto Mono, monospace" font-size="42" font-weight="500">期末考试</text>
+    <text x="810" y="480" fill="#D4BFA2" font-family="Inter, Microsoft YaHei, sans-serif" font-size="13">还有 128 天 · 已完成 42%</text>
+    <rect x="808" y="516" width="136" height="34" rx="17" fill="#E6B36A"/>
+    <text x="876" y="538" text-anchor="middle" fill="#241A12" font-family="Inter, Microsoft YaHei, sans-serif" font-size="13" font-weight="600">进入冲刺</text>
+    <text x="1142" y="539" text-anchor="end" fill="#D5C2A7" font-family="Inter, Microsoft YaHei, sans-serif" font-size="12">管理考试 →</text>
+  </g>
+
+  <!-- Rest -->
+  <g>
+    <circle cx="258" cy="666" r="22" fill="#79B5E8" fill-opacity="0.14" stroke="#79B5E8" stroke-opacity="0.48"/>
+    <path d="M248 670C253 664 258 664 263 670C268 676 273 676 278 670" stroke="#9ACBF3" stroke-width="1.7" stroke-linecap="round"/>
+    <text x="298" y="667" fill="#E7F1F8" font-family="Inter, Microsoft YaHei, sans-serif" font-size="23" font-weight="600">休息</text>
+    <text x="298" y="694" fill="#A9C2D6" font-family="Inter, Microsoft YaHei, sans-serif" font-size="13">放下任务，让状态慢下来</text>
+    <text x="258" y="752" fill="#CDE4F7" font-family="Roboto Mono, monospace" font-size="29">15:00</text>
+    <text x="415" y="752" fill="#A9C2D6" font-family="Inter, Microsoft YaHei, sans-serif" font-size="13">午间休息</text>
+    <text x="632" y="752" text-anchor="end" fill="#B5D2E7" font-family="Inter, Microsoft YaHei, sans-serif" font-size="12">开始 →</text>
+  </g>
+
+  <!-- Review -->
+  <g>
+    <circle cx="808" cy="666" r="22" fill="#B7A2F3" fill-opacity="0.14" stroke="#B7A2F3" stroke-opacity="0.48"/>
+    <path d="M798 671L804 665L809 670L819 660M813 660H819V666" stroke="#CDBEF7" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="848" y="667" fill="#EEE9FA" font-family="Inter, Microsoft YaHei, sans-serif" font-size="23" font-weight="600">回顾</text>
+    <text x="848" y="694" fill="#BEB1D8" font-family="Inter, Microsoft YaHei, sans-serif" font-size="13">看看今天和这一周走了多远</text>
+    <text x="808" y="752" fill="#D9CFF4" font-family="Roboto Mono, monospace" font-size="29">18h 42m</text>
+    <text x="1015" y="752" fill="#BEB1D8" font-family="Inter, Microsoft YaHei, sans-serif" font-size="13">本周专注</text>
+    <text x="1182" y="752" text-anchor="end" fill="#CBBDF0" font-family="Inter, Microsoft YaHei, sans-serif" font-size="12">查看报告 →</text>
+  </g>
+
+  <!-- Footer navigation -->
+  <g>
+    <line x1="210" y1="842" x2="1230" y2="842" stroke="#E8E9E0" stroke-opacity="0.10"/>
+    <text x="210" y="871" fill="#89958F" font-family="Inter, Microsoft YaHei, sans-serif" font-size="12">当前页面：时间空间</text>
+    <text x="720" y="871" text-anchor="middle" fill="#6F7C76" font-family="Inter, Microsoft YaHei, sans-serif" font-size="12">时钟 · 倒计时 · 秒表 · 自习</text>
+    <text x="1230" y="871" text-anchor="end" fill="#A9B5AF" font-family="Inter, Microsoft YaHei, sans-serif" font-size="12">设置  ·  数据  ·  外观</text>
+  </g>
+</svg>
