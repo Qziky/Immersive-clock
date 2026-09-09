@@ -30,7 +30,7 @@ export function HUD({ onModeChange }: HUDProps) {
         </div>
 
         <div className={styles.bottomSection}>
-          <ControlBar />
+          <ControlBar onModeChange={onModeChange} />
         </div>
       </div>
     </section>

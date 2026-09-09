@@ -725,6 +725,26 @@
   font-size: var(--ui-font-size-xs);
 }
 
+.dropdownMenuCompact {
+  gap: var(--ui-space-1);
+  min-width: 0;
+  padding: var(--ui-space-1);
+}
+
+.dropdownMenuCompact .dropdownGroup,
+.dropdownMenuCompact .dropdownList {
+  gap: calc(var(--ui-space-1) / 2);
+}
+
+.dropdownMenuCompact .dropdownOption {
+  border-radius: var(--ui-radius-sm);
+  gap: calc(var(--ui-space-1) * 1.5);
+  min-height: 28px;
+  padding: var(--ui-space-1) calc(var(--ui-space-1) * 1.5);
+  font-size: var(--ui-font-size-md);
+  line-height: 20px;
+}
+
 .dropdownEmpty {
   color: var(--ui-color-text-muted);
   font-size: var(--ui-font-size-sm);

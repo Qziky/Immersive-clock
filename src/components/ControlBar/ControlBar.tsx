@@ -2,7 +2,8 @@ import React, { useCallback } from "react";
 
 import { useAppDispatch, useAppState } from "../../contexts/AppContext";
 import { useFullscreen } from "../../hooks/useFullscreen";
-import { Button as FormButton } from "../../ui";
+import type { AppMode } from "../../types";
+import { Button as FormButton, Dropdown } from "../../ui";
 
 import styles from "./ControlBar.module.css";
 
@@ -10,7 +11,11 @@ import styles from "./ControlBar.module.css";
  * 控制栏组件
  * 根据当前模式显示相应的控制按钮
  */
-export function ControlBar() {
+interface ControlBarProps {
+  onModeChange?: (mode: AppMode) => void;
+}
+
+export function ControlBar({ onModeChange }: ControlBarProps) {
   const { mode, countdown, stopwatch } = useAppState();
   const dispatch = useAppDispatch();
   const [isFullscreen, toggleFullscreenOriginal] = useFullscreen();
@@ -143,6 +148,48 @@ export function ControlBar() {
       </div>
 
       <div className={styles.globalControls}>
+        {mode === "clock" && (
+          <Dropdown
+            placement="above"
+            placeholder="更多"
+            menuWidth={160}
+            density="compact"
+            value={mode}
+            renderTrigger={(triggerProps) => (
+              <FormButton
+                {...triggerProps}
+                className={styles.controlButton}
+                variant="ghost"
+                size="sm"
+                icon="action.more"
+                title="更多模式"
+              >
+                更多
+              </FormButton>
+            )}
+            options={[
+              { value: "clock", label: "时钟", icon: "mode.clock" },
+              {
+                value: "countdown",
+                label: "倒计时",
+                icon: "mode.countdown",
+              },
+              { value: "stopwatch", label: "秒表", icon: "mode.stopwatch" },
+              { value: "study", label: "自习", icon: "mode.study" },
+            ]}
+            onChange={(value) => {
+              if (
+                value === "clock" ||
+                value === "countdown" ||
+                value === "stopwatch" ||
+                value === "study"
+              ) {
+                if (onModeChange) onModeChange(value);
+                else dispatch({ type: "SET_MODE", payload: value });
+              }
+            }}
+          />
+        )}
         <FormButton
           id="tour-fullscreen-btn"
           className={styles.controlButton}

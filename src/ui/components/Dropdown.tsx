@@ -1,4 +1,4 @@
-import type { CSSProperties } from "react";
+import type { ButtonHTMLAttributes, CSSProperties, ReactNode, Ref } from "react";
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
@@ -43,9 +43,14 @@ export interface DropdownProps {
   menuWidth?: number | string;
   width?: number | string;
   variant?: "default" | "ghost";
+  density?: "default" | "compact";
   renderLabel?: (option: DropdownOption) => string;
   portalContainer?: HTMLElement | null;
   motion?: UiMotionMode;
+  placement?: "auto" | "above";
+  renderTrigger?: (
+    props: ButtonHTMLAttributes<HTMLButtonElement> & { ref: Ref<HTMLButtonElement> }
+  ) => ReactNode;
   className?: string;
   onChange?: (value: DropdownValue | DropdownValue[] | undefined) => void;
 }
@@ -89,9 +94,12 @@ export function Dropdown({
   menuWidth,
   width,
   variant = "default",
+  density = "default",
   renderLabel,
   portalContainer,
   motion = "default",
+  placement = "auto",
+  renderTrigger,
   className,
   onChange,
 }: DropdownProps) {
@@ -167,7 +175,8 @@ export function Dropdown({
     const menuHeight = menuRef.current?.offsetHeight ?? 0;
     const availableBelow = window.innerHeight - rect.bottom - menuGap - viewportInset;
     const availableAbove = rect.top - menuGap - viewportInset;
-    const openAbove = menuHeight > availableBelow && availableAbove > availableBelow;
+    const openAbove =
+      placement === "above" || (menuHeight > availableBelow && availableAbove > availableBelow);
     const preferredTop = openAbove ? rect.top - menuGap - menuHeight : rect.bottom + menuGap;
     const maximumTop = Math.max(viewportInset, window.innerHeight - menuHeight - viewportInset);
     const left = Math.max(
@@ -182,7 +191,7 @@ export function Dropdown({
       top,
       width: resolvedWidth,
     });
-  }, [menuWidth, width]);
+  }, [menuWidth, placement, width]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -266,6 +275,7 @@ export function Dropdown({
 
     commitValue(option.value);
     setIsOpen(false);
+    triggerRef.current?.focus({ preventScroll: true });
   };
 
   const displayText =
@@ -280,7 +290,10 @@ export function Dropdown({
       ? createPortal(
           <div
             ref={menuRef}
-            className={styles.dropdownMenu}
+            className={classNames(
+              styles.dropdownMenu,
+              density === "compact" && styles.dropdownMenuCompact
+            )}
             data-dropdown-menu={generatedId}
             data-ui-motion={shouldAnimate ? "default" : "none"}
             data-ui-overlay-root
@@ -305,6 +318,24 @@ export function Dropdown({
               className={styles.dropdownList}
               id={listboxId}
               role="listbox"
+              aria-label={label ?? placeholder}
+              onKeyDown={(event) => {
+                const choices = Array.from(
+                  menuRef.current?.querySelectorAll<HTMLButtonElement>(
+                    '[role="option"]:not(:disabled)'
+                  ) ?? []
+                );
+                const index = choices.indexOf(document.activeElement as HTMLButtonElement);
+                let nextIndex: number;
+                if (event.key === "ArrowDown") nextIndex = (index + 1) % choices.length;
+                else if (event.key === "ArrowUp")
+                  nextIndex = (index - 1 + choices.length) % choices.length;
+                else if (event.key === "Home") nextIndex = 0;
+                else if (event.key === "End") nextIndex = choices.length - 1;
+                else return;
+                event.preventDefault();
+                choices[nextIndex]?.focus();
+              }}
               aria-multiselectable={mode === "multiple" ? true : undefined}
               style={{ maxHeight: maxMenuHeight }}
             >
@@ -367,39 +398,71 @@ export function Dropdown({
           )}
         </div>
       )}
-      <button
-        ref={triggerRef}
-        className={classNames(
-          styles.dropdownTrigger,
-          variant === "ghost" ? styles.dropdownTriggerGhost : styles.dropdownTriggerDefault,
-          error && styles.inputError,
-          !selectedLabels.length && styles.dropdownPlaceholder
-        )}
-        disabled={disabled}
-        style={width ? { width } : undefined}
-        onClick={() => {
-          setIsOpen((open) => !open);
-          setQuery("");
-        }}
-        type="button"
-        aria-controls={listboxId}
-        aria-describedby={classNames(hintId, errorId) || undefined}
-        aria-expanded={isOpen}
-        aria-haspopup="listbox"
-        aria-invalid={error ? true : undefined}
-        aria-labelledby={label ? `${generatedId}-label` : undefined}
-      >
-        {prefixIcon && (
-          <AppIcon
-            aria-hidden="true"
-            className={styles.dropdownTriggerIcon}
-            name={prefixIcon}
-            size="sm"
-          />
-        )}
-        <span className={styles.dropdownValue}>{displayText}</span>
-        <AppIcon className={styles.dropdownChevron} name="action.expand" size="sm" />
-      </button>
+      {renderTrigger ? (
+        // The render prop receives the trigger ref so custom buttons share overlay focus behavior.
+        // eslint-disable-next-line react-hooks/refs
+        renderTrigger({
+          ref: (node) => {
+            triggerRef.current = node;
+          },
+          type: "button",
+          disabled,
+          "aria-controls": listboxId,
+          "aria-expanded": isOpen,
+          "aria-haspopup": "listbox",
+          onClick: () => {
+            setIsOpen((open) => !open);
+            setQuery("");
+          },
+          onKeyDown: (event) => {
+            if (event.key === "ArrowUp" || event.key === "ArrowDown") {
+              event.preventDefault();
+              setIsOpen(true);
+              requestAnimationFrame(() => {
+                const choices = menuRef.current?.querySelectorAll<HTMLButtonElement>(
+                  '[role="option"]:not(:disabled)'
+                );
+                if (choices?.length)
+                  choices[event.key === "ArrowUp" ? choices.length - 1 : 0]?.focus();
+              });
+            }
+          },
+        })
+      ) : (
+        <button
+          ref={triggerRef}
+          className={classNames(
+            styles.dropdownTrigger,
+            variant === "ghost" ? styles.dropdownTriggerGhost : styles.dropdownTriggerDefault,
+            error && styles.inputError,
+            !selectedLabels.length && styles.dropdownPlaceholder
+          )}
+          disabled={disabled}
+          style={width ? { width } : undefined}
+          onClick={() => {
+            setIsOpen((open) => !open);
+            setQuery("");
+          }}
+          type="button"
+          aria-controls={listboxId}
+          aria-describedby={classNames(hintId, errorId) || undefined}
+          aria-expanded={isOpen}
+          aria-haspopup="listbox"
+          aria-invalid={error ? true : undefined}
+          aria-labelledby={label ? `${generatedId}-label` : undefined}
+        >
+          {prefixIcon && (
+            <AppIcon
+              aria-hidden="true"
+              className={styles.dropdownTriggerIcon}
+              name={prefixIcon}
+              size="sm"
+            />
+          )}
+          <span className={styles.dropdownValue}>{displayText}</span>
+          <AppIcon className={styles.dropdownChevron} name="action.expand" size="sm" />
+        </button>
+      )}
       {error && (
         <span className={styles.errorText} id={errorId}>
           {error}

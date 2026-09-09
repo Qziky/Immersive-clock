@@ -211,6 +211,8 @@ export function ClockPage() {
    */
   const shouldPreventHudAutoHide = useCallback(() => {
     if (isTourActive()) return true;
+    if (hudContainerRef.current?.querySelector('[aria-haspopup="listbox"][aria-expanded="true"]'))
+      return true;
     const activeElement = document.activeElement;
     if (!activeElement) return false;
     return !!hudContainerRef.current?.contains(activeElement);

@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
+import { Button } from "../Button";
 import { Dropdown } from "../Dropdown";
 
 const options = [
@@ -10,6 +11,52 @@ const options = [
 ];
 
 describe("Dropdown", () => {
+  it("opens a custom trigger upward, navigates by keyboard, and restores focus", async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    render(
+      <Dropdown
+        placement="above"
+        value="clock"
+        onChange={onChange}
+        options={options}
+        renderTrigger={(props) => (
+          <Button {...props} icon="action.more">
+            更多
+          </Button>
+        )}
+      />
+    );
+    const trigger = screen.getByRole("button", { name: "更多" });
+    vi.spyOn(trigger, "getBoundingClientRect").mockReturnValue({
+      top: 300,
+      bottom: 338,
+      left: 100,
+      right: 180,
+      width: 80,
+      height: 38,
+      x: 100,
+      y: 300,
+      toJSON: () => ({}),
+    });
+    await user.click(trigger);
+    const menu = screen.getByRole("listbox").parentElement as HTMLElement;
+    Object.defineProperty(menu, "offsetHeight", { configurable: true, value: 120 });
+    fireEvent(window, new Event("resize"));
+    await waitFor(() => expect(menu.style.top).toBe("172px"));
+    await user.keyboard("{ArrowDown}");
+    await waitFor(() => expect(screen.getByRole("option", { name: "时钟" })).toHaveFocus());
+    await user.keyboard("{End}{Enter}");
+    expect(onChange).toHaveBeenCalledWith("study");
+    expect(trigger).toHaveTextContent("更多");
+    expect(trigger).toHaveFocus();
+    expect(trigger).toHaveAttribute("aria-expanded", "false");
+    await user.click(trigger);
+    await user.keyboard("{Escape}");
+    expect(trigger).toHaveFocus();
+    expect(trigger).toHaveAttribute("aria-expanded", "false");
+  });
+
   it("updates an uncontrolled selection and reports the selected value", async () => {
     const user = userEvent.setup();
     const onChange = vi.fn();

@@ -99,3 +99,13 @@
   `src/utils/__tests__/countdownEvents.test.ts` 覆盖。
 - 若文件移动，优先更新本页相对路径，不保留失效旧链接或本机绝对链接。
 - 视觉基线只提交稳定视口和确定数据，临时截图放在 `output/`，不放入知识库。
+
+### 更多模式入口
+
+- `src/components/ControlBar/__tests__/ControlBar.test.tsx`：更多按钮与全屏样式一致、当前模式标记、模式切换回调及关闭后的焦点恢复。
+- `src/ui/components/__tests__/Dropdown.test.tsx`：自定义按钮、向上定位、方向键与 Home/End 导航、Escape 关闭。
+- 设计系统下拉边界示例提供向上展开的“更多模式”入口。
+
+- 倒计时结束铃声：`CountdownModal.test.tsx` 覆盖固定时长保存、重开持久化、恢复默认的确认/取消，以及无效和超限音频；`appSettings.test.ts` 覆盖旧配置补齐默认铃声字段。
+
+- `design-system-visual.e2e.spec.ts` 紧凑更多菜单：1440×900、390×844、320×568 下的 160px 菜单宽度、紧凑行高、向上定位及视觉基线。

@@ -135,6 +135,24 @@ async function expectSectionScreenshot(
 }
 
 for (const viewport of VIEWPORTS) {
+  test(`设计系统紧凑更多菜单 ${viewport.width}x${viewport.height}`, async ({ page }) => {
+    await prepareDesignSystemPage(page, viewport);
+    const trigger = page.getByRole("button", { name: "更多模式", exact: true });
+    await centerInViewport(trigger);
+    await trigger.click();
+    const menu = page.locator("[data-dropdown-menu]");
+    await expectInsideViewport(menu, page);
+    const bounds = await menu.boundingBox();
+    expect(bounds?.width).toBe(160);
+    expect(bounds?.height).toBeLessThanOrEqual(130);
+    const triggerBounds = await trigger.boundingBox();
+    expect((bounds?.y ?? 0) + (bounds?.height ?? 0)).toBeLessThanOrEqual(triggerBounds?.y ?? 0);
+    await expectOverlayScreenshot(menu, page, "compact-more-open", viewport);
+    await page.keyboard.press("Escape");
+    await expect(trigger).toBeFocused();
+    await expect(menu).toBeHidden();
+  });
+
   test(`设计系统分区视觉快照 ${viewport.width}x${viewport.height}`, async ({ page }) => {
     await prepareDesignSystemPage(page, viewport);
     await expandCatalogForSectionScreenshots(page);

@@ -159,6 +159,7 @@ describe("appSettings", () => {
     expect(migrated.countdown.customQuickPresetSeconds).toBeNull();
     expect(JSON.parse(localStorage.getItem(APP_SETTINGS_KEY) ?? "{}").countdown).toEqual({
       customQuickPresetSeconds: null,
+      customFinalSoundDataUrl: null,
     });
   });
 
@@ -1450,4 +1451,18 @@ describe("appSettings", () => {
       raw,
     });
   });
+});
+
+it("铃声设置兼容旧数据、保留其他倒计时设置并拒绝外部地址", () => {
+  localStorage.clear();
+  updateAppSettings({ countdown: { customQuickPresetSeconds: 60 } });
+  expect(getAppSettings().countdown.customFinalSoundDataUrl).toBeNull();
+  updateAppSettings({ countdown: { customFinalSoundDataUrl: "data:audio/mpeg;base64,c291bmQ=" } });
+  updateAppSettings({ countdown: { customQuickPresetSeconds: 120 } });
+  expect(getAppSettings().countdown).toEqual({
+    customQuickPresetSeconds: 120,
+    customFinalSoundDataUrl: "data:audio/mpeg;base64,c291bmQ=",
+  });
+  updateAppSettings({ countdown: { customFinalSoundDataUrl: "https://example.com/audio.mp3" } });
+  expect(getAppSettings().countdown.customFinalSoundDataUrl).toBeNull();
 });

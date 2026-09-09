@@ -31,6 +31,7 @@ import {
   MAX_STUDY_INFO_ITEMS,
   normalizeStudyInfoCarousel,
   updateGeneralSettings,
+  updateAppSettings,
   updateStudySettings,
   updateTimeSyncSettings,
 } from "../../../utils/appSettings";
@@ -84,6 +85,10 @@ export const BasicSettingsPanel: React.FC<BasicSettingsPanelProps> = ({
   // 倒计时模式：快捷事件、单事件或多事件。gaokao 是旧版持久化值，仅用于迁移。
   const [countdownMode, setCountdownMode] = useState<"quick" | "single" | "multi">("quick");
   const [quickEvent, setQuickEvent] = useState<CountdownQuickEventKind>("gaokao");
+  const [customFinalSoundDataUrl, setCustomFinalSoundDataUrl] = useState<string | null>(
+    () => getAppSettings().countdown.customFinalSoundDataUrl
+  );
+  const [soundError, setSoundError] = useState("");
 
   // 倒计时设置草稿（保留兼容字段）
   const [draftCustomName, setDraftCustomName] = useState<string>(study.customName ?? "");
@@ -154,6 +159,7 @@ export const BasicSettingsPanel: React.FC<BasicSettingsPanelProps> = ({
       const general = getAppSettings().general;
       setStartupMode(resolveStartupMode(general.startup.initialMode));
       setPersistedKeepAwakeEnabled(general.keepAwakeEnabled);
+      setCustomFinalSoundDataUrl(getAppSettings().countdown.customFinalSoundDataUrl);
       setKeepAwakeEnabled(general.keepAwakeEnabled);
       const saved = getAppSettings().study.countdownMode;
       if (saved === "gaokao") {
@@ -316,6 +322,8 @@ export const BasicSettingsPanel: React.FC<BasicSettingsPanelProps> = ({
         startup: { initialMode: startupMode },
       });
 
+      updateAppSettings({ countdown: { customFinalSoundDataUrl } });
+
       updateTimeSyncSettings((current) => ({
         enabled: timeSyncEnabled,
         provider: timeSyncProvider,
@@ -354,6 +362,7 @@ export const BasicSettingsPanel: React.FC<BasicSettingsPanelProps> = ({
     timeSyncManualOffsetSec,
     timeSyncAutoEnabled,
     timeSyncAutoIntervalMin,
+    customFinalSoundDataUrl,
   ]);
 
   const timeSyncProviderLabel =
@@ -453,6 +462,52 @@ export const BasicSettingsPanel: React.FC<BasicSettingsPanelProps> = ({
         description="配置自习页面的倒计时来源、目标和轮播顺序。"
         hidden={isSectionHidden("countdown")}
       >
+        <SettingItem
+          icon="feature.audio"
+          title="结束铃声"
+          description="倒计时归零时播放的提示音；留空时使用默认铃声。"
+        >
+          <FormInput
+            type="file"
+            accept="audio/*"
+            buttonText="选择音频"
+            fileName={customFinalSoundDataUrl ? "已选择自定义铃声" : undefined}
+            hint="仅保存在当前设备，文件不超过 1 MB。"
+            error={soundError || undefined}
+            onFileChange={(file) => {
+              if (!file) return;
+              if (!file.type.startsWith("audio/") || file.size === 0) {
+                setSoundError("请选择有效的音频文件。");
+                return;
+              }
+              if (file.size > 1024 * 1024) {
+                setSoundError("铃声不能超过 1 MB。");
+                return;
+              }
+              const reader = new FileReader();
+              reader.onload = () => {
+                setCustomFinalSoundDataUrl(
+                  typeof reader.result === "string" ? reader.result : null
+                );
+                setSoundError("");
+              };
+              reader.readAsDataURL(file);
+            }}
+          />
+          {customFinalSoundDataUrl && (
+            <FormButton
+              variant="text"
+              size="sm"
+              onClick={() => {
+                setCustomFinalSoundDataUrl(null);
+                setSoundError("");
+              }}
+            >
+              恢复默认铃声
+            </FormButton>
+          )}
+        </SettingItem>
+
         <SettingItem
           icon="feature.countdown"
           title="倒计时模式"

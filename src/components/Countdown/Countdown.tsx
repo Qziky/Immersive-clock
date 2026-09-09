@@ -5,6 +5,7 @@ import { useAppState, useAppDispatch } from "../../contexts/AppContext";
 import { useComponentAppearance } from "../../contexts/AppearanceContext";
 import { useAudio } from "../../hooks/useAudio";
 import { useTimer } from "../../hooks/useTimer";
+import { getAppSettings } from "../../utils/appSettings";
 import { formatTimer } from "../../utils/formatTime";
 import { nowMs } from "../../utils/timeSource";
 
@@ -16,10 +17,16 @@ import { CountdownPresentation } from "./CountdownPresentation";
  * 当倒计时结束时播放提示音
  */
 export function Countdown() {
-  const { countdown } = useAppState();
+  const { countdown, isModalOpen } = useAppState();
+  const [customSound, setCustomSound] = useState(
+    () => getAppSettings().countdown.customFinalSoundDataUrl
+  );
+  useEffect(() => {
+    if (!isModalOpen) setCustomSound(getAppSettings().countdown.customFinalSoundDataUrl);
+  }, [isModalOpen]);
   const dispatch = useAppDispatch();
   // 终止音效（倒计时结束）
-  const [playFinal] = useAudio("/ding.mp3");
+  const [playFinal] = useAudio(customSound || "/ding.mp3");
   // 最后5秒逐秒提示音
   const [playTick] = useAudio("/ding-1.mp3");
   const [displayTime, setDisplayTime] = useState<number>(countdown.currentTime);

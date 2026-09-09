@@ -654,6 +654,24 @@ function DropdownEdgeCasesExample() {
         width="min(100%, 320px)"
       />
       <Dropdown
+        placement="above"
+        placeholder="更多模式"
+        defaultValue="clock"
+        density="compact"
+        menuWidth={160}
+        renderTrigger={(props) => (
+          <Button {...props} variant="ghost" size="sm" icon="action.more">
+            更多模式
+          </Button>
+        )}
+        options={[
+          { value: "clock", label: "时钟", icon: "mode.clock" },
+          { value: "countdown", label: "倒计时", icon: "mode.countdown" },
+          { value: "stopwatch", label: "秒表", icon: "mode.stopwatch" },
+          { value: "study", label: "自习", icon: "mode.study" },
+        ]}
+      />
+      <Dropdown
         label="空搜索结果"
         searchable
         options={[]}

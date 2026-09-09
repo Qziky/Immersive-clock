@@ -67,7 +67,6 @@ export function CountdownModal() {
     const isOpening = isModalOpen && !wasModalOpenRef.current;
     wasModalOpenRef.current = isModalOpen;
     if (!isOpening) return;
-
     const latestCustomQuickPresetSeconds = getAppSettings().countdown.customQuickPresetSeconds;
     setCustomQuickPresetSeconds(latestCustomQuickPresetSeconds);
     draftSnapshotRef.current = {
@@ -101,11 +100,7 @@ export function CountdownModal() {
     const totalSeconds = timeToSeconds(hours, minutes, seconds);
     if (totalSeconds > 0) {
       if (selectedPreset === CUSTOM_PRESET_VALUE) {
-        updateAppSettings({
-          countdown: {
-            customQuickPresetSeconds: totalSeconds,
-          },
-        });
+        updateAppSettings({ countdown: { customQuickPresetSeconds: totalSeconds } });
         setCustomQuickPresetSeconds(totalSeconds);
       }
       dispatch({ type: "SET_COUNTDOWN", payload: totalSeconds });

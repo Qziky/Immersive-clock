@@ -67,6 +67,7 @@ export interface AppSettings {
 
   countdown: {
     customQuickPresetSeconds: number | null;
+    customFinalSoundDataUrl: string | null;
   };
 
   general: {
@@ -815,6 +816,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   appearance: createDefaultAppearance(),
   countdown: {
     customQuickPresetSeconds: null,
+    customFinalSoundDataUrl: null,
   },
   general: {
     developerModeEnabled: false,
@@ -1143,6 +1145,11 @@ export function normalizeAppSettings(value: unknown): AppSettings {
       customQuickPresetSeconds: normalizeCountdownQuickPresetSeconds(
         parsedCountdown.customQuickPresetSeconds
       ),
+      customFinalSoundDataUrl:
+        typeof parsedCountdown.customFinalSoundDataUrl === "string" &&
+        parsedCountdown.customFinalSoundDataUrl.startsWith("data:audio/")
+          ? parsedCountdown.customFinalSoundDataUrl
+          : null,
     },
     general: {
       ...DEFAULT_SETTINGS.general,
@@ -1289,6 +1296,13 @@ export function updateAppSettings(
           countdownUpdates.customQuickPresetSeconds === undefined
             ? current.countdown.customQuickPresetSeconds
             : normalizeCountdownQuickPresetSeconds(countdownUpdates.customQuickPresetSeconds),
+        customFinalSoundDataUrl:
+          countdownUpdates.customFinalSoundDataUrl === undefined
+            ? current.countdown.customFinalSoundDataUrl
+            : typeof countdownUpdates.customFinalSoundDataUrl === "string" &&
+                countdownUpdates.customFinalSoundDataUrl.startsWith("data:audio/")
+              ? countdownUpdates.customFinalSoundDataUrl
+              : null,
       };
     }
 

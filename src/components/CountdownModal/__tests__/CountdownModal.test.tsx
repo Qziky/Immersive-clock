@@ -1,8 +1,8 @@
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { APP_SETTINGS_KEY, updateAppSettings } from "../../../utils/appSettings";
+import { APP_SETTINGS_KEY, getAppSettings, updateAppSettings } from "../../../utils/appSettings";
 import { CountdownModal } from "../CountdownModal";
 
 const appContextMocks = vi.hoisted(() => ({
@@ -70,6 +70,7 @@ describe("CountdownModal", () => {
 
     expect(JSON.parse(localStorage.getItem(APP_SETTINGS_KEY) ?? "{}").countdown).toEqual({
       customQuickPresetSeconds: 2700,
+      customFinalSoundDataUrl: null,
     });
     expect(appContextMocks.dispatch).toHaveBeenNthCalledWith(1, {
       type: "SET_COUNTDOWN",
@@ -94,6 +95,7 @@ describe("CountdownModal", () => {
 
     expect(JSON.parse(localStorage.getItem(APP_SETTINGS_KEY) ?? "{}").countdown).toEqual({
       customQuickPresetSeconds: 1800,
+      customFinalSoundDataUrl: null,
     });
     expect(appContextMocks.dispatch).toHaveBeenCalledWith({ type: "CLOSE_MODAL" });
     expect(appContextMocks.dispatch).not.toHaveBeenCalledWith(
