@@ -77,7 +77,7 @@ export interface MarkdownDocument {
  * stopwatch: 秒表模式
  * study: 自习模式
  */
-export type AppMode = "clock" | "countdown" | "stopwatch" | "study";
+export type AppMode = "clock" | "countdown" | "stopwatch" | "study" | "exam";
 
 /**
  * 倒计时状态接口
@@ -105,6 +105,8 @@ export interface StopwatchState {
 
 /** 当前时间显示设置。倒计时与秒表始终保留秒数。 */
 export interface TimeDisplaySettings {
+  /** 四个时间页面中央数字相对默认字号的缩放比例 */
+  centralTimeScale: number;
   /** 时钟页是否显示秒数 */
   showClockSeconds: boolean;
   /** 自习页当前时间是否显示秒数 */

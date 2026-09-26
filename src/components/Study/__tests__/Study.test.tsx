@@ -18,7 +18,7 @@ const appContextMocks = vi.hoisted(() => ({
 
 vi.mock("../../../contexts/AppContext", () => ({
   useAppState: () => ({
-    timeDisplay: { showStudySeconds: true },
+    timeDisplay: { centralTimeScale: 1, showStudySeconds: true },
     study: {
       carouselIntervalSec: 6,
       countdownItems: [],

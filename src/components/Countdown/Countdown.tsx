@@ -17,7 +17,7 @@ import { CountdownPresentation } from "./CountdownPresentation";
  * 当倒计时结束时播放提示音
  */
 export function Countdown() {
-  const { countdown, isModalOpen } = useAppState();
+  const { countdown, isModalOpen, timeDisplay } = useAppState();
   const [customSound, setCustomSound] = useState(
     () => getAppSettings().countdown.customFinalSoundDataUrl
   );
@@ -132,6 +132,7 @@ export function Countdown() {
 
   return (
     <CountdownPresentation
+      displayScale={timeDisplay.centralTimeScale}
       finished={isFinished}
       finishedMessageAttributes={{ style: finishedAppearance }}
       placeholderAttributes={{ style: placeholderAppearance }}

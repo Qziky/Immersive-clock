@@ -385,14 +385,19 @@ function LayoutExample() {
 function TimeStageExample() {
   return (
     <div className={styles.timeStageGrid}>
+      <section className={styles.timeStageDemo} aria-label="视口时间舞台">
+        <TimeStage layout="viewport" placement="overlay">
+          <TimeStageValue>01:17:42</TimeStageValue>
+        </TimeStage>
+      </section>
       <section className={styles.timeStageDemo} aria-label="流式时间舞台">
         <TimeStage>
           <TimeStageValue>12:45:09</TimeStageValue>
           <span className={styles.timeStageMeta}>2026年8月6日星期四</span>
         </TimeStage>
       </section>
-      <section className={styles.timeStageDemo} aria-label="覆盖式时间舞台">
-        <TimeStage placement="overlay">
+      <section className={styles.timeStageDemo} aria-label="覆盖式时间舞台（自定义大小）">
+        <TimeStage displayScale={0.8} placement="overlay">
           <TimeStageValue>00:25:00</TimeStageValue>
           <span className={styles.timeStageMeta}>覆盖业务背景但复用同一中央布局</span>
         </TimeStage>
@@ -1635,12 +1640,19 @@ export const COMPONENT_CATALOG: readonly ComponentCatalogEntry[] = [
     section: "foundation",
     kind: "visual",
     publicExports: ["TimeStage", "TimeStageValue"],
-    requiredStates: ["flow", "overlay", "display-value", "secondary-content", "responsive"],
+    requiredStates: [
+      "flow",
+      "overlay",
+      "custom-scale",
+      "display-value",
+      "secondary-content",
+      "responsive",
+    ],
     examples: [
       makeExample(
         "time-stage-layouts",
         "流式与覆盖式舞台",
-        ["flow", "overlay", "display-value", "secondary-content", "responsive"],
+        ["flow", "overlay", "custom-scale", "display-value", "secondary-content", "responsive"],
         TimeStageExample
       ),
     ],

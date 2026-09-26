@@ -3,6 +3,7 @@ import type { AppMode } from "./index";
 export type AppearanceSceneId = AppMode;
 
 export type AppearanceComponentId =
+  | "exam"
   | "clock"
   | "countdown"
   | "stopwatch"

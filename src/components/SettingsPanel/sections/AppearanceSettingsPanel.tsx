@@ -1,5 +1,10 @@
 import React, { useEffect, useMemo, useState } from "react";
 
+import {
+  DEFAULT_CENTRAL_TIME_SCALE,
+  MAX_CENTRAL_TIME_SCALE,
+  MIN_CENTRAL_TIME_SCALE,
+} from "../../../constants/settings";
 import { useAppDispatch, useAppState } from "../../../contexts/AppContext";
 import { useAppearance } from "../../../contexts/AppearanceContext";
 import type { TimeDisplaySettings } from "../../../types";
@@ -43,6 +48,7 @@ import {
   resolveAppearanceBackground,
   resolveAppearanceEditorStyle,
 } from "../../../utils/appearanceModel";
+import { getAppSettings, updateAppSettings } from "../../../utils/appSettings";
 import { getCountdownEventPreset, isCountdownQuickEventKind } from "../../../utils/countdownEvents";
 import { importFontFile, removeImportedFont } from "../../../utils/studyFontStorage";
 
@@ -58,11 +64,13 @@ interface AppearanceSettingsPanelProps {
 }
 
 const DEFAULT_TIME_DISPLAY: TimeDisplaySettings = {
+  centralTimeScale: DEFAULT_CENTRAL_TIME_SCALE,
   showClockSeconds: true,
   showStudySeconds: true,
 };
 
 const SCENE_LABELS: Record<AppearanceSceneId, string> = {
+  exam: "考试",
   clock: "时钟",
   countdown: "倒计时",
   stopwatch: "秒表",
@@ -302,7 +310,9 @@ export function AppearanceSettingsPanel({
   const [timeView, setTimeView] =
     useState<(typeof TIME_COMPONENT_OPTIONS)[number]["value"]>("clock");
   const [draftTimeDisplay, setDraftTimeDisplay] = useState<TimeDisplaySettings>(() => ({
-    ...(timeDisplay ?? DEFAULT_TIME_DISPLAY),
+    ...DEFAULT_TIME_DISPLAY,
+    ...(timeDisplay ?? {}),
+    centralTimeScale: timeDisplay?.centralTimeScale ?? DEFAULT_TIME_DISPLAY.centralTimeScale,
   }));
   const [topDockView, setTopDockView] =
     useState<(typeof TOP_DOCK_COMPONENT_OPTIONS)[number]["value"]>("studyTopDock");
@@ -348,6 +358,10 @@ export function AppearanceSettingsPanel({
     dataUrl: string;
   } | null>(null);
   const [resourceOperation, setResourceOperation] = useState<string | null>(null);
+  const [customFinalSoundDataUrl, setCustomFinalSoundDataUrl] = useState<string | null>(
+    () => getAppSettings().countdown.customFinalSoundDataUrl
+  );
+  const [soundError, setSoundError] = useState("");
   const [fontAlias, setFontAlias] = useState("");
   const [fontFile, setFontFile] = useState<File | null>(null);
   const countdownItems = study.countdownItems ?? [];
@@ -415,8 +429,9 @@ export function AppearanceSettingsPanel({
   useEffect(() => {
     onRegisterSave?.(() => {
       dispatch({ type: "SET_TIME_DISPLAY", payload: draftTimeDisplay });
+      updateAppSettings({ countdown: { customFinalSoundDataUrl } });
     });
-  }, [dispatch, draftTimeDisplay, onRegisterSave]);
+  }, [customFinalSoundDataUrl, dispatch, draftTimeDisplay, onRegisterSave]);
 
   useEffect(() => {
     beginAppearancePreview(mode);
@@ -667,6 +682,7 @@ export function AppearanceSettingsPanel({
           >
             <AppearancePreview
               overview
+              centralTimeScale={draftTimeDisplay.centralTimeScale}
               showClockSeconds={draftTimeDisplay.showClockSeconds}
               showStudySeconds={draftTimeDisplay.showStudySeconds}
             />
@@ -873,6 +889,30 @@ export function AppearanceSettingsPanel({
                 options={TIME_COMPONENT_OPTIONS}
                 onChange={(value) => setTimeView(value)}
               />
+              <SettingGrid columns={1}>
+                <SettingItem
+                  icon="feature.time"
+                  title="中央时间大小"
+                  description="调整时钟、倒计时、秒表和自习时间的中央数字大小。"
+                >
+                  <FormSlider
+                    aria-label="中央时间大小"
+                    label="中央时间大小"
+                    min={MIN_CENTRAL_TIME_SCALE}
+                    max={MAX_CENTRAL_TIME_SCALE}
+                    step={0.05}
+                    value={draftTimeDisplay.centralTimeScale}
+                    onChange={(value) =>
+                      setDraftTimeDisplay((current) => ({
+                        ...current,
+                        centralTimeScale: value,
+                      }))
+                    }
+                    formatValue={(value) => `${Math.round(value * 100)}%`}
+                    rangeLabels={["较小", "较大"]}
+                  />
+                </SettingItem>
+              </SettingGrid>
             </FormSection>
           ) : null}
 
@@ -899,6 +939,7 @@ export function AppearanceSettingsPanel({
             <div className={styles.editor}>
               <AppearancePreview
                 componentId={definition.id}
+                centralTimeScale={draftTimeDisplay.centralTimeScale}
                 instanceId={instanceId}
                 instanceLabel={
                   selectedInstance
@@ -947,6 +988,54 @@ export function AppearanceSettingsPanel({
                     </SettingItem>
                   ) : null}
                 </SettingGrid>
+              ) : null}
+
+              {definition.id === "studyCountdown" ? (
+                <SettingItem
+                  icon="feature.audio"
+                  title="结束铃声"
+                  description="倒计时归零时播放的提示音；留空时使用默认铃声。"
+                >
+                  <FormInput
+                    type="file"
+                    accept="audio/*"
+                    buttonText="选择音频"
+                    fileName={customFinalSoundDataUrl ? "已选择自定义铃声" : undefined}
+                    hint="仅保存在当前设备，文件不超过 1 MB。"
+                    error={soundError || undefined}
+                    onFileChange={(file) => {
+                      if (!file) return;
+                      if (!file.type.startsWith("audio/") || file.size === 0) {
+                        setSoundError("请选择有效的音频文件。");
+                        return;
+                      }
+                      if (file.size > 1024 * 1024) {
+                        setSoundError("铃声不能超过 1 MB。");
+                        return;
+                      }
+                      const reader = new FileReader();
+                      reader.onload = () => {
+                        setCustomFinalSoundDataUrl(
+                          typeof reader.result === "string" ? reader.result : null
+                        );
+                        setSoundError("");
+                      };
+                      reader.readAsDataURL(file);
+                    }}
+                  />
+                  {customFinalSoundDataUrl && (
+                    <FormButton
+                      variant="text"
+                      size="sm"
+                      onClick={() => {
+                        setCustomFinalSoundDataUrl(null);
+                        setSoundError("");
+                      }}
+                    >
+                      恢复默认铃声
+                    </FormButton>
+                  )}
+                </SettingItem>
               ) : null}
 
               <div className={styles.objectSelector}>

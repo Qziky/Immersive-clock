@@ -30,6 +30,7 @@ describe("appReducer", () => {
         isActive: false,
       },
       timeDisplay: {
+        centralTimeScale: 1,
         showClockSeconds: true,
         showStudySeconds: true,
       },
@@ -98,6 +99,7 @@ describe("appReducer", () => {
       );
 
       expect(getInitialState().timeDisplay).toEqual({
+        centralTimeScale: 1,
         showClockSeconds: false,
         showStudySeconds: true,
       });
@@ -105,6 +107,7 @@ describe("appReducer", () => {
 
     it("SET_TIME_DISPLAY 会同步更新状态和持久化设置", () => {
       const timeDisplay = {
+        centralTimeScale: 0.9,
         showClockSeconds: false,
         showStudySeconds: false,
       };

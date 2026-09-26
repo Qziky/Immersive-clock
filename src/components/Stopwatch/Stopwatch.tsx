@@ -14,7 +14,7 @@ import { StopwatchPresentation } from "./StopwatchPresentation";
  * 使用高频计时器确保精确计时
  */
 export function Stopwatch() {
-  const { stopwatch } = useAppState();
+  const { stopwatch, timeDisplay } = useAppState();
   const dispatch = useAppDispatch();
 
   /**
@@ -45,6 +45,7 @@ export function Stopwatch() {
   return (
     <StopwatchPresentation
       active={stopwatch.isActive}
+      displayScale={timeDisplay.centralTimeScale}
       milestoneAttributes={{ style: milestoneAppearance }}
       placeholderAttributes={{ style: timeAppearance }}
       rootAttributes={{ style: containerAppearance }}

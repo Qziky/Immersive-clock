@@ -51,6 +51,13 @@ const TERTIARY_TEXT: AppearanceStyle = {
 
 export const APPEARANCE_COMPONENTS: readonly AppearanceComponentDefinition[] = [
   {
+    id: "exam",
+    scene: "exam",
+    label: "考试",
+    description: "考试剩余时间",
+    slots: [{ id: "time", label: "剩余时间", kind: "numeric", defaultStyle: PRIMARY_NUMERIC }],
+  },
+  {
     id: "clock",
     scene: "clock",
     label: "时钟",
@@ -349,6 +356,7 @@ export function createDefaultAppearance(): AppearanceSettingsV2 {
       countdown: scene(),
       stopwatch: scene(),
       study: scene(),
+      exam: scene(),
     },
     instances: { studyCountdown: {} },
   };

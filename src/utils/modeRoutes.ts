@@ -1,6 +1,7 @@
 import type { AppMode } from "../types";
 
 export const MODE_ROUTE_PATHS: Record<AppMode, string> = {
+  exam: "/exam",
   clock: "/clock",
   countdown: "/countdown",
   stopwatch: "/stopwatch",

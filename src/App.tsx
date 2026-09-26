@@ -55,6 +55,7 @@ export function KeepAwakeRuntimeNotice() {
 export function App() {
   const location = useLocation();
   const isDeveloperPageRoute = isDeveloperPagePath(location.pathname);
+  const isExamRoute = location.pathname.replace(/\/+$/, "") === "/exam";
   const developerModeEnabled = getAppSettings().general.developerModeEnabled;
   const [showEnterAnimation, setShowEnterAnimation] = useState(false);
   const [showAnnouncement, setShowAnnouncement] = useState(false);
@@ -67,7 +68,7 @@ export function App() {
    * 在组件首次挂载时触发
    */
   useEffect(() => {
-    if (isDeveloperPageRoute) {
+    if (isDeveloperPageRoute || isExamRoute) {
       setShowEnterAnimation(false);
       setShowAnnouncement(false);
       setShowTourConfetti(false);
@@ -131,7 +132,7 @@ export function App() {
       window.removeEventListener("tour:start", onTourStart);
       window.removeEventListener("tour:completed", onTourCompleted);
     };
-  }, [isDeveloperPageRoute]);
+  }, [isDeveloperPageRoute, isExamRoute]);
 
   useEffect(() => applySearchIndexingPolicy(location.pathname), [location.pathname]);
 
@@ -150,6 +151,7 @@ export function App() {
         <Route path="/countdown" element={<ClockPage />} />
         <Route path="/stopwatch" element={<ClockPage />} />
         <Route path="/study" element={<ClockPage />} />
+        <Route path="/exam" element={<ClockPage />} />
         <Route
           path="/design-system"
           element={

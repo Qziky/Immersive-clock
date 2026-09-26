@@ -239,6 +239,7 @@ export function ClockPage() {
 
   // 自动启动新手指引
   useEffect(() => {
+    if (displayMode === "exam") return;
     const timer = setTimeout(() => {
       startTour(false, {
         onStart: () => {
@@ -255,7 +256,7 @@ export function ClockPage() {
       });
     }, 1000);
     return () => clearTimeout(timer);
-  }, [dispatch, clearHudHideTimeout, switchMode]);
+  }, [dispatch, clearHudHideTimeout, switchMode, displayMode]);
 
   /**
    * 处理页面点击事件
@@ -304,6 +305,7 @@ export function ClockPage() {
        * 保证输入框/文本域/可编辑区域的默认行为（换行、输入等）
        */
       const eventTarget = e.target as HTMLElement | null;
+      if (mode === "exam") return;
       if (eventTarget && hudContainerRef.current?.contains(eventTarget)) {
         return;
       }
@@ -321,7 +323,7 @@ export function ClockPage() {
         handlePageClick();
       }
     },
-    [handlePageClick, isModalOpen, showSettings]
+    [handlePageClick, isModalOpen, showSettings, mode]
   );
 
   /**
@@ -358,6 +360,7 @@ export function ClockPage() {
     const onOpen = (e: Event) => {
       const detail = (e as CustomEvent<MessagePopupOpenDetail>).detail || {};
       const type: MessagePopupType = detail.type ?? "general";
+      if (mode === "exam") return;
       if (mode !== "study" && type !== "weatherForecast" && type !== "weatherAlert") return;
       if (type === "error" && !study.errorPopupEnabled) return;
       const title = (detail.title as string) || "消息提醒";
@@ -401,7 +404,7 @@ export function ClockPage() {
   useEffect(() => {
     if (mode === "study") return;
     popupTypeMapRef.current.forEach((type, id) => {
-      if (type === "weatherForecast" || type === "weatherAlert") return;
+      if (mode !== "exam" && (type === "weatherForecast" || type === "weatherAlert")) return;
       dismiss(id);
       popupTypeMapRef.current.delete(id);
     });
@@ -430,7 +433,7 @@ export function ClockPage() {
       <div
         className={`${styles.timeDisplay} ${displayMode === "study" ? styles.studyTimeDisplay : ""}`}
         id={`${displayMode}-panel`}
-        role="tabpanel"
+        role={displayMode === "exam" ? "region" : "tabpanel"}
         data-appearance-content
         data-tour="clock-area"
       >
@@ -458,10 +461,14 @@ export function ClockPage() {
           clearHudHideTimeout();
         }}
       >
-        <HUD onModeChange={switchMode} />
+        {displayMode !== "exam" && <HUD onModeChange={switchMode} />}
       </div>
 
-      <div className={styles.bottomChrome} aria-label="底栏工具与项目信息">
+      <div
+        style={displayMode === "exam" ? { display: "none" } : undefined}
+        className={styles.bottomChrome}
+        aria-label="底栏工具与项目信息"
+      >
         {/* 仅在时钟页面显示的左下角指引按钮 */}
         {mode === "clock" && (
           <div className={styles.bottomTools}>
@@ -487,12 +494,14 @@ export function ClockPage() {
         <AuthorInfo onVersionClick={handleVersionClick} />
       </div>
 
-      <SettingsButton
-        ref={settingsButtonRef}
-        onClick={handleSettingsClick}
-        onIntent={preloadSettingsPanel}
-        isVisible={!isModalOpen && !showSettings}
-      />
+      {displayMode !== "exam" && (
+        <SettingsButton
+          ref={settingsButtonRef}
+          onClick={handleSettingsClick}
+          onIntent={preloadSettingsPanel}
+          isVisible={displayMode !== "exam" && !isModalOpen && !showSettings}
+        />
+      )}
 
       {/* 设置面板 */}
       {shouldMountSettings && (

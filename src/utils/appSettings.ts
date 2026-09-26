@@ -1,9 +1,15 @@
+import { DEFAULT_EXAM, normalizeExam, type ExamSettings } from "./exam";
 import {
   DEFAULT_NOISE_REPORT_AUTO_CLOSE_MINUTES,
   MAX_NOISE_REPORT_AUTO_CLOSE_MINUTES,
   MIN_NOISE_REPORT_AUTO_CLOSE_MINUTES,
 } from "../constants/noiseReport";
-import { CURRENT_SETTINGS_VERSION } from "../constants/settings";
+import {
+  CURRENT_SETTINGS_VERSION,
+  DEFAULT_CENTRAL_TIME_SCALE,
+  MAX_CENTRAL_TIME_SCALE,
+  MIN_CENTRAL_TIME_SCALE,
+} from "../constants/settings";
 import {
   getDefaultQuoteChannels,
   resolveQuoteChannels,
@@ -61,6 +67,7 @@ import {
 } from "./studyTimetable";
 
 export interface AppSettings {
+  exam: ExamSettings;
   version: number;
   modifiedAt: number;
   appearance: AppearanceSettingsV2;
@@ -811,6 +818,7 @@ function normalizeQuoteSettings(value: unknown, storedVersion: number): Persiste
 }
 
 const DEFAULT_SETTINGS: AppSettings = {
+  exam: structuredClone(DEFAULT_EXAM),
   version: CURRENT_SETTINGS_VERSION,
   modifiedAt: Date.now(),
   appearance: createDefaultAppearance(),
@@ -822,6 +830,7 @@ const DEFAULT_SETTINGS: AppSettings = {
     developerModeEnabled: false,
     keepAwakeEnabled: false,
     timeDisplay: {
+      centralTimeScale: DEFAULT_CENTRAL_TIME_SCALE,
       showClockSeconds: true,
       showStudySeconds: true,
     },
@@ -942,6 +951,13 @@ function normalizeTimeDisplaySettings(value: unknown): TimeDisplaySettings {
   const source = isRecord(value) ? value : {};
   const defaults = DEFAULT_SETTINGS.general.timeDisplay;
   return {
+    centralTimeScale:
+      typeof source.centralTimeScale === "number" && Number.isFinite(source.centralTimeScale)
+        ? Math.max(
+            MIN_CENTRAL_TIME_SCALE,
+            Math.min(MAX_CENTRAL_TIME_SCALE, source.centralTimeScale)
+          )
+        : defaults.centralTimeScale,
     showClockSeconds:
       typeof source.showClockSeconds === "boolean"
         ? source.showClockSeconds
@@ -1138,6 +1154,7 @@ export function normalizeAppSettings(value: unknown): AppSettings {
       : DEFAULT_SETTINGS.modifiedAt;
   return {
     ...createDefaultAppSettings(modifiedAt),
+    exam: normalizeExam(parsed.exam),
     version: CURRENT_SETTINGS_VERSION,
     modifiedAt,
     appearance,
@@ -1288,6 +1305,7 @@ export function updateAppSettings(
     // 通常调用方会传入完整的嵌套对象，或通过专门的更新函数进行修改
     // 为安全起见，这里在 updates 含有对应分区时再做一次合并
 
+    if (updates.exam) nextSettings.exam = normalizeExam({ ...current.exam, ...updates.exam });
     if (updates.countdown) {
       const countdownUpdates = updates.countdown;
       nextSettings.countdown = {

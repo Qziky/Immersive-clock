@@ -8,6 +8,7 @@ import {
 } from "react";
 
 import { useAppearance } from "../../../contexts/AppearanceContext";
+import { TimeStage, TimeStageValue } from "../../../ui";
 import pageStyles from "../../../pages/ClockPage/ClockPage.module.css";
 import type {
   AppearanceComponentDefinition,
@@ -44,6 +45,7 @@ import { WeatherPresentation } from "../../Weather/WeatherPresentation";
 import styles from "./AppearanceSettingsPanel.module.css";
 
 interface AppearancePreviewProps {
+  centralTimeScale?: number;
   componentId?: AppearanceComponentId;
   instanceId?: string;
   instanceLabel?: string;
@@ -397,6 +399,7 @@ function usePreviewHighlightFrames(
 }
 
 export function AppearancePreview({
+  centralTimeScale = 1,
   componentId = "clock",
   instanceId,
   instanceLabel,
@@ -492,6 +495,7 @@ export function AppearancePreview({
         >
           {isStudyScene ? (
             <StudyPreviewScene
+              centralTimeScale={centralTimeScale}
               definition={definition}
               instanceLabel={instanceLabel}
               showStudySeconds={showStudySeconds}
@@ -501,6 +505,7 @@ export function AppearancePreview({
           ) : (
             <div className={pageStyles.timeDisplay}>
               <TimePreviewScene
+                centralTimeScale={centralTimeScale}
                 definition={definition}
                 highlightedSlot={highlightedSlot}
                 overview={overview}
@@ -526,6 +531,7 @@ export function AppearancePreview({
 }
 
 interface TimePreviewSceneProps {
+  centralTimeScale: number;
   definition: AppearanceComponentDefinition;
   highlightedSlot?: string;
   overview: boolean;
@@ -535,6 +541,7 @@ interface TimePreviewSceneProps {
 }
 
 function TimePreviewScene({
+  centralTimeScale,
   definition,
   highlightedSlot,
   overview,
@@ -542,9 +549,21 @@ function TimePreviewScene({
   stateId,
   target,
 }: TimePreviewSceneProps) {
+  if (definition.id === "exam" && !overview) {
+    return (
+      <TimeStage
+        layout="viewport"
+        rootAttributes={{ "data-preview-component": "exam" }}
+        contentAttributes={{ "data-preview-crop-target": true }}
+      >
+        <TimeStageValue {...target("exam", "time", "numeric")}>01:17:42</TimeStageValue>
+      </TimeStage>
+    );
+  }
   if (overview || definition.id === "clock") {
     return (
       <ClockPresentation
+        displayScale={centralTimeScale}
         contentAttributes={{
           className: styles.previewContentGroup,
           "data-preview-crop-target": true,
@@ -565,6 +584,7 @@ function TimePreviewScene({
     const time = showFinished ? "00:00:00" : isWarning ? "00:00:08" : "00:25:00";
     return (
       <CountdownPresentation
+        displayScale={centralTimeScale}
         contentAttributes={{
           className: styles.previewContentGroup,
           "data-preview-crop-target": true,
@@ -586,6 +606,7 @@ function TimePreviewScene({
   return (
     <StopwatchPresentation
       active={isRunning}
+      displayScale={centralTimeScale}
       contentAttributes={{
         className: styles.previewContentGroup,
         "data-preview-crop-target": true,
@@ -606,6 +627,7 @@ function TimePreviewScene({
 }
 
 interface StudyPreviewSceneProps {
+  centralTimeScale: number;
   definition: AppearanceComponentDefinition;
   instanceLabel?: string;
   showStudySeconds: boolean;
@@ -614,6 +636,7 @@ interface StudyPreviewSceneProps {
 }
 
 function StudyPreviewScene({
+  centralTimeScale,
   definition,
   instanceLabel,
   showStudySeconds,
@@ -624,6 +647,7 @@ function StudyPreviewScene({
     return (
       <StudyCenterPreview
         componentId={definition.id}
+        centralTimeScale={centralTimeScale}
         showStudySeconds={showStudySeconds}
         target={target}
       />
@@ -640,10 +664,12 @@ function StudyPreviewScene({
 }
 
 function StudyCenterPreview({
+  centralTimeScale,
   componentId,
   showStudySeconds,
   target,
 }: {
+  centralTimeScale: number;
   componentId: "studyQuote" | "studyTime";
   showStudySeconds: boolean;
   target: TargetRenderer;
@@ -655,6 +681,7 @@ function StudyCenterPreview({
 
   return (
     <StudyCenterPresentation
+      displayScale={centralTimeScale}
       quoteContent={
         componentId === "studyQuote" ? (
           <MotivationalQuotePresentation

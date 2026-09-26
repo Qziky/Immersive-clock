@@ -8,6 +8,7 @@ import styles from "./Countdown.module.css";
 
 interface CountdownPresentationProps {
   contentAttributes?: PresentationAttributes<HTMLAttributes<HTMLDivElement>>;
+  displayScale?: number;
   finished: boolean;
   finishedMessageAttributes?: PresentationAttributes<HTMLAttributes<HTMLDivElement>>;
   finishedMessageText?: string;
@@ -22,6 +23,7 @@ interface CountdownPresentationProps {
 
 export function CountdownPresentation({
   contentAttributes,
+  displayScale,
   finished,
   finishedMessageAttributes,
   finishedMessageText = "时间到",
@@ -38,7 +40,11 @@ export function CountdownPresentation({
   const { className: finishedClassName, ...finishedProps } = finishedMessageAttributes ?? {};
 
   return (
-    <TimeStage contentAttributes={contentAttributes} rootAttributes={rootAttributes}>
+    <TimeStage
+      contentAttributes={contentAttributes}
+      displayScale={displayScale}
+      rootAttributes={rootAttributes}
+    >
       <TimeStageValue
         {...timeProps}
         className={classNames(

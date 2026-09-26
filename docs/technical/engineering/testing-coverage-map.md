@@ -87,7 +87,7 @@
   `appSettings.test.ts` 共同覆盖，并验证自定义课表不会被覆盖。
 - 单休周期（`rest_count: 1`）的校验、YAML 往返、运行时解析和设置页持久化由
   `studyTimetable.test.ts`、`ScheduleSettings.test.tsx` 与 `settings-persistence.e2e.spec.ts` 覆盖。
-- 公共 UI 的 TimeStage 响应式布局契约由 `src/ui/components/__tests__/TimeStage.test.tsx` 覆盖。
+- 公共 UI 的 TimeStage 响应式布局与中央时间缩放契约由 `src/ui/components/__tests__/TimeStage.test.tsx` 覆盖。
 - 公共浮层的进入、退出和交互隔离由 `src/ui/components/__tests__/motion.test.tsx` 覆盖。
 - 倒计时快速设置、自定义时长与持久化由
   `src/components/CountdownModal/__tests__/CountdownModal.test.tsx` 和

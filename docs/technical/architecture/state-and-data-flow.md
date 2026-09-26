@@ -13,7 +13,7 @@ AppState
 ├─ isHudVisible / isModalOpen
 ├─ countdown: initialTime, currentTime, isActive, endTimestamp
 ├─ stopwatch: elapsedTime, isActive
-├─ timeDisplay: clock/study seconds visibility
+├─ timeDisplay: central time scale and clock/study seconds visibility
 ├─ study: target, countdowns, display, info carousel, alerts
 ├─ quoteChannels: resolved built-in + custom channels
 ├─ quoteSettings: refresh and animation preferences

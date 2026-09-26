@@ -417,6 +417,7 @@ export function Study() {
 
       {/* 居中：时间始终显示，日期可隐藏 */}
       <StudyCenterPresentation
+        displayScale={timeDisplay.centralTimeScale}
         quoteContent={display.showQuote ? <MotivationalQuote /> : undefined}
         timeContent={
           <StudyTimePresentation

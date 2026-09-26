@@ -5,6 +5,7 @@ import type { AppMode } from "../../types";
 type ModeComponentLoader = () => Promise<{ default: ComponentType }>;
 
 const MODE_COMPONENT_LOADERS: Record<AppMode, ModeComponentLoader> = {
+  exam: () => import("../../components/Exam/Exam").then((module) => ({ default: module.Exam })),
   clock: () => import("../../components/Clock/Clock").then((module) => ({ default: module.Clock })),
   countdown: () =>
     import("../../components/Countdown/Countdown").then((module) => ({
@@ -32,6 +33,7 @@ function getModeComponentPromise(mode: AppMode): Promise<{ default: ComponentTyp
 }
 
 export const MODE_COMPONENTS: Record<AppMode, LazyExoticComponent<ComponentType>> = {
+  exam: lazy(() => getModeComponentPromise("exam")),
   clock: lazy(() => getModeComponentPromise("clock")),
   countdown: lazy(() => getModeComponentPromise("countdown")),
   stopwatch: lazy(() => getModeComponentPromise("stopwatch")),

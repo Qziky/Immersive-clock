@@ -7,6 +7,7 @@ import type { PresentationAttributes } from "../PresentationContent";
 import styles from "./Study.module.css";
 
 interface StudyCenterPresentationProps {
+  displayScale?: number;
   quoteContent?: ReactNode;
   quoteSectionAttributes?: PresentationAttributes<HTMLAttributes<HTMLDivElement>>;
   rootAttributes?: PresentationAttributes<HTMLAttributes<HTMLDivElement>>;
@@ -14,6 +15,7 @@ interface StudyCenterPresentationProps {
 }
 
 export function StudyCenterPresentation({
+  displayScale,
   quoteContent,
   quoteSectionAttributes,
   rootAttributes,
@@ -22,7 +24,7 @@ export function StudyCenterPresentation({
   const { className: quoteClassName, ...quoteProps } = quoteSectionAttributes ?? {};
 
   return (
-    <TimeStage placement="overlay" rootAttributes={rootAttributes}>
+    <TimeStage displayScale={displayScale} placement="overlay" rootAttributes={rootAttributes}>
       {timeContent}
       {quoteContent ? (
         <div {...quoteProps} className={classNames(styles.quoteSection, quoteClassName)}>

@@ -9,6 +9,7 @@ import styles from "./Stopwatch.module.css";
 interface StopwatchPresentationProps {
   active: boolean;
   contentAttributes?: PresentationAttributes<HTMLAttributes<HTMLDivElement>>;
+  displayScale?: number;
   milestoneAttributes?: PresentationAttributes<HTMLAttributes<HTMLDivElement>>;
   milestoneText?: string;
   placeholderAttributes?: PresentationAttributes<HTMLAttributes<HTMLSpanElement>>;
@@ -26,6 +27,7 @@ interface StopwatchPresentationProps {
 export function StopwatchPresentation({
   active,
   contentAttributes,
+  displayScale,
   milestoneAttributes,
   milestoneText = "已超过1小时！",
   placeholderAttributes,
@@ -45,7 +47,11 @@ export function StopwatchPresentation({
   const { className: milestoneClassName, ...milestoneProps } = milestoneAttributes ?? {};
 
   return (
-    <TimeStage contentAttributes={contentAttributes} rootAttributes={rootAttributes}>
+    <TimeStage
+      contentAttributes={contentAttributes}
+      displayScale={displayScale}
+      rootAttributes={rootAttributes}
+    >
       <TimeStageValue
         {...timeProps}
         className={classNames(styles.time, active && styles.running, timeClassName)}

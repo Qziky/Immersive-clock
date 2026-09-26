@@ -78,6 +78,7 @@ describe("appSettings", () => {
     expect(s.general.keepAwakeEnabled).toBe(false);
     expect(s.general.analytics.experienceProgramEnabled).toBe(true);
     expect(s.general.timeDisplay).toEqual({
+      centralTimeScale: 1,
       showClockSeconds: true,
       showStudySeconds: true,
     });
@@ -728,6 +729,7 @@ describe("appSettings", () => {
         version: CURRENT_SETTINGS_VERSION,
         general: {
           timeDisplay: {
+            centralTimeScale: 1.8,
             showClockSeconds: false,
             showStudySeconds: "invalid",
           },
@@ -736,6 +738,7 @@ describe("appSettings", () => {
     );
 
     expect(getAppSettings().general.timeDisplay).toEqual({
+      centralTimeScale: 1.25,
       showClockSeconds: false,
       showStudySeconds: true,
     });
@@ -743,6 +746,7 @@ describe("appSettings", () => {
     updateGeneralSettings({ timeDisplay: { showStudySeconds: false } });
 
     expect(getAppSettings().general.timeDisplay).toEqual({
+      centralTimeScale: 1.25,
       showClockSeconds: false,
       showStudySeconds: false,
     });

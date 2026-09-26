@@ -126,6 +126,7 @@ describe("AppearanceSettingsPanel", () => {
       mode: "clock",
       study: { countdownItems: [] },
       timeDisplay: {
+        centralTimeScale: 1,
         showClockSeconds: true,
         showStudySeconds: true,
       },
@@ -252,6 +253,9 @@ describe("AppearanceSettingsPanel", () => {
 
     const clockSwitch = screen.getByRole("switch", { name: "时钟显示秒数" });
     expect(clockSwitch).toBeChecked();
+    const scaleSlider = screen.getByRole("slider", { name: "中央时间大小" });
+    expect(scaleSlider).toHaveValue("1");
+    fireEvent.change(scaleSlider, { target: { value: "1.2" } });
     fireEvent.click(screen.getByRole("tab", { name: "日期" }));
     expect(screen.queryByRole("switch", { name: "时钟显示秒数" })).toBeNull();
     fireEvent.click(screen.getByRole("tab", { name: "主时间" }));
@@ -277,6 +281,7 @@ describe("AppearanceSettingsPanel", () => {
     expect(dispatch).toHaveBeenCalledWith({
       type: "SET_TIME_DISPLAY",
       payload: {
+        centralTimeScale: 1.2,
         showClockSeconds: false,
         showStudySeconds: false,
       },

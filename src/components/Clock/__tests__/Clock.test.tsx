@@ -35,7 +35,7 @@ describe("Clock", () => {
 
   it("默认显示秒数并同步无障碍标签", () => {
     componentMocks.useAppState.mockReturnValue({
-      timeDisplay: { showClockSeconds: true, showStudySeconds: true },
+      timeDisplay: { centralTimeScale: 1, showClockSeconds: true, showStudySeconds: true },
     });
 
     render(<Clock />);
@@ -45,7 +45,7 @@ describe("Clock", () => {
 
   it("关闭秒数后只显示小时和分钟", () => {
     componentMocks.useAppState.mockReturnValue({
-      timeDisplay: { showClockSeconds: false, showStudySeconds: true },
+      timeDisplay: { centralTimeScale: 1, showClockSeconds: false, showStudySeconds: true },
     });
 
     render(<Clock />);

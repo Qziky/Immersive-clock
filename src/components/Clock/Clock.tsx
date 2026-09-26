@@ -38,6 +38,7 @@ export function Clock() {
 
   return (
     <ClockPresentation
+      displayScale={timeDisplay.centralTimeScale}
       dateAttributes={{
         "aria-label": `当前日期：${dateString}`,
         style: dateAppearance,

@@ -168,6 +168,7 @@ export function ControlBar({ onModeChange }: ControlBarProps) {
               </FormButton>
             )}
             options={[
+              { value: "exam", label: "考试", icon: "mode.countdown" },
               { value: "clock", label: "时钟", icon: "mode.clock" },
               {
                 value: "countdown",
@@ -179,6 +180,7 @@ export function ControlBar({ onModeChange }: ControlBarProps) {
             ]}
             onChange={(value) => {
               if (
+                value === "exam" ||
                 value === "clock" ||
                 value === "countdown" ||
                 value === "stopwatch" ||
