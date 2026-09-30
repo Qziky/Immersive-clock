@@ -13,16 +13,6 @@
   width: 100%;
 }
 
-.stageViewport {
-  --time-stage-display-size: min(18vw, 42vh);
-  --time-stage-offset-y: 0px;
-}
-
-.stageViewport .content {
-  max-width: calc(100% - 1.5rem);
-  width: calc(100% - 1.5rem);
-}
-
 .stageFlow {
   height: 100%;
 }
@@ -117,4 +107,9 @@
   container-type: inline-size;
   --time-stage-display-size: min(18cqw, 42vh);
   --time-stage-offset-y: 0px;
+}
+
+.stage.stageViewport .content {
+  max-width: calc(100% - 1.5rem);
+  width: calc(100% - 1.5rem);
 }

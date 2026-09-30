@@ -175,6 +175,7 @@ const BUTTON_STATE_BY_VARIANT = {
   success: "success",
   text: "text",
   minimal: "minimal",
+  hud: "hud",
   overlay: "overlay",
 } satisfies Record<ButtonVariant, string>;
 
@@ -461,6 +462,20 @@ function ButtonExample() {
         <Button loading>保存中</Button>
         <Button disabled>不可用</Button>
         <Button>这是用于验证按钮长标签换行和稳定高度的文本</Button>
+      </Inline>
+      <Inline>
+        <Button variant="hud" hudEmphasis="strong" size="sm" icon="action.pause">
+          暂停
+        </Button>
+        <Button variant="hud" size="sm" icon="action.maximize">
+          全屏
+        </Button>
+        <Button variant="hud" size="sm" icon="action.more">
+          更多
+        </Button>
+        <Button variant="hud" size="sm" disabled icon="action.reset">
+          不可用
+        </Button>
       </Inline>
     </Stack>
   );
@@ -1641,6 +1656,7 @@ export const COMPONENT_CATALOG: readonly ComponentCatalogEntry[] = [
     kind: "visual",
     publicExports: ["TimeStage", "TimeStageValue"],
     requiredStates: [
+      "viewport",
       "flow",
       "overlay",
       "custom-scale",
@@ -1651,8 +1667,16 @@ export const COMPONENT_CATALOG: readonly ComponentCatalogEntry[] = [
     examples: [
       makeExample(
         "time-stage-layouts",
-        "流式与覆盖式舞台",
-        ["flow", "overlay", "custom-scale", "display-value", "secondary-content", "responsive"],
+        "流式、覆盖式与视口舞台",
+        [
+          "viewport",
+          "flow",
+          "overlay",
+          "custom-scale",
+          "display-value",
+          "secondary-content",
+          "responsive",
+        ],
         TimeStageExample
       ),
     ],
@@ -1692,6 +1716,7 @@ export const COMPONENT_CATALOG: readonly ComponentCatalogEntry[] = [
     requiredStates: [
       ...Object.values(BUTTON_STATE_BY_VARIANT),
       ...Object.values(BUTTON_OVERLAY_STATE_BY_EMPHASIS),
+      "hud-strong",
       "sizes",
       "icon",
       "loading",
@@ -1705,6 +1730,7 @@ export const COMPONENT_CATALOG: readonly ComponentCatalogEntry[] = [
         [
           ...Object.values(BUTTON_STATE_BY_VARIANT),
           ...Object.values(BUTTON_OVERLAY_STATE_BY_EMPHASIS),
+          "hud-strong",
           "sizes",
           "icon",
           "loading",

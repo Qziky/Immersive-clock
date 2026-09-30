@@ -135,6 +135,26 @@ async function expectSectionScreenshot(
 }
 
 for (const viewport of VIEWPORTS) {
+  test(`设计系统底部操作按钮 ${viewport.width}x${viewport.height}`, async ({ page }) => {
+    await prepareDesignSystemPage(page, viewport);
+    await expandCatalogForSectionScreenshots(page);
+    await expectSectionScreenshot(
+      page.locator('[data-catalog-section="actions"]'),
+      page,
+      "actions",
+      viewport
+    );
+  });
+  test(`设计系统视口时间舞台及图标 ${viewport.width}x${viewport.height}`, async ({ page }) => {
+    await prepareDesignSystemPage(page, viewport);
+    await expandCatalogForSectionScreenshots(page);
+    await expectSectionScreenshot(
+      page.locator('[data-catalog-section="foundation"]'),
+      page,
+      "foundation",
+      viewport
+    );
+  });
   test(`设计系统紧凑更多菜单 ${viewport.width}x${viewport.height}`, async ({ page }) => {
     await prepareDesignSystemPage(page, viewport);
     const trigger = page.getByRole("button", { name: "更多模式", exact: true });

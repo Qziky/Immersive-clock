@@ -13,6 +13,14 @@ vi.mock("../../../contexts/AppContext", () => ({
 vi.mock("../../../hooks/useFullscreen", () => ({ useFullscreen: () => [false, vi.fn()] }));
 
 describe("ControlBar 更多模式", () => {
+  it("考试通过更多菜单接入页面导航", async () => {
+    const user = userEvent.setup();
+    const onModeChange = vi.fn();
+    render(<ControlBar onModeChange={onModeChange} />);
+    await user.click(screen.getByRole("button", { name: "更多" }));
+    await user.click(screen.getByRole("option", { name: "考试" }));
+    expect(onModeChange).toHaveBeenCalledWith("exam");
+  });
   it("shows the more button only in clock mode", async () => {
     const { rerender } = render(<ControlBar />);
     expect(screen.getByRole("button", { name: "更多" })).toBeVisible();

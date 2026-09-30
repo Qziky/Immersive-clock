@@ -14,9 +14,11 @@ export type ButtonVariant =
   | "success"
   | "text"
   | "minimal"
+  | "hud"
   | "overlay";
 export type ButtonSize = "sm" | "md" | "lg";
 export type ButtonOverlayEmphasis = "subtle" | "strong";
+export type ButtonHudEmphasis = "subtle" | "strong";
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: ButtonVariant;
@@ -24,6 +26,7 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   icon?: AppIconName;
   loading?: boolean;
   overlayEmphasis?: ButtonOverlayEmphasis;
+  hudEmphasis?: ButtonHudEmphasis;
 }
 
 const variantClassMap: Record<ButtonVariant, string> = {
@@ -34,6 +37,7 @@ const variantClassMap: Record<ButtonVariant, string> = {
   success: styles.buttonSuccess,
   text: styles.buttonText,
   minimal: styles.buttonMinimal,
+  hud: styles.buttonHud,
   overlay: styles.buttonOverlay,
 };
 
@@ -62,6 +66,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
     icon,
     loading = false,
     overlayEmphasis = "subtle",
+    hudEmphasis = "subtle",
     disabled,
     children,
     className,
@@ -76,6 +81,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       className={classNames(
         styles.button,
         variantClassMap[variant],
+        variant === "hud" && hudEmphasis === "strong" && styles.buttonHudStrong,
         variant === "overlay" && overlayEmphasisClassMap[overlayEmphasis],
         sizeClassMap[size],
         className

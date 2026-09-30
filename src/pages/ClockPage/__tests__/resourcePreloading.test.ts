@@ -34,7 +34,7 @@ describe("后续页面资源预加载", () => {
     releaseClock?.();
     await preloadPromise;
 
-    expect(modeCalls).toEqual(["clock", "countdown", "stopwatch", "study"]);
+    expect(modeCalls).toEqual(["clock", "countdown", "stopwatch", "study", "exam"]);
     expect(secondaryLoader).toHaveBeenCalledOnce();
   });
 
@@ -50,8 +50,8 @@ describe("后续页面资源预加载", () => {
       waitForBackgroundOpportunity,
     });
 
-    expect(modeCalls).toEqual(["stopwatch", "clock", "countdown", "study"]);
-    expect(waitForBackgroundOpportunity).toHaveBeenCalledTimes(5);
+    expect(modeCalls).toEqual(["stopwatch", "clock", "countdown", "study", "exam"]);
+    expect(waitForBackgroundOpportunity).toHaveBeenCalledTimes(6);
     secondaryLoaders.forEach((loader) => expect(loader).toHaveBeenCalledOnce());
   });
 

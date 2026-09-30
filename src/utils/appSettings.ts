@@ -1,4 +1,3 @@
-import { DEFAULT_EXAM, normalizeExam, type ExamSettings } from "./exam";
 import {
   DEFAULT_NOISE_REPORT_AUTO_CLOSE_MINUTES,
   MAX_NOISE_REPORT_AUTO_CLOSE_MINUTES,
@@ -56,6 +55,7 @@ import {
   migrateV1Appearance,
   normalizeAppearance,
 } from "./appearanceModel";
+import { DEFAULT_EXAM, normalizeExam, type ExamSettings } from "./exam";
 import { logger } from "./logger";
 import { StudyBackgroundType } from "./studyBackgroundStorage";
 import {
@@ -1305,7 +1305,17 @@ export function updateAppSettings(
     // 通常调用方会传入完整的嵌套对象，或通过专门的更新函数进行修改
     // 为安全起见，这里在 updates 含有对应分区时再做一次合并
 
-    if (updates.exam) nextSettings.exam = normalizeExam({ ...current.exam, ...updates.exam });
+    if (updates.exam) {
+      nextSettings.exam = normalizeExam({
+        config: { ...current.exam.config, ...updates.exam.config },
+        session:
+          updates.exam.session === undefined
+            ? current.exam.session
+            : updates.exam.session === null
+              ? null
+              : { ...current.exam.session, ...updates.exam.session },
+      });
+    }
     if (updates.countdown) {
       const countdownUpdates = updates.countdown;
       nextSettings.countdown = {
@@ -1644,13 +1654,15 @@ export function migrateStoredAppSettings(): AppSettings {
   const countdownNeedsNormalization =
     !Object.prototype.hasOwnProperty.call(parsed, "countdown") ||
     JSON.stringify(parsedCountdown) !== JSON.stringify(normalized.countdown);
+  const examNeedsNormalization = JSON.stringify(parsed.exam) !== JSON.stringify(normalized.exam);
   if (
     storedVersion < CURRENT_SETTINGS_VERSION ||
     !parsed.appearance ||
     quoteNeedsNormalization ||
     displayNeedsNormalization ||
     infoCarouselNeedsNormalization ||
-    countdownNeedsNormalization
+    countdownNeedsNormalization ||
+    examNeedsNormalization
   ) {
     localStorage.setItem(APP_SETTINGS_KEY, JSON.stringify(normalized));
   }

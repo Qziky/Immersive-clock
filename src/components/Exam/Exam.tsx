@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 
 import { useComponentAppearance } from "../../contexts/AppearanceContext";
 import { useAudio } from "../../hooks/useAudio";
@@ -38,10 +38,11 @@ const timestamp = (value: number) =>
   });
 
 export function Exam() {
+  const isExamPage = useLocation().pathname.replace(/\/+$/, "") === "/exam";
   const [data, setData] = useState<ExamData>(() => getAppSettings().exam);
   const [now, setNow] = useState(getAdjustedNowMs);
   const [editing, setEditing] = useState<ExamConfig | null>(() =>
-    data.session ? null : data.config
+    data.session || !isExamPage ? null : data.config
   );
   const [visible, setVisible] = useState(true);
   const lastActivity = useRef(Date.now());
@@ -59,6 +60,12 @@ export function Exam() {
     config.warningMinutes > 0 &&
     snapshot.remainingMs <= config.warningMinutes * 60000;
   const ended = snapshot?.phase === "ended" || snapshot?.phase === "finished";
+  const waitingDays =
+    snapshot?.phase === "waiting" ? Math.floor(Math.ceil(snapshot.remainingMs / 1000) / 86400) : 0;
+  const displayRemainingMs =
+    snapshot?.phase === "waiting" && waitingDays > 0
+      ? (Math.ceil(snapshot.remainingMs / 1000) % 86400) * 1000
+      : (snapshot?.remainingMs ?? config.minutes * 60000);
   const save = (next: ExamData) => {
     updateAppSettings({ exam: next });
     setData(next);
@@ -70,11 +77,17 @@ export function Exam() {
   };
 
   useEffect(() => {
+    // 外观编辑器也会挂载此画面，只有真正进入考试路由才打开考试设置。
+    if (isExamPage && !session) setEditing(config);
+  }, [isExamPage, session, config]);
+
+  useEffect(() => {
     const refresh = () => {
       setNow(getAdjustedNowMs());
       if (
         Date.now() - lastActivity.current > 3000 &&
-        !toolbar.current?.contains(document.activeElement)
+        !toolbar.current?.contains(document.activeElement) &&
+        !toolbar.current?.querySelector('[aria-expanded="true"]')
       )
         setVisible(false);
     };
@@ -169,7 +182,10 @@ export function Exam() {
           <span title={config.subject} tabIndex={0}>
             {config.subject}
           </span>
-          <small aria-live="polite">{snapshot ? PHASE_LABELS[snapshot.phase] : "准备考试"}</small>
+          <small aria-live="polite">
+            {snapshot ? PHASE_LABELS[snapshot.phase] : "准备考试"}
+            {waitingDays > 0 ? ` · ${waitingDays} 天` : ""}
+          </small>
         </div>
         <div className={styles.clock}>
           <small>当前时间</small>
@@ -182,7 +198,7 @@ export function Exam() {
           role="timer"
           aria-label={snapshot?.phase === "waiting" ? "距开考" : "剩余时间"}
         >
-          {formatExamTime(snapshot?.remainingMs ?? config.minutes * 60000)}
+          {formatExamTime(displayRemainingMs)}
         </TimeStageValue>
       </TimeStage>
       <footer className={styles.footer}>
@@ -225,6 +241,9 @@ export function Exam() {
           (snapshot?.phase === "running" || snapshot?.phase === "paused") && (
             <Button
               size="sm"
+              variant="hud"
+              hudEmphasis="strong"
+              icon={snapshot.phase === "paused" ? "action.play" : "action.pause"}
               onClick={() =>
                 save({ config, session: toggleExamPause(session, getAdjustedNowMs()) })
               }
@@ -233,17 +252,34 @@ export function Exam() {
             </Button>
           )}
         {(!session || ended) && (
-          <Button size="sm" onClick={() => openSettings()}>
+          <Button
+            size="sm"
+            variant="hud"
+            hudEmphasis="strong"
+            icon={ended ? "action.reset" : "action.configure"}
+            onClick={() => openSettings()}
+          >
             {ended ? "再考一次" : "考试设置"}
           </Button>
         )}
-        <Button size="sm" variant="ghost" onClick={toggleFullscreen}>
+        <Button
+          size="sm"
+          variant="hud"
+          icon={fullscreen ? "action.minimize" : "action.maximize"}
+          onClick={toggleFullscreen}
+        >
           {fullscreen ? "退出全屏" : "全屏"}
         </Button>
         <Dropdown
           placeholder="更多"
           placement="above"
           menuWidth={180}
+          density="compact"
+          renderTrigger={(triggerProps) => (
+            <Button {...triggerProps} size="sm" variant="hud" icon="action.more">
+              更多
+            </Button>
+          )}
           options={[
             { value: "settings", label: ended ? "重新设置" : "考试设置" },
             ...(session && !ended ? [{ value: "finish", label: "提前结束" }] : []),

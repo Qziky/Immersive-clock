@@ -12,6 +12,7 @@ export { Alert } from "./components/Alert";
 export type { BadgeProps, BadgeVariant } from "./components/Badge";
 export { Badge } from "./components/Badge";
 export type {
+  ButtonHudEmphasis,
   ButtonOverlayEmphasis,
   ButtonProps,
   ButtonSize,

@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useId, useState } from "react";
 
-import { Button, Input, Modal, Select, Switch } from "../../ui";
+import { Button, Input, Modal, Select, Switch, TimeStage, TimeStageValue } from "../../ui";
 import {
   EXAM_PRESETS,
   formatExamTime,
@@ -21,13 +21,54 @@ export function ExamSettings({
   onClose: () => void;
   onSave: (config: ExamConfig) => Promise<void>;
 }) {
-  const [draft, setDraft] = useState(initial);
+  const [draft, setDraft] = useState(() => {
+    const start = Number.isFinite(Date.parse(initial.start))
+      ? initial.start
+      : localDateTime(getAdjustedNowMs());
+    return {
+      ...initial,
+      start,
+      end: Number.isFinite(Date.parse(initial.end))
+        ? initial.end
+        : localDateTime(Date.parse(start) + initial.minutes * 60000),
+    };
+  });
+  const [hours, setHours] = useState(String(Math.floor(initial.minutes / 60)));
+  const [minutes, setMinutes] = useState(String(initial.minutes % 60));
+  const formId = useId();
+  const subjectId = useId();
   const [manualEnd, setManualEnd] = useState(Boolean(initial.end));
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const update = (changes: Partial<ExamConfig>) =>
-    setDraft((current) => ({ ...current, ...changes }));
+    setDraft((current) => {
+      const next = { ...current, ...changes };
+      if (
+        !manualEnd &&
+        ("minutes" in changes || "start" in changes || "kind" in changes) &&
+        Number.isFinite(Date.parse(next.start)) &&
+        next.minutes >= 1 &&
+        next.minutes <= 5999
+      ) {
+        next.end = localDateTime(Date.parse(next.start) + next.minutes * 60000);
+      }
+      return next;
+    });
   const submit = async () => {
+    if (
+      draft.kind === "immediate" &&
+      (!hours.trim() ||
+        !minutes.trim() ||
+        !Number.isInteger(Number(hours)) ||
+        !Number.isInteger(Number(minutes)) ||
+        Number(hours) < 0 ||
+        Number(hours) > 99 ||
+        Number(minutes) < 0 ||
+        Number(minutes) > 59)
+    ) {
+      setError("小时须为 0 至 99，分钟须为 0 至 59");
+      return;
+    }
     const invalid = validateExam(draft, getAdjustedNowMs());
     setError(invalid);
     if (invalid) return;
@@ -44,6 +85,9 @@ export function ExamSettings({
     draft.kind === "scheduled"
       ? Date.parse(draft.end) - Date.parse(draft.start)
       : draft.minutes * 60000;
+  const selectedPreset = EXAM_PRESETS.find(
+    (preset) => preset.subject === draft.subject && preset.minutes === draft.minutes
+  );
   return (
     <Modal
       isOpen
@@ -55,28 +99,43 @@ export function ExamSettings({
           <Button variant="ghost" onClick={onClose}>
             取消
           </Button>
-          <Button onClick={() => void submit()} disabled={saving}>
+          <Button type="submit" form={formId} disabled={saving}>
             {draft.kind === "immediate" ? "开始考试" : "启用考试安排"}
           </Button>
         </>
       }
     >
       <div className={styles.settingsGrid}>
-        <div className={styles.form}>
+        <form
+          id={formId}
+          className={styles.form}
+          noValidate
+          onSubmit={(event) => {
+            event.preventDefault();
+            void submit();
+          }}
+        >
           <Input
+            id={subjectId}
             label="考试科目"
+            placeholder="例如：综合能力测试"
             value={draft.subject}
             maxLength={80}
             onChange={(event) => update({ subject: event.target.value })}
           />
-          <div className={styles.presets} aria-label="科目预设">
+          <div className={styles.presets} role="group" aria-label="科目预设">
             {EXAM_PRESETS.map((preset) => (
               <Button
                 key={preset.subject}
                 size="sm"
-                variant="ghost"
+                variant={selectedPreset === preset ? "secondary" : "ghost"}
+                aria-pressed={selectedPreset === preset}
                 onClick={() => {
-                  const start = draft.start || localDateTime(getAdjustedNowMs());
+                  const start = Number.isFinite(Date.parse(draft.start))
+                    ? draft.start
+                    : localDateTime(getAdjustedNowMs());
+                  setHours(String(Math.floor(preset.minutes / 60)));
+                  setMinutes(String(preset.minutes % 60));
                   update({
                     subject: preset.subject,
                     minutes: preset.minutes,
@@ -90,6 +149,18 @@ export function ExamSettings({
                 {preset.subject} · {preset.minutes}分
               </Button>
             ))}
+            <Button
+              size="sm"
+              variant={selectedPreset ? "ghost" : "secondary"}
+              icon="action.configure"
+              aria-pressed={!selectedPreset}
+              onClick={() => {
+                if (selectedPreset) update({ subject: "" });
+                document.getElementById(subjectId)?.focus();
+              }}
+            >
+              自定义
+            </Button>
           </div>
           <Select
             label="开始方式"
@@ -100,7 +171,9 @@ export function ExamSettings({
             ]}
             onChange={(event) => {
               const kind = event.target.value as ExamConfig["kind"];
-              const start = draft.start || localDateTime(getAdjustedNowMs());
+              const start = Number.isFinite(Date.parse(draft.start))
+                ? draft.start
+                : localDateTime(getAdjustedNowMs());
               update({
                 kind,
                 start,
@@ -115,22 +188,22 @@ export function ExamSettings({
                 type="number"
                 min={0}
                 max={99}
-                value={Math.floor(draft.minutes / 60)}
-                onChange={(event) =>
-                  update({ minutes: Number(event.target.value) * 60 + (draft.minutes % 60) })
-                }
+                value={hours}
+                onChange={(event) => {
+                  setHours(event.target.value);
+                  update({ minutes: Number(event.target.value) * 60 + Number(minutes) });
+                }}
               />
               <Input
                 label="分钟"
                 type="number"
                 min={0}
                 max={59}
-                value={draft.minutes % 60}
-                onChange={(event) =>
-                  update({
-                    minutes: Math.floor(draft.minutes / 60) * 60 + Number(event.target.value),
-                  })
-                }
+                value={minutes}
+                onChange={(event) => {
+                  setMinutes(event.target.value);
+                  update({ minutes: Number(hours) * 60 + Number(event.target.value) });
+                }}
               />
             </div>
           ) : (
@@ -173,6 +246,7 @@ export function ExamSettings({
                 label="临近结束提醒（分钟，0 为关闭）"
                 type="number"
                 min={0}
+                max={5999}
                 value={draft.warningMinutes}
                 onChange={(event) => update({ warningMinutes: Number(event.target.value) })}
               />
@@ -193,8 +267,12 @@ export function ExamSettings({
               />
             </div>
           </details>
-          {error && <p role="alert">{error}</p>}
-        </div>
+          {error && (
+            <p className={styles.error} role="alert">
+              {error}
+            </p>
+          )}
+        </form>
         <aside className={styles.preview} aria-label="考试预览">
           <div className={styles.previewTop}>
             <span>{draft.subject || "考试科目"}</span>
@@ -204,7 +282,11 @@ export function ExamSettings({
               09:42:18
             </span>
           </div>
-          <strong>{formatExamTime(Number.isFinite(duration) ? Math.max(0, duration) : 0)}</strong>
+          <TimeStage layout="viewport" placement="overlay">
+            <TimeStageValue>
+              {formatExamTime(Number.isFinite(duration) ? Math.max(0, duration) : 0)}
+            </TimeStageValue>
+          </TimeStage>
           <span>剩余时间 · 预览</span>
         </aside>
       </div>

@@ -147,6 +147,7 @@ describe("action controls", () => {
     ["success", "buttonSuccess"],
     ["text", "buttonText"],
     ["minimal", "buttonMinimal"],
+    ["hud", "buttonHud"],
     ["overlay", "buttonOverlay"],
   ] as const)("applies the %s text button variant", (variant, expectedClass) => {
     render(<Button variant={variant}>{variant} 操作</Button>);

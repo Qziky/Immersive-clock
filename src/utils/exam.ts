@@ -54,10 +54,15 @@ export function localDateTime(timestamp: number): string {
 }
 export function validateExam(config: ExamConfig, now: number): string | null {
   if (!config.subject.trim()) return "请输入考试科目";
+  if (config.subject.trim().length > 80) return "科目名称最多 80 个字符";
   if (!Number.isInteger(config.minutes) || config.minutes < 1 || config.minutes > 5999)
     return "时长须为 1 至 5999 分钟";
-  if (!Number.isFinite(config.warningMinutes) || config.warningMinutes < 0)
-    return "提醒分钟数不能小于零";
+  if (
+    !Number.isInteger(config.warningMinutes) ||
+    config.warningMinutes < 0 ||
+    config.warningMinutes > 5999
+  )
+    return "提醒分钟数须为 0 至 5999，0 为关闭";
   if (config.kind === "scheduled") {
     const start = Date.parse(config.start),
       end = Date.parse(config.end);
@@ -87,7 +92,7 @@ export function examSnapshot(session: ExamSession, now: number) {
   if (session.pausedMs !== null) return { phase: "paused", remainingMs: session.pausedMs } as const;
   if (now < session.startAt)
     return { phase: "waiting", remainingMs: session.startAt - now } as const;
-  const remainingMs = Math.max(0, session.endAt - now);
+  const remainingMs = Math.min(session.durationMs, Math.max(0, session.endAt - now));
   return { phase: remainingMs > 0 ? "running" : "finished", remainingMs } as const;
 }
 export function toggleExamPause(session: ExamSession, now: number): ExamSession {
@@ -99,7 +104,7 @@ export function toggleExamPause(session: ExamSession, now: number): ExamSession 
   return session;
 }
 export function formatExamTime(milliseconds: number): string {
-  const seconds = Math.max(0, Math.ceil(milliseconds / 1000));
+  const seconds = Number.isFinite(milliseconds) ? Math.max(0, Math.ceil(milliseconds / 1000)) : 0;
   return [Math.floor(seconds / 3600), Math.floor(seconds / 60) % 60, seconds % 60]
     .map((value) => String(value).padStart(2, "0"))
     .join(":");
@@ -111,7 +116,7 @@ export function normalizeExam(value: unknown): ExamSettings {
   if (
     typeof config.subject !== "string" ||
     !["immediate", "scheduled"].includes(config.kind) ||
-    !Number.isFinite(config.minutes) ||
+    !Number.isInteger(config.minutes) ||
     config.minutes < 1 ||
     config.minutes > 5999
   )
@@ -119,7 +124,12 @@ export function normalizeExam(value: unknown): ExamSettings {
   for (const key of ["progress", "startSound", "warningSound", "endSound"] as const) {
     if (typeof config[key] !== "boolean") config[key] = DEFAULT_EXAM.config[key];
   }
-  if (!Number.isFinite(config.warningMinutes) || config.warningMinutes < 0)
+  config.subject = config.subject.trim().slice(0, 80) || DEFAULT_EXAM.config.subject;
+  if (
+    !Number.isInteger(config.warningMinutes) ||
+    config.warningMinutes < 0 ||
+    config.warningMinutes > 5999
+  )
     config.warningMinutes = 15;
   if (typeof config.start !== "string") config.start = "";
   if (typeof config.end !== "string") config.end = "";

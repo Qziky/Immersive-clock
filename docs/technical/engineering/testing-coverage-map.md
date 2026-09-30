@@ -3,6 +3,18 @@
 本页提供稳定的“行为 → 测试入口 → 实现入口”映射。新增或移动测试时更新对应行；不要写入
 带本机盘符的绝对链接。
 
+## 考试模式
+
+| 行为                                                         | 测试入口                                                                  | 实现入口                                                                    |
+| ------------------------------------------------------------ | ------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| 九科预设、时间段边界、暂停顺延、休眠跳时、持久化与旧配置补齐 | `src/utils/__tests__/exam.test.ts`                                        | `src/utils/exam.ts`、`src/utils/appSettings.ts`                             |
+| 自定义选项、科目输入焦点与时长保留、时长校验、结束时间推算   | `src/components/Exam/__tests__/ExamSettings.test.tsx`                     | `src/components/Exam/ExamSettings.tsx`                                      |
+| 暂停冻结且时钟继续、提醒去重、过期恢复静音、提前结束确认     | `src/components/Exam/__tests__/Exam.test.tsx`                             | `src/components/Exam/Exam.tsx`                                              |
+| 更多入口导航、公共视口时间舞台与展厅契约                     | `ControlBar.test.tsx`、`TimeStage.test.tsx`、`componentCatalog.test.tsx`  | `ControlBar.tsx`、`src/ui/components/TimeStage.tsx`、`componentCatalog.tsx` |
+| 两种考试流程、键盘操作、确认取消、三种视口与主数字稳定       | `tests/e2e/exam.e2e.spec.ts`                                              | `src/components/Exam/`、`ClockPage.tsx`                                     |
+| TimeStage 视口布局与考试语义图标视觉基线                     | `tests/e2e/design-system-visual.e2e.spec.ts` 的分区视觉快照               | `/design-system` 的 foundation 分区                                         |
+| HUD 按钮主次层级、图标与窄屏布局                             | `Actions.test.tsx`、`design-system-visual.e2e.spec.ts` 的底部操作按钮快照 | `src/ui/components/Button.tsx`、`/design-system` 的 actions 分区            |
+
 ## 命令级门禁
 
 | 门禁       | 命令                    | 覆盖                                  |

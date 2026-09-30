@@ -147,6 +147,45 @@
   color: inherit;
 }
 
+.button.buttonHud {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  color: var(--ui-color-text-muted);
+  font-family: var(--ui-font-sans);
+  font-size: var(--ui-font-size-md);
+  font-weight: 400;
+  padding-inline: var(--ui-space-4);
+}
+
+.button.buttonHud:hover:not(:disabled) {
+  background: transparent;
+  color: var(--ui-color-text);
+}
+
+.button.buttonHudStrong {
+  color: var(--ui-color-text);
+  font-weight: 500;
+}
+
+.button.buttonHud:focus-visible {
+  box-shadow: none;
+  outline: 1px solid var(--ui-color-border-strong);
+  outline-offset: 2px;
+}
+
+@media (max-width: 480px) {
+  .button.buttonHud {
+    flex-direction: column;
+    font-size: var(--ui-font-size-sm);
+    gap: var(--ui-space-1);
+    height: auto;
+    min-height: 44px;
+    min-width: 44px;
+    padding: var(--ui-space-2) var(--ui-space-3);
+  }
+}
+
 .buttonOverlay {
   -webkit-backdrop-filter: blur(var(--ui-glass-blur-soft));
   backdrop-filter: blur(var(--ui-glass-blur-soft));

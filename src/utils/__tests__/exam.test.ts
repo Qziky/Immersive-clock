@@ -1,6 +1,12 @@
 import { beforeEach, describe, expect, it } from "vitest";
 
-import { getAppSettings, normalizeAppSettings, updateAppSettings } from "../appSettings";
+import {
+  APP_SETTINGS_KEY,
+  getAppSettings,
+  migrateStoredAppSettings,
+  normalizeAppSettings,
+  updateAppSettings,
+} from "../appSettings";
 import {
   DEFAULT_EXAM,
   EXAM_PRESETS,
@@ -87,5 +93,34 @@ describe("考试计时", () => {
     expect(formatExamTime(9000000)).toBe("02:30:00");
     expect(formatExamTime(1)).toBe("00:00:01");
     expect(formatExamTime(-1)).toBe("00:00:00");
+  });
+  it("局部设置更新保留科目、提醒和暂停会话", () => {
+    const config = { ...DEFAULT_EXAM.config, subject: "高三周测", endSound: true };
+    const session = toggleExamPause(startExam(config, now), now + 1000);
+    updateAppSettings({ exam: { config, session } });
+    updateAppSettings({ exam: { config: { progress: false } } });
+    expect(getAppSettings().exam).toEqual({ config: { ...config, progress: false }, session });
+    updateAppSettings({ exam: { session: null } });
+    expect(getAppSettings().exam.session).toBeNull();
+  });
+  it("同版本旧设置迁移时将考试默认值写回且保留全局配置", () => {
+    const settings = getAppSettings();
+    const { exam: discarded, ...legacy } = settings;
+    expect(discarded).toEqual(DEFAULT_EXAM);
+    localStorage.setItem(APP_SETTINGS_KEY, JSON.stringify(legacy));
+    migrateStoredAppSettings();
+    const stored = JSON.parse(localStorage.getItem(APP_SETTINGS_KEY)!);
+    expect(stored.exam).toEqual(DEFAULT_EXAM);
+    expect(stored.general).toEqual(legacy.general);
+  });
+  it("不接受带暂停状态的固定时间段会话", () => {
+    const config = {
+      ...DEFAULT_EXAM.config,
+      kind: "scheduled" as const,
+      start: localDateTime(now),
+      end: localDateTime(now + 600000),
+    };
+    const session = startExam(config, now);
+    expect(normalizeExam({ config, session: { ...session, pausedMs: 1000 } }).session).toBeNull();
   });
 });

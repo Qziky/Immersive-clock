@@ -499,7 +499,7 @@ export function ClockPage() {
           ref={settingsButtonRef}
           onClick={handleSettingsClick}
           onIntent={preloadSettingsPanel}
-          isVisible={displayMode !== "exam" && !isModalOpen && !showSettings}
+          isVisible={!isModalOpen && !showSettings}
         />
       )}
 

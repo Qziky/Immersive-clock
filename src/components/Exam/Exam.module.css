@@ -33,6 +33,12 @@
 .subject > span:focus {
   white-space: normal;
   overflow-wrap: anywhere;
+  max-height: min(20vh, 8rem);
+  overflow-y: auto;
+}
+.subject > span:focus-visible {
+  outline: 2px solid var(--ui-color-accent);
+  outline-offset: var(--ui-space-1);
 }
 .header small {
   font-size: var(--ui-font-size-md);
@@ -67,14 +73,16 @@
 }
 .toolbar {
   position: absolute;
-  bottom: 5rem;
+  bottom: clamp(2.75rem, 8vh, 5rem);
   left: 50%;
   transform: translateX(-50%);
   display: flex;
-  gap: var(--ui-space-2);
+  align-items: center;
+  gap: var(--ui-space-3);
   z-index: 4;
   opacity: 0;
   pointer-events: none;
+  width: max-content;
   max-width: calc(100% - 1rem);
 }
 .toolbar[data-visible="true"],
@@ -88,8 +96,8 @@
   gap: var(--ui-space-6);
 }
 .form {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  align-content: start;
   gap: var(--ui-space-4);
   min-width: 0;
 }
@@ -97,7 +105,7 @@
   font-size: var(--ui-font-size-sm);
   color: var(--ui-color-text-muted);
 }
-.form [role="alert"] {
+.form .error {
   color: var(--ui-color-danger);
 }
 .presets {
@@ -123,10 +131,9 @@
   padding: var(--ui-space-4);
   min-width: 0;
 }
-.preview strong {
-  font: 700 clamp(1.5rem, 4vw, 3rem) var(--ui-font-number);
-}
 .preview > span {
+  position: absolute;
+  bottom: var(--ui-space-3);
   color: var(--ui-color-text-muted);
   font-size: var(--ui-font-size-sm);
 }
@@ -146,6 +153,7 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
 @media (max-width: 600px) {
   .settingsGrid {
     grid-template-columns: minmax(0, 1fr);
@@ -167,6 +175,7 @@
     max-width: 56%;
   }
   .toolbar {
-    bottom: 4rem;
+    bottom: clamp(2.75rem, 8vh, 4rem);
+    gap: var(--ui-space-2);
   }
 }

@@ -97,6 +97,7 @@ import {
 
 export const appIconRegistry = {
   "action.add": Plus,
+  "mode.exam": FileText,
   "action.apply": Check,
   "action.calibrateMicrophone": Mic2,
   "action.close": X,

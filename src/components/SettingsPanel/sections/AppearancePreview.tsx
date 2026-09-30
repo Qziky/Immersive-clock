@@ -8,7 +8,6 @@ import {
 } from "react";
 
 import { useAppearance } from "../../../contexts/AppearanceContext";
-import { TimeStage, TimeStageValue } from "../../../ui";
 import pageStyles from "../../../pages/ClockPage/ClockPage.module.css";
 import type {
   AppearanceComponentDefinition,
@@ -16,6 +15,7 @@ import type {
   AppearanceSlotKind,
 } from "../../../types/appearance";
 import type { Quote } from "../../../types/quote";
+import { TimeStage, TimeStageValue } from "../../../ui";
 import {
   APPEARANCE_COMPONENTS,
   appearanceBackgroundToCss,

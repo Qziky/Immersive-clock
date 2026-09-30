@@ -5,7 +5,6 @@ import type { AppMode } from "../../types";
 type ModeComponentLoader = () => Promise<{ default: ComponentType }>;
 
 const MODE_COMPONENT_LOADERS: Record<AppMode, ModeComponentLoader> = {
-  exam: () => import("../../components/Exam/Exam").then((module) => ({ default: module.Exam })),
   clock: () => import("../../components/Clock/Clock").then((module) => ({ default: module.Clock })),
   countdown: () =>
     import("../../components/Countdown/Countdown").then((module) => ({
@@ -16,6 +15,7 @@ const MODE_COMPONENT_LOADERS: Record<AppMode, ModeComponentLoader> = {
       default: module.Stopwatch,
     })),
   study: () => import("../../components/Study/Study").then((module) => ({ default: module.Study })),
+  exam: () => import("../../components/Exam/Exam").then((module) => ({ default: module.Exam })),
 };
 
 const modeComponentPromises: Partial<Record<AppMode, Promise<{ default: ComponentType }>>> = {};

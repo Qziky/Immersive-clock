@@ -25,6 +25,7 @@ const ROUTES = [
   "/countdown",
   "/stopwatch",
   "/study",
+  "/exam",
   "/terms",
   "/privacy",
   "/analytics",
