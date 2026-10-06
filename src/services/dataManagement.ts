@@ -22,7 +22,9 @@ import type { NoiseSliceSummary } from "../types/noise";
 import {
   clearAppearanceAssets,
   exportAppearanceAssets,
+  exportAppearanceAssetsForBackup,
   importAppearanceAssets,
+  loadAppearanceAssetCatalog,
   notifyAppearanceAssetsChanged,
 } from "../utils/appearanceAssets";
 import {
@@ -97,13 +99,14 @@ export class DataManagementError extends Error {
 
 export const BACKUP_FORMAT = "immersive-clock-backup" as const;
 export const BACKUP_VERSION = 1 as const;
-export const MAX_BACKUP_BYTES = 150 * 1024 * 1024;
-export const MAX_TOTAL_ASSET_BYTES = 100 * 1024 * 1024;
+export const MAX_BACKUP_BYTES = 450 * 1024 * 1024;
+export const MAX_TOTAL_ASSET_BYTES = 300 * 1024 * 1024;
 export const MAX_BACKGROUND_BYTES = 20 * 1024 * 1024;
+export const MAX_VIDEO_BYTES = 200 * 1024 * 1024;
 export const MAX_FONT_BYTES = 50 * 1024 * 1024;
 
 const SETTINGS_SCHEMA_VERSION = 1;
-const ASSETS_SCHEMA_VERSION = 1;
+const ASSETS_SCHEMA_VERSION = 2;
 const NOISE_HISTORY_SCHEMA_VERSION = 4;
 const CACHE_SCHEMA_VERSION = 1;
 const DIAGNOSTICS_SCHEMA_VERSION = 1;
@@ -117,6 +120,11 @@ const HITOKOTO_BLOCK_UNTIL_KEY = "api-governance.hitokoto.block-until";
 const HITOKOTO_BACKOFF_LEVEL_KEY = "api-governance.hitokoto.backoff-level";
 const HITOKOTO_DEVICE_SEED_KEY = "api-governance.hitokoto.device-seed";
 const NOISE_REPORT_CHART_PREFERENCE_KEY = "noise-report.is-main-chart-combined";
+
+function getAssetMetadataBytes(asset: { sizeBytes?: number; dataUrl?: unknown }): number {
+  if (typeof asset.sizeBytes === "number") return asset.sizeBytes;
+  return typeof asset.dataUrl === "string" ? parseDataUrl(asset.dataUrl).bytes : 0;
+}
 
 const KNOWN_RUNTIME_CACHE_NAMES = new Set([
   "local-webfonts",
@@ -217,6 +225,7 @@ const BACKGROUND_MIME_TYPES = new Set([
   "image/avif",
   "image/bmp",
 ]);
+const VIDEO_MIME_TYPES = new Set(["video/mp4", "video/webm"]);
 
 const FONT_MIME_TYPES = new Set([
   "font/ttf",
@@ -355,7 +364,11 @@ function validateConfiguredUrls(value: Record<string, unknown>): void {
     }
     if (!isRecord(candidate)) return;
     for (const [key, child] of Object.entries(candidate)) {
-      if (urlKeys.has(key) && typeof child === "string" && child) {
+      if (
+        (urlKeys.has(key) || (candidate.type === "video" && key === "url")) &&
+        typeof child === "string" &&
+        child
+      ) {
         let parsed: URL;
         try {
           if (child.startsWith("//")) throw new TypeError("protocol-relative URL");
@@ -444,7 +457,10 @@ function parseDataUrl(dataUrl: string): { mimeType: string; bytes: number } {
   };
 }
 
-function validateAssetShape(value: unknown): AppearanceBackupAsset {
+function validateAssetShape(
+  value: unknown,
+  videoBlobs: Readonly<Record<string, Blob>> = {}
+): AppearanceBackupAsset {
   if (!isRecord(value)) {
     throw new DataManagementError("INVALID_RESOURCE", "备份包含无效资源记录");
   }
@@ -452,7 +468,7 @@ function validateAssetShape(value: unknown): AppearanceBackupAsset {
   if (
     typeof id !== "string" ||
     !/^[A-Za-z0-9._:-]{1,160}$/.test(id) ||
-    (kind !== "background" && kind !== "font") ||
+    (kind !== "background" && kind !== "video" && kind !== "font") ||
     typeof name !== "string" ||
     !name.trim() ||
     name.length > 255 ||
@@ -473,6 +489,31 @@ function validateAssetShape(value: unknown): AppearanceBackupAsset {
       throw new DataManagementError("INVALID_RESOURCE", `背景 ${name} 超过 20MB`);
     }
     return { id, kind, name: name.trim(), mimeType: parsed.mimeType, dataUrl };
+  }
+
+  if (kind === "video") {
+    const storedSize = value.sizeBytes;
+    const actualBytes = videoBlobs[id]?.size ?? parsed.bytes;
+    if (!VIDEO_MIME_TYPES.has(parsed.mimeType) || mimeType.toLowerCase() !== parsed.mimeType) {
+      throw new DataManagementError("INVALID_RESOURCE", `视频 ${name} 的 MIME 类型不受支持`);
+    }
+    if (
+      actualBytes > MAX_VIDEO_BYTES ||
+      (isFiniteNumber(storedSize) && storedSize > MAX_VIDEO_BYTES)
+    ) {
+      throw new DataManagementError("INVALID_RESOURCE", `视频 ${name} 超过 200MB`);
+    }
+    if (isFiniteNumber(storedSize) && storedSize !== actualBytes) {
+      throw new DataManagementError("INVALID_RESOURCE", `视频 ${name} 的资源大小校验失败`);
+    }
+    return {
+      id,
+      kind,
+      name: name.trim(),
+      mimeType: parsed.mimeType,
+      dataUrl,
+      sizeBytes: actualBytes,
+    };
   }
 
   const family = value.family;
@@ -502,11 +543,14 @@ function validateAssetShape(value: unknown): AppearanceBackupAsset {
   };
 }
 
-async function validateAssets(value: unknown): Promise<AppearanceBackupAsset[]> {
+async function validateAssets(
+  value: unknown,
+  videoBlobs: Readonly<Record<string, Blob>> = {}
+): Promise<AppearanceBackupAsset[]> {
   if (!Array.isArray(value)) {
     throw new DataManagementError("INVALID_RESOURCE", "备份的资源域不是数组");
   }
-  const assets = value.map(validateAssetShape);
+  const assets = value.map((asset) => validateAssetShape(asset, videoBlobs));
   const ids = new Set<string>();
   for (const asset of assets) {
     if (ids.has(asset.id)) {
@@ -562,11 +606,15 @@ function deduplicateAssets(
 
   for (const asset of assets) {
     const content = asset.dataUrl.slice(asset.dataUrl.indexOf(",") + 1);
-    const fingerprint = resourceFingerprints?.get(asset.id) ?? fingerprintAssetContent(content);
+    const fingerprint =
+      resourceFingerprints?.get(asset.id) ??
+      (asset.kind === "video" ? `unhashed-video:${asset.id}` : fingerprintAssetContent(content));
     const identity =
       asset.kind === "background"
         ? `background:${fingerprint}`
-        : `font:${JSON.stringify([asset.family, asset.format, fingerprint])}`;
+        : asset.kind === "video"
+          ? `video:${asset.mimeType}:${fingerprint}`
+          : `font:${JSON.stringify([asset.family, asset.format, fingerprint])}`;
     const candidates = canonicalByFingerprint.get(identity) ?? [];
     const existing = candidates.find((candidate) => candidate.content === content);
     if (existing) {
@@ -580,11 +628,15 @@ function deduplicateAssets(
 
   const normalizedSettings = rewriteAssetReferences(settings, replacements);
   const totalBytes = canonicalAssets.reduce(
-    (sum, asset) => sum + parseDataUrl(asset.dataUrl).bytes,
+    (sum, asset) =>
+      sum +
+      (asset.kind === "video"
+        ? (asset.sizeBytes ?? parseDataUrl(asset.dataUrl).bytes)
+        : parseDataUrl(asset.dataUrl).bytes),
     0
   );
   if (totalBytes > MAX_TOTAL_ASSET_BYTES) {
-    throw new DataManagementError("INVALID_RESOURCE", "备份资源总大小超过 100MB");
+    throw new DataManagementError("INVALID_RESOURCE", "备份资源总大小超过 300MB");
   }
   return { settings: normalizedSettings, assets: canonicalAssets };
 }
@@ -594,7 +646,9 @@ function assetIdentity(asset: AppearanceBackupAsset, fingerprint?: string): stri
   const contentFingerprint = fingerprint ?? fingerprintAssetContent(content);
   return asset.kind === "background"
     ? `background:${contentFingerprint}`
-    : `font:${JSON.stringify([asset.family, asset.format, contentFingerprint])}`;
+    : asset.kind === "video"
+      ? `video:${asset.mimeType}:${contentFingerprint}`
+      : `font:${JSON.stringify([asset.family, asset.format, contentFingerprint])}`;
 }
 
 function assetsHaveSameContent(
@@ -605,6 +659,7 @@ function assetsHaveSameContent(
     first.kind === second.kind &&
     first.dataUrl === second.dataUrl &&
     (first.kind === "background" ||
+      (first.kind === "video" && first.sizeBytes === second.sizeBytes) ||
       (second.kind === "font" && first.family === second.family && first.format === second.format))
   );
 }
@@ -631,16 +686,21 @@ function stageAssetsForRestore(
   settings: Record<string, unknown>,
   incomingAssets: readonly AppearanceBackupAsset[],
   existingAssets: readonly AppearanceBackupAsset[],
-  resourceFingerprints?: ReadonlyMap<string, string>
+  resourceFingerprints?: ReadonlyMap<string, string>,
+  incomingVideoBlobs: Readonly<Record<string, Blob>> = {}
 ): {
   settings: Record<string, unknown>;
   assets: AppearanceBackupAsset[];
   assetsToWrite: AppearanceBackupAsset[];
   contentHashes: Record<string, string>;
+  videoBlobs: Record<string, Blob>;
 } {
   const existingByIdentity = new Map<string, AppearanceBackupAsset[]>();
   for (const asset of existingAssets) {
-    const identity = assetIdentity(asset);
+    const identity = assetIdentity(
+      asset,
+      asset.kind === "video" ? `existing-video:${asset.id}` : undefined
+    );
     const candidates = existingByIdentity.get(identity) ?? [];
     candidates.push(asset);
     existingByIdentity.set(identity, candidates);
@@ -651,6 +711,7 @@ function stageAssetsForRestore(
   const stagedAssets: AppearanceBackupAsset[] = [];
   const assetsToWrite: AppearanceBackupAsset[] = [];
   const contentHashes: Record<string, string> = {};
+  const videoBlobs: Record<string, Blob> = {};
 
   for (const asset of incomingAssets) {
     const content = asset.dataUrl.slice(asset.dataUrl.indexOf(",") + 1);
@@ -674,6 +735,8 @@ function stageAssetsForRestore(
     stagedAssets.push(stagedAsset);
     assetsToWrite.push(stagedAsset);
     contentHashes[nextId] = fingerprint;
+    const videoBlob = incomingVideoBlobs[asset.id];
+    if (asset.kind === "video" && videoBlob) videoBlobs[nextId] = videoBlob;
   }
 
   return {
@@ -681,6 +744,7 @@ function stageAssetsForRestore(
     assets: stagedAssets,
     assetsToWrite,
     contentHashes,
+    videoBlobs,
   };
 }
 
@@ -811,18 +875,22 @@ async function clearRuntimeCaches(): Promise<DataOperationResult> {
   };
 }
 
-async function replaceAllAssets(assets: readonly AppearanceBackupAsset[]): Promise<void> {
+async function replaceAllAssets(
+  assets: readonly AppearanceBackupAsset[],
+  videoBlobs: Readonly<Record<string, Blob>> = {}
+): Promise<void> {
   await clearAppearanceAssets();
-  await importAppearanceAssets(assets as AppearanceBundleV2["assets"]);
+  await importAppearanceAssets(assets as AppearanceBundleV2["assets"], {}, videoBlobs);
 }
 
 async function removeAssetsNotIn(nextAssets: readonly AppearanceBackupAsset[]): Promise<void> {
-  const existing = await exportAppearanceAssets();
+  const catalog = await loadAppearanceAssetCatalog();
+  const existing = [...catalog.backgrounds, ...catalog.videos, ...catalog.fonts];
   const keepIds = new Set(nextAssets.map((asset) => `${asset.kind}:${asset.id}`));
   const removed = existing.filter((asset) => !keepIds.has(`${asset.kind}:${asset.id}`));
   await Promise.all(
     removed.flatMap((asset) => [
-      asset.kind === "background" ? appearanceAssetDb.del(asset.id) : db.del(asset.id),
+      asset.kind === "font" ? db.del(asset.id) : appearanceAssetDb.del(asset.id),
       appearanceAssetMetadataDb.del(asset.id),
     ])
   );
@@ -884,12 +952,13 @@ const assetsDomain: DataDomain<AppearanceBackupAsset[]> = {
   schemaVersion: ASSETS_SCHEMA_VERSION,
   includedInBackup: true,
   async inspect() {
-    const assets = await exportAppearanceAssets();
+    const catalog = await loadAppearanceAssetCatalog();
+    const assets = [...catalog.backgrounds, ...catalog.videos, ...catalog.fonts];
     return makeInspection(
       this.id,
       this.schemaVersion,
       assets.length,
-      assets.reduce((sum, asset) => sum + parseDataUrl(asset.dataUrl).bytes, 0),
+      assets.reduce((sum, asset) => sum + getAssetMetadataBytes(asset), 0),
       this.includedInBackup
     );
   },
@@ -1189,26 +1258,125 @@ export async function createBackup(scope: BackupScope = "full"): Promise<Immersi
     },
   };
   if (serializedBytes(backup) > MAX_BACKUP_BYTES) {
-    throw new DataManagementError("BACKUP_TOO_LARGE", "当前数据超过 150MB，无法生成单个备份文件");
+    throw new DataManagementError("BACKUP_TOO_LARGE", "当前数据超过 450MB，无法生成单个备份文件");
   }
   return backup;
+}
+
+interface BackupWriterResponse {
+  id: number;
+  ok: boolean;
+  file?: Blob;
+  error?: string;
+}
+
+function writeBackupInWorker(
+  backup: ImmersiveClockBackupV1,
+  videoBlobs: Record<string, Blob>
+): Promise<Blob> {
+  const worker = new Worker(new URL("./backupWriter.worker.ts", import.meta.url), {
+    type: "module",
+  });
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    const finish = (callback: () => void) => {
+      if (settled) return;
+      settled = true;
+      worker.terminate();
+      callback();
+    };
+    worker.onmessage = (event: MessageEvent<BackupWriterResponse>) => {
+      if (event.data.id !== 1) return;
+      if (event.data.ok && event.data.file) finish(() => resolve(event.data.file!));
+      else
+        finish(() =>
+          reject(
+            new DataManagementError("BACKUP_TOO_LARGE", event.data.error ?? "备份文件生成失败")
+          )
+        );
+    };
+    worker.onerror = (event) => {
+      event.preventDefault();
+      finish(() => reject(new Error(event.message || "备份写入 Worker 启动失败")));
+    };
+    worker.postMessage({ id: 1, value: backup, videoBlobs });
+  });
+}
+
+/** Builds a JSON backup Blob while the Worker streams video bytes into base64 chunks. */
+export async function createBackupBlob(scope: BackupScope = "full"): Promise<Blob> {
+  const [exportedSettings, exportedAssets, noiseHistory] = await Promise.all([
+    settingsDomain.export(),
+    exportAppearanceAssetsForBackup(),
+    scope === "full" ? noiseHistoryDomain.export() : Promise.resolve(undefined),
+  ]);
+  if (typeof Worker === "undefined") {
+    if (Object.keys(exportedAssets.videoBlobs).length > 0) {
+      throw new DataManagementError("BACKUP_TOO_LARGE", "当前环境无法安全导出本地视频资源");
+    }
+    const backup = await createBackup(scope);
+    return new Blob([JSON.stringify(backup, null, 2)], { type: "application/json;charset=utf-8" });
+  }
+
+  const settings = await settingsDomain.validate(exportedSettings);
+  const assets = await validateAssets(exportedAssets.assets, exportedAssets.videoBlobs);
+  const canonical = deduplicateAssets(settings, assets);
+  ensureReferencesExist(canonical.settings, canonical.assets);
+  const manifest = [
+    createManifestEntry("settings", settingsDomain.schemaVersion, canonical.settings),
+    createManifestEntry("assets", assetsDomain.schemaVersion, canonical.assets),
+    ...(noiseHistory
+      ? [createManifestEntry("noiseHistory", noiseHistoryDomain.schemaVersion, noiseHistory)]
+      : []),
+  ];
+  const backup: ImmersiveClockBackupV1 = {
+    format: BACKUP_FORMAT,
+    backupVersion: BACKUP_VERSION,
+    appVersion: import.meta.env.VITE_APP_VERSION || "0.0.0",
+    exportedAt: new Date().toISOString(),
+    scope,
+    manifest,
+    domains: {
+      settings: { schemaVersion: settingsDomain.schemaVersion, data: canonical.settings },
+      assets: { schemaVersion: assetsDomain.schemaVersion, data: canonical.assets },
+      ...(noiseHistory
+        ? { noiseHistory: { schemaVersion: noiseHistoryDomain.schemaVersion, data: noiseHistory } }
+        : {}),
+    },
+  };
+  const videoLengthDelta = canonical.assets.reduce((total, asset) => {
+    if (asset.kind !== "video") return total;
+    const sizeBytes = asset.sizeBytes ?? exportedAssets.videoBlobs[asset.id]?.size ?? 0;
+    return (
+      total +
+      `data:${asset.mimeType};base64,`.length +
+      Math.ceil(sizeBytes / 3) * 4 -
+      asset.dataUrl.length
+    );
+  }, 0);
+  const assetManifest = backup.manifest.find((entry) => entry.id === "assets");
+  if (assetManifest) assetManifest.bytes += videoLengthDelta;
+  if (serializedBytes(backup) + videoLengthDelta > MAX_BACKUP_BYTES) {
+    throw new DataManagementError("BACKUP_TOO_LARGE", "当前数据超过 450MB，无法生成单个备份文件");
+  }
+  return writeBackupInWorker(backup, exportedAssets.videoBlobs);
 }
 
 async function readBackupSource(source: unknown): Promise<unknown> {
   let text: string | null = null;
   if (typeof Blob !== "undefined" && source instanceof Blob) {
     if (source.size > MAX_BACKUP_BYTES) {
-      throw new DataManagementError("BACKUP_TOO_LARGE", "备份文件不能超过 150MB");
+      throw new DataManagementError("BACKUP_TOO_LARGE", "备份文件不能超过 450MB");
     }
     text = await source.text();
   } else if (typeof source === "string") {
     if (utf8Bytes(source) > MAX_BACKUP_BYTES) {
-      throw new DataManagementError("BACKUP_TOO_LARGE", "备份文件不能超过 150MB");
+      throw new DataManagementError("BACKUP_TOO_LARGE", "备份文件不能超过 450MB");
     }
     text = source;
   } else {
     if (serializedBytes(source) > MAX_BACKUP_BYTES) {
-      throw new DataManagementError("BACKUP_TOO_LARGE", "备份文件不能超过 150MB");
+      throw new DataManagementError("BACKUP_TOO_LARGE", "备份文件不能超过 450MB");
     }
     return cloneJson(source);
   }
@@ -1277,7 +1445,8 @@ function validateCurrentManifest(
 
 async function normalizeCurrentBackup(
   candidate: Record<string, unknown>,
-  resourceFingerprints?: ReadonlyMap<string, string>
+  resourceFingerprints?: ReadonlyMap<string, string>,
+  videoBlobs: Readonly<Record<string, Blob>> = {}
 ): Promise<ImmersiveClockBackupV1> {
   if (candidate.backupVersion !== BACKUP_VERSION) {
     throw new DataManagementError(
@@ -1313,7 +1482,17 @@ async function normalizeCurrentBackup(
     settingsPayload.data,
     settingsPayload.schemaVersion
   );
-  const assets = await assetsDomain.migrate(assetsPayload.data, assetsPayload.schemaVersion);
+  if (assetsPayload.schemaVersion > assetsDomain.schemaVersion) {
+    throw new DataManagementError("UNSUPPORTED_BACKUP_VERSION", "资源域版本过高");
+  }
+  if (
+    assetsPayload.schemaVersion < 2 &&
+    Array.isArray(assetsPayload.data) &&
+    assetsPayload.data.some((asset) => isRecord(asset) && asset.kind === "video")
+  ) {
+    throw new DataManagementError("INVALID_RESOURCE", "视频资源要求使用资源域 v2");
+  }
+  const assets = await validateAssets(assetsPayload.data, videoBlobs);
   const noiseHistory = noisePayload
     ? await noiseHistoryDomain.migrate(noisePayload.data, noisePayload.schemaVersion)
     : undefined;
@@ -1350,7 +1529,8 @@ async function normalizeCurrentBackup(
 
 async function normalizeLegacyBackup(
   candidate: Record<string, unknown>,
-  resourceFingerprints?: ReadonlyMap<string, string>
+  resourceFingerprints?: ReadonlyMap<string, string>,
+  videoBlobs: Readonly<Record<string, Blob>> = {}
 ): Promise<{
   backup: ImmersiveClockBackupV1;
   sourceFormat: BackupSourceFormat;
@@ -1375,7 +1555,7 @@ async function normalizeLegacyBackup(
     warnings.push("旧版设置文件不包含噪声历史和独立资源");
   }
   const settings = await settingsDomain.validate(settingsValue);
-  const assets = await assetsDomain.validate(assetsValue);
+  const assets = await validateAssets(assetsValue, videoBlobs);
   const canonical = deduplicateAssets(settings, assets, resourceFingerprints);
   ensureReferencesExist(canonical.settings, canonical.assets);
   const exportedAt = new Date().toISOString();
@@ -1416,13 +1596,14 @@ function makePreview(backup: ImmersiveClockBackupV1, warnings: string[]): Backup
 
 async function prepareParsedBackup(
   parsed: unknown,
-  resourceFingerprints?: ReadonlyMap<string, string>
+  resourceFingerprints?: ReadonlyMap<string, string>,
+  videoBlobs: Readonly<Record<string, Blob>> = {}
 ): Promise<PreparedBackup> {
   if (!isRecord(parsed)) {
     throw new DataManagementError("INVALID_BACKUP", "备份根节点必须是对象");
   }
   if (parsed.format === BACKUP_FORMAT) {
-    const backup = await normalizeCurrentBackup(parsed, resourceFingerprints);
+    const backup = await normalizeCurrentBackup(parsed, resourceFingerprints, videoBlobs);
     return {
       backup,
       sourceFormat: "immersive-clock-backup-v1",
@@ -1430,12 +1611,13 @@ async function prepareParsedBackup(
       ...(resourceFingerprints
         ? { resourceFingerprints: Object.fromEntries(resourceFingerprints) }
         : {}),
+      ...(Object.keys(videoBlobs).length > 0 ? { videoBlobs } : {}),
     };
   }
   if ("format" in parsed && parsed.format !== "immersive-clock-settings") {
     throw new DataManagementError("INVALID_BACKUP", `无法识别备份格式 ${String(parsed.format)}`);
   }
-  const legacy = await normalizeLegacyBackup(parsed, resourceFingerprints);
+  const legacy = await normalizeLegacyBackup(parsed, resourceFingerprints, videoBlobs);
   return {
     backup: legacy.backup,
     sourceFormat: legacy.sourceFormat,
@@ -1443,6 +1625,7 @@ async function prepareParsedBackup(
     ...(resourceFingerprints
       ? { resourceFingerprints: Object.fromEntries(resourceFingerprints) }
       : {}),
+    ...(Object.keys(videoBlobs).length > 0 ? { videoBlobs } : {}),
   };
 }
 
@@ -1451,17 +1634,25 @@ export async function prepareBackup(source: unknown): Promise<PreparedBackup> {
 }
 
 type WorkerParseResponse =
-  | { id: number; ok: true; value: unknown; resourceFingerprints: Record<string, string> }
+  | {
+      id: number;
+      ok: true;
+      value: unknown;
+      resourceFingerprints: Record<string, string>;
+      videoBlobs: Record<string, Blob>;
+    }
   | {
       id: number;
       ok: false;
-      code: "INVALID_BACKUP" | "INVALID_RESOURCE";
+      code: "INVALID_BACKUP" | "INVALID_RESOURCE" | "BACKUP_TOO_LARGE";
       error: string;
     };
 
-async function parseBackupFileInWorker(
-  file: File
-): Promise<{ value: unknown; resourceFingerprints: Record<string, string> }> {
+async function parseBackupFileInWorker(file: File): Promise<{
+  value: unknown;
+  resourceFingerprints: Record<string, string>;
+  videoBlobs: Record<string, Blob>;
+}> {
   const worker = new Worker(new URL("./dataBackup.worker.ts", import.meta.url), { type: "module" });
   return new Promise((resolve, reject) => {
     let settled = false;
@@ -1477,7 +1668,8 @@ async function parseBackupFileInWorker(
       if (response.ok) {
         const value = response.value;
         const resourceFingerprints = response.resourceFingerprints;
-        finish(() => resolve({ value, resourceFingerprints }));
+        const videoBlobs = response.videoBlobs;
+        finish(() => resolve({ value, resourceFingerprints, videoBlobs }));
       } else {
         const errorMessage = response.error;
         finish(() => reject(new DataManagementError(response.code, errorMessage)));
@@ -1494,18 +1686,29 @@ async function parseBackupFileInWorker(
 /** 大文件入口：可用时在 Worker 中读取并解析 JSON，再在主线程执行纯校验。 */
 export async function prepareBackupFile(file: File): Promise<PreparedBackup> {
   if (file.size > MAX_BACKUP_BYTES) {
-    throw new DataManagementError("BACKUP_TOO_LARGE", "备份文件不能超过 150MB");
+    throw new DataManagementError("BACKUP_TOO_LARGE", "备份文件不能超过 450MB");
   }
   if (file.type && file.type !== "application/json" && file.type !== "text/json") {
     throw new DataManagementError("INVALID_BACKUP", "备份文件必须是 JSON 文件");
   }
-  if (typeof Worker === "undefined") return prepareBackup(file);
+  if (typeof Worker === "undefined") {
+    if (file.size > 20 * 1024 * 1024) {
+      throw new DataManagementError("BACKUP_TOO_LARGE", "当前环境不支持大型备份的后台预检");
+    }
+    return prepareBackup(file);
+  }
   try {
     const parsed = await parseBackupFileInWorker(file);
-    return prepareParsedBackup(parsed.value, new Map(Object.entries(parsed.resourceFingerprints)));
+    return prepareParsedBackup(
+      parsed.value,
+      new Map(Object.entries(parsed.resourceFingerprints)),
+      parsed.videoBlobs
+    );
   } catch (error) {
     if (error instanceof DataManagementError) throw error;
-    return prepareBackup(file);
+    throw new DataManagementError("INVALID_BACKUP", "备份后台预检无法启动，请重试", {
+      cause: error,
+    });
   }
 }
 
@@ -1521,7 +1724,8 @@ export async function restoreBackup(
   const resourceFingerprints = prepared.resourceFingerprints
     ? new Map(Object.entries(prepared.resourceFingerprints))
     : undefined;
-  const verified = await prepareParsedBackup(prepared.backup, resourceFingerprints);
+  const videoBlobs = prepared.videoBlobs ?? {};
+  const verified = await prepareParsedBackup(prepared.backup, resourceFingerprints, videoBlobs);
   const settings = verified.backup.domains.settings.data;
   const assets = verified.backup.domains.assets.data;
   const shouldRestoreNoise =
@@ -1530,16 +1734,23 @@ export async function restoreBackup(
     ? (verified.backup.domains.noiseHistory?.data as NoiseSliceSummary[])
     : undefined;
 
-  const [previousAssets, previousNoise] = await Promise.all([
-    assetsDomain.export(),
+  const [previousResources, previousNoise] = await Promise.all([
+    exportAppearanceAssetsForBackup(),
     shouldRestoreNoise ? noiseHistoryDomain.export() : Promise.resolve(undefined),
   ]);
-  const staged = stageAssetsForRestore(settings, assets, previousAssets, resourceFingerprints);
+  const staged = stageAssetsForRestore(
+    settings,
+    assets,
+    previousResources.assets,
+    resourceFingerprints,
+    videoBlobs
+  );
   const previousRawSettings = localStorage.getItem(APP_SETTINGS_KEY);
   try {
     await importAppearanceAssets(
       staged.assetsToWrite as AppearanceBundleV2["assets"],
-      staged.contentHashes
+      staged.contentHashes,
+      staged.videoBlobs
     );
     if (nextNoise) await noiseHistoryDomain.replace(nextNoise);
     await settingsDomain.replace(staged.settings);
@@ -1547,7 +1758,7 @@ export async function restoreBackup(
   } catch (error) {
     const rollbackErrors: unknown[] = [];
     try {
-      await replaceAllAssets(previousAssets);
+      await replaceAllAssets(previousResources.assets, previousResources.videoBlobs);
     } catch (rollbackError) {
       rollbackErrors.push(rollbackError);
     }
@@ -1583,20 +1794,24 @@ export async function restoreBackup(
 }
 
 export async function inspectUnusedAssets(): Promise<UnusedAssetInspection> {
-  const [settings, assets] = await Promise.all([settingsDomain.export(), assetsDomain.export()]);
+  const [settings, catalog] = await Promise.all([
+    settingsDomain.export(),
+    loadAppearanceAssetCatalog(),
+  ]);
   const referencedAssetIds = collectReferencedAssetIds(settings);
-  const unused = assets.filter((asset) => !referencedAssetIds.has(asset.id));
+  const allAssets = [...catalog.backgrounds, ...catalog.videos, ...catalog.fonts];
+  const unused = allAssets.filter((asset) => !referencedAssetIds.has(asset.id));
   return {
     assets: unused.map((asset) => ({
       id: asset.id,
       kind: asset.kind,
       name: asset.name,
       mimeType: asset.mimeType,
-      bytes: parseDataUrl(asset.dataUrl).bytes,
+      bytes: getAssetMetadataBytes(asset),
       status: "unused" as const,
     })),
     itemCount: unused.length,
-    bytes: unused.reduce((sum, asset) => sum + parseDataUrl(asset.dataUrl).bytes, 0),
+    bytes: unused.reduce((sum, asset) => sum + getAssetMetadataBytes(asset), 0),
     referencedAssetIds: [...referencedAssetIds].sort(),
   };
 }
@@ -1605,7 +1820,7 @@ export async function clearUnusedAssets(): Promise<DataOperationResult> {
   const inspection = await inspectUnusedAssets();
   await Promise.all(
     inspection.assets.flatMap((asset) => [
-      asset.kind === "background" ? appearanceAssetDb.del(asset.id) : db.del(asset.id),
+      asset.kind === "font" ? db.del(asset.id) : appearanceAssetDb.del(asset.id),
       appearanceAssetMetadataDb.del(asset.id),
     ])
   );

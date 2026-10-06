@@ -39,6 +39,7 @@ describe("QuoteChannelManager", () => {
         animationMode: "typewriter",
         typingSpeed: "normal",
         typewriterBackspaceEnabled: true,
+        fontScalePercent: 100,
       },
     });
   });
@@ -150,6 +151,7 @@ describe("QuoteChannelManager", () => {
       animationMode: "crossfade",
       typingSpeed: "fast",
       typewriterBackspaceEnabled: false,
+      fontScalePercent: 100,
     };
     act(() => {
       registeredSave?.(refreshSettings);
@@ -215,6 +217,7 @@ describe("QuoteChannelManager", () => {
         animationMode: "typewriter",
         typingSpeed: "normal",
         typewriterBackspaceEnabled: true,
+        fontScalePercent: 100,
       });
     });
 

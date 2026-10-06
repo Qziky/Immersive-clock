@@ -7,7 +7,7 @@ IndexedDB，网络结果和可重新生成内容作为缓存处理。设置页�
 ## AppSettings
 
 - 主键：`AppSettings`。
-- 当前设置版本：`CURRENT_SETTINGS_VERSION = 21`。
+- 当前设置版本：`CURRENT_SETTINGS_VERSION = 22`。
 - 顶层分区：`appearance`、`general`、`study`、`noiseControl`，并带 `version`、`modifiedAt`。
 - 读路径：`getAppSettings()` 解析 JSON 后调用 `normalizeAppSettings()`；缺失字段补默认值，
   非法值被夹取或回退。
@@ -31,15 +31,15 @@ IndexedDB，网络结果和可重新生成内容作为缓存处理。设置页�
 
 数据库名为 `immersive-clock-db`，当前版本 `7`：
 
-| Store                       | 内容                         | 关键索引/说明                          |
-| --------------------------- | ---------------------------- | -------------------------------------- |
-| `custom-fonts`              | 自定义字体二进制与旧字体记录 | `id` 主键                              |
-| `appearance-assets`         | 背景资源二进制/数据 URL      | `id` 主键                              |
-| `appearance-asset-metadata` | 背景和字体的轻量元数据       | `id` 主键                              |
-| `noise-capture-sessions`    | 噪音会话元数据               | `startedAt`、`endedAt`                 |
-| `noise-feature-chunks`      | 100ms 原始特征列式分块       | `captureSessionId`、`startAt`、`endAt` |
-| `noise-score-chunks`        | 当前评分模型的派生窗口       | `captureSessionId`、`end`              |
-| `noise-rescore-state`       | 后台重算状态                 | `modelVersion` 主键                    |
+| Store                       | 内容                             | 关键索引/说明                          |
+| --------------------------- | -------------------------------- | -------------------------------------- |
+| `custom-fonts`              | 自定义字体二进制与旧字体记录     | `id` 主键                              |
+| `appearance-assets`         | 背景图片、视频 Blob 与旧字体记录 | `id` 主键                              |
+| `appearance-asset-metadata` | 背景、视频和字体的轻量元数据     | `id` 主键                              |
+| `noise-capture-sessions`    | 噪音会话元数据                   | `startedAt`、`endedAt`                 |
+| `noise-feature-chunks`      | 100ms 原始特征列式分块           | `captureSessionId`、`startAt`、`endAt` |
+| `noise-score-chunks`        | 当前评分模型的派生窗口           | `captureSessionId`、`end`              |
+| `noise-rescore-state`       | 后台重算状态                     | `modelVersion` 主键                    |
 
 升级事务会迁移外观元数据、删除废弃的 `noise-history` Store，并清理非当前模型评分。打开
 IndexedDB 设有 5 秒超时；失败时噪音实时评分仍可继续，但不会退回 localStorage 保存原始帧。
@@ -60,7 +60,7 @@ IndexedDB 设有 5 秒超时；失败时噪音实时评分仍可继续，但不�
 域接口提供 `inspect/export/validate/replace/clear/migrate`。删除只使用已知键、Store 和
 CacheStorage 名称白名单；未知同源数据不属于应用数据域。
 
-当前域 schema 分别为：settings v1、assets v1、noiseHistory v4、cache v1、diagnostics v1、
+当前域 schema 分别为：settings v1、assets v2、noiseHistory v4、cache v1、diagnostics v1、
 deviceState v1。域 schema 与 `AppSettings.version`、IndexedDB version 是三套不同版本号，
 修改时不能互相替代。
 
@@ -71,10 +71,12 @@ deviceState v1。域 schema 与 `AppSettings.version`、IndexedDB version 是三
 - `settings-and-assets`：偏好、用户语录/课表和外观资源。
 - `full`：上述内容加当前 `spectral-activity-v2` 噪音历史（不含 PCM 和原始 100ms 帧）。
 
-生成备份前会规范设置、校验资源引用、按内容指纹去重并写入 manifest 摘要；总大小上限
-150MB，自定义资源合计最多 100MB，单张背景最多 20MB，单个字体最多 50MB。恢复分为解析/预检
-和提交两阶段，先校验协议、域版本、资源引用、冲突和容量，再写入资源、噪音和设置；失败时
-尝试回滚原数据。大文件可由 `dataBackup.worker.ts` 在 Worker 中解析。
+生成备份前会规范设置、校验资源引用、按内容指纹去重并写入 manifest 摘要。JSON 文件最大
+450MB，资源合计最多 300MB；单个视频最多 200MB、单张背景最多 20MB、单个字体最多 50MB。
+视频保存在 IndexedDB 中，只有 JSON 备份会将视频编码为 Data URL。`backupWriter.worker.ts`
+分块编码并生成备份 Blob；`dataBackup.worker.ts` 在 Worker 中读取、解码和校验导入的视频，
+避免把大型视频字符串送入主线程。恢复分为解析/预检和提交两阶段，先校验协议、域版本、资源
+引用、冲突和容量，再写入资源、噪音和设置；失败时尝试回滚原数据。旧资源域和旧设置备份仍可恢复。
 
 噪音原始特征另有 `.icnoise` v1 二进制归档，详见 [Noise capture and storage](../modules/noise-capture-and-storage.md)。
 

@@ -60,6 +60,7 @@ describe("appReducer", () => {
         animationMode: "typewriter",
         typingSpeed: "normal",
         typewriterBackspaceEnabled: true,
+        fontScalePercent: 100,
       },
       announcement: {
         isVisible: false,
@@ -275,6 +276,7 @@ describe("appReducer", () => {
         animationMode: "crossfade",
         typingSpeed: "fast",
         typewriterBackspaceEnabled: false,
+        fontScalePercent: 100,
       });
       expect(initialState.quoteChannels.channels).toEqual(
         expect.arrayContaining([
@@ -314,6 +316,7 @@ describe("appReducer", () => {
         animationMode: "none" as const,
         typingSpeed: "slow" as const,
         typewriterBackspaceEnabled: false,
+        fontScalePercent: 125,
       };
 
       const newState = appReducer(state, {
@@ -328,6 +331,7 @@ describe("appReducer", () => {
         animationMode: "typewriter",
         typingSpeed: "normal",
         typewriterBackspaceEnabled: true,
+        fontScalePercent: 100,
       });
       expect(setItemSpy).not.toHaveBeenCalled();
       setItemSpy.mockRestore();

@@ -16,6 +16,7 @@ import {
   BACKUP_VERSION,
   DataManagementError,
   MAX_BACKUP_BYTES,
+  MAX_VIDEO_BYTES,
   clearDataScope,
   clearUnusedAssets,
   createBackup,
@@ -48,6 +49,15 @@ vi.mock("../../utils/appearanceAssets", () => ({
     dataState.assets = [];
   }),
   exportAppearanceAssets: vi.fn(async () => structuredClone(dataState.assets)),
+  exportAppearanceAssetsForBackup: vi.fn(async () => ({
+    assets: structuredClone(dataState.assets),
+    videoBlobs: {},
+  })),
+  loadAppearanceAssetCatalog: vi.fn(async () => ({
+    backgrounds: dataState.assets.filter((asset) => asset.kind === "background"),
+    videos: dataState.assets.filter((asset) => asset.kind === "video"),
+    fonts: dataState.assets.filter((asset) => asset.kind === "font"),
+  })),
   importAppearanceAssets: vi.fn(async (assets: AppearanceBackupAsset[]) => {
     for (const asset of structuredClone(assets)) {
       const index = dataState.assets.findIndex(
@@ -63,9 +73,7 @@ vi.mock("../../utils/appearanceAssets", () => ({
 vi.mock("../../utils/db", () => ({
   appearanceAssetDb: {
     del: vi.fn(async (id: string) => {
-      dataState.assets = dataState.assets.filter(
-        (asset) => !(asset.kind === "background" && asset.id === id)
-      );
+      dataState.assets = dataState.assets.filter((asset) => asset.id !== id);
     }),
   },
   appearanceAssetMetadataDb: {
@@ -156,6 +164,18 @@ function fontAsset(id: string, payload = "AA=="): AppearanceBackupAsset {
     dataUrl: `data:font/woff2;base64,${payload}`,
     family: `${id} Font`,
     format: "woff2",
+  };
+}
+
+function videoAsset(id: string, bytes: number[] = [0, 1, 2]): AppearanceBackupAsset {
+  const binary = String.fromCharCode(...bytes);
+  return {
+    id,
+    kind: "video",
+    name: `${id}.mp4`,
+    mimeType: "video/mp4",
+    dataUrl: `data:video/mp4;base64,${btoa(binary)}`,
+    sizeBytes: bytes.length,
   };
 }
 
@@ -422,7 +442,7 @@ describe("dataManagement", () => {
     );
   });
 
-  it("创建备份超过 150MB 时拒绝导出", async () => {
+  it("创建备份超过 450MB 时拒绝导出", async () => {
     localStorage.setItem(APP_SETTINGS_KEY, JSON.stringify(settingsWithBackground()));
     const encoded = new Uint8Array(new ArrayBuffer(0));
     Object.defineProperty(encoded, "byteLength", { value: MAX_BACKUP_BYTES + 1 });
@@ -475,6 +495,46 @@ describe("dataManagement", () => {
       typingSpeed: "normal",
       typewriterBackspaceEnabled: true,
     });
+  });
+
+  it("校验 v2 视频资源、拒绝超限视频并恢复动态背景引用", async () => {
+    const settings = settingsWithBackground();
+    settings.appearance.global.background = {
+      type: "default",
+      mode: "dynamic",
+      dynamic: {
+        type: "video",
+        assetId: "video-source",
+        fit: "cover",
+        soundEnabled: false,
+        volume: 0.3,
+        darkness: 0.35,
+      },
+    };
+    const sourceVideo = videoAsset("video-source");
+    const backup = backupWith(settings as unknown as Record<string, unknown>, [sourceVideo]);
+    backup.domains.assets.schemaVersion = 2;
+    const assetSummary = backup.manifest.find((entry) => entry.id === "assets");
+    if (assetSummary) assetSummary.schemaVersion = 2;
+
+    const prepared = await prepareBackup(backup);
+    await restoreBackup(prepared);
+
+    expect(dataState.assets).toEqual([sourceVideo]);
+    expect(getAppSettings().appearance.global.background).toMatchObject({
+      mode: "dynamic",
+      dynamic: { type: "video", assetId: "video-source" },
+    });
+
+    const oversized = { ...videoAsset("video-large"), sizeBytes: MAX_VIDEO_BYTES + 1 };
+    const invalidBackup = backupWith(
+      getDefaultAppSettings() as unknown as Record<string, unknown>,
+      [oversized]
+    );
+    invalidBackup.domains.assets.schemaVersion = 2;
+    const invalidAssetSummary = invalidBackup.manifest.find((entry) => entry.id === "assets");
+    if (invalidAssetSummary) invalidAssetSummary.schemaVersion = 2;
+    await expect(prepareBackup(invalidBackup)).rejects.toMatchObject({ code: "INVALID_RESOURCE" });
   });
 
   it("在 Worker 不可用时仍可从 File 预检备份", async () => {

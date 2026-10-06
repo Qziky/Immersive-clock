@@ -21,7 +21,9 @@ npm run pack:android
 ```
 
 输出为 `android/app/build/outputs/apk/debug/app-debug.apk`。Debug APK 使用 Android 默认调试证书，
-仅用于开发与 CI Artifact，不作为 GitHub Release 附件。
+仅用于开发与 CI Artifact，不作为 GitHub Release 附件。Debug 变体使用独立的
+`io.github.qziky.immersiveclock.debug` application ID 和 URI scheme，可与正式版并存安装；两者的本地
+设置和媒体数据相互独立。Release 变体仍使用 `io.github.qziky.immersiveclock`。
 
 Release 构建需要在仓库外安全保存的 keystore，并在当前进程提供：
 
@@ -58,8 +60,8 @@ APK、用 `apksigner verify --print-certs` 核对证书指纹，并用 `aapt dum
 ## 侧载与真机验收
 
 用户需要允许浏览器或文件管理器“安装未知应用”，并只从项目 GitHub Release 获取 APK。安装前可
-使用 `SHA256SUMS.txt` 核对文件。已有同 application ID 的 Debug APK 因签名不同，通常需要先卸载
-Debug 版再安装 Release 版；卸载前必须导出需要保留的数据。
+使用 `SHA256SUMS.txt` 核对文件。Debug APK 与正式版使用不同 application ID，能够并存安装；Debug
+测试数据单独存储，不能作为正式版的原位升级包。正式版升级仍需相同 application ID 和项目长期发布证书。
 
 首次使用定位或环境监测时，系统会请求位置和麦克风权限。应用仅使用前台
 `navigator.geolocation` 与 `getUserMedia`，不进行后台录音。真机验收至少覆盖启动/重开、四种模式、

@@ -81,6 +81,15 @@
   background-color: #121212;
 }
 
+.container[data-background-mode="dynamic"] {
+  background-color: #121212;
+}
+
+.container[data-background-mode="dynamic"]::before,
+.container[data-background-mode="dynamic"]::after {
+  content: none;
+}
+
 .topDock {
   position: absolute;
   z-index: 2;

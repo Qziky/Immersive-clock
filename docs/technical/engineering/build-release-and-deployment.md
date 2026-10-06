@@ -49,7 +49,8 @@ Worker，并执行 `cap sync android`。
   `ANDROID_RELEASE_STORE_FILE`、`ANDROID_RELEASE_KEYSTORE_PASSWORD`、
   `ANDROID_RELEASE_KEY_ALIAS`、`ANDROID_RELEASE_KEY_PASSWORD`，缺少任一字段即失败。
 
-application ID 为 `io.github.qziky.immersiveclock`，最低 API 24，使用 JDK 21、Android API 36 和
+Release application ID 为 `io.github.qziky.immersiveclock`；Debug application ID 带 `.debug` 后缀，
+允许与正式版并存。最低 API 24，使用 JDK 21、Android API 36 和
 Build Tools 36.0.0。Manual Release 从 GitHub Actions Secrets 解码仓库外 keystore，通过
 `apksigner` 验证签名并与 `ANDROID_RELEASE_CERT_SHA256` 仓库变量比对，再用 `aapt` 检查 package、
 `versionName` 和 `versionCode`。Release 只发布正式签名 APK，不发布 Debug APK 或 AAB。

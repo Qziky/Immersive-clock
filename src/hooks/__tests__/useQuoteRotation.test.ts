@@ -78,6 +78,7 @@ const MANUAL_SETTINGS: QuoteSettingsState = {
   animationMode: "typewriter",
   typingSpeed: "normal",
   typewriterBackspaceEnabled: true,
+  fontScalePercent: 100,
 };
 
 function deferred<T>() {

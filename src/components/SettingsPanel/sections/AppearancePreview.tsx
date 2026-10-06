@@ -25,6 +25,7 @@ import {
 } from "../../../utils/appearanceModel";
 import { ClockPresentation } from "../../Clock/ClockPresentation";
 import { CountdownPresentation } from "../../Countdown/CountdownPresentation";
+import { DynamicBackgroundLayer } from "../../DynamicBackground";
 import { MotivationalQuotePresentation } from "../../MotivationalQuote/MotivationalQuotePresentation";
 import {
   NoisePresentation,
@@ -47,6 +48,7 @@ import styles from "./AppearanceSettingsPanel.module.css";
 interface AppearancePreviewProps {
   centralTimeScale?: number;
   componentId?: AppearanceComponentId;
+  quoteFontScalePercent?: number;
   instanceId?: string;
   instanceLabel?: string;
   overview?: boolean;
@@ -401,6 +403,7 @@ function usePreviewHighlightFrames(
 export function AppearancePreview({
   centralTimeScale = 1,
   componentId = "clock",
+  quoteFontScalePercent = 100,
   instanceId,
   instanceLabel,
   overview = false,
@@ -490,14 +493,19 @@ export function AppearancePreview({
           aria-hidden="true"
           className={stageClassName}
           data-background-type={background.type}
+          data-background-mode={background.mode}
           data-preview-stage={definition.scene}
           style={stageStyle}
         >
+          {background.mode === "dynamic" ? (
+            <DynamicBackgroundLayer background={background} mutedPreview />
+          ) : null}
           {isStudyScene ? (
             <StudyPreviewScene
               centralTimeScale={centralTimeScale}
               definition={definition}
               instanceLabel={instanceLabel}
+              quoteFontScalePercent={quoteFontScalePercent}
               showStudySeconds={showStudySeconds}
               stateId={activeState?.id}
               target={target}
@@ -630,6 +638,7 @@ interface StudyPreviewSceneProps {
   centralTimeScale: number;
   definition: AppearanceComponentDefinition;
   instanceLabel?: string;
+  quoteFontScalePercent: number;
   showStudySeconds: boolean;
   stateId?: string;
   target: TargetRenderer;
@@ -639,6 +648,7 @@ function StudyPreviewScene({
   centralTimeScale,
   definition,
   instanceLabel,
+  quoteFontScalePercent,
   showStudySeconds,
   stateId,
   target,
@@ -648,6 +658,7 @@ function StudyPreviewScene({
       <StudyCenterPreview
         componentId={definition.id}
         centralTimeScale={centralTimeScale}
+        quoteFontScalePercent={quoteFontScalePercent}
         showStudySeconds={showStudySeconds}
         target={target}
       />
@@ -666,11 +677,13 @@ function StudyPreviewScene({
 function StudyCenterPreview({
   centralTimeScale,
   componentId,
+  quoteFontScalePercent,
   showStudySeconds,
   target,
 }: {
   centralTimeScale: number;
   componentId: "studyQuote" | "studyTime";
+  quoteFontScalePercent: number;
   showStudySeconds: boolean;
   target: TargetRenderer;
 }) {
@@ -688,6 +701,7 @@ function StudyCenterPreview({
             animationMode="none"
             buttonAttributes={{ "data-preview-crop-target": true, tabIndex: -1 }}
             cursorAttributes={target("studyQuote", "cursor", "text")}
+            fontScalePercent={quoteFontScalePercent}
             includeScreenReaderStatus={false}
             quote={PREVIEW_QUOTE}
             staticCursorTarget="text"

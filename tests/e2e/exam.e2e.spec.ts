@@ -135,3 +135,24 @@ for (const viewport of [
     await expect(page).toHaveScreenshot(`exam-${viewport.width}.png`);
   });
 }
+
+test("窄屏长科目和展开提醒仍可滚动访问", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 568 });
+  await page.goto("/exam");
+  await page.getByRole("button", { name: "自定义", exact: true }).click();
+
+  const longSubject = "综合能力测试".repeat(16).slice(0, 80);
+  await page.getByLabel("考试科目").fill(longSubject);
+  await page.getByText("显示与提醒", { exact: true }).click();
+
+  await expect(page.getByRole("switch", { name: "显示进度条" })).toBeVisible();
+  await expect(page.getByLabel("临近结束提醒（分钟，0 为关闭）")).toBeVisible();
+  await expect(page.getByRole("button", { name: "开始考试", exact: true })).toBeVisible();
+
+  const preview = page.getByLabel("考试预览");
+  await preview.scrollIntoViewIfNeeded();
+  await expect(preview.getByText(longSubject, { exact: true })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
+    true
+  );
+});

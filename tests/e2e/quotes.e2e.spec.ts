@@ -37,18 +37,22 @@ async function seedQuoteSettings(
         JSON.stringify({
           version: 3,
           modifiedAt: Date.now(),
-          general: {
-            quote: {
+        general: {
+          quote: {
               autoRefreshEnabled: false,
               autoRefreshIntervalSec: 600,
               animationMode: quoteAnimation.animationMode ?? "typewriter",
               typewriterBackspaceEnabled: quoteAnimation.typewriterBackspaceEnabled ?? true,
               typingSpeed: quoteAnimation.typingSpeed ?? "normal",
               channels: quoteChannels,
-              customChannels: [],
-            },
+            customChannels: [],
           },
-        })
+        },
+        study: {
+          display: { showNoiseMonitor: false },
+          alerts: { errorPopup: false },
+        },
+      })
       );
       sessionStorage.setItem("quote-e2e-seeded", "true");
     },
@@ -132,7 +136,7 @@ async function expectSettingsWithoutHorizontalOverflow(page: Page, dialog: Locat
 }
 
 async function expectQuoteChannelGeometry(dialog: Locator) {
-  const channelCards = dialog.locator("article");
+  const channelCards = dialog.getByTestId("quote-channel-manager").locator("article");
   await expect(channelCards).toHaveCount(6);
 
   const layout = await channelCards.evaluateAll((cards) =>
@@ -504,11 +508,12 @@ test("语录设置：四个在线频道可见且诗泉筛选可保存重载", as
   await expect(dialog.getByText("诗泉", { exact: true })).toBeVisible();
   await expect(dialog.getByText("Advice Slip", { exact: true })).toBeVisible();
 
-  const adviceCard = dialog.locator("article").filter({ hasText: "Advice Slip" });
+  const channelCards = dialog.getByTestId("quote-channel-manager").locator("article");
+  const adviceCard = channelCards.filter({ hasText: "Advice Slip" });
   await adviceCard.getByRole("switch", { name: "启用Advice Slip" }).click();
   await adviceCard.getByRole("spinbutton").fill("37");
 
-  const poetryCard = dialog.locator("article").filter({ hasText: "诗泉" });
+  const poetryCard = channelCards.filter({ hasText: "诗泉" });
   await poetryCard.getByRole("switch", { name: "启用诗泉" }).click();
   await poetryCard.getByRole("spinbutton").fill("29");
   await poetryCard.getByRole("button", { name: "诗词筛选" }).click();
@@ -543,8 +548,11 @@ test("语录设置：四个在线频道可见且诗泉筛选可保存重载", as
 
   await page.reload();
   const reloadedDialog = await openQuoteChannels(page);
-  const reloadedAdvice = reloadedDialog.locator("article").filter({ hasText: "Advice Slip" });
-  const reloadedPoetry = reloadedDialog.locator("article").filter({ hasText: "诗泉" });
+  const reloadedChannelCards = reloadedDialog
+    .getByTestId("quote-channel-manager")
+    .locator("article");
+  const reloadedAdvice = reloadedChannelCards.filter({ hasText: "Advice Slip" });
+  const reloadedPoetry = reloadedChannelCards.filter({ hasText: "诗泉" });
   await expect(reloadedAdvice.getByRole("switch", { name: "停用Advice Slip" })).toBeChecked();
   await expect(reloadedAdvice.getByRole("spinbutton")).toHaveValue("37");
   await expect(reloadedPoetry.getByRole("switch", { name: "停用诗泉" })).toBeChecked();
@@ -585,7 +593,7 @@ for (const viewport of [
     await expectSettingsWithoutHorizontalOverflow(page, dialog);
     await expectQuoteChannelGeometry(dialog);
 
-    const channelCards = dialog.locator("article");
+    const channelCards = dialog.getByTestId("quote-channel-manager").locator("article");
     const localCard = channelCards.filter({ hasText: "本地励志语录" });
     const localEditorButton = localCard.getByRole("button", { name: "编辑语录" });
     const localDetails = dialog.locator(
@@ -678,6 +686,18 @@ test("语录设置：显示效果在移动与桌面端可预览、保存并重�
 
   await page.goto("/");
   let dialog = await openQuoteEffects(page);
+  const fontScaleSlider = dialog.getByRole("slider", { name: "语录字号" });
+  await expect(fontScaleSlider).toHaveValue("100");
+  await fontScaleSlider.press("End");
+  await fontScaleSlider.press("ArrowLeft");
+  await fontScaleSlider.press("ArrowLeft");
+  await expect(fontScaleSlider).toHaveValue("130");
+  const previewFontScale = dialog
+    .getByTestId("quote-animation-preview")
+    .locator('[data-quote-reveal="true"]')
+    .first();
+  expect(await previewFontScale.getAttribute("style")).toContain("--quote-font-scale: 1.3");
+
   let backspaceSwitch = dialog.getByRole("switch", { name: "切换时回删" });
   await expect(backspaceSwitch).toBeChecked();
   await backspaceSwitch.click();
@@ -715,21 +735,23 @@ test("语录设置：显示效果在移动与桌面端可预览、保存并重�
         const quote = raw ? JSON.parse(raw)?.general?.quote : null;
         return `${quote?.animationMode}:${quote?.typingSpeed}:${String(
           quote?.typewriterBackspaceEnabled
-        )}`;
+        )}:${String(quote?.fontScalePercent)}`;
       })
     )
-    .toBe("crossfade:fast:false");
+    .toBe("crossfade:fast:false:130");
 
   const quoteButton = page.getByRole("button", { name: "刷新语录" });
   const mainReveal = quoteButton.locator('[data-quote-reveal="true"]');
   await expect(mainReveal).toHaveAttribute("data-quote-animation", "crossfade");
+  expect(await mainReveal.getAttribute("style")).toContain("--quote-font-scale: 1.3");
   await quoteButton.click();
   await expect(quoteButton).toContainText("一次只做一件事，也是在前进。");
   await expectOneOrTwoRevealLayers(mainReveal);
 
-  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.setViewportSize({ width: 320, height: 568 });
   await page.reload();
   dialog = await openQuoteEffects(page);
+  await expect(dialog.getByRole("slider", { name: "语录字号" })).toHaveValue("130");
   await expect(dialog.getByRole("radio", { name: "平滑显示" })).toBeChecked();
   await expect(dialog.getByRole("radio", { name: "快速" })).toBeChecked();
   backspaceSwitch = dialog.getByRole("switch", { name: "切换时回删" });

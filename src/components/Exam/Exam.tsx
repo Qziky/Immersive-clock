@@ -37,6 +37,23 @@ const timestamp = (value: number) =>
     hour12: false,
   });
 
+function speakExamNotice(text: string) {
+  if (
+    typeof window === "undefined" ||
+    !("speechSynthesis" in window) ||
+    typeof SpeechSynthesisUtterance === "undefined"
+  )
+    return;
+
+  try {
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = "zh-CN";
+    window.speechSynthesis.speak(utterance);
+  } catch {
+    // 系统语音不可用时仍保留提示音，不影响考试计时。
+  }
+}
+
 export function Exam() {
   const isExamPage = useLocation().pathname.replace(/\/+$/, "") === "/exam";
   const [data, setData] = useState<ExamData>(() => getAppSettings().exam);
@@ -115,7 +132,12 @@ export function Exam() {
         config.warningMinutes > 0 &&
         before.remainingMs > config.warningMinutes * 60000 &&
         snapshot.remainingMs <= config.warningMinutes * 60000;
-      if (opening || closing || nearing) play();
+      if (opening) play();
+      if (nearing)
+        play(() =>
+          speakExamNotice(`距离考试结束还有 ${config.warningMinutes} 分钟，请合理安排答题时间。`)
+        );
+      if (closing) play(() => speakExamNotice("考试结束，请立即停止作答。"));
     }
     previous.current = snapshot;
   }, [snapshot, config, play]);

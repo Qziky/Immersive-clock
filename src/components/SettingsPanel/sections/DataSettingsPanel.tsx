@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
+import { saveBackupBlobOnAndroid } from "../../../services/androidBackupFileWriter";
 import {
   clearDataScope,
-  createBackup,
+  createBackupBlob,
   dataDomainRegistry,
   discardQuarantinedSettingsRecovery,
   eraseAllData,
@@ -49,6 +50,7 @@ import {
   useFeedback,
   type AppIconName,
 } from "../../../ui";
+import { getRuntimePlatform } from "../../../utils/runtimePlatform";
 
 import styles from "./DataSettingsPanel.module.css";
 
@@ -164,17 +166,24 @@ function resultDescription(result: DataOperationResult): string {
   return `已处理 ${result.itemCount} 项${freed}。`;
 }
 
-function downloadBackup(backup: unknown, scope: BackupScope): void {
-  const blob = new Blob([JSON.stringify(backup, null, 2)], { type: "application/json" });
+async function downloadBackup(blob: Blob, scope: BackupScope): Promise<boolean> {
+  const date = new Date().toISOString().slice(0, 10);
+  const fileName = `immersive-clock-backup-${scope}-${date}.json`;
+
+  if (getRuntimePlatform() === "android") {
+    const result = await saveBackupBlobOnAndroid(blob, fileName);
+    return !result.cancelled;
+  }
+
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
-  const date = new Date().toISOString().slice(0, 10);
   link.href = url;
-  link.download = `immersive-clock-backup-${scope}-${date}.json`;
+  link.download = fileName;
   document.body.appendChild(link);
   link.click();
   link.remove();
   URL.revokeObjectURL(url);
+  return true;
 }
 
 function downloadQuarantinedSettings(raw: string, fileName: string): void {
@@ -361,8 +370,16 @@ export function DataSettingsPanel({
     if (isBusy) return;
     setOperation("backup");
     try {
-      const backup = await createBackup(backupScope);
-      downloadBackup(backup, backupScope);
+      const backupFile = await createBackupBlob(backupScope);
+      const wasSaved = await downloadBackup(backupFile, backupScope);
+      if (!wasSaved) {
+        notify({
+          variant: "info",
+          title: "已取消备份导出",
+          description: "选择保存位置后才会创建备份文件。",
+        });
+        return;
+      }
       notify({
         variant: "success",
         title: "备份已创建",

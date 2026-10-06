@@ -4,16 +4,24 @@ interface ParseBackupRequest {
 }
 
 type ParseBackupResponse =
-  | { id: number; ok: true; value: unknown; resourceFingerprints: Record<string, string> }
+  | {
+      id: number;
+      ok: true;
+      value: unknown;
+      resourceFingerprints: Record<string, string>;
+      videoBlobs: Record<string, Blob>;
+    }
   | {
       id: number;
       ok: false;
-      code: "INVALID_BACKUP" | "INVALID_RESOURCE";
+      code: "INVALID_BACKUP" | "INVALID_RESOURCE" | "BACKUP_TOO_LARGE";
       error: string;
     };
 
-const MAX_TOTAL_ASSET_BYTES = 100 * 1024 * 1024;
+const MAX_BACKUP_BYTES = 450 * 1024 * 1024;
+const MAX_TOTAL_ASSET_BYTES = 300 * 1024 * 1024;
 const MAX_BACKGROUND_BYTES = 20 * 1024 * 1024;
+const MAX_VIDEO_BYTES = 200 * 1024 * 1024;
 const MAX_FONT_BYTES = 50 * 1024 * 1024;
 const BACKGROUND_MIME_TYPES = new Set([
   "image/png",
@@ -23,6 +31,7 @@ const BACKGROUND_MIME_TYPES = new Set([
   "image/avif",
   "image/bmp",
 ]);
+const VIDEO_MIME_TYPES = new Set(["video/mp4", "video/webm"]);
 const FONT_MIME_TYPES = new Set([
   "font/ttf",
   "font/otf",
@@ -39,7 +48,7 @@ const FONT_MIME_TYPES = new Set([
 
 class WorkerValidationError extends Error {
   constructor(
-    public readonly code: "INVALID_BACKUP" | "INVALID_RESOURCE",
+    public readonly code: "INVALID_BACKUP" | "INVALID_RESOURCE" | "BACKUP_TOO_LARGE",
     message: string
   ) {
     super(message);
@@ -73,6 +82,23 @@ function fingerprintContent(value: string): string {
     second = Math.imul(second ^ code, 0x85ebca6b);
   }
   return `fast-${value.length}-${(first >>> 0).toString(16)}-${(second >>> 0).toString(16)}`;
+}
+
+function base64ToBlob(value: string, mimeType: string): Blob {
+  const chunks: BlobPart[] = [];
+  const chunkSize = 1024 * 1024;
+  for (let offset = 0; offset < value.length; offset += chunkSize) {
+    const binary = atob(value.slice(offset, Math.min(value.length, offset + chunkSize)));
+    const bytes = new Uint8Array(new ArrayBuffer(binary.length));
+    for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
+    chunks.push(bytes);
+  }
+  return new Blob(chunks, { type: mimeType });
+}
+
+async function fingerprintBlob(blob: Blob): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", await blob.arrayBuffer());
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
 function getBackupAssets(value: unknown): unknown | undefined {
@@ -110,17 +136,21 @@ function validateInlineImages(value: unknown): void {
   }
 }
 
-function validateAndHashResources(value: unknown): Record<string, string> {
+async function validateAndHashResources(
+  value: unknown
+): Promise<{ fingerprints: Record<string, string>; videoBlobs: Record<string, Blob> }> {
   validateInlineImages(value);
   const rawAssets = getBackupAssets(value);
-  if (rawAssets === undefined) return {};
+  if (rawAssets === undefined) return { fingerprints: {}, videoBlobs: {} };
   if (!Array.isArray(rawAssets)) {
     throw new WorkerValidationError("INVALID_RESOURCE", "备份的资源域不是数组");
   }
 
   const fingerprints: Record<string, string> = {};
+  const videoBlobs: Record<string, Blob> = {};
   const ids = new Set<string>();
   let totalBytes = 0;
+  let encodedLengthDelta = 0;
   for (const candidate of rawAssets) {
     if (!isRecord(candidate)) {
       throw new WorkerValidationError("INVALID_RESOURCE", "备份包含无效资源记录");
@@ -129,7 +159,7 @@ function validateAndHashResources(value: unknown): Record<string, string> {
     if (
       typeof id !== "string" ||
       !/^[A-Za-z0-9._:-]{1,160}$/.test(id) ||
-      (kind !== "background" && kind !== "font") ||
+      (kind !== "background" && kind !== "video" && kind !== "font") ||
       typeof name !== "string" ||
       !name.trim() ||
       name.length > 255 ||
@@ -154,6 +184,27 @@ function validateAndHashResources(value: unknown): Record<string, string> {
       if (parsed.bytes > MAX_BACKGROUND_BYTES) {
         throw new WorkerValidationError("INVALID_RESOURCE", `背景 ${name} 超过 20MB`);
       }
+      fingerprints[id] = fingerprintContent(parsed.payload);
+    } else if (kind === "video") {
+      if (!VIDEO_MIME_TYPES.has(parsed.mimeType) || mimeType.toLowerCase() !== parsed.mimeType) {
+        throw new WorkerValidationError("INVALID_RESOURCE", `视频 ${name} 的 MIME 类型不受支持`);
+      }
+      if (parsed.bytes > MAX_VIDEO_BYTES) {
+        throw new WorkerValidationError("INVALID_RESOURCE", `视频 ${name} 超过 200MB`);
+      }
+      if (candidate.sizeBytes !== undefined && candidate.sizeBytes !== parsed.bytes) {
+        throw new WorkerValidationError("INVALID_RESOURCE", `视频 ${name} 的资源大小校验失败`);
+      }
+      const blob = base64ToBlob(parsed.payload, parsed.mimeType);
+      if (blob.size !== parsed.bytes) {
+        throw new WorkerValidationError("INVALID_RESOURCE", `视频 ${name} 解码大小不匹配`);
+      }
+      videoBlobs[id] = blob;
+      fingerprints[id] = await fingerprintBlob(blob);
+      const placeholder = `data:${parsed.mimeType};base64,`;
+      encodedLengthDelta += placeholder.length - dataUrl.length;
+      candidate.dataUrl = placeholder;
+      candidate.sizeBytes = blob.size;
     } else {
       const family = candidate.family;
       const format = candidate.format;
@@ -176,14 +227,24 @@ function validateAndHashResources(value: unknown): Record<string, string> {
       if (parsed.bytes > MAX_FONT_BYTES) {
         throw new WorkerValidationError("INVALID_RESOURCE", `字体 ${name} 超过 50MB`);
       }
+      fingerprints[id] = fingerprintContent(parsed.payload);
     }
     totalBytes += parsed.bytes;
-    fingerprints[id] = fingerprintContent(parsed.payload);
   }
   if (totalBytes > MAX_TOTAL_ASSET_BYTES) {
-    throw new WorkerValidationError("INVALID_RESOURCE", "备份资源总大小超过 100MB");
+    throw new WorkerValidationError("INVALID_RESOURCE", "备份资源总大小超过 300MB");
   }
-  return fingerprints;
+  if (encodedLengthDelta && isRecord(value) && value.format === "immersive-clock-backup") {
+    if (Array.isArray(value.manifest)) {
+      const assetsEntry = value.manifest.find(
+        (entry): entry is Record<string, unknown> => isRecord(entry) && entry.id === "assets"
+      );
+      if (assetsEntry && typeof assetsEntry.bytes === "number") {
+        assetsEntry.bytes += encodedLengthDelta;
+      }
+    }
+  }
+  return { fingerprints, videoBlobs };
 }
 
 const workerScope = self as unknown as {
@@ -193,17 +254,27 @@ const workerScope = self as unknown as {
 
 workerScope.onmessage = (event) => {
   const { id, file } = event.data;
+  if (file.size > MAX_BACKUP_BYTES) {
+    workerScope.postMessage({
+      id,
+      ok: false,
+      code: "BACKUP_TOO_LARGE",
+      error: "备份文件不能超过 450MB",
+    });
+    return;
+  }
   void file
     .text()
-    .then((text) => {
+    .then(async (text) => {
       let value: unknown;
       try {
         value = JSON.parse(text) as unknown;
       } catch {
         throw new WorkerValidationError("INVALID_BACKUP", "备份文件不是有效 JSON");
       }
-      const resourceFingerprints = validateAndHashResources(value);
-      workerScope.postMessage({ id, ok: true, value, resourceFingerprints });
+      const { fingerprints: resourceFingerprints, videoBlobs } =
+        await validateAndHashResources(value);
+      workerScope.postMessage({ id, ok: true, value, resourceFingerprints, videoBlobs });
     })
     .catch((error: unknown) => {
       const code = error instanceof WorkerValidationError ? error.code : "INVALID_BACKUP";

@@ -122,10 +122,12 @@ test("关闭用户体验改进计划后保存、刷新且不请求 Clarity", asy
     },
     { documentVersion: LEGAL_DOCUMENT_VERSION, storageKey: LEGAL_CONSENT_STORAGE_KEY }
   );
+  await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/");
 
   await page.getByRole("button", { name: "打开设置" }).click();
   const settings = page.getByRole("dialog", { name: "设置" });
+  await expect(settings).toBeVisible();
   await settings.getByRole("button", { name: "系统数据" }).click();
   await settings.getByRole("button", { name: "项目信息" }).click();
 

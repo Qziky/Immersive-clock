@@ -33,8 +33,10 @@ import {
   importAppearanceAssets,
   loadAppearanceAssetCatalog,
   notifyAppearanceAssetsChanged,
+  removeAppearanceAsset,
   removeBackgroundAsset,
   saveBackgroundAsset,
+  saveVideoBackgroundAsset,
   subscribeAppearanceAssetsChanged,
 } from "../appearanceAssets";
 import { importFontFile, removeImportedFont } from "../studyFontStorage";
@@ -71,8 +73,10 @@ describe("appearanceAssets metadata catalog", () => {
         kind: "background",
         name: "背景.png",
         mimeType: "image/png",
+        sizeBytes: 3,
       },
     ]);
+    expect(catalog.videos).toEqual([]);
     expect(catalog.fonts).toEqual([
       {
         id: "font-1",
@@ -81,6 +85,7 @@ describe("appearanceAssets metadata catalog", () => {
         mimeType: "font/woff2",
         family: "Test Sans",
         format: "woff2",
+        sizeBytes: 3,
       },
     ]);
     expect(JSON.stringify(catalog)).not.toContain("base64");
@@ -106,6 +111,33 @@ describe("appearanceAssets metadata catalog", () => {
     unsubscribe();
 
     expect(revisions).toEqual([initialRevision + 1, initialRevision + 2, initialRevision + 3]);
+  });
+
+  it("将 MP4/WebM 视频 Blob 留在 IndexedDB 并纳入可删除资源目录", async () => {
+    const file = new File([new Uint8Array([0, 1, 2, 3])], "night-sky.mp4", {
+      type: "video/mp4",
+    });
+
+    const saved = await saveVideoBackgroundAsset(file);
+
+    expect(saved).toMatchObject({ kind: "video", name: "night-sky.mp4", sizeBytes: 4 });
+    expect(saved.blob).toBeInstanceOf(Blob);
+    expect(dbState.backgrounds.get(saved.id)).toMatchObject({
+      kind: "video",
+      mimeType: "video/mp4",
+    });
+    expect((await loadAppearanceAssetCatalog()).videos).toEqual([
+      expect.objectContaining({ id: saved.id, name: "night-sky.mp4", sizeBytes: 4 }),
+    ]);
+    await removeAppearanceAsset(saved.id, "video");
+    expect(dbState.backgrounds.has(saved.id)).toBe(false);
+  });
+
+  it("拒绝超过 200MB 的视频文件", async () => {
+    const file = new File([], "too-large.webm", { type: "video/webm" });
+    Object.defineProperty(file, "size", { value: 200 * 1024 * 1024 + 1 });
+
+    await expect(saveVideoBackgroundAsset(file)).rejects.toThrow("不能超过 200MB");
   });
 
   it("外部直接删除正文后会清理过期 metadata", async () => {

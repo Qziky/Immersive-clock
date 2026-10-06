@@ -92,6 +92,9 @@ export function ContentSettingsPanel({ onRegisterSave, section }: ContentSetting
   const [draftTypewriterBackspaceEnabled, setDraftTypewriterBackspaceEnabled] = useState(
     quoteSettings.typewriterBackspaceEnabled
   );
+  const [draftFontScalePercent, setDraftFontScalePercent] = useState(
+    quoteSettings.fontScalePercent
+  );
   const [previewIndex, setPreviewIndex] = useState(0);
   const [previewReplayKey, setPreviewReplayKey] = useState(0);
   const channelSaveRef = useRef<((settings: QuoteSettingsState) => void) | null>(null);
@@ -104,11 +107,13 @@ export function ContentSettingsPanel({ onRegisterSave, section }: ContentSetting
         animationMode: draftAnimationMode,
         typewriterBackspaceEnabled: draftTypewriterBackspaceEnabled,
         typingSpeed: draftTypingSpeed,
+        fontScalePercent: draftFontScalePercent,
       });
     });
   }, [
     draftAnimationMode,
     draftEnabled,
+    draftFontScalePercent,
     draftInterval,
     draftTypewriterBackspaceEnabled,
     draftTypingSpeed,
@@ -184,9 +189,28 @@ export function ContentSettingsPanel({ onRegisterSave, section }: ContentSetting
       <FormSection
         title="语录显示效果"
         variant="plain"
-        description="选择语录出现时的呈现方式，并在保存前即时预览。"
+        description="调整语录字号和出现效果，并在保存前即时预览。"
         hidden={isSectionHidden("effects")}
       >
+        <SettingItem
+          icon="appearance.font"
+          title="语录字号"
+          description="同步调整正文与来源字号，并保留桌面和手机各自的显示比例。"
+        >
+          <FormSlider
+            aria-label="语录字号"
+            label="语录字号"
+            value={draftFontScalePercent}
+            min={80}
+            max={140}
+            step={5}
+            onChange={setDraftFontScalePercent}
+            formatValue={(value) => `${value}%`}
+            showRange={true}
+            rangeLabels={["较小", "较大"]}
+          />
+        </SettingItem>
+
         <SettingItem
           icon="appearance.effects"
           title="出现动画"
@@ -255,6 +279,7 @@ export function ContentSettingsPanel({ onRegisterSave, section }: ContentSetting
               className={styles.previewQuote}
               quote={PREVIEW_QUOTES[previewIndex]}
               animationMode={draftAnimationMode}
+              fontScalePercent={draftFontScalePercent}
               typewriterBackspaceEnabled={draftTypewriterBackspaceEnabled}
               typingSpeed={draftTypingSpeed}
               replayKey={previewReplayKey}

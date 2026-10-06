@@ -738,7 +738,7 @@ describe("appSettings", () => {
     );
 
     expect(getAppSettings().general.timeDisplay).toEqual({
-      centralTimeScale: 1.25,
+      centralTimeScale: 1.5,
       showClockSeconds: false,
       showStudySeconds: true,
     });
@@ -746,7 +746,7 @@ describe("appSettings", () => {
     updateGeneralSettings({ timeDisplay: { showStudySeconds: false } });
 
     expect(getAppSettings().general.timeDisplay).toEqual({
-      centralTimeScale: 1.25,
+      centralTimeScale: 1.5,
       showClockSeconds: false,
       showStudySeconds: false,
     });
@@ -837,6 +837,26 @@ describe("appSettings", () => {
         scenes: { clock: { background: { type: "green" } } },
       },
     });
+  });
+
+  it("将 v21 背景保留为静态背景并升级设置版本", () => {
+    localStorage.setItem(
+      APP_SETTINGS_KEY,
+      JSON.stringify({
+        version: 21,
+        appearance: {
+          global: { background: { type: "green" } },
+          scenes: { clock: { background: { type: "inherit" }, components: {} } },
+        },
+      })
+    );
+
+    const migrated = migrateStoredAppSettings();
+
+    expect(migrated.version).toBe(22);
+    expect(migrated.appearance.global.background).toMatchObject({ type: "green" });
+    expect(migrated.appearance.global.background.mode).toBeUndefined();
+    expect(migrated.appearance.scenes.clock.background.type).toBe("inherit");
   });
 
   it("readStudyBackground 会将旧系统背景映射为深灰", () => {
@@ -1074,6 +1094,7 @@ describe("appSettings", () => {
     expect(loaded.general.quote.animationMode).toBe("typewriter");
     expect(loaded.general.quote.typingSpeed).toBe("normal");
     expect(loaded.general.quote.typewriterBackspaceEnabled).toBe(true);
+    expect(loaded.general.quote.fontScalePercent).toBe(100);
     expect(loaded.general.quote.channels.find((channel) => channel.id === "hitokoto-api")).toEqual(
       expect.objectContaining({ enabled: true, weight: 20 })
     );
@@ -1100,6 +1121,7 @@ describe("appSettings", () => {
       animationMode: "crossfade",
       typingSpeed: "fast",
       typewriterBackspaceEnabled: false,
+      fontScalePercent: 125,
     });
 
     expect(setItemSpy).toHaveBeenCalledTimes(1);
@@ -1110,6 +1132,7 @@ describe("appSettings", () => {
     expect(saved.general.quote.animationMode).toBe("crossfade");
     expect(saved.general.quote.typingSpeed).toBe("fast");
     expect(saved.general.quote.typewriterBackspaceEnabled).toBe(false);
+    expect(saved.general.quote.fontScalePercent).toBe(125);
     expect(saved.general.quote).not.toHaveProperty("lastUpdated");
     expect(saved.general.quote.channels[0]).not.toHaveProperty("apiEndpoint");
   });
@@ -1143,6 +1166,21 @@ describe("appSettings", () => {
     expect(saved.general.quote.animationMode).toBe("typewriter");
     expect(saved.general.quote.typingSpeed).toBe("normal");
     expect(saved.general.quote.typewriterBackspaceEnabled).toBe(true);
+    expect(saved.general.quote.fontScalePercent).toBe(100);
+  });
+
+  it.each([
+    ["低于下限", 20, 80],
+    ["高于上限", 200, 140],
+    ["非 5% 档位", 103, 105],
+    ["非法值", "invalid", 100],
+  ])("将语录字号设置的%s归一到有效档位", (_label, value, expected) => {
+    const normalized = normalizeAppSettings({
+      version: CURRENT_SETTINGS_VERSION,
+      general: { quote: { fontScalePercent: value } },
+    });
+
+    expect(normalized.general.quote.fontScalePercent).toBe(expected);
   });
 
   it("normalizeAppSettings 会在不写入存储的情况下规范化导入候选", () => {

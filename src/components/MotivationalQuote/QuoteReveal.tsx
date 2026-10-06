@@ -110,6 +110,7 @@ export interface QuoteRevealProps {
   className?: string;
   cursorAttributes?: PresentationAttributes<HTMLAttributes<HTMLSpanElement>>;
   cursorStyle?: CSSProperties;
+  fontScalePercent?: number;
   quote: Quote;
   replayKey?: number | string;
   staticCursorTarget?: "attribution" | "text";
@@ -696,6 +697,7 @@ export function QuoteReveal({
   className,
   cursorAttributes,
   cursorStyle,
+  fontScalePercent = 100,
   quote,
   replayKey = 0,
   staticCursorTarget,
@@ -733,6 +735,7 @@ export function QuoteReveal({
     <span
       aria-hidden="true"
       className={rootClassName}
+      style={{ "--quote-font-scale": fontScalePercent / 100 } as CSSProperties}
       data-animation-mode={skipMotion ? "none" : animationMode}
       data-quote-animation={skipMotion ? "none" : animationMode}
       data-quote-reveal="true"

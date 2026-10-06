@@ -499,20 +499,49 @@ export function normalizeAppearanceBackground(
   const candidate = value as Partial<AppearanceBackground>;
   const rawType = (value as { type?: string }).type;
   const type = rawType === "system" ? "dark" : rawType === "builtin" ? "green" : rawType;
+  const mode =
+    candidate.mode === "dynamic" ? "dynamic" : candidate.mode === "static" ? "static" : undefined;
+  const staticType = ["default", "builtin", "green", "black", "dark", "color", "image"].includes(
+    String(candidate.staticType)
+  )
+    ? (candidate.staticType as Exclude<AppearanceBackground["type"], "inherit">)
+    : undefined;
+  const dynamic = normalizeDynamicBackground(candidate.dynamic);
+  const withDynamic = (background: AppearanceBackground): AppearanceBackground => ({
+    ...(normalizeColor(candidate.color)
+      ? {
+          color: normalizeColor(candidate.color),
+          colorAlpha: finiteNumber(candidate.colorAlpha, 0, 1) ?? 1,
+        }
+      : {}),
+    ...(typeof candidate.assetId === "string" && candidate.assetId
+      ? { assetId: candidate.assetId.slice(0, 128) }
+      : {}),
+    ...(typeof candidate.imageFileName === "string"
+      ? { imageFileName: candidate.imageFileName.slice(0, 200) }
+      : {}),
+    ...background,
+    ...(staticType ? { staticType } : {}),
+    ...(mode ? { mode } : {}),
+    ...(dynamic ? { dynamic } : {}),
+  });
   if (type === "inherit") {
-    return { type: options.allowInherit ? "inherit" : "default" };
+    return withDynamic({
+      type: options.allowInherit ? "inherit" : "default",
+      ...(staticType ? { staticType } : {}),
+    });
   }
-  if (type === "default" && options.legacyDefaultAsInherit) {
-    return { type: "inherit" };
+  if (type === "default" && options.legacyDefaultAsInherit && mode === undefined) {
+    return withDynamic({ type: "inherit" });
   }
   if (!type || !["default", "green", "black", "dark", "color", "image"].includes(type)) {
-    return { type: fallback };
+    return withDynamic({ type: fallback });
   }
   if (type === "color") {
     const color = normalizeColor(candidate.color);
     return color
-      ? { type, color, colorAlpha: finiteNumber(candidate.colorAlpha, 0, 1) ?? 1 }
-      : { type: fallback };
+      ? withDynamic({ type, color, colorAlpha: finiteNumber(candidate.colorAlpha, 0, 1) ?? 1 })
+      : withDynamic({ type: fallback });
   }
   if (type === "image") {
     const assetId = typeof candidate.assetId === "string" ? candidate.assetId.slice(0, 128) : "";
@@ -521,17 +550,77 @@ export function normalizeAppearanceBackground(
         ? candidate.imageDataUrl
         : undefined;
     return assetId || imageDataUrl
-      ? {
+      ? withDynamic({
           type,
           ...(assetId ? { assetId } : {}),
           ...(imageDataUrl ? { imageDataUrl } : {}),
           ...(typeof candidate.imageFileName === "string"
             ? { imageFileName: candidate.imageFileName.slice(0, 200) }
             : {}),
-        }
-      : { type: fallback };
+        })
+      : withDynamic({ type: fallback });
   }
-  return { type: type as AppearanceBackground["type"] };
+  return withDynamic({ type: type as AppearanceBackground["type"] });
+}
+
+function normalizeDynamicBackground(value: unknown): AppearanceBackground["dynamic"] {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+  const candidate = value as Record<string, unknown>;
+  const rawColor = normalizeColor(candidate.color) ?? "#9ed8cc";
+  const color =
+    rawColor.length === 4
+      ? `#${rawColor
+          .slice(1)
+          .split("")
+          .map((value) => value + value)
+          .join("")}`
+      : rawColor.slice(0, 7);
+  const darkness = finiteNumber(candidate.darkness, 0, 0.8) ?? 0.35;
+  const assetId = typeof candidate.assetId === "string" ? candidate.assetId.slice(0, 128) : "";
+  const fileName = typeof candidate.fileName === "string" ? candidate.fileName.slice(0, 200) : "";
+
+  if (candidate.type === "music") {
+    return {
+      type: "music",
+      visualization: candidate.visualization === "waveform" ? "waveform" : "spectrum",
+      source: candidate.source === "computer" ? "computer" : "microphone",
+      color,
+      sensitivity: finiteNumber(candidate.sensitivity, 0.5, 3) ?? 1,
+      darkness,
+    };
+  }
+
+  if (candidate.type === "video") {
+    let url: string | undefined;
+    if (typeof candidate.url === "string" && candidate.url.length <= 2_000) {
+      try {
+        const parsed = new URL(candidate.url);
+        if (parsed.protocol === "https:" || parsed.protocol === "http:") url = parsed.href;
+      } catch {
+        // Invalid URLs remain unset so an incomplete video background falls back safely.
+      }
+    }
+    return {
+      type: "video",
+      ...(assetId ? { assetId } : {}),
+      ...(fileName ? { fileName } : {}),
+      ...(url ? { url } : {}),
+      fit: candidate.fit === "contain" ? "contain" : "cover",
+      soundEnabled: candidate.soundEnabled === true,
+      volume: finiteNumber(candidate.volume, 0, 1) ?? 0.3,
+      darkness,
+    };
+  }
+
+  return {
+    type: "particles",
+    preset: candidate.preset === "links" ? "links" : "stars",
+    color,
+    density: finiteNumber(candidate.density, 0.1, 1) ?? 0.5,
+    size: finiteNumber(candidate.size, 0.5, 2) ?? 1.2,
+    speed: finiteNumber(candidate.speed, 0.1, 2) ?? 0.65,
+    darkness,
+  };
 }
 
 export function normalizeAppearance(value: unknown): AppearanceSettingsV2 {
@@ -777,6 +866,9 @@ export function appearanceBackgroundToCss(
   background: AppearanceBackground,
   imageDataUrl?: string
 ): CSSProperties {
+  if (background.mode === "dynamic") {
+    return { backgroundColor: "#121212", backgroundImage: "none" };
+  }
   if (background.type === "image" && imageDataUrl) {
     return {
       backgroundImage: `url(${imageDataUrl})`,

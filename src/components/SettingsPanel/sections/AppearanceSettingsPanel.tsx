@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 
 import {
   DEFAULT_CENTRAL_TIME_SCALE,
@@ -7,6 +7,13 @@ import {
 } from "../../../constants/settings";
 import { useAppDispatch, useAppState } from "../../../contexts/AppContext";
 import { useAppearance } from "../../../contexts/AppearanceContext";
+import {
+  canCaptureComputerAudio,
+  getDynamicAudioSnapshot,
+  startDynamicAudioCapture,
+  stopDynamicAudioCapture,
+  subscribeDynamicAudio,
+} from "../../../services/dynamicBackgroundAudio";
 import type { TimeDisplaySettings } from "../../../types";
 import type {
   AppearanceBackground,
@@ -14,6 +21,7 @@ import type {
   AppearanceSceneId,
   AppearanceSlotKind,
   AppearanceStyle,
+  DynamicBackgroundSettings,
   FontReference,
 } from "../../../types/appearance";
 import {
@@ -37,10 +45,12 @@ import {
 import {
   type AppearanceBackgroundMetadata,
   type AppearanceFontMetadata,
+  type AppearanceVideoMetadata,
   loadAppearanceAssetCatalog,
   loadBackgroundAsset,
   removeAppearanceAsset,
   saveBackgroundAsset,
+  saveVideoBackgroundAsset,
   subscribeAppearanceAssetsChanged,
 } from "../../../utils/appearanceAssets";
 import {
@@ -51,6 +61,7 @@ import {
 import { getAppSettings, updateAppSettings } from "../../../utils/appSettings";
 import { getCountdownEventPreset, isCountdownQuickEventKind } from "../../../utils/countdownEvents";
 import { importFontFile, removeImportedFont } from "../../../utils/studyFontStorage";
+import { DynamicBackgroundLayer } from "../../DynamicBackground";
 
 import { AppearancePreview } from "./AppearancePreview";
 import styles from "./AppearanceSettingsPanel.module.css";
@@ -82,6 +93,7 @@ const TIME_COMPONENT_OPTIONS = [
   { label: "倒计时", value: "countdown" },
   { label: "秒表", value: "stopwatch" },
   { label: "自习时间", value: "studyTime" },
+  { label: "考试", value: "exam" },
 ] as const;
 
 const TOP_DOCK_COMPONENT_OPTIONS = [
@@ -182,6 +194,7 @@ function contrastRatio(foreground: string, background: string): number {
 
 interface BackgroundEditorProps {
   assets: AppearanceBackgroundMetadata[];
+  videos: AppearanceVideoMetadata[];
   background: AppearanceBackground;
   description: string;
   path: readonly string[];
@@ -191,8 +204,36 @@ interface BackgroundEditorProps {
   onError: (error: unknown) => void;
 }
 
+function defaultDynamicBackground(
+  type: DynamicBackgroundSettings["type"]
+): DynamicBackgroundSettings {
+  if (type === "music") {
+    return {
+      type,
+      visualization: "spectrum",
+      source: "microphone",
+      color: "#9ed8cc",
+      sensitivity: 1,
+      darkness: 0.35,
+    };
+  }
+  if (type === "video") {
+    return { type, fit: "cover", soundEnabled: false, volume: 0.3, darkness: 0.35 };
+  }
+  return {
+    type,
+    preset: "stars",
+    color: "#9ed8cc",
+    density: 0.5,
+    size: 1.2,
+    speed: 0.65,
+    darkness: 0.35,
+  };
+}
+
 function BackgroundEditor({
   assets,
+  videos,
   background,
   description,
   path,
@@ -201,8 +242,19 @@ function BackgroundEditor({
   onUpdate,
   onError,
 }: BackgroundEditorProps) {
-  const options = [
-    ...(allowInherit ? [{ label: "跟随整体", value: "inherit" }] : []),
+  const audioSnapshot = useSyncExternalStore(
+    subscribeDynamicAudio,
+    getDynamicAudioSnapshot,
+    getDynamicAudioSnapshot
+  );
+  const [videoUrlDraft, setVideoUrlDraft] = useState("");
+  const dynamicSelections = useRef(new Map<string, DynamicBackgroundSettings>());
+  const currentStaticType =
+    background.type === "inherit" ? (background.staticType ?? "default") : background.type;
+  const dynamic = background.dynamic ?? defaultDynamicBackground("particles");
+  const video = dynamic.type === "video" ? dynamic : null;
+  const computerAudioAvailable = canCaptureComputerAudio();
+  const staticOptions = [
     { label: "默认深灰", value: "default" },
     { label: "深绿预设", value: "green" },
     { label: "纯黑", value: "black" },
@@ -210,82 +262,447 @@ function BackgroundEditor({
     { label: "纯色", value: "color" },
     { label: "图片", value: "image" },
   ];
+  const updateBackground = (next: Partial<AppearanceBackground>) =>
+    onUpdate(path, { ...background, ...next });
+  const updateDynamic = (next: DynamicBackgroundSettings) =>
+    updateBackground({ mode: "dynamic", dynamic: next });
+  const updateDynamicField = (field: string, value: unknown) =>
+    updateDynamic({ ...dynamic, [field]: value } as DynamicBackgroundSettings);
+
+  useEffect(() => {
+    setVideoUrlDraft(video?.url ?? "");
+  }, [video?.url]);
 
   return (
     <FormSection title={title} description={description} variant="plain">
-      <SettingItem icon="appearance.background" title="背景类型">
-        <FormSegmented
-          value={background.type}
-          options={options}
-          onChange={(value) => onUpdate([...path, "type"], value)}
-        />
-      </SettingItem>
-      {background.type === "color" && (
-        <SettingGrid className={styles.editorGrid} columns={2}>
-          <SettingItem icon="appearance.color" title="背景颜色">
-            <FormInput
-              label="背景颜色"
-              type="color"
-              value={background.color ?? "#121212"}
-              onChange={(event) => onUpdate([...path, "color"], event.target.value)}
-            />
-          </SettingItem>
-          <SettingItem icon="appearance.color" title="背景透明度">
-            <FormSlider
-              label="背景透明度"
-              min={0}
-              max={1}
-              step={0.01}
-              value={background.colorAlpha ?? 1}
-              onChange={(value) => onUpdate([...path, "colorAlpha"], value)}
-              formatValue={(value) => `${Math.round(value * 100)}%`}
-            />
-          </SettingItem>
-        </SettingGrid>
-      )}
-      {background.type === "image" && (
-        <SettingItem icon="action.upload" title="背景图片">
-          <Dropdown
-            label="已导入背景"
-            placeholder={assets.length > 0 ? "选择已导入背景" : "暂无已导入背景"}
-            value={background.assetId}
-            options={assets.map((asset) => ({ label: asset.name, value: asset.id }))}
-            disabled={assets.length === 0}
-            searchable={assets.length > 8}
-            onChange={(value) => {
-              const asset = assets.find((candidate) => candidate.id === value);
-              if (!asset) return;
-              onUpdate(path, {
-                type: "image",
-                assetId: asset.id,
-                imageFileName: asset.name,
-              });
-            }}
+      {allowInherit ? (
+        <SettingItem icon="appearance.background" title="页面背景范围">
+          <FormSegmented
+            value={background.type === "inherit" ? "inherit" : "local"}
+            ariaLabel="页面背景范围"
+            options={[
+              { label: "跟随整体", value: "inherit" },
+              { label: "单独设置", value: "local" },
+            ]}
+            onChange={(value) =>
+              value === "inherit"
+                ? updateBackground({ type: "inherit", staticType: currentStaticType })
+                : updateBackground({ type: currentStaticType, staticType: currentStaticType })
+            }
           />
-          <FormInput
-            label="选择图片"
-            type="file"
-            accept="image/*"
-            onChange={async (event) => {
-              const file = event.target.files?.[0];
-              if (!file) return;
-              try {
-                const asset = await saveBackgroundAsset(file);
-                onUpdate(path, {
+        </SettingItem>
+      ) : null}
+      {background.type !== "inherit" ? (
+        <SettingItem icon="appearance.background" title="背景分类">
+          <FormSegmented
+            value={background.mode === "dynamic" ? "dynamic" : "static"}
+            ariaLabel="背景分类"
+            options={[
+              { label: "静态背景", value: "static" },
+              { label: "动态背景", value: "dynamic" },
+            ]}
+            onChange={(value) =>
+              value === "dynamic"
+                ? updateBackground({
+                    mode: "dynamic",
+                    dynamic: background.dynamic ?? defaultDynamicBackground("particles"),
+                  })
+                : updateBackground({ mode: "static" })
+            }
+          />
+        </SettingItem>
+      ) : null}
+      {background.type !== "inherit" && background.mode !== "dynamic" ? (
+        <SettingItem icon="appearance.background" title="静态背景">
+          <FormSegmented
+            value={currentStaticType}
+            ariaLabel="静态背景样式"
+            options={staticOptions}
+            onChange={(value) =>
+              updateBackground({
+                mode: "static",
+                type: value as AppearanceBackground["type"],
+                staticType: value as AppearanceBackground["staticType"],
+              })
+            }
+          />
+        </SettingItem>
+      ) : null}
+      {background.type !== "inherit" &&
+        background.mode !== "dynamic" &&
+        currentStaticType === "color" && (
+          <SettingGrid className={styles.editorGrid} columns={2}>
+            <SettingItem icon="appearance.color" title="背景颜色">
+              <FormInput
+                label="背景颜色"
+                type="color"
+                value={background.color ?? "#121212"}
+                onChange={(event) => updateBackground({ color: event.target.value })}
+              />
+            </SettingItem>
+            <SettingItem icon="appearance.color" title="背景透明度">
+              <FormSlider
+                label="背景透明度"
+                min={0}
+                max={1}
+                step={0.01}
+                value={background.colorAlpha ?? 1}
+                onChange={(value) => updateBackground({ colorAlpha: value })}
+                formatValue={(value) => `${Math.round(value * 100)}%`}
+              />
+            </SettingItem>
+          </SettingGrid>
+        )}
+      {background.type !== "inherit" &&
+        background.mode !== "dynamic" &&
+        currentStaticType === "image" && (
+          <SettingItem icon="action.upload" title="背景图片">
+            <Dropdown
+              label="已导入背景"
+              placeholder={assets.length > 0 ? "选择已导入背景" : "暂无已导入背景"}
+              value={background.assetId}
+              options={assets.map((asset) => ({ label: asset.name, value: asset.id }))}
+              disabled={assets.length === 0}
+              searchable={assets.length > 8}
+              onChange={(value) => {
+                const asset = assets.find((candidate) => candidate.id === value);
+                if (!asset) return;
+                updateBackground({
                   type: "image",
+                  mode: "static",
+                  staticType: "image",
                   assetId: asset.id,
                   imageFileName: asset.name,
                 });
-              } catch (error) {
-                onError(error);
-              }
-            }}
-          />
-          {background.imageFileName && (
-            <InfoPanel tone="info">当前图片：{background.imageFileName}</InfoPanel>
-          )}
-        </SettingItem>
-      )}
+              }}
+            />
+            <FormInput
+              label="选择图片"
+              type="file"
+              accept="image/*"
+              onChange={async (event) => {
+                const file = event.target.files?.[0];
+                if (!file) return;
+                try {
+                  const asset = await saveBackgroundAsset(file);
+                  updateBackground({
+                    type: "image",
+                    mode: "static",
+                    staticType: "image",
+                    assetId: asset.id,
+                    imageFileName: asset.name,
+                  });
+                } catch (error) {
+                  onError(error);
+                }
+              }}
+            />
+            {background.imageFileName && (
+              <InfoPanel tone="info">当前图片：{background.imageFileName}</InfoPanel>
+            )}
+          </SettingItem>
+        )}
+      {background.type !== "inherit" && background.mode === "dynamic" ? (
+        <>
+          <SettingItem icon="appearance.background" title="动态背景类型">
+            <FormSegmented
+              value={dynamic.type}
+              ariaLabel="动态背景类型"
+              options={[
+                { label: "粒子效果", value: "particles" },
+                { label: "音乐响应", value: "music" },
+                { label: "自定义视频", value: "video" },
+              ]}
+              onChange={(value) => {
+                const nextType = value as DynamicBackgroundSettings["type"];
+                const scopeKey = path.join(".");
+                dynamicSelections.current.set(`${scopeKey}:${dynamic.type}`, dynamic);
+                const previous = dynamicSelections.current.get(`${scopeKey}:${nextType}`);
+                const next =
+                  dynamic.type === nextType
+                    ? dynamic
+                    : {
+                        ...(previous ?? defaultDynamicBackground(nextType)),
+                        darkness: dynamic.darkness,
+                        ...(!previous && nextType !== "video" && "color" in dynamic
+                          ? { color: dynamic.color }
+                          : {}),
+                      };
+                updateDynamic(next as DynamicBackgroundSettings);
+              }}
+            />
+          </SettingItem>
+
+          {dynamic.type === "particles" ? (
+            <>
+              <SettingItem icon="appearance.background" title="粒子预设">
+                <FormSegmented
+                  value={dynamic.preset}
+                  ariaLabel="粒子效果"
+                  options={[
+                    { label: "星空", value: "stars" },
+                    { label: "连线粒子", value: "links" },
+                  ]}
+                  onChange={(value) => updateDynamicField("preset", value)}
+                />
+              </SettingItem>
+              <SettingGrid className={styles.editorGrid} columns={2}>
+                <SettingItem icon="appearance.color" title="粒子颜色">
+                  <FormInput
+                    label="粒子颜色"
+                    type="color"
+                    value={dynamic.color}
+                    onChange={(event) => updateDynamicField("color", event.target.value)}
+                  />
+                </SettingItem>
+                <SettingItem icon="appearance.background" title="粒子密度">
+                  <FormSlider
+                    aria-label="粒子密度"
+                    label="粒子密度"
+                    min={0.1}
+                    max={1}
+                    step={0.05}
+                    value={dynamic.density}
+                    onChange={(value) => updateDynamicField("density", value)}
+                    formatValue={(value) => `${Math.round(value * 100)}%`}
+                  />
+                </SettingItem>
+                <SettingItem icon="appearance.background" title="粒子大小">
+                  <FormSlider
+                    aria-label="粒子大小"
+                    label="粒子大小"
+                    min={0.5}
+                    max={2}
+                    step={0.05}
+                    value={dynamic.size}
+                    onChange={(value) => updateDynamicField("size", value)}
+                    formatValue={(value) => `${Math.round(value * 100)}%`}
+                  />
+                </SettingItem>
+                <SettingItem icon="appearance.background" title="粒子速度">
+                  <FormSlider
+                    aria-label="粒子速度"
+                    label="粒子速度"
+                    min={0.1}
+                    max={2}
+                    step={0.05}
+                    value={dynamic.speed}
+                    onChange={(value) => updateDynamicField("speed", value)}
+                    formatValue={(value) => `${value.toFixed(2)}×`}
+                  />
+                </SettingItem>
+              </SettingGrid>
+            </>
+          ) : null}
+
+          {dynamic.type === "music" ? (
+            <>
+              <SettingItem icon="appearance.background" title="音乐可视化">
+                <FormSegmented
+                  value={dynamic.visualization}
+                  ariaLabel="音乐可视化"
+                  options={[
+                    { label: "频谱", value: "spectrum" },
+                    { label: "波形", value: "waveform" },
+                  ]}
+                  onChange={(value) => updateDynamicField("visualization", value)}
+                />
+              </SettingItem>
+              <SettingItem icon="feature.audio" title="监听音源">
+                <FormSegmented
+                  value={dynamic.source}
+                  ariaLabel="监听音源"
+                  options={[
+                    { label: "麦克风", value: "microphone" },
+                    {
+                      label: "电脑或标签页音频",
+                      value: "computer",
+                      disabled: !computerAudioAvailable,
+                    },
+                  ]}
+                  onChange={(value) => updateDynamicField("source", value)}
+                />
+                {!computerAudioAvailable ? (
+                  <InfoPanel tone="neutral">
+                    当前设备不支持电脑音频采集，可使用麦克风监听。
+                  </InfoPanel>
+                ) : null}
+                <StatusPill
+                  tone={
+                    audioSnapshot.status === "listening"
+                      ? "success"
+                      : audioSnapshot.status === "requesting" ||
+                          audioSnapshot.status === "suspended"
+                        ? "warning"
+                        : "neutral"
+                  }
+                >
+                  {audioSnapshot.message || "尚未开始监听"}
+                </StatusPill>
+                <FormButtonGroup gap="sm" align="left">
+                  <FormButton
+                    icon="action.play"
+                    disabled={audioSnapshot.status === "requesting"}
+                    onClick={() => void startDynamicAudioCapture(dynamic.source).catch(onError)}
+                  >
+                    {audioSnapshot.status === "suspended" ? "恢复监听" : "开始监听"}
+                  </FormButton>
+                  <FormButton
+                    variant="secondary"
+                    disabled={audioSnapshot.status === "idle"}
+                    onClick={() => stopDynamicAudioCapture()}
+                  >
+                    停止
+                  </FormButton>
+                </FormButtonGroup>
+              </SettingItem>
+              <SettingGrid className={styles.editorGrid} columns={2}>
+                <SettingItem icon="appearance.color" title="响应颜色">
+                  <FormInput
+                    label="响应颜色"
+                    type="color"
+                    value={dynamic.color}
+                    onChange={(event) => updateDynamicField("color", event.target.value)}
+                  />
+                </SettingItem>
+                <SettingItem icon="appearance.background" title="灵敏度">
+                  <FormSlider
+                    label="灵敏度"
+                    min={0.5}
+                    max={3}
+                    step={0.1}
+                    value={dynamic.sensitivity}
+                    onChange={(value) => updateDynamicField("sensitivity", value)}
+                    formatValue={(value) => `${value.toFixed(1)}×`}
+                  />
+                </SettingItem>
+              </SettingGrid>
+            </>
+          ) : null}
+
+          {dynamic.type === "video" ? (
+            <>
+              <SettingItem icon="feature.file" title="视频文件">
+                <Dropdown
+                  label="已导入视频"
+                  placeholder={videos.length > 0 ? "选择已导入视频" : "暂无已导入视频"}
+                  value={dynamic.assetId}
+                  options={videos.map((asset) => ({ label: asset.name, value: asset.id }))}
+                  disabled={videos.length === 0}
+                  searchable={videos.length > 8}
+                  onChange={(value) => {
+                    const asset = videos.find((candidate) => candidate.id === value);
+                    if (!asset) return;
+                    updateDynamic({
+                      ...dynamic,
+                      assetId: asset.id,
+                      fileName: asset.name,
+                      url: undefined,
+                    });
+                  }}
+                />
+                <FormInput
+                  label="选择本地视频"
+                  type="file"
+                  accept="video/mp4,video/webm,.mp4,.webm"
+                  onChange={async (event) => {
+                    const file = event.target.files?.[0];
+                    if (!file) return;
+                    try {
+                      const asset = await saveVideoBackgroundAsset(file);
+                      updateDynamic({
+                        ...dynamic,
+                        assetId: asset.id,
+                        fileName: asset.name,
+                        url: undefined,
+                      });
+                    } catch (error) {
+                      onError(error);
+                    }
+                  }}
+                  hint="支持 MP4 和 WebM，单个文件最大 200MB。"
+                />
+              </SettingItem>
+              <SettingItem icon="feature.file" title="视频直链">
+                <FormInput
+                  label="HTTP(S) 视频地址"
+                  type="url"
+                  value={videoUrlDraft}
+                  placeholder="https://example.com/video.mp4"
+                  onChange={(event) => setVideoUrlDraft(event.target.value)}
+                />
+                <FormButton
+                  variant="secondary"
+                  icon="action.apply"
+                  onClick={() => {
+                    try {
+                      const parsed = new URL(videoUrlDraft.trim());
+                      if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+                        throw new Error("视频地址必须使用 HTTP 或 HTTPS");
+                      }
+                      updateDynamic({
+                        ...dynamic,
+                        url: parsed.href,
+                        assetId: undefined,
+                        fileName: undefined,
+                      });
+                    } catch (error) {
+                      onError(error instanceof Error ? error : new Error("请输入有效的视频地址"));
+                    }
+                  }}
+                >
+                  应用视频地址
+                </FormButton>
+              </SettingItem>
+              <SettingItem icon="appearance.background" title="视频显示方式">
+                <FormSegmented
+                  value={dynamic.fit}
+                  ariaLabel="视频显示方式"
+                  options={[
+                    { label: "铺满画面", value: "cover" },
+                    { label: "完整显示", value: "contain" },
+                  ]}
+                  onChange={(value) => updateDynamicField("fit", value)}
+                />
+              </SettingItem>
+              <SettingGrid className={styles.editorGrid} columns={2}>
+                <SettingItem icon="feature.audio" title="视频原声">
+                  <FormSwitch
+                    checked={dynamic.soundEnabled}
+                    onCheckedChange={(checked) => updateDynamicField("soundEnabled", checked)}
+                    label="允许手动开启原声"
+                  />
+                </SettingItem>
+                <SettingItem icon="feature.audio" title="视频音量">
+                  <FormSlider
+                    label="视频音量"
+                    min={0}
+                    max={1}
+                    step={0.05}
+                    value={dynamic.volume}
+                    disabled={!dynamic.soundEnabled}
+                    onChange={(value) => updateDynamicField("volume", value)}
+                    formatValue={(value) => `${Math.round(value * 100)}%`}
+                  />
+                </SettingItem>
+              </SettingGrid>
+              <InfoPanel tone="neutral">视频默认静音；保存后需在主屏点击“开启视频声音”。</InfoPanel>
+            </>
+          ) : null}
+
+          <SettingItem icon="appearance.background" title="背景暗化">
+            <FormSlider
+              label="动态背景暗化"
+              min={0}
+              max={0.8}
+              step={0.01}
+              value={dynamic.darkness}
+              onChange={(value) => updateDynamicField("darkness", value)}
+              formatValue={(value) => `${Math.round(value * 100)}%`}
+            />
+          </SettingItem>
+        </>
+      ) : null}
     </FormSection>
   );
 }
@@ -294,7 +711,8 @@ export function AppearanceSettingsPanel({
   section = "overview",
   onRegisterSave,
 }: AppearanceSettingsPanelProps) {
-  const { mode, study, timeDisplay } = useAppState();
+  const previewStarted = useRef(false);
+  const { mode, quoteSettings, study, timeDisplay } = useAppState();
   const dispatch = useAppDispatch();
   const {
     activeAppearance,
@@ -352,10 +770,15 @@ export function AppearanceSettingsPanel({
   const [instanceId, setInstanceId] = useState("");
   const [fonts, setFonts] = useState<AppearanceFontMetadata[]>([]);
   const [backgroundAssets, setBackgroundAssets] = useState<AppearanceBackgroundMetadata[]>([]);
+  const [videoAssets, setVideoAssets] = useState<AppearanceVideoMetadata[]>([]);
   const [previewedBackground, setPreviewedBackground] = useState<{
     id: string;
     name: string;
     dataUrl: string;
+  } | null>(null);
+  const [previewedVideo, setPreviewedVideo] = useState<{
+    id: string;
+    name: string;
   } | null>(null);
   const [resourceOperation, setResourceOperation] = useState<string | null>(null);
   const [customFinalSoundDataUrl, setCustomFinalSoundDataUrl] = useState<string | null>(
@@ -434,7 +857,12 @@ export function AppearanceSettingsPanel({
   }, [customFinalSoundDataUrl, dispatch, draftTimeDisplay, onRegisterSave]);
 
   useEffect(() => {
-    beginAppearancePreview(mode);
+    // Closing animations keep this editor mounted briefly after committing.
+    // Start only once per settings session so a commit cannot reopen the draft.
+    if (!previewStarted.current) {
+      previewStarted.current = true;
+      beginAppearancePreview(mode);
+    }
     let active = true;
     const refreshAssets = async () => {
       try {
@@ -442,10 +870,12 @@ export function AppearanceSettingsPanel({
         if (!active) return;
         setFonts(catalog.fonts);
         setBackgroundAssets(catalog.backgrounds);
+        setVideoAssets(catalog.videos ?? []);
       } catch {
         if (!active) return;
         setFonts([]);
         setBackgroundAssets([]);
+        setVideoAssets([]);
       }
     };
     void refreshAssets();
@@ -563,8 +993,8 @@ export function AppearanceSettingsPanel({
   const reportBackgroundError = (error: unknown) => {
     notify({
       variant: "danger",
-      title: "背景图片导入失败",
-      description: error instanceof Error ? error.message : "无法读取图片",
+      title: "背景设置失败",
+      description: error instanceof Error ? error.message : "无法读取背景资源",
     });
   };
 
@@ -573,12 +1003,18 @@ export function AppearanceSettingsPanel({
     try {
       const stored = await loadBackgroundAsset(asset.id);
       if (!stored) throw new Error("背景资源不存在或已被清理");
+      setPreviewedVideo(null);
       setPreviewedBackground({ id: asset.id, name: asset.name, dataUrl: stored.dataUrl });
     } catch (error) {
       reportBackgroundError(error);
     } finally {
       setResourceOperation(null);
     }
+  };
+
+  const handlePreviewVideo = (asset: AppearanceVideoMetadata) => {
+    setPreviewedBackground(null);
+    setPreviewedVideo({ id: asset.id, name: asset.name });
   };
 
   const handleApplyBackground = (asset: AppearanceBackgroundMetadata) => {
@@ -594,16 +1030,33 @@ export function AppearanceSettingsPanel({
     });
   };
 
+  const handleApplyVideo = (asset: AppearanceVideoMetadata) => {
+    updateAppearanceDraft(["global", "background"], {
+      ...activeAppearance.global.background,
+      mode: "dynamic",
+      dynamic: {
+        type: "video",
+        assetId: asset.id,
+        fileName: asset.name,
+        fit: "cover",
+        soundEnabled: false,
+        volume: 0.3,
+        darkness: 0.35,
+      },
+    });
+    notify({ variant: "success", title: "动态视频已应用到草稿" });
+  };
+
   const handleDeleteResource = async (
-    asset: AppearanceBackgroundMetadata | AppearanceFontMetadata
+    asset: AppearanceBackgroundMetadata | AppearanceVideoMetadata | AppearanceFontMetadata
   ) => {
     const isUsed =
-      asset.kind === "background"
+      asset.kind === "background" || asset.kind === "video"
         ? referencedResources.backgrounds.has(asset.id)
         : referencedResources.fonts.has(asset.id);
     if (isUsed || resourceOperation) return;
     const accepted = await confirm({
-      title: `删除${asset.kind === "background" ? "背景" : "字体"}资源`,
+      title: `删除${asset.kind === "font" ? "字体" : asset.kind === "video" ? "视频" : "背景"}资源`,
       description: `“${asset.name}”当前未被外观设置引用，删除后无法撤销。`,
       confirmLabel: "删除资源",
       variant: "danger",
@@ -613,8 +1066,9 @@ export function AppearanceSettingsPanel({
     setResourceOperation(`delete:${asset.id}`);
     try {
       if (asset.kind === "font") await removeImportedFont(asset.id);
-      else await removeAppearanceAsset(asset.id, "background");
+      else await removeAppearanceAsset(asset.id, asset.kind);
       if (previewedBackground?.id === asset.id) setPreviewedBackground(null);
+      if (previewedVideo?.id === asset.id) setPreviewedVideo(null);
       notify({ variant: "success", title: "资源已删除" });
     } catch (error) {
       notify({
@@ -683,6 +1137,7 @@ export function AppearanceSettingsPanel({
             <AppearancePreview
               overview
               centralTimeScale={draftTimeDisplay.centralTimeScale}
+              quoteFontScalePercent={quoteSettings?.fontScalePercent ?? 100}
               showClockSeconds={draftTimeDisplay.showClockSeconds}
               showStudySeconds={draftTimeDisplay.showStudySeconds}
             />
@@ -732,6 +1187,7 @@ export function AppearanceSettingsPanel({
 
           <BackgroundEditor
             assets={backgroundAssets}
+            videos={videoAssets}
             title="整体背景"
             description="所有页面默认使用此背景；页面仍可进行单独调整。"
             background={activeAppearance.global.background}
@@ -769,7 +1225,7 @@ export function AppearanceSettingsPanel({
             description="查看资源状态、预览或重新应用背景，并删除未使用的本地资源。"
             variant="plain"
           >
-            {backgroundAssets.length === 0 && fonts.length === 0 ? (
+            {backgroundAssets.length === 0 && videoAssets.length === 0 && fonts.length === 0 ? (
               <InfoPanel tone="neutral">暂无已导入资源。</InfoPanel>
             ) : (
               <div className={styles.resourceList}>
@@ -823,6 +1279,59 @@ export function AppearanceSettingsPanel({
                     </div>
                   );
                 })}
+                {videoAssets.map((asset) => {
+                  const isUsed = referencedResources.backgrounds.has(asset.id);
+                  return (
+                    <div
+                      key={`video:${asset.id}`}
+                      className={styles.resourceRow}
+                      aria-label={`视频资源 ${asset.name}`}
+                    >
+                      <div className={styles.resourceInfo}>
+                        <strong>{asset.name}</strong>
+                        <span className={styles.resourceSize}>
+                          {(asset.sizeBytes / 1024 / 1024).toFixed(1)} MB
+                        </span>
+                        <StatusPill tone={isUsed ? "accent" : "neutral"}>
+                          {isUsed ? "正在使用" : "未使用"}
+                        </StatusPill>
+                      </div>
+                      <FormButtonGroup gap="sm" align="left">
+                        <FormButton
+                          size="sm"
+                          variant="secondary"
+                          icon="appearance.preview"
+                          loading={resourceOperation === `preview:${asset.id}`}
+                          disabled={resourceOperation !== null}
+                          aria-label={`预览视频 ${asset.name}`}
+                          onClick={() => void handlePreviewVideo(asset)}
+                        >
+                          预览
+                        </FormButton>
+                        <FormButton
+                          size="sm"
+                          variant="secondary"
+                          icon="action.apply"
+                          disabled={resourceOperation !== null}
+                          aria-label={`应用视频 ${asset.name}`}
+                          onClick={() => handleApplyVideo(asset)}
+                        >
+                          应用
+                        </FormButton>
+                        <FormIconButton
+                          size="sm"
+                          variant="danger"
+                          icon="action.delete"
+                          loading={resourceOperation === `delete:${asset.id}`}
+                          disabled={isUsed || resourceOperation !== null}
+                          aria-label={`删除视频 ${asset.name}`}
+                          title={isUsed ? "正在使用的资源不能删除" : "删除视频"}
+                          onClick={() => void handleDeleteResource(asset)}
+                        />
+                      </FormButtonGroup>
+                    </div>
+                  );
+                })}
                 {fonts.map((font) => {
                   const isUsed = referencedResources.fonts.has(font.id);
                   return (
@@ -858,6 +1367,28 @@ export function AppearanceSettingsPanel({
                 <figcaption>{previewedBackground.name}</figcaption>
               </figure>
             ) : null}
+            {previewedVideo ? (
+              <figure className={styles.resourcePreview}>
+                <div className={styles.resourceVideoPreview} aria-label="视频资源预览">
+                  <DynamicBackgroundLayer
+                    mutedPreview
+                    background={{
+                      type: "default",
+                      mode: "dynamic",
+                      dynamic: {
+                        type: "video",
+                        assetId: previewedVideo.id,
+                        fit: "contain",
+                        soundEnabled: false,
+                        volume: 0.3,
+                        darkness: 0,
+                      },
+                    }}
+                  />
+                </div>
+                <figcaption>{previewedVideo.name}</figcaption>
+              </figure>
+            ) : null}
           </FormSection>
 
           <FormSection
@@ -880,7 +1411,7 @@ export function AppearanceSettingsPanel({
           {isTime ? (
             <FormSection
               title="显示内容"
-              description="分别调整四个主要时间页面的显示样式。"
+              description="分别调整各个时间页面的显示样式。"
               variant="plain"
             >
               <FormSegmented
@@ -893,7 +1424,7 @@ export function AppearanceSettingsPanel({
                 <SettingItem
                   icon="feature.time"
                   title="中央时间大小"
-                  description="调整时钟、倒计时、秒表和自习时间的中央数字大小。"
+                  description="调整时钟、倒计时、秒表和自习时间的中央数字大小，范围为 75%–150%。"
                 >
                   <FormSlider
                     aria-label="中央时间大小"
@@ -940,6 +1471,7 @@ export function AppearanceSettingsPanel({
               <AppearancePreview
                 componentId={definition.id}
                 centralTimeScale={draftTimeDisplay.centralTimeScale}
+                quoteFontScalePercent={quoteSettings?.fontScalePercent ?? 100}
                 instanceId={instanceId}
                 instanceLabel={
                   selectedInstance
@@ -1179,6 +1711,7 @@ export function AppearanceSettingsPanel({
           {isTime ? (
             <BackgroundEditor
               assets={backgroundAssets}
+              videos={videoAssets}
               title={`${SCENE_LABELS[scene]}页面背景`}
               description="当前页面可使用整体背景、默认深灰、深绿预设或单独设置的背景。"
               background={pageBackground}

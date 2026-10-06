@@ -282,7 +282,7 @@ const paneItems: SettingsPane[] = [
     value: "quoteEffects",
     group: "content",
     label: "显示效果",
-    description: "自定义语录出现时的动画与打字速度。",
+    description: "调整语录字号、出现动画与打字速度。",
     icon: "appearance.effects",
     panel: "quotes",
     section: "effects",

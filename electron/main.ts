@@ -5,13 +5,17 @@ import { fileURLToPath } from "url";
 import {
   app,
   BrowserWindow,
+  desktopCapturer,
   ipcMain,
+  Menu,
   net,
   powerSaveBlocker,
   protocol,
   session,
   systemPreferences,
   type WebContents,
+  type DisplayMediaRequestHandlerHandlerRequest,
+  type DesktopCapturerSource,
 } from "electron";
 
 import {
@@ -25,6 +29,10 @@ import { registerTimeSyncIpc } from "./ipc/registerTimeSyncIpc";
 import { createKeepAwakeController } from "./keepAwakeController";
 import { electronUpdateManager } from "./updateManager";
 import { shouldAllowFullscreenPermission } from "./permissionPolicy";
+import {
+  createDisplayCaptureMenuTemplate,
+  resolveDisplayCaptureSource,
+} from "./displayCaptureSource";
 import { resolveXiaomiWeatherUpstreamUrl } from "./xiaomiWeatherProxy";
 
 // ES 模块中获取 __dirname
@@ -38,6 +46,62 @@ function mergeChromiumFeatureSwitch(
   const current = app.commandLine.getSwitchValue(switchName);
   const next = current ? `${current},${add}` : add;
   app.commandLine.appendSwitch(switchName, next);
+}
+
+function isTrustedDisplayCaptureRequest(
+  request: DisplayMediaRequestHandlerHandlerRequest,
+  window: BrowserWindow | null
+): window is BrowserWindow {
+  if (!window || window.isDestroyed() || window.webContents.isDestroyed()) return false;
+  if (
+    request.frame !== window.webContents.mainFrame ||
+    !request.userGesture ||
+    !request.videoRequested ||
+    !request.audioRequested
+  ) {
+    return false;
+  }
+
+  try {
+    const requested = new URL(request.securityOrigin);
+    const trusted = new URL(window.webContents.getURL());
+    return (
+      requested.protocol === trusted.protocol &&
+      requested.hostname === trusted.hostname &&
+      requested.port === trusted.port
+    );
+  } catch {
+    return false;
+  }
+}
+
+function promptForDisplayCaptureSource(
+  sources: readonly DesktopCapturerSource[],
+  window: BrowserWindow
+): Promise<string | null> {
+  if (window.isDestroyed() || sources.length === 0) return Promise.resolve(null);
+
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = (sourceId: string | null) => {
+      if (settled) return;
+      settled = true;
+      window.removeListener("closed", handleWindowClosed);
+      resolve(sourceId);
+    };
+    const handleWindowClosed = () => finish(null);
+    const menu = Menu.buildFromTemplate(
+      createDisplayCaptureMenuTemplate(sources, (sourceId) => finish(sourceId))
+    );
+
+    window.once("closed", handleWindowClosed);
+    menu.once("menu-will-close", () => finish(null));
+    try {
+      menu.popup({ window });
+    } catch {
+      finish(null);
+    }
+  });
 }
 
 if (process.platform === "win32") {
@@ -280,6 +344,41 @@ function registerUpdateIpc() {
 app.whenReady().then(async () => {
   if (!hasSingleInstanceLock) return;
   await registerAppProtocol();
+  if (process.platform === "win32") {
+    session.defaultSession.setDisplayMediaRequestHandler(
+      async (request, callback) => {
+        const window = mainWindow;
+        if (!isTrustedDisplayCaptureRequest(request, window)) {
+          callback({});
+          return;
+        }
+        try {
+          const sources = await desktopCapturer.getSources({
+            types: ["screen"],
+            thumbnailSize: { width: 1, height: 1 },
+          });
+          if (mainWindow !== window || !isTrustedDisplayCaptureRequest(request, window)) {
+            callback({});
+            return;
+          }
+          const selectedSourceId = await promptForDisplayCaptureSource(sources, window);
+          const selectedSource = resolveDisplayCaptureSource(sources, selectedSourceId);
+          if (
+            !selectedSource ||
+            mainWindow !== window ||
+            !isTrustedDisplayCaptureRequest(request, window)
+          ) {
+            callback({});
+            return;
+          }
+          callback({ video: selectedSource, audio: "loopback" });
+        } catch {
+          callback({});
+        }
+      },
+      { useSystemPicker: false }
+    );
+  }
   registerKeepAwakeIpc();
   registerUpdateIpc();
   registerTimeSyncIpc();
@@ -335,6 +434,11 @@ app.whenReady().then(async () => {
 
       if (permission === "fullscreen") {
         callback(isAllowedFullscreenRequest(webContents, details));
+        return;
+      }
+
+      if (permission === "display-capture") {
+        callback(process.platform === "win32" && webContents === mainWindow?.webContents);
         return;
       }
 

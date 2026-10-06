@@ -58,6 +58,57 @@ describe("appearanceModel", () => {
     expect(normalized.scenes.clock.background).toEqual({ type: "inherit" });
   });
 
+  it("保留旧静态背景语义，并规范动态背景默认值", () => {
+    const migrated = normalizeAppearance({
+      global: { background: { type: "green" } },
+      scenes: { clock: { background: { type: "inherit" }, components: {} } },
+    });
+
+    expect(migrated.global.background).toEqual({ type: "green" });
+    expect(migrated.scenes.clock.background).toEqual({ type: "inherit" });
+
+    migrated.global.background = normalizeAppearance({
+      global: {
+        background: {
+          type: "color",
+          color: "#121212",
+          mode: "dynamic",
+          staticType: "color",
+          dynamic: { type: "particles", density: 3 },
+        },
+      },
+    }).global.background;
+    expect(migrated.global.background).toMatchObject({
+      type: "color",
+      mode: "dynamic",
+      staticType: "color",
+      dynamic: {
+        type: "particles",
+        preset: "stars",
+        density: 1,
+        size: 1.2,
+        speed: 0.65,
+        darkness: 0.35,
+      },
+    });
+  });
+
+  it("为旧粒子背景补齐默认密度和默认粒径", () => {
+    const normalized = normalizeAppearance({
+      global: {
+        background: {
+          type: "green",
+          mode: "dynamic",
+          dynamic: { type: "particles" },
+        },
+      },
+    });
+
+    expect(normalized.global.background).toMatchObject({
+      dynamic: { type: "particles", density: 0.5, size: 1.2 },
+    });
+  });
+
   it("将旧页面应用预设迁移为深绿预设", () => {
     const normalized = normalizeAppearance({
       global: { background: { type: "default" } },

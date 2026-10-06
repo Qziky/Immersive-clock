@@ -1,0 +1,54 @@
+.layer {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.video,
+.canvas,
+.darkness {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.video,
+.canvas,
+.darkness {
+  z-index: 0;
+}
+
+.video {
+  object-position: center;
+}
+
+.canvas {
+  display: block;
+}
+
+.darkness {
+  pointer-events: none;
+}
+
+.message,
+.soundButton {
+  position: absolute;
+  z-index: 2;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: calc(100% - var(--ui-space-6));
+  pointer-events: auto;
+}
+
+.message {
+  top: var(--ui-space-5);
+  display: flex;
+  align-items: center;
+  gap: var(--ui-space-3);
+}
+
+.soundButton {
+  bottom: var(--ui-space-5);
+}

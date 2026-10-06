@@ -64,8 +64,42 @@ export type AppearanceBackgroundType =
   | "color"
   | "image";
 
+export type DynamicBackgroundSettings =
+  | {
+      type: "particles";
+      preset: "stars" | "links";
+      color: string;
+      density: number;
+      size: number;
+      speed: number;
+      darkness: number;
+    }
+  | {
+      type: "music";
+      visualization: "spectrum" | "waveform";
+      source: "microphone" | "computer";
+      color: string;
+      sensitivity: number;
+      darkness: number;
+    }
+  | {
+      type: "video";
+      assetId?: string;
+      fileName?: string;
+      url?: string;
+      fit: "cover" | "contain";
+      soundEnabled: boolean;
+      volume: number;
+      darkness: number;
+    };
+
 export interface AppearanceBackground {
   type: AppearanceBackgroundType;
+  /** Last local static preset while a page follows the global background. */
+  staticType?: Exclude<AppearanceBackgroundType, "inherit">;
+  /** Absent on older settings; dynamic details remain saved while static is selected. */
+  mode?: "static" | "dynamic";
+  dynamic?: DynamicBackgroundSettings;
   color?: string;
   colorAlpha?: number;
   assetId?: string;
@@ -125,10 +159,11 @@ export interface AppearanceBundleV2 {
   settings: unknown;
   assets: Array<{
     id: string;
-    kind: "background" | "font";
+    kind: "background" | "video" | "font";
     name: string;
     mimeType: string;
     dataUrl: string;
+    sizeBytes?: number;
     family?: string;
     format?: "truetype" | "opentype" | "woff" | "woff2";
   }>;

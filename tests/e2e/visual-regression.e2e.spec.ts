@@ -244,7 +244,7 @@ async function openQuoteChannelManager(page: Page) {
   await dialog.getByRole("button", { name: "内容语录" }).click();
   await dialog.getByRole("button", { name: "语录渠道" }).click();
   await expect(dialog.getByRole("heading", { name: "语录频道管理" })).toBeVisible();
-  await expect(dialog.locator("article")).toHaveCount(5);
+  await expect(dialog.getByTestId("quote-channel-manager").locator("article")).toHaveCount(6);
   return dialog;
 }
 

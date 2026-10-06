@@ -115,128 +115,146 @@ export function ExamSettings({
             void submit();
           }}
         >
-          <Input
-            id={subjectId}
-            label="考试科目"
-            placeholder="例如：综合能力测试"
-            value={draft.subject}
-            maxLength={80}
-            onChange={(event) => update({ subject: event.target.value })}
-          />
-          <div className={styles.presets} role="group" aria-label="科目预设">
-            {EXAM_PRESETS.map((preset) => (
-              <Button
-                key={preset.subject}
-                size="sm"
-                variant={selectedPreset === preset ? "secondary" : "ghost"}
-                aria-pressed={selectedPreset === preset}
-                onClick={() => {
+          <section className={styles.formSection}>
+            <h3 className={styles.sectionTitle}>科目</h3>
+            <div className={styles.sectionContent}>
+              <Input
+                id={subjectId}
+                label="考试科目"
+                placeholder="例如：综合能力测试"
+                value={draft.subject}
+                maxLength={80}
+                onChange={(event) => update({ subject: event.target.value })}
+              />
+              <div className={styles.presets} role="group" aria-label="科目预设">
+                {EXAM_PRESETS.map((preset) => (
+                  <Button
+                    className={styles.presetButton}
+                    key={preset.subject}
+                    size="sm"
+                    variant={selectedPreset === preset ? "primary" : "secondary"}
+                    aria-pressed={selectedPreset === preset}
+                    onClick={() => {
+                      const start = Number.isFinite(Date.parse(draft.start))
+                        ? draft.start
+                        : localDateTime(getAdjustedNowMs());
+                      setHours(String(Math.floor(preset.minutes / 60)));
+                      setMinutes(String(preset.minutes % 60));
+                      update({
+                        subject: preset.subject,
+                        minutes: preset.minutes,
+                        start,
+                        ...(!manualEnd
+                          ? { end: localDateTime(Date.parse(start) + preset.minutes * 60000) }
+                          : {}),
+                      });
+                    }}
+                  >
+                    {preset.subject} · {preset.minutes}分
+                  </Button>
+                ))}
+                <Button
+                  className={styles.customPresetButton}
+                  size="sm"
+                  variant={selectedPreset ? "secondary" : "primary"}
+                  icon="action.configure"
+                  aria-pressed={!selectedPreset}
+                  onClick={() => {
+                    if (selectedPreset) update({ subject: "" });
+                    document.getElementById(subjectId)?.focus();
+                  }}
+                >
+                  自定义
+                </Button>
+              </div>
+            </div>
+          </section>
+
+          <section className={styles.formSection}>
+            <h3 className={styles.sectionTitle}>时间安排</h3>
+            <div className={styles.sectionContent}>
+              <Select
+                label="开始方式"
+                value={draft.kind}
+                options={[
+                  { value: "immediate", label: "立刻开始" },
+                  { value: "scheduled", label: "固定时间段" },
+                ]}
+                onChange={(event) => {
+                  const kind = event.target.value as ExamConfig["kind"];
                   const start = Number.isFinite(Date.parse(draft.start))
                     ? draft.start
                     : localDateTime(getAdjustedNowMs());
-                  setHours(String(Math.floor(preset.minutes / 60)));
-                  setMinutes(String(preset.minutes % 60));
                   update({
-                    subject: preset.subject,
-                    minutes: preset.minutes,
+                    kind,
                     start,
-                    ...(!manualEnd
-                      ? { end: localDateTime(Date.parse(start) + preset.minutes * 60000) }
-                      : {}),
+                    end: draft.end || localDateTime(Date.parse(start) + draft.minutes * 60000),
                   });
                 }}
-              >
-                {preset.subject} · {preset.minutes}分
-              </Button>
-            ))}
-            <Button
-              size="sm"
-              variant={selectedPreset ? "ghost" : "secondary"}
-              icon="action.configure"
-              aria-pressed={!selectedPreset}
-              onClick={() => {
-                if (selectedPreset) update({ subject: "" });
-                document.getElementById(subjectId)?.focus();
-              }}
-            >
-              自定义
-            </Button>
-          </div>
-          <Select
-            label="开始方式"
-            value={draft.kind}
-            options={[
-              { value: "immediate", label: "立刻开始" },
-              { value: "scheduled", label: "固定时间段" },
-            ]}
-            onChange={(event) => {
-              const kind = event.target.value as ExamConfig["kind"];
-              const start = Number.isFinite(Date.parse(draft.start))
-                ? draft.start
-                : localDateTime(getAdjustedNowMs());
-              update({
-                kind,
-                start,
-                end: draft.end || localDateTime(Date.parse(start) + draft.minutes * 60000),
-              });
-            }}
-          />
-          {draft.kind === "immediate" ? (
-            <div className={styles.duration}>
-              <Input
-                label="小时"
-                type="number"
-                min={0}
-                max={99}
-                value={hours}
-                onChange={(event) => {
-                  setHours(event.target.value);
-                  update({ minutes: Number(event.target.value) * 60 + Number(minutes) });
-                }}
               />
-              <Input
-                label="分钟"
-                type="number"
-                min={0}
-                max={59}
-                value={minutes}
-                onChange={(event) => {
-                  setMinutes(event.target.value);
-                  update({ minutes: Number(hours) * 60 + Number(event.target.value) });
-                }}
-              />
+              {draft.kind === "immediate" ? (
+                <div className={styles.duration}>
+                  <Input
+                    label="小时"
+                    type="number"
+                    min={0}
+                    max={99}
+                    value={hours}
+                    onChange={(event) => {
+                      setHours(event.target.value);
+                      update({ minutes: Number(event.target.value) * 60 + Number(minutes) });
+                    }}
+                  />
+                  <Input
+                    label="分钟"
+                    type="number"
+                    min={0}
+                    max={59}
+                    value={minutes}
+                    onChange={(event) => {
+                      setMinutes(event.target.value);
+                      update({ minutes: Number(hours) * 60 + Number(event.target.value) });
+                    }}
+                  />
+                </div>
+              ) : (
+                <>
+                  <div className={styles.scheduledTimes}>
+                    <Input
+                      className={styles.dateTimeInput}
+                      label="开始时间"
+                      type="datetime-local"
+                      value={draft.start}
+                      onChange={(event) => {
+                        const start = event.target.value;
+                        update({
+                          start,
+                          ...(!manualEnd && Number.isFinite(Date.parse(start))
+                            ? { end: localDateTime(Date.parse(start) + draft.minutes * 60000) }
+                            : {}),
+                        });
+                      }}
+                    />
+                    <Input
+                      className={styles.dateTimeInput}
+                      label="结束时间"
+                      type="datetime-local"
+                      value={draft.end}
+                      onChange={(event) => {
+                        setManualEnd(true);
+                        update({ end: event.target.value });
+                      }}
+                    />
+                  </div>
+                  <p>到点自动开考和结束，固定时间段不支持暂停。</p>
+                </>
+              )}
             </div>
-          ) : (
-            <>
-              <Input
-                label="开始时间"
-                type="datetime-local"
-                value={draft.start}
-                onChange={(event) => {
-                  const start = event.target.value;
-                  update({
-                    start,
-                    ...(!manualEnd && Number.isFinite(Date.parse(start))
-                      ? { end: localDateTime(Date.parse(start) + draft.minutes * 60000) }
-                      : {}),
-                  });
-                }}
-              />
-              <Input
-                label="结束时间"
-                type="datetime-local"
-                value={draft.end}
-                onChange={(event) => {
-                  setManualEnd(true);
-                  update({ end: event.target.value });
-                }}
-              />
-              <p>到点自动开考和结束，固定时间段不支持暂停。</p>
-            </>
-          )}
-          <details>
+          </section>
+
+          <details className={styles.advancedSettings}>
             <summary>显示与提醒</summary>
-            <div className={styles.form}>
+            <div className={styles.reminderSettings}>
               <Switch
                 label="显示进度条"
                 checked={draft.progress}

@@ -64,6 +64,7 @@ describe("MotivationalQuote", () => {
         autoRefreshIntervalSec: 30,
         typewriterBackspaceEnabled: true,
         typingSpeed: "normal",
+        fontScalePercent: 100,
       },
     });
     componentMocks.useComponentAppearance.mockReturnValue({ color: "rgb(1, 2, 3)" });
@@ -116,6 +117,7 @@ describe("MotivationalQuote", () => {
         autoRefreshIntervalSec: 30,
         typewriterBackspaceEnabled: false,
         typingSpeed: "fast",
+        fontScalePercent: 135,
       },
     });
 
@@ -129,6 +131,8 @@ describe("MotivationalQuote", () => {
       "data-typewriter-backspace-enabled",
       "false"
     );
+    const quoteReveal = container.querySelector('[data-quote-reveal="true"]');
+    expect(quoteReveal?.getAttribute("style")).toContain("--quote-font-scale: 1.35");
     expect(container.querySelector("[data-quote-layout-copy]")).not.toBeInTheDocument();
   });
 });

@@ -10,6 +10,7 @@ import type {
 import { getAppSettings, updateGeneralSettings } from "../utils/appSettings";
 import { getValidXiaomiLocation, updateXiaomiLocationCache } from "../utils/weatherStorage";
 
+import { withDevicePermissionRequest } from "./devicePermissionRequestQueue";
 import { httpGetJson } from "./httpClient";
 import { xiaomiWeatherGetJson } from "./xiaomiWeatherClient";
 
@@ -123,48 +124,51 @@ export async function getGeolocationResult(options?: {
 
   if (!isSupported || !isSecureContext) return { coords: null, diagnostics };
 
-  return new Promise((resolve) => {
-    try {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const lat = position.coords.latitude;
-          const lon = position.coords.longitude;
-          if (!validateCoords(lat, lon)) {
-            resolve({ coords: null, diagnostics });
-            return;
-          }
-          const accuracy = Number(position.coords.accuracy);
-          resolve({
-            coords: {
-              lat,
-              lon,
-              ...(Number.isFinite(accuracy) && accuracy >= 0 ? { accuracy } : {}),
+  return withDevicePermissionRequest(
+    () =>
+      new Promise((resolve) => {
+        try {
+          navigator.geolocation.getCurrentPosition(
+            (position) => {
+              const lat = position.coords.latitude;
+              const lon = position.coords.longitude;
+              if (!validateCoords(lat, lon)) {
+                resolve({ coords: null, diagnostics });
+                return;
+              }
+              const accuracy = Number(position.coords.accuracy);
+              resolve({
+                coords: {
+                  lat,
+                  lon,
+                  ...(Number.isFinite(accuracy) && accuracy >= 0 ? { accuracy } : {}),
+                },
+                diagnostics,
+              });
             },
-            diagnostics,
-          });
-        },
-        (error) => {
+            (error) => {
+              resolve({
+                coords: null,
+                diagnostics: {
+                  ...diagnostics,
+                  errorCode: error.code,
+                  errorMessage: error.message,
+                },
+              });
+            },
+            { enableHighAccuracy: true, maximumAge: 0, timeout: timeoutMs }
+          );
+        } catch (error: unknown) {
           resolve({
             coords: null,
             diagnostics: {
               ...diagnostics,
-              errorCode: error.code,
-              errorMessage: error.message,
+              errorMessage: error instanceof Error ? error.message : String(error),
             },
           });
-        },
-        { enableHighAccuracy: true, maximumAge: 0, timeout: timeoutMs }
-      );
-    } catch (error: unknown) {
-      resolve({
-        coords: null,
-        diagnostics: {
-          ...diagnostics,
-          errorMessage: error instanceof Error ? error.message : String(error),
-        },
-      });
-    }
-  });
+        }
+      })
+  );
 }
 
 export async function getCoordsViaGeolocation(): Promise<Coords | null> {

@@ -20,6 +20,7 @@ export function MotivationalQuote() {
         title: isRefreshing ? "正在刷新语录" : "点击刷新语录",
       }}
       cursorStyle={cursorAppearance}
+      fontScalePercent={quoteSettings.fontScalePercent}
       quote={quote}
       textStyle={textAppearance}
       typewriterBackspaceEnabled={quoteSettings.typewriterBackspaceEnabled}

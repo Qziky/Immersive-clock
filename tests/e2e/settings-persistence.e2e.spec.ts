@@ -34,6 +34,11 @@ async function openStudySettings(page: Parameters<typeof showHud>[0]) {
   return dialog;
 }
 
+async function openAppearancePage(dialog: Locator, pageName: string) {
+  await dialog.getByRole("button", { name: /^视觉外观/ }).click();
+  await dialog.getByRole("button", { name: pageName, exact: true }).click();
+}
+
 async function addStudyInfo(page: Page, dialog: Locator, optionName: string) {
   await dialog.getByRole("button", { name: "添加信息" }).click();
   await page.getByRole("option", { name: optionName, exact: false }).click();
@@ -1348,6 +1353,7 @@ test("页面背景：可在整体背景和深绿预设之间切换", async ({ pa
   let previewStage = dialog.getByLabel("时钟外观预览").locator('[data-preview-stage="clock"]');
   await expect(previewStage).toHaveCSS("background-color", "rgb(18, 52, 86)");
 
+  await dialog.getByRole("radio", { name: "单独设置" }).click();
   await dialog.getByRole("radio", { name: "深绿预设" }).check({ force: true });
   await dialog.getByRole("button", { name: "保存" }).click();
   expect(
@@ -1372,6 +1378,122 @@ test("页面背景：可在整体背景和深绿预设之间切换", async ({ pa
       return raw ? JSON.parse(raw)?.appearance?.scenes?.clock?.background?.type : null;
     })
   ).toBe("inherit");
+});
+
+test("动态背景：页面分类可切换、取消、保存并在刷新后恢复", async ({ page }) => {
+  test.setTimeout(60_000);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.addInitScript(() => {
+    if (sessionStorage.getItem("dynamic-background-seeded")) return;
+    sessionStorage.setItem("dynamic-background-seeded", "1");
+    localStorage.setItem(
+      "AppSettings",
+      JSON.stringify({
+        version: 21,
+        appearance: {
+          global: {
+            background: { type: "color", color: "#123456", colorAlpha: 1 },
+          },
+        },
+      })
+    );
+  });
+  await page.goto("/");
+
+  let dialog = await openStudySettings(page);
+  await openAppearancePage(dialog, "时间显示");
+  await dialog
+    .getByRole("radiogroup", { name: "时间显示类型" })
+    .getByRole("radio", { name: "时钟" })
+    .click();
+  const initialPageBackground = await page.evaluate(() => {
+    const raw = localStorage.getItem("AppSettings");
+    return raw ? (JSON.parse(raw)?.appearance?.scenes?.clock?.background ?? null) : null;
+  });
+
+  await dialog.getByRole("radio", { name: "单独设置" }).click();
+  await dialog.getByRole("radio", { name: "深绿预设", exact: true }).click();
+  await dialog.getByRole("radio", { name: "动态背景" }).click();
+  await expect(dialog.getByRole("radio", { name: "星空" })).toBeChecked();
+  await dialog.getByRole("radio", { name: "静态背景" }).click();
+  await expect(dialog.getByRole("radio", { name: "深绿预设", exact: true })).toBeChecked();
+  await dialog.getByRole("radio", { name: "动态背景" }).click();
+  const preview = dialog.getByLabel("时钟外观预览");
+  await expect(preview.getByTestId("dynamic-background-layer")).toBeVisible();
+  await expect(preview).toHaveScreenshot("dynamic-background-preview.png", {
+    animations: "disabled",
+    caret: "hide",
+  });
+  await dialog.getByRole("radio", { name: "连线粒子" }).click();
+  await expect(dialog.getByRole("radio", { name: "连线粒子" })).toBeChecked();
+  await expect(preview).toHaveScreenshot("dynamic-background-links-preview.png", {
+    animations: "disabled",
+    caret: "hide",
+  });
+
+  for (const viewport of [
+    { width: 1440, height: 900 },
+    { width: 390, height: 844 },
+    { width: 320, height: 568 },
+  ]) {
+    await page.setViewportSize(viewport);
+    const dimensions = await dialog.locator("#settings-panel-container").evaluate((element) => ({
+      clientWidth: element.clientWidth,
+      scrollWidth: element.scrollWidth,
+    }));
+    expect(dimensions.scrollWidth).toBeLessThanOrEqual(dimensions.clientWidth + 1);
+    await expect(dialog.getByRole("radio", { name: "动态背景" })).toBeVisible();
+  }
+
+  await dialog.getByRole("button", { name: "取消" }).click();
+  expect(
+    await page.evaluate(() => {
+      const raw = localStorage.getItem("AppSettings");
+      return raw ? (JSON.parse(raw)?.appearance?.scenes?.clock?.background ?? null) : null;
+    })
+  ).toEqual(initialPageBackground);
+
+  await page.setViewportSize({ width: 1440, height: 900 });
+  dialog = await openStudySettings(page);
+  await openAppearancePage(dialog, "时间显示");
+  await dialog
+    .getByRole("radiogroup", { name: "时间显示类型" })
+    .getByRole("radio", { name: "时钟" })
+    .click();
+  await dialog.getByRole("radio", { name: "单独设置" }).click();
+  await dialog.getByRole("radio", { name: "深绿预设", exact: true }).click();
+  await dialog.getByRole("radio", { name: "动态背景" }).click();
+  const particleSize = dialog.getByRole("slider", { name: "粒子大小" });
+  await expect(particleSize).toHaveValue("1.2");
+  await particleSize.press("ArrowRight");
+  await expect(particleSize).toHaveValue("1.25");
+  await dialog.getByRole("button", { name: "保存" }).click();
+
+  const savedBackground = await page.evaluate(() => {
+    const raw = localStorage.getItem("AppSettings");
+    return raw ? JSON.parse(raw)?.appearance?.scenes?.clock?.background : null;
+  });
+  expect(savedBackground).toMatchObject({
+    type: "green",
+    staticType: "green",
+    mode: "dynamic",
+    dynamic: { type: "particles", preset: "stars", density: 0.5, size: 1.25, darkness: 0.35 },
+  });
+
+  await page.reload();
+  dialog = await openStudySettings(page);
+  await openAppearancePage(dialog, "时间显示");
+  await dialog
+    .getByRole("radiogroup", { name: "时间显示类型" })
+    .getByRole("radio", { name: "时钟" })
+    .click();
+  await expect(dialog.getByRole("radio", { name: "动态背景" })).toBeChecked();
+  await expect(dialog.getByRole("radio", { name: "星空" })).toBeChecked();
+  await expect(dialog.getByRole("slider", { name: "粒子大小" })).toHaveValue("1.25");
+  await expect(
+    dialog.getByLabel("时钟外观预览").getByTestId("dynamic-background-layer")
+  ).toBeVisible();
 });
 
 test("组件外观：多事件倒计时可按实例保存覆盖", async ({ page }) => {
@@ -1730,7 +1852,11 @@ test("时间显示：时钟与自习页可独立隐藏秒数并持久化", async
       const raw = localStorage.getItem("AppSettings");
       return raw ? JSON.parse(raw)?.general?.timeDisplay : null;
     })
-  ).toEqual({ showClockSeconds: false, showStudySeconds: false });
+  ).toEqual({
+    showClockSeconds: false,
+    showStudySeconds: false,
+    centralTimeScale: 1,
+  });
 
   await page.reload();
   await expect(currentTime).toHaveAttribute("aria-label", /^当前时间：\d{2}:\d{2}$/);

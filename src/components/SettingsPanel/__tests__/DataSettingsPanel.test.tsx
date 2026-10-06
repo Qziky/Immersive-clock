@@ -6,7 +6,7 @@ import DataSettingsPanel from "../sections/DataSettingsPanel";
 
 const dataManagementMocks = vi.hoisted(() => ({
   clearDataScope: vi.fn(),
-  createBackup: vi.fn(),
+  createBackupBlob: vi.fn(),
   dataDomainRegistry: {
     assets: {},
     cache: {},
@@ -185,7 +185,9 @@ describe("DataSettingsPanel", () => {
       bytes: 0,
       referencedAssetIds: [],
     });
-    dataManagementMocks.createBackup.mockResolvedValue(backup);
+    dataManagementMocks.createBackupBlob.mockResolvedValue(
+      new Blob([JSON.stringify(backup)], { type: "application/json" })
+    );
     dataManagementMocks.prepareBackupFile.mockResolvedValue(preparedBackup);
     dataManagementMocks.restoreBackup.mockResolvedValue({
       affectedDomains: ["settings", "assets", "noiseHistory"],
@@ -251,7 +253,7 @@ describe("DataSettingsPanel", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "创建备份" }));
 
-    await waitFor(() => expect(dataManagementMocks.createBackup).toHaveBeenCalledWith("full"));
+    await waitFor(() => expect(dataManagementMocks.createBackupBlob).toHaveBeenCalledWith("full"));
     expect(HTMLAnchorElement.prototype.click).toHaveBeenCalledTimes(1);
     expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:data-backup");
     expect(await screen.findByText("备份已创建")).toBeInTheDocument();

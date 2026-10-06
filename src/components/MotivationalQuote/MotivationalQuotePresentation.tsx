@@ -13,6 +13,7 @@ interface MotivationalQuotePresentationProps {
   buttonAttributes?: PresentationAttributes<ButtonHTMLAttributes<HTMLButtonElement>>;
   cursorAttributes?: PresentationAttributes<HTMLAttributes<HTMLSpanElement>>;
   cursorStyle?: CSSProperties;
+  fontScalePercent?: number;
   includeScreenReaderStatus?: boolean;
   quote: Quote;
   replayKey?: number | string;
@@ -28,6 +29,7 @@ export function MotivationalQuotePresentation({
   buttonAttributes,
   cursorAttributes,
   cursorStyle,
+  fontScalePercent = 100,
   includeScreenReaderStatus = true,
   quote,
   replayKey,
@@ -53,6 +55,7 @@ export function MotivationalQuotePresentation({
           animationMode={animationMode}
           cursorAttributes={cursorAttributes}
           cursorStyle={cursorStyle}
+          fontScalePercent={fontScalePercent}
           quote={quote}
           replayKey={replayKey}
           staticCursorTarget={staticCursorTarget}

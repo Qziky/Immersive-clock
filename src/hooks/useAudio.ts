@@ -6,33 +6,58 @@ import { logger } from "../utils/logger";
  * 音频管理钩子
  * 提供音频预加载和播放功能
  * @param src 音频文件路径
- * @returns [play, isReady] 播放函数和就绪状态
+ * @returns [play, isReady] 播放函数和就绪状态；播放函数可选接收完成回调
  */
-export function useAudio(src: string): [() => void, boolean] {
+export function useAudio(src: string): [(onPlaybackComplete?: () => void) => void, boolean] {
   const [isReady, setIsReady] = useState<boolean>(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const isMountedRef = useRef(false);
 
   /**
    * 播放音频
    */
-  const play = useCallback(() => {
-    if (audioRef.current && isReady) {
+  const play = useCallback(
+    (onPlaybackComplete?: () => void) => {
+      const audio = audioRef.current;
+      if (!audio || !isReady) {
+        onPlaybackComplete?.();
+        return;
+      }
+
+      let completed = false;
+      const complete = () => {
+        if (completed) return;
+        completed = true;
+        audio.removeEventListener("ended", complete);
+        audio.removeEventListener("error", complete);
+        if (isMountedRef.current) onPlaybackComplete?.();
+      };
+
+      if (onPlaybackComplete) {
+        audio.addEventListener("ended", complete, { once: true });
+        audio.addEventListener("error", complete, { once: true });
+      }
+
       try {
         // 重置播放位置到开始
-        audioRef.current.currentTime = 0;
-        audioRef.current.play().catch((error) => {
+        audio.currentTime = 0;
+        audio.play().catch((error) => {
           logger.warn("音频播放失败:", error);
+          complete();
         });
       } catch (error) {
         logger.warn("音频播放出错:", error);
+        complete();
       }
-    }
-  }, [isReady]);
+    },
+    [isReady]
+  );
 
   useEffect(() => {
     // 创建音频元素
     const audio = new Audio(src);
     audioRef.current = audio;
+    isMountedRef.current = true;
 
     /**
      * 音频加载完成处理函数
@@ -70,6 +95,7 @@ export function useAudio(src: string): [() => void, boolean] {
 
     return () => {
       // 清理事件监听器
+      isMountedRef.current = false;
       audio.removeEventListener("canplaythrough", handleCanPlayThrough);
       audio.removeEventListener("error", handleError);
       audio.removeEventListener("loadstart", handleLoadStart);

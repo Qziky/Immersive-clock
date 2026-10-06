@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">沉浸式时钟（调试版）</string>
+    <string name="custom_url_scheme">io.github.qziky.immersiveclock.debug</string>
+</resources>

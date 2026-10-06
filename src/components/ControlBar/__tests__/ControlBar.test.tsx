@@ -37,9 +37,10 @@ describe("ControlBar 更多模式", () => {
     const trigger = screen.getByRole("button", { name: "更多" });
     expect(trigger.className).toBe(screen.getByRole("button", { name: "进入全屏" }).className);
     await user.click(trigger);
-    expect(screen.getByRole("option", { name: "时钟" })).toHaveAttribute("aria-selected", "true");
-    await user.click(screen.getByRole("option", { name: "自习" }));
-    expect(onModeChange).toHaveBeenCalledWith("study");
+    expect(screen.getAllByRole("option")).toHaveLength(1);
+    expect(screen.getByRole("option", { name: "考试" })).toBeVisible();
+    await user.click(screen.getByRole("option", { name: "考试" }));
+    expect(onModeChange).toHaveBeenCalledWith("exam");
     expect(trigger).toHaveAttribute("aria-expanded", "false");
     expect(trigger).toHaveFocus();
   });

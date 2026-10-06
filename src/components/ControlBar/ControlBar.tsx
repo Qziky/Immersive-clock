@@ -167,25 +167,9 @@ export function ControlBar({ onModeChange }: ControlBarProps) {
                 更多
               </FormButton>
             )}
-            options={[
-              { value: "exam", label: "考试", icon: "mode.exam" },
-              { value: "clock", label: "时钟", icon: "mode.clock" },
-              {
-                value: "countdown",
-                label: "倒计时",
-                icon: "mode.countdown",
-              },
-              { value: "stopwatch", label: "秒表", icon: "mode.stopwatch" },
-              { value: "study", label: "自习", icon: "mode.study" },
-            ]}
+            options={[{ value: "exam", label: "考试", icon: "mode.exam" }]}
             onChange={(value) => {
-              if (
-                value === "exam" ||
-                value === "clock" ||
-                value === "countdown" ||
-                value === "stopwatch" ||
-                value === "study"
-              ) {
+              if (value === "exam") {
                 if (onModeChange) onModeChange(value);
                 else dispatch({ type: "SET_MODE", payload: value });
               }

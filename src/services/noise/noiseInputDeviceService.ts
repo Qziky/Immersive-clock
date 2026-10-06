@@ -1,3 +1,5 @@
+import { withDevicePermissionRequest } from "../devicePermissionRequestQueue";
+
 export interface NoiseInputDevice {
   deviceId: string;
   label: string;
@@ -58,10 +60,12 @@ export async function requestNoiseInputDeviceAccess(): Promise<NoiseInputDevice[
   if (typeof mediaDevices.getUserMedia !== "function") {
     throw new Error("当前环境不支持申请麦克风权限");
   }
-  const stream = await mediaDevices.getUserMedia({
-    audio: createAudioConstraints(),
-    video: false,
-  });
+  const stream = await withDevicePermissionRequest(() =>
+    mediaDevices.getUserMedia({
+      audio: createAudioConstraints(),
+      video: false,
+    })
+  );
   try {
     stream.getTracks().forEach((track) => track.stop());
   } catch {
@@ -76,17 +80,23 @@ export async function openNoiseInputStream(preferredDeviceId?: string): Promise<
     throw new Error("当前环境不支持麦克风采集");
   }
   if (!preferredDeviceId) {
-    return mediaDevices.getUserMedia({ audio: createAudioConstraints(), video: false });
+    return withDevicePermissionRequest(() =>
+      mediaDevices.getUserMedia({ audio: createAudioConstraints(), video: false })
+    );
   }
 
   try {
-    return await mediaDevices.getUserMedia({
-      audio: createAudioConstraints(preferredDeviceId),
-      video: false,
-    });
+    return await withDevicePermissionRequest(() =>
+      mediaDevices.getUserMedia({
+        audio: createAudioConstraints(preferredDeviceId),
+        video: false,
+      })
+    );
   } catch (error) {
     if (!isUnavailableDeviceError(error)) throw error;
-    return mediaDevices.getUserMedia({ audio: createAudioConstraints(), video: false });
+    return withDevicePermissionRequest(() =>
+      mediaDevices.getUserMedia({ audio: createAudioConstraints(), video: false })
+    );
   }
 }
 

@@ -108,6 +108,30 @@ function isValidDraftValue(path: readonly string[], value: unknown): boolean {
     return Object.prototype.hasOwnProperty.call(normalized, property);
   }
   if (path.includes("background")) {
+    if (path.includes("dynamic")) {
+      if (property === "type") return ["particles", "music", "video"].includes(String(value));
+      if (property === "preset") return ["stars", "links"].includes(String(value));
+      if (property === "visualization") return ["spectrum", "waveform"].includes(String(value));
+      if (property === "source") return ["microphone", "computer"].includes(String(value));
+      if (property === "fit") return ["cover", "contain"].includes(String(value));
+      if (property === "color") return typeof value === "string" && /^#[0-9a-f]{6}$/i.test(value);
+      if (property === "darkness")
+        return typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 0.8;
+      if (property === "density")
+        return typeof value === "number" && Number.isFinite(value) && value >= 0.1 && value <= 1;
+      if (property === "size")
+        return typeof value === "number" && Number.isFinite(value) && value >= 0.5 && value <= 2;
+      if (property === "speed")
+        return typeof value === "number" && Number.isFinite(value) && value >= 0.1 && value <= 2;
+      if (property === "sensitivity")
+        return typeof value === "number" && Number.isFinite(value) && value >= 0.5 && value <= 3;
+      if (property === "volume")
+        return typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 1;
+      if (property === "soundEnabled") return typeof value === "boolean";
+      if (property === "url") return typeof value === "string" && value.length <= 2_000;
+      if (property === "assetId" || property === "fileName") return typeof value === "string";
+    }
+    if (property === "mode") return value === "static" || value === "dynamic";
     if (property === "type") {
       return ["inherit", "default", "green", "black", "dark", "color", "image"].includes(
         String(value)

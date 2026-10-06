@@ -92,41 +92,105 @@
 }
 .settingsGrid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: var(--ui-space-6);
+  align-items: stretch;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+  gap: var(--ui-space-5);
 }
 .form {
   display: grid;
   align-content: start;
-  gap: var(--ui-space-4);
+  gap: var(--ui-space-5);
+  min-width: 0;
+}
+.formSection {
+  display: grid;
+  gap: var(--ui-space-3);
+  min-width: 0;
+}
+.sectionTitle {
+  margin: 0;
+  color: var(--ui-color-text);
+  font-size: var(--ui-font-size-md);
+  font-weight: 600;
+  line-height: 1.4;
+}
+.sectionContent {
+  display: grid;
+  gap: var(--ui-space-3);
   min-width: 0;
 }
 .form p {
+  margin: 0;
   font-size: var(--ui-font-size-sm);
   color: var(--ui-color-text-muted);
 }
 .form .error {
+  margin: 0;
+  padding: var(--ui-space-3) var(--ui-space-4);
   color: var(--ui-color-danger);
+  background: var(--ui-color-danger-soft);
+  border: 1px solid var(--ui-color-danger-border);
+  border-radius: var(--ui-radius-md);
 }
 .presets {
-  display: flex;
-  gap: var(--ui-space-1);
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--ui-space-2);
+}
+.presetButton {
+  width: 100%;
+  min-width: 0;
+  padding-inline: var(--ui-space-1);
+  font-size: var(--ui-font-size-xs);
+  white-space: nowrap;
+}
+.customPresetButton {
+  grid-column: 1 / -1;
+  justify-self: start;
 }
 .duration {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--ui-space-3);
 }
+.scheduledTimes {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--ui-space-3);
+  min-width: 0;
+}
+.dateTimeInput {
+  min-width: 0;
+  padding-inline: var(--ui-space-2);
+}
+.advancedSettings {
+  padding-top: var(--ui-space-3);
+  border-top: 1px solid var(--ui-color-border);
+}
+.advancedSettings summary {
+  color: var(--ui-color-text-muted);
+  font-weight: 600;
+  cursor: pointer;
+}
+.advancedSettings[open] summary {
+  margin-bottom: var(--ui-space-3);
+  color: var(--ui-color-text);
+}
+.reminderSettings {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--ui-space-3);
+  min-width: 0;
+}
 .preview {
-  align-self: start;
-  aspect-ratio: 4 / 3;
+  align-self: stretch;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   position: relative;
   background: var(--ui-color-bg);
+  border: 1px solid var(--ui-color-border);
   border-radius: var(--ui-radius-lg);
   padding: var(--ui-space-4);
   min-width: 0;
@@ -156,6 +220,15 @@
 
 @media (max-width: 600px) {
   .settingsGrid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--ui-space-5);
+  }
+  .preview {
+    aspect-ratio: 4 / 3;
+    min-height: 0;
+  }
+  .scheduledTimes,
+  .reminderSettings {
     grid-template-columns: minmax(0, 1fr);
   }
   .header,

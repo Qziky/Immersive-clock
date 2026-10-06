@@ -6,16 +6,23 @@ import React, {
   useEffect,
   useRef,
   useState,
+  useSyncExternalStore,
 } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
 import { AuthorInfo } from "../../components/AuthorInfo/AuthorInfo";
+import { DynamicBackgroundLayer } from "../../components/DynamicBackground";
 import { HUD } from "../../components/HUD/HUD";
 import { RouteSeo } from "../../components/Seo/RouteSeo";
 import { SeoContent } from "../../components/Seo/SeoContent";
 import { SettingsButton } from "../../components/SettingsButton";
 import { useAppState, useAppDispatch } from "../../contexts/AppContext";
 import { useAppearance } from "../../contexts/AppearanceContext";
+import {
+  getDynamicAudioSnapshot,
+  stopDynamicAudioCapture,
+  subscribeDynamicAudio,
+} from "../../services/dynamicBackgroundAudio";
 import type { AppMode } from "../../types";
 import type { MessagePopupOpenDetail, MessagePopupType } from "../../types/messagePopup";
 import { IconButton, useFeedback, type ToastVariant } from "../../ui";
@@ -84,7 +91,12 @@ function getPopupDuration(type: MessagePopupType): number | null {
  */
 export function ClockPage() {
   const { mode, isModalOpen, study } = useAppState();
-  const { previewScene, getBackgroundImage, resolveBackground } = useAppearance();
+  const { previewScene, getBackgroundImage, resolveBackground, isPreviewing } = useAppearance();
+  const audioSnapshot = useSyncExternalStore(
+    subscribeDynamicAudio,
+    getDynamicAudioSnapshot,
+    getDynamicAudioSnapshot
+  );
   const dispatch = useAppDispatch();
   const { notify, dismiss } = useFeedback();
   const location = useLocation();
@@ -107,6 +119,20 @@ export function ClockPage() {
     getBackgroundImage(displayMode)
   );
   const ModeComponent = MODE_COMPONENTS[displayMode];
+
+  useEffect(() => {
+    const dynamic = displayBackground.dynamic;
+    if (displayBackground.mode === "dynamic" && dynamic?.type === "music") {
+      const musicBackground = dynamic as Extract<NonNullable<typeof dynamic>, { type: "music" }>;
+      if (audioSnapshot.status !== "idle" && audioSnapshot.source !== musicBackground.source) {
+        stopDynamicAudioCapture("监听音源已切换，请重新开始");
+      }
+    } else if (audioSnapshot.status !== "idle") {
+      stopDynamicAudioCapture("已离开音乐响应背景");
+    }
+  }, [audioSnapshot, displayBackground.dynamic, displayBackground.mode]);
+
+  useEffect(() => () => stopDynamicAudioCapture("已停止监听"), []);
 
   useEffect(() => {
     const routeMode = getModeFromPathname(location.pathname);
@@ -422,12 +448,16 @@ export function ClockPage() {
     <main
       className={styles.clockPage}
       data-background-type={displayMode === "study" ? undefined : displayBackground.type}
+      data-background-mode={displayMode === "study" ? undefined : displayBackground.mode}
       onClick={handlePageClick}
       onKeyDown={handleKeyDown}
       style={displayMode === "study" ? undefined : displayBackgroundStyle}
       tabIndex={0}
       aria-label="时钟应用主界面"
     >
+      {displayMode !== "study" && displayBackground.mode === "dynamic" ? (
+        <DynamicBackgroundLayer background={displayBackground} mutedPreview={isPreviewing} />
+      ) : null}
       <RouteSeo />
       <SeoContent />
       <div

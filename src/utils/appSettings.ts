@@ -244,6 +244,10 @@ const MAX_QUOTE_REFRESH_INTERVAL_SEC = 1800;
 const DEFAULT_QUOTE_ANIMATION_MODE: QuoteAnimationMode = "typewriter";
 const DEFAULT_QUOTE_TYPING_SPEED: QuoteTypingSpeed = "normal";
 const DEFAULT_TYPEWRITER_BACKSPACE_ENABLED = true;
+const DEFAULT_QUOTE_FONT_SCALE_PERCENT = 100;
+const MIN_QUOTE_FONT_SCALE_PERCENT = 80;
+const MAX_QUOTE_FONT_SCALE_PERCENT = 140;
+const STEP_QUOTE_FONT_SCALE_PERCENT = 5;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
@@ -602,6 +606,21 @@ function normalizeTypewriterBackspaceEnabled(value: unknown): boolean {
   return typeof value === "boolean" ? value : DEFAULT_TYPEWRITER_BACKSPACE_ENABLED;
 }
 
+function normalizeQuoteFontScalePercent(value: unknown): number {
+  const parsed = parseStoredNumber(value);
+  if (!Number.isFinite(parsed)) return DEFAULT_QUOTE_FONT_SCALE_PERCENT;
+
+  const clamped = Math.max(
+    MIN_QUOTE_FONT_SCALE_PERCENT,
+    Math.min(MAX_QUOTE_FONT_SCALE_PERCENT, parsed)
+  );
+  return (
+    MIN_QUOTE_FONT_SCALE_PERCENT +
+    Math.round((clamped - MIN_QUOTE_FONT_SCALE_PERCENT) / STEP_QUOTE_FONT_SCALE_PERCENT) *
+      STEP_QUOTE_FONT_SCALE_PERCENT
+  );
+}
+
 function createDefaultQuoteSettings(): PersistedQuoteSettings {
   const serialized = serializeQuoteChannels(getDefaultQuoteChannels());
   return {
@@ -610,6 +629,7 @@ function createDefaultQuoteSettings(): PersistedQuoteSettings {
     animationMode: DEFAULT_QUOTE_ANIMATION_MODE,
     typingSpeed: DEFAULT_QUOTE_TYPING_SPEED,
     typewriterBackspaceEnabled: DEFAULT_TYPEWRITER_BACKSPACE_ENABLED,
+    fontScalePercent: DEFAULT_QUOTE_FONT_SCALE_PERCENT,
     channels: serialized.channels,
     customChannels: serialized.customChannels,
   };
@@ -787,6 +807,7 @@ function normalizeQuoteSettings(value: unknown, storedVersion: number): Persiste
         typewriterBackspaceEnabled: normalizeTypewriterBackspaceEnabled(
           source.typewriterBackspaceEnabled
         ),
+        fontScalePercent: normalizeQuoteFontScalePercent(source.fontScalePercent),
         ...serialized,
       };
     }
@@ -799,6 +820,7 @@ function normalizeQuoteSettings(value: unknown, storedVersion: number): Persiste
         typewriterBackspaceEnabled: normalizeTypewriterBackspaceEnabled(
           source.typewriterBackspaceEnabled
         ),
+        fontScalePercent: normalizeQuoteFontScalePercent(source.fontScalePercent),
         ...serialized,
       };
     }
@@ -813,6 +835,7 @@ function normalizeQuoteSettings(value: unknown, storedVersion: number): Persiste
     typewriterBackspaceEnabled: normalizeTypewriterBackspaceEnabled(
       source.typewriterBackspaceEnabled
     ),
+    fontScalePercent: normalizeQuoteFontScalePercent(source.fontScalePercent),
     ...serialized,
   };
 }
@@ -1528,6 +1551,7 @@ export function saveQuoteSettings(
         typewriterBackspaceEnabled: normalizeTypewriterBackspaceEnabled(
           quoteSettings.typewriterBackspaceEnabled
         ),
+        fontScalePercent: normalizeQuoteFontScalePercent(quoteSettings.fontScalePercent),
         channels: serialized.channels,
         customChannels: serialized.customChannels,
       },

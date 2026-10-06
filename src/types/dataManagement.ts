@@ -38,10 +38,11 @@ export interface DataOverview {
 
 export interface AppearanceBackupAsset {
   id: string;
-  kind: "background" | "font";
+  kind: "background" | "video" | "font";
   name: string;
   mimeType: string;
   dataUrl: string;
+  sizeBytes?: number;
   family?: string;
   format?: "truetype" | "opentype" | "woff" | "woff2";
 }
@@ -103,6 +104,8 @@ export interface PreparedBackup {
   preview: BackupPreview;
   /** Worker 预检生成的内容指纹，仅用于本次恢复，不会写入备份文件。 */
   resourceFingerprints?: Readonly<Record<string, string>>;
+  /** Video payloads are transferred from the preflight Worker as Blobs. */
+  videoBlobs?: Readonly<Record<string, Blob>>;
 }
 
 export interface RestoreBackupOptions {

@@ -76,10 +76,7 @@ test.describe("设置动效", () => {
       .getByRole("heading", { name: "整体背景" })
       .locator("xpath=ancestor::section[1]");
     const animatedSection = backgroundSection;
-    const firstSetting = dialog
-      .getByText("背景类型", { exact: true })
-      .first()
-      .locator("xpath=ancestor::*[@data-ui-motion-item][1]");
+    const firstSetting = backgroundSection.locator("[data-ui-motion-item]").first();
     await expect(backgroundSection).toBeVisible();
     await expect(firstSetting).toBeVisible();
 

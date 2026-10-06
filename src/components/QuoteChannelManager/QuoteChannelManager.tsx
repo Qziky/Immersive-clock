@@ -297,6 +297,7 @@ export function QuoteChannelManager({ onRegisterSave }: QuoteChannelManagerProps
       title="语录频道管理"
       description="分别管理本地内容与四个在线服务；在线失败时会自动切换到其他可用来源。"
       variant="plain"
+      data-testid="quote-channel-manager"
     >
       <InfoPanel tone="neutral">
         权重越高，被选中的概率越大。所有修改会在保存设置后统一生效。

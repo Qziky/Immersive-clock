@@ -118,6 +118,15 @@
   content: "";
 }
 
+.clockPage[data-background-mode="dynamic"] {
+  background-color: #121212;
+}
+
+.clockPage[data-background-mode="dynamic"]::before,
+.clockPage[data-background-mode="dynamic"]::after {
+  content: none;
+}
+
 .clockPage[data-background-type="default"] {
   background-color: #121212;
 }

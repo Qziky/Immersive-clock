@@ -131,6 +131,7 @@ export interface PersistedQuoteSettings {
   animationMode: QuoteAnimationMode;
   typingSpeed: QuoteTypingSpeed;
   typewriterBackspaceEnabled: boolean;
+  fontScalePercent: number;
   channels: QuoteChannelPreference[];
   customChannels: CustomQuoteChannel[];
 }
@@ -145,4 +146,5 @@ export interface QuoteSettingsState {
   animationMode: QuoteAnimationMode;
   typingSpeed: QuoteTypingSpeed;
   typewriterBackspaceEnabled: boolean;
+  fontScalePercent: number;
 }

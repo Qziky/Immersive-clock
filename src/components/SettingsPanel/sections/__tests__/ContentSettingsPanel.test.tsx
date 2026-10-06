@@ -1,4 +1,4 @@
-import { act, render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -11,6 +11,7 @@ const mockQuoteSettings = vi.hoisted<QuoteSettingsState>(() => ({
   animationMode: "typewriter",
   typewriterBackspaceEnabled: true,
   typingSpeed: "normal",
+  fontScalePercent: 100,
 }));
 
 const channelSave = vi.hoisted(() => vi.fn());
@@ -24,12 +25,14 @@ vi.mock("../../../MotivationalQuote", () => ({
     animationMode,
     quote,
     replayKey,
+    fontScalePercent,
     typewriterBackspaceEnabled,
     typingSpeed,
   }: {
     animationMode: string;
     quote: { id: string; text: string };
     replayKey: number;
+    fontScalePercent: number;
     typewriterBackspaceEnabled: boolean;
     typingSpeed: string;
   }) => (
@@ -38,6 +41,7 @@ vi.mock("../../../MotivationalQuote", () => ({
       data-animation-mode={animationMode}
       data-quote-id={quote.id}
       data-replay-key={replayKey}
+      data-font-scale-percent={fontScalePercent}
       data-typewriter-backspace-enabled={typewriterBackspaceEnabled}
       data-typing-speed={typingSpeed}
     >
@@ -66,6 +70,7 @@ describe("ContentSettingsPanel", () => {
     mockQuoteSettings.animationMode = "typewriter";
     mockQuoteSettings.typewriterBackspaceEnabled = true;
     mockQuoteSettings.typingSpeed = "normal";
+    mockQuoteSettings.fontScalePercent = 100;
     channelSave.mockReset();
     registeredSave = undefined;
   });
@@ -113,6 +118,11 @@ describe("ContentSettingsPanel", () => {
     expect(reveal).toHaveAttribute("data-quote-id", "quote-animation-preview-focus");
     expect(reveal).toHaveAttribute("data-replay-key", "0");
 
+    fireEvent.change(screen.getByRole("slider", { name: "语录字号" }), {
+      target: { value: "120" },
+    });
+    expect(reveal).toHaveAttribute("data-font-scale-percent", "120");
+
     await user.click(screen.getByRole("radio", { name: "快速" }));
     expect(reveal).toHaveAttribute("data-quote-id", "quote-animation-preview-patience");
     expect(reveal).toHaveAttribute("data-replay-key", "1");
@@ -139,6 +149,9 @@ describe("ContentSettingsPanel", () => {
     await user.click(screen.getByRole("radio", { name: "快速" }));
     await user.click(screen.getByRole("switch", { name: "切换时回删" }));
     await user.click(screen.getByRole("radio", { name: "直接显示" }));
+    fireEvent.change(screen.getByRole("slider", { name: "语录字号" }), {
+      target: { value: "125" },
+    });
     expect(channelSave).not.toHaveBeenCalled();
 
     act(() => registeredSave?.());
@@ -150,6 +163,7 @@ describe("ContentSettingsPanel", () => {
       animationMode: "none",
       typewriterBackspaceEnabled: false,
       typingSpeed: "fast",
+      fontScalePercent: 125,
     });
   });
 });

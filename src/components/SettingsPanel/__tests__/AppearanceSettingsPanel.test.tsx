@@ -25,8 +25,10 @@ const assetMocks = vi.hoisted(() => ({
   listener: null as ((revision: number) => void) | null,
   loadAppearanceAssetCatalog: vi.fn(),
   loadBackgroundAsset: vi.fn(),
+  loadVideoBackgroundAsset: vi.fn(),
   removeAppearanceAsset: vi.fn(),
   saveBackgroundAsset: vi.fn(),
+  saveVideoBackgroundAsset: vi.fn(),
   subscribeAppearanceAssetsChanged: vi.fn((listener: (revision: number) => void) => {
     assetMocks.listener = listener;
     return () => {
@@ -52,8 +54,10 @@ vi.mock("../../../contexts/AppearanceContext", () => ({
 vi.mock("../../../utils/appearanceAssets", () => ({
   loadAppearanceAssetCatalog: assetMocks.loadAppearanceAssetCatalog,
   loadBackgroundAsset: assetMocks.loadBackgroundAsset,
+  loadVideoBackgroundAsset: assetMocks.loadVideoBackgroundAsset,
   removeAppearanceAsset: assetMocks.removeAppearanceAsset,
   saveBackgroundAsset: assetMocks.saveBackgroundAsset,
+  saveVideoBackgroundAsset: assetMocks.saveVideoBackgroundAsset,
   subscribeAppearanceAssetsChanged: assetMocks.subscribeAppearanceAssetsChanged,
 }));
 
@@ -140,6 +144,7 @@ describe("AppearanceSettingsPanel", () => {
       updateAppearanceDraft: vi.fn(),
     });
     assetMocks.loadBackgroundAsset.mockResolvedValue(undefined);
+    assetMocks.loadVideoBackgroundAsset.mockResolvedValue(undefined);
     assetMocks.removeAppearanceAsset.mockResolvedValue(undefined);
     fontMocks.removeImportedFont.mockResolvedValue(undefined);
   });
@@ -182,6 +187,130 @@ describe("AppearanceSettingsPanel", () => {
     }
 
     await waitFor(() => expect(assetMocks.loadAppearanceAssetCatalog).toHaveBeenCalled());
+  });
+
+  it("切换静态和动态分组时保留另一组与页面最后选择", async () => {
+    const activeAppearance = createDefaultAppearance();
+    activeAppearance.global.background = {
+      type: "green",
+      mode: "dynamic",
+      staticType: "green",
+      dynamic: {
+        type: "particles",
+        preset: "links",
+        color: "#92d3c5",
+        density: 0.7,
+        size: 1.3,
+        speed: 0.8,
+        darkness: 0.3,
+      },
+    };
+    const updateAppearanceDraft = vi.fn();
+    contextMocks.useAppearance.mockReturnValue({
+      activeAppearance,
+      beginAppearancePreview: vi.fn(),
+      getBackgroundImage: vi.fn(),
+      resetAppearance: vi.fn(),
+      setPreviewScene: vi.fn(),
+      updateAppearanceDraft,
+    });
+    assetMocks.loadAppearanceAssetCatalog.mockResolvedValue({
+      backgrounds: [],
+      videos: [],
+      fonts: [],
+    });
+
+    render(
+      <FeedbackProvider>
+        <AppearanceSettingsPanel />
+      </FeedbackProvider>
+    );
+
+    expect(screen.getByRole("radio", { name: "动态背景" })).toBeChecked();
+    expect(screen.getByRole("radio", { name: "连线粒子" })).toBeChecked();
+    expect(screen.getByRole("slider", { name: "粒子密度" })).toHaveValue("0.7");
+    const particleSizeSlider = screen.getByRole("slider", { name: "粒子大小" });
+    expect(particleSizeSlider).toHaveValue("1.3");
+    fireEvent.change(particleSizeSlider, { target: { value: "1.5" } });
+    expect(updateAppearanceDraft).toHaveBeenLastCalledWith(
+      ["global", "background"],
+      expect.objectContaining({
+        dynamic: expect.objectContaining({ size: 1.5 }),
+      })
+    );
+    fireEvent.click(screen.getByRole("radio", { name: "音乐响应" }));
+    expect(updateAppearanceDraft).toHaveBeenLastCalledWith(
+      ["global", "background"],
+      expect.objectContaining({
+        type: "green",
+        staticType: "green",
+        mode: "dynamic",
+        dynamic: expect.objectContaining({
+          type: "music",
+          visualization: "spectrum",
+          source: "microphone",
+          darkness: 0.3,
+        }),
+      })
+    );
+    fireEvent.click(screen.getByRole("radio", { name: "静态背景" }));
+    expect(updateAppearanceDraft).toHaveBeenLastCalledWith(
+      ["global", "background"],
+      expect.objectContaining({
+        type: "green",
+        mode: "static",
+        dynamic: expect.objectContaining({ type: "particles", preset: "links" }),
+      })
+    );
+  });
+
+  it("页面跟随整体是独立选项，并保留页面动态背景配置", () => {
+    const activeAppearance = createDefaultAppearance();
+    activeAppearance.scenes.clock.background = {
+      type: "inherit",
+      staticType: "image",
+      mode: "dynamic",
+      dynamic: {
+        type: "video",
+        assetId: "video_clock",
+        fit: "contain",
+        soundEnabled: false,
+        volume: 0.3,
+        darkness: 0.35,
+      },
+    };
+    const updateAppearanceDraft = vi.fn();
+    contextMocks.useAppearance.mockReturnValue({
+      activeAppearance,
+      beginAppearancePreview: vi.fn(),
+      getBackgroundImage: vi.fn(),
+      resetAppearance: vi.fn(),
+      setPreviewScene: vi.fn(),
+      updateAppearanceDraft,
+    });
+    assetMocks.loadAppearanceAssetCatalog.mockResolvedValue({
+      backgrounds: [],
+      videos: [],
+      fonts: [],
+    });
+
+    render(
+      <FeedbackProvider>
+        <AppearanceSettingsPanel section="time" />
+      </FeedbackProvider>
+    );
+
+    expect(screen.getByRole("radio", { name: "跟随整体" })).toBeChecked();
+    fireEvent.click(screen.getByRole("radio", { name: "单独设置" }));
+    expect(updateAppearanceDraft).toHaveBeenLastCalledWith(
+      ["scenes", "clock", "background"],
+      expect.objectContaining({
+        type: "image",
+        staticType: "image",
+        mode: "dynamic",
+        dynamic: expect.objectContaining({ type: "video", assetId: "video_clock", fit: "contain" }),
+      })
+    );
   });
 
   it("在时间显示中用对象标签、覆盖状态和分层设置编辑样式", async () => {
@@ -421,6 +550,7 @@ describe("AppearanceSettingsPanel", () => {
     contextMocks.useAppState.mockReturnValue({
       mode: "study",
       study: { countdownItems: [] },
+      quoteSettings: { fontScalePercent: 125 },
     });
     assetMocks.loadAppearanceAssetCatalog.mockResolvedValue({ backgrounds: [], fonts: [] });
 
@@ -433,6 +563,9 @@ describe("AppearanceSettingsPanel", () => {
     const preview = screen.getByLabelText("励志语录外观预览");
     expect(preview.querySelector('[data-quote-reveal="true"]')).toHaveClass(
       quoteStyles.quoteReveal
+    );
+    expect(preview.querySelector('[data-quote-reveal="true"]')?.getAttribute("style")).toContain(
+      "--quote-font-scale: 1.25"
     );
     expect(within(preview).getByText("专注当下，让时间沉淀答案。").parentElement).toHaveClass(
       quoteStyles.quoteText

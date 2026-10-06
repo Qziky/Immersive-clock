@@ -246,6 +246,22 @@
   width: 100%;
 }
 
+.resourceVideoPreview {
+  aspect-ratio: 16 / 9;
+  background: var(--ui-color-bg);
+  border: 1px solid var(--ui-glass-border);
+  border-radius: var(--ui-radius-md);
+  max-height: 236px;
+  overflow: hidden;
+  position: relative;
+  width: 100%;
+}
+
+.resourceSize {
+  color: var(--ui-color-text-subtle);
+  font-size: var(--ui-font-size-xs);
+}
+
 .resourcePreview figcaption {
   color: var(--ui-color-text-subtle);
   font-size: var(--ui-font-size-xs);

@@ -9,6 +9,7 @@ public class MainActivity extends BridgeActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        registerPlugin(AndroidBackupFileWriterPlugin.class);
         super.onCreate(savedInstanceState);
 
         WindowInsetsControllerCompat insetsController = WindowCompat.getInsetsController(

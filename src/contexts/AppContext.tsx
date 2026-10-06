@@ -32,6 +32,7 @@ function loadQuoteSettingsState(): QuoteSettingsState {
     animationMode: settings.general.quote.animationMode,
     typingSpeed: settings.general.quote.typingSpeed,
     typewriterBackspaceEnabled: settings.general.quote.typewriterBackspaceEnabled,
+    fontScalePercent: settings.general.quote.fontScalePercent,
   };
 }
 

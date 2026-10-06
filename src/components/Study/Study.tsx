@@ -21,6 +21,7 @@ import {
 } from "../../utils/studyTimetable";
 import { readStudyTimetable } from "../../utils/studyTimetableStorage";
 import { getAdjustedDate } from "../../utils/timeSync";
+import { DynamicBackgroundLayer } from "../DynamicBackground";
 import { MotivationalQuote } from "../MotivationalQuote";
 import NoiseHistoryModal from "../NoiseHistoryModal/NoiseHistoryModal";
 import NoiseMonitor from "../NoiseMonitor";
@@ -43,7 +44,7 @@ export function Study() {
   useNoiseStream();
   const { study, timeDisplay } = useAppState();
   const dispatch = useAppDispatch();
-  const { getBackgroundImage, resolveBackground, resolveStyle } = useAppearance();
+  const { getBackgroundImage, resolveBackground, resolveStyle, isPreviewing } = useAppearance();
   const [currentTime, setCurrentTime] = useState<Date>(getAdjustedDate());
   const [reportOpen, setReportOpen] = useState(false);
   const [reportPeriod, setReportPeriod] = useState<NoiseReportPeriod | null>(null);
@@ -379,8 +380,12 @@ export function Study() {
     <div
       className={styles.container}
       data-background-type={backgroundSettings.type}
+      data-background-mode={backgroundSettings.mode}
       style={containerStyle}
     >
+      {backgroundSettings.mode === "dynamic" ? (
+        <DynamicBackgroundLayer background={backgroundSettings} mutedPreview={isPreviewing} />
+      ) : null}
       {/* 顶部：环境、进度信息与倒计时共用一条状态栏。 */}
       {(hasStudyInfo ||
         display.showWeather ||
