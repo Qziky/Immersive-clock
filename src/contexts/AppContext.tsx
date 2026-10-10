@@ -9,6 +9,7 @@ import {
   QuoteChannelState,
   QuoteSettingsState,
   TimeDisplaySettings,
+  OledProtectionSettings,
 } from "../types";
 import {
   getAppSettings,
@@ -56,6 +57,10 @@ function loadTimeDisplayState(): TimeDisplaySettings {
   return getAppSettings().general.timeDisplay;
 }
 
+function loadOledProtectionState(): OledProtectionSettings {
+  return getAppSettings().general.oledProtection;
+}
+
 /**
  * 从本地存储加载自习状态
  */
@@ -97,6 +102,7 @@ function createInitialState(): AppState {
       isActive: false,
     },
     timeDisplay: loadTimeDisplayState(),
+    oledProtection: loadOledProtectionState(),
     study: loadStudyState(),
     quoteChannels: loadQuoteChannelState(),
     quoteSettings: loadQuoteSettingsState(),
@@ -247,6 +253,13 @@ function appReducer(state: AppState, action: AppAction): AppState {
       return {
         ...state,
         timeDisplay: action.payload,
+      };
+
+    case "SET_OLED_PROTECTION":
+      updateGeneralSettings({ oledProtection: action.payload });
+      return {
+        ...state,
+        oledProtection: action.payload,
       };
 
     case "FINISH_COUNTDOWN":

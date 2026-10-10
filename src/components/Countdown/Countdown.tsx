@@ -4,6 +4,7 @@ import { COUNTDOWN_REFRESH_MS } from "../../constants/timer";
 import { useAppState, useAppDispatch } from "../../contexts/AppContext";
 import { useComponentAppearance } from "../../contexts/AppearanceContext";
 import { useAudio } from "../../hooks/useAudio";
+import { useOledScreenReadout } from "../../hooks/useOledScreenReadout";
 import { useTimer } from "../../hooks/useTimer";
 import { getAppSettings } from "../../utils/appSettings";
 import { formatTimer } from "../../utils/formatTime";
@@ -119,8 +120,21 @@ export function Countdown() {
   );
 
   const timeString = formatTimer(displayTime);
+  const placeholderText = "00:00:00";
+  const showPlaceholder = countdown.currentTime === 0 && countdown.initialTime === 0;
   const isWarning = displayTime <= 10 && displayTime > 0;
   const isFinished = displayTime === 0 && countdown.initialTime > 0;
+  useOledScreenReadout({
+    mode: "countdown",
+    value: showPlaceholder ? placeholderText : timeString,
+    status: isFinished
+      ? "时间到"
+      : countdown.initialTime === 0
+        ? "未开始"
+        : countdown.isActive
+          ? undefined
+          : "已暂停",
+  });
   const appearanceState = isFinished ? "finished" : isWarning ? "warning" : undefined;
   const timeAppearance = useComponentAppearance("countdown", "time", {
     state: appearanceState,
@@ -136,7 +150,8 @@ export function Countdown() {
       finished={isFinished}
       finishedMessageAttributes={{ style: finishedAppearance }}
       placeholderAttributes={{ style: placeholderAppearance }}
-      showPlaceholder={countdown.currentTime === 0 && countdown.initialTime === 0}
+      placeholderText={placeholderText}
+      showPlaceholder={showPlaceholder}
       timeAttributes={{
         "aria-label": `倒计时时间：${timeString}。单击设置倒计时时间`,
         "aria-live": "polite",

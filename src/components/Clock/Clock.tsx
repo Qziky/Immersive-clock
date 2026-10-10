@@ -2,6 +2,7 @@ import React, { useState, useCallback } from "react";
 
 import { useAppState } from "../../contexts/AppContext";
 import { useComponentAppearance } from "../../contexts/AppearanceContext";
+import { useOledScreenReadout } from "../../hooks/useOledScreenReadout";
 import { useTimer } from "../../hooks/useTimer";
 import { formatClock } from "../../utils/formatTime";
 import { getAdjustedDate } from "../../utils/timeSync";
@@ -27,6 +28,7 @@ export function Clock() {
   useTimer(updateTime, true, 1000);
 
   const timeString = formatClock(currentTime, timeDisplay.showClockSeconds);
+  useOledScreenReadout({ mode: "clock", value: timeString });
   const dateString = currentTime.toLocaleDateString("zh-CN", {
     year: "numeric",
     month: "long",

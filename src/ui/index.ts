@@ -109,8 +109,11 @@ export type {
   TimeStagePlacement,
   TimeStageProps,
   TimeStageValueProps,
+  TimeStageVariant,
 } from "./components/TimeStage";
 export { TimeStage, TimeStageValue } from "./components/TimeStage";
+export type { OverlayStackSnapshot } from "./utils/overlayStack";
+export { useOverlayStackSnapshot } from "./utils/overlayStack";
 export type { TimePickerProps, TimePickerValue } from "./components/TimePicker";
 export { TimePicker } from "./components/TimePicker";
 export type { TooltipProps } from "./components/Tooltip";

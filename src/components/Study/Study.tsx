@@ -3,6 +3,7 @@ import React, { useState, useCallback, useEffect, useRef, useMemo } from "react"
 import { useAppDispatch, useAppState } from "../../contexts/AppContext";
 import { useAppearance, useComponentAppearance } from "../../contexts/AppearanceContext";
 import { useNoiseStream } from "../../hooks/useNoiseStream";
+import { useOledScreenReadout } from "../../hooks/useOledScreenReadout";
 import { useTimer } from "../../hooks/useTimer";
 import { acquireWeatherRuntime } from "../../services/weatherRuntime";
 import { CountdownItem, type StudyDisplaySettings } from "../../types";
@@ -156,6 +157,7 @@ export function Study() {
   );
 
   const timeString = formatClock(currentTime, timeDisplay.showStudySeconds);
+  useOledScreenReadout({ mode: "study", value: timeString });
   const [hours = "00", minutes = "00", seconds = "00"] = timeString.split(":");
   const primaryTime = `${hours}:${minutes}`;
   const dateString = currentTime.toLocaleDateString("zh-CN", {

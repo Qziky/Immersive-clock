@@ -22,8 +22,22 @@
   user-select: none;
 }
 
-.clockPage:focus {
+.clockPageContent:focus {
   outline: none;
+}
+
+.clockPageContent {
+  background: var(--ui-color-bg);
+  color: var(--ui-color-text);
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+  position: relative;
+  width: 100%;
 }
 
 .timeDisplay {
@@ -87,8 +101,8 @@
 }
 
 /* 普通页面与自习页共享同一套默认氛围背景。 */
-.clockPage::before,
-.clockPage::after {
+.clockPageContent::before,
+.clockPageContent::after {
   content: none;
   inset: 0;
   pointer-events: none;
@@ -96,7 +110,7 @@
   z-index: 0;
 }
 
-.clockPage[data-background-type="green"]::before {
+.clockPageContent[data-background-type="green"]::before {
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.035) 0%, transparent 32%),
     linear-gradient(115deg, rgba(76, 118, 104, 0.12) 0%, transparent 44%),
@@ -104,7 +118,7 @@
   content: "";
 }
 
-.clockPage[data-background-type="green"]::after {
+.clockPageContent[data-background-type="green"]::after {
   background:
     linear-gradient(
       90deg,
@@ -118,29 +132,29 @@
   content: "";
 }
 
-.clockPage[data-background-mode="dynamic"] {
+.clockPageContent[data-background-mode="dynamic"] {
   background-color: #121212;
 }
 
-.clockPage[data-background-mode="dynamic"]::before,
-.clockPage[data-background-mode="dynamic"]::after {
+.clockPageContent[data-background-mode="dynamic"]::before,
+.clockPageContent[data-background-mode="dynamic"]::after {
   content: none;
 }
 
-.clockPage[data-background-type="default"] {
+.clockPageContent[data-background-type="default"] {
   background-color: #121212;
 }
 
-.clockPage[data-background-type="green"] {
+.clockPageContent[data-background-type="green"] {
   background-color: #0c1110;
 }
 
-.clockPage[data-background-type="black"] {
+.clockPageContent[data-background-type="black"] {
   background-color: #000000;
 }
 
-.clockPage[data-background-type="dark"],
-.clockPage[data-background-type="system"] {
+.clockPageContent[data-background-type="dark"],
+.clockPageContent[data-background-type="system"] {
   background-color: #121212;
 }
 
@@ -239,21 +253,21 @@
     color: #ffffff;
   }
 
-  .clockPage::before,
-  .clockPage::after {
+  .clockPageContent::before,
+  .clockPageContent::after {
     display: none;
   }
 }
 
 /* 打印样式 */
 @media print {
-  .clockPage {
+  .clockPageContent {
     background: white;
     color: black;
   }
 
-  .clockPage::before,
-  .clockPage::after {
+  .clockPageContent::before,
+  .clockPageContent::after {
     display: none;
   }
 

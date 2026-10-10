@@ -5,6 +5,7 @@ import { classNames } from "../../utils/classNames";
 import styles from "./TimeStage.module.css";
 
 export type TimeStagePlacement = "flow" | "overlay";
+export type TimeStageVariant = "default" | "oled-protection";
 
 export type TimeStageAttributes = HTMLAttributes<HTMLDivElement> &
   Partial<Record<`data-${string}`, boolean | number | string | undefined>>;
@@ -17,6 +18,8 @@ export interface TimeStageProps {
   /** 主时间数字相对响应式默认字号的缩放比例，1 为默认大小。 */
   displayScale?: number;
   placement?: TimeStagePlacement;
+  /** 低亮度、紧凑布局，用于 OLED 屏保时间。 */
+  variant?: TimeStageVariant;
   rootAttributes?: TimeStageAttributes;
 }
 
@@ -30,6 +33,7 @@ export function TimeStage({
   contentAttributes,
   displayScale,
   placement = "flow",
+  variant = "default",
   rootAttributes,
 }: TimeStageProps) {
   const { className: rootClassName, style: rootStyle, ...rootProps } = rootAttributes ?? {};
@@ -46,6 +50,7 @@ export function TimeStage({
       className={classNames(
         styles.stage,
         layout === "viewport" && styles.stageViewport,
+        variant === "oled-protection" && styles.stageOledProtection,
         placement === "overlay" ? styles.stageOverlay : styles.stageFlow,
         rootClassName
       )}

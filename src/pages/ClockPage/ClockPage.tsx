@@ -13,21 +13,29 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { AuthorInfo } from "../../components/AuthorInfo/AuthorInfo";
 import { DynamicBackgroundLayer } from "../../components/DynamicBackground";
 import { HUD } from "../../components/HUD/HUD";
+import { OledScreenSaver } from "../../components/OledProtection/OledScreenSaver";
 import { RouteSeo } from "../../components/Seo/RouteSeo";
 import { SeoContent } from "../../components/Seo/SeoContent";
 import { SettingsButton } from "../../components/SettingsButton";
 import { useAppState, useAppDispatch } from "../../contexts/AppContext";
 import { useAppearance } from "../../contexts/AppearanceContext";
+import { OledProtectionProvider } from "../../contexts/OledProtectionContext";
+import { useOledScreenProtectionController } from "../../hooks/useOledScreenProtectionController";
 import {
   getDynamicAudioSnapshot,
   stopDynamicAudioCapture,
   subscribeDynamicAudio,
 } from "../../services/dynamicBackgroundAudio";
+import {
+  getOledScreenReadout,
+  subscribeOledScreenReadout,
+} from "../../services/oledProtectionRuntime";
 import type { AppMode } from "../../types";
 import type { MessagePopupOpenDetail, MessagePopupType } from "../../types/messagePopup";
-import { IconButton, useFeedback, type ToastVariant } from "../../ui";
+import { IconButton, useFeedback, useOverlayStackSnapshot, type ToastVariant } from "../../ui";
 import { appearanceBackgroundToCss } from "../../utils/appearanceModel";
 import { getModeFromPathname, MODE_ROUTE_PATHS } from "../../utils/modeRoutes";
+import { nowMs } from "../../utils/timeSource";
 import { startTimeSyncManager } from "../../utils/timeSync";
 import { startTour, isTourActive } from "../../utils/tour";
 
@@ -90,23 +98,32 @@ function getPopupDuration(type: MessagePopupType): number | null {
  * 根据当前模式显示相应的时钟组件，处理HUD显示逻辑
  */
 export function ClockPage() {
-  const { mode, isModalOpen, study } = useAppState();
+  const { mode, isModalOpen, study, countdown, oledProtection } = useAppState();
   const { previewScene, getBackgroundImage, resolveBackground, isPreviewing } = useAppearance();
   const audioSnapshot = useSyncExternalStore(
     subscribeDynamicAudio,
     getDynamicAudioSnapshot,
     getDynamicAudioSnapshot
   );
+  const oledScreenReadout = useSyncExternalStore(
+    subscribeOledScreenReadout,
+    getOledScreenReadout,
+    getOledScreenReadout
+  );
   const dispatch = useAppDispatch();
   const { notify, dismiss } = useFeedback();
   const location = useLocation();
   const navigate = useNavigate();
+  const overlays = useOverlayStackSnapshot();
   const hideTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const hudContainerRef = useRef<HTMLDivElement | null>(null);
   const settingsButtonRef = useRef<HTMLButtonElement | null>(null);
   const popupTypeMapRef = useRef(new Map<string, MessagePopupType>());
   const [showSettings, setShowSettings] = useState(false);
   const [showAnnouncement, setShowAnnouncement] = useState(false);
+  const [tourActive, setTourActive] = useState(false);
+  const mainContentRef = useRef<HTMLElement | null>(null);
+  const hadScreenSaverRef = useRef(false);
   const [settingsWasRequested, setSettingsWasRequested] = useState(false);
   const [announcementWasRequested, setAnnouncementWasRequested] = useState(false);
   const shouldMountSettings = showSettings || settingsWasRequested;
@@ -119,6 +136,26 @@ export function ClockPage() {
     getBackgroundImage(displayMode)
   );
   const ModeComponent = MODE_COMPONENTS[displayMode];
+  const countdownNearFinish =
+    mode === "countdown" &&
+    countdown.isActive &&
+    countdown.endTimestamp !== undefined &&
+    countdown.endTimestamp - nowMs() <= 10_000;
+  const screenSaverBlocked =
+    isModalOpen ||
+    showSettings ||
+    showAnnouncement ||
+    tourActive ||
+    overlays.hasActiveModal ||
+    overlays.hasActiveFloating ||
+    countdownNearFinish;
+  const { active: screenSaverActive, wake: wakeScreenSaver } = useOledScreenProtectionController({
+    blocked: screenSaverBlocked,
+    enabled: oledProtection.enabled,
+    idleMinutes: oledProtection.idleMinutes,
+    mode: displayMode,
+  });
+  const screenSaverVisible = screenSaverActive && oledScreenReadout?.mode === displayMode;
 
   useEffect(() => {
     const dynamic = displayBackground.dynamic;
@@ -213,6 +250,31 @@ export function ClockPage() {
   useEffect(() => {
     return startTimeSyncManager();
   }, []);
+
+  useEffect(() => {
+    const handleTourStart = () => setTourActive(true);
+    const handleTourEnd = () => {
+      setTourActive(false);
+      wakeScreenSaver();
+    };
+    window.addEventListener("tour:start", handleTourStart);
+    window.addEventListener("tour:end", handleTourEnd);
+    return () => {
+      window.removeEventListener("tour:start", handleTourStart);
+      window.removeEventListener("tour:end", handleTourEnd);
+    };
+  }, [wakeScreenSaver]);
+
+  useEffect(() => {
+    if (screenSaverVisible) {
+      hadScreenSaverRef.current = true;
+      return;
+    }
+    if (hadScreenSaverRef.current) {
+      hadScreenSaverRef.current = false;
+      window.requestAnimationFrame(() => mainContentRef.current?.focus({ preventScroll: true }));
+    }
+  }, [screenSaverVisible]);
 
   useEffect(() => {
     if (showSettings) setSettingsWasRequested(true);
@@ -389,6 +451,7 @@ export function ClockPage() {
       if (mode === "exam") return;
       if (mode !== "study" && type !== "weatherForecast" && type !== "weatherAlert") return;
       if (type === "error" && !study.errorPopupEnabled) return;
+      wakeScreenSaver();
       const title = (detail.title as string) || "消息提醒";
       const message = (detail.message as React.ReactNode) || "";
       const accentColor = typeof detail.themeColor === "string" ? detail.themeColor : undefined;
@@ -424,7 +487,7 @@ export function ClockPage() {
       window.removeEventListener("messagePopup:open", onOpen as EventListener);
       window.removeEventListener("messagePopup:close", onClose as EventListener);
     };
-  }, [dismiss, mode, notify, study.errorPopupEnabled]);
+  }, [dismiss, mode, notify, wakeScreenSaver, study.errorPopupEnabled]);
 
   // 非自习模式下仅保留天气相关弹窗，避免其它业务弹窗打扰
   useEffect(() => {
@@ -445,117 +508,130 @@ export function ClockPage() {
   }, [dismiss]);
 
   return (
-    <main
-      className={styles.clockPage}
-      data-background-type={displayMode === "study" ? undefined : displayBackground.type}
-      data-background-mode={displayMode === "study" ? undefined : displayBackground.mode}
-      onClick={handlePageClick}
-      onKeyDown={handleKeyDown}
-      style={displayMode === "study" ? undefined : displayBackgroundStyle}
-      tabIndex={0}
-      aria-label="时钟应用主界面"
-    >
-      {displayMode !== "study" && displayBackground.mode === "dynamic" ? (
-        <DynamicBackgroundLayer background={displayBackground} mutedPreview={isPreviewing} />
-      ) : null}
-      <RouteSeo />
-      <SeoContent />
-      <div
-        className={`${styles.timeDisplay} ${displayMode === "study" ? styles.studyTimeDisplay : ""}`}
-        id={`${displayMode}-panel`}
-        role={displayMode === "exam" ? "region" : "tabpanel"}
-        data-appearance-content
-        data-tour="clock-area"
-      >
-        <Suspense fallback={null}>
-          <ModeComponent />
-        </Suspense>
-      </div>
-
-      <div
-        ref={hudContainerRef}
-        onFocusCapture={() => {
-          dispatch({ type: "SHOW_HUD" });
-          clearHudHideTimeout();
-        }}
-        onBlurCapture={(e) => {
-          const nextFocused = e.relatedTarget as Node | null;
-          if (nextFocused && hudContainerRef.current?.contains(nextFocused)) {
-            return;
-          }
-          if (isModalOpen) return;
-          scheduleHudAutoHide();
-        }}
-        onPointerDownCapture={() => {
-          dispatch({ type: "SHOW_HUD" });
-          clearHudHideTimeout();
-        }}
-      >
-        {displayMode !== "exam" && <HUD onModeChange={switchMode} />}
-      </div>
-
-      <div
-        style={displayMode === "exam" ? { display: "none" } : undefined}
-        className={styles.bottomChrome}
-        aria-label="底栏工具与项目信息"
-      >
-        {/* 仅在时钟页面显示的左下角指引按钮 */}
-        {mode === "clock" && (
-          <div className={styles.bottomTools}>
-            <IconButton
-              className={styles.tourButton}
-              onClick={() => {
-                startTour(true, {
-                  onStart: () => {
-                    dispatch({ type: "SHOW_HUD" });
-                  },
-                  switchMode,
-                });
-              }}
-              title="重播新手指引"
-              aria-label="重播新手指引"
-              icon="status.help"
-              size="sm"
-              variant="minimal"
-            />
+    <OledProtectionProvider active={screenSaverVisible}>
+      <div className={styles.clockPage}>
+        <main
+          ref={mainContentRef}
+          className={styles.clockPageContent}
+          data-background-type={displayMode === "study" ? undefined : displayBackground.type}
+          data-background-mode={displayMode === "study" ? undefined : displayBackground.mode}
+          inert={screenSaverVisible}
+          aria-hidden={screenSaverVisible || undefined}
+          onClick={handlePageClick}
+          onKeyDown={handleKeyDown}
+          style={displayMode === "study" ? undefined : displayBackgroundStyle}
+          tabIndex={0}
+          aria-label="时钟应用主界面"
+        >
+          {displayMode !== "study" && displayBackground.mode === "dynamic" ? (
+            <DynamicBackgroundLayer background={displayBackground} mutedPreview={isPreviewing} />
+          ) : null}
+          <RouteSeo />
+          <SeoContent />
+          <div
+            className={`${styles.timeDisplay} ${displayMode === "study" ? styles.studyTimeDisplay : ""}`}
+            id={`${displayMode}-panel`}
+            role={displayMode === "exam" ? "region" : "tabpanel"}
+            data-appearance-content
+            data-tour="clock-area"
+          >
+            <Suspense fallback={null}>
+              <ModeComponent />
+            </Suspense>
           </div>
-        )}
 
-        <AuthorInfo onVersionClick={handleVersionClick} />
-      </div>
+          <div
+            ref={hudContainerRef}
+            onFocusCapture={() => {
+              dispatch({ type: "SHOW_HUD" });
+              clearHudHideTimeout();
+            }}
+            onBlurCapture={(e) => {
+              const nextFocused = e.relatedTarget as Node | null;
+              if (nextFocused && hudContainerRef.current?.contains(nextFocused)) {
+                return;
+              }
+              if (isModalOpen) return;
+              scheduleHudAutoHide();
+            }}
+            onPointerDownCapture={() => {
+              dispatch({ type: "SHOW_HUD" });
+              clearHudHideTimeout();
+            }}
+          >
+            {displayMode !== "exam" && <HUD onModeChange={switchMode} />}
+          </div>
 
-      {displayMode !== "exam" && (
-        <SettingsButton
-          ref={settingsButtonRef}
-          onClick={handleSettingsClick}
-          onIntent={preloadSettingsPanel}
-          isVisible={!isModalOpen && !showSettings}
-        />
-      )}
+          <div
+            style={displayMode === "exam" ? { display: "none" } : undefined}
+            className={styles.bottomChrome}
+            aria-label="底栏工具与项目信息"
+          >
+            {/* 仅在时钟页面显示的左下角指引按钮 */}
+            {mode === "clock" && (
+              <div className={styles.bottomTools}>
+                <IconButton
+                  className={styles.tourButton}
+                  onClick={() => {
+                    startTour(true, {
+                      onStart: () => {
+                        dispatch({ type: "SHOW_HUD" });
+                      },
+                      switchMode,
+                    });
+                  }}
+                  title="重播新手指引"
+                  aria-label="重播新手指引"
+                  icon="status.help"
+                  size="sm"
+                  variant="minimal"
+                />
+              </div>
+            )}
 
-      {/* 设置面板 */}
-      {shouldMountSettings && (
-        <Suspense fallback={null}>
-          <SettingsPanel isOpen={showSettings} onClose={handleSettingsClose} />
-        </Suspense>
-      )}
+            <AuthorInfo onVersionClick={handleVersionClick} />
+          </div>
 
-      {isModalOpen && (
-        <Suspense fallback={null}>
-          <CountdownModal />
-        </Suspense>
-      )}
+          {displayMode !== "exam" && (
+            <SettingsButton
+              ref={settingsButtonRef}
+              onClick={handleSettingsClick}
+              onIntent={preloadSettingsPanel}
+              isVisible={!isModalOpen && !showSettings}
+            />
+          )}
 
-      {/* 公告弹窗 */}
-      {shouldMountAnnouncement && (
-        <Suspense fallback={null}>
-          <AnnouncementModal
-            isOpen={showAnnouncement}
-            onClose={handleAnnouncementClose}
-            initialTab="announcement"
+          {/* 设置面板 */}
+          {shouldMountSettings && (
+            <Suspense fallback={null}>
+              <SettingsPanel isOpen={showSettings} onClose={handleSettingsClose} />
+            </Suspense>
+          )}
+
+          {isModalOpen && (
+            <Suspense fallback={null}>
+              <CountdownModal />
+            </Suspense>
+          )}
+
+          {/* 公告弹窗 */}
+          {shouldMountAnnouncement && (
+            <Suspense fallback={null}>
+              <AnnouncementModal
+                isOpen={showAnnouncement}
+                onClose={handleAnnouncementClose}
+                initialTab="announcement"
+              />
+            </Suspense>
+          )}
+        </main>
+        {screenSaverVisible ? (
+          <OledScreenSaver
+            brightnessPercent={oledProtection.brightnessPercent}
+            onWake={wakeScreenSaver}
           />
-        </Suspense>
-      )}
-    </main>
+        ) : null}
+      </div>
+    </OledProtectionProvider>
   );
 }

@@ -1,0 +1,34 @@
+.screenSaver {
+  background: var(--ui-color-static-black);
+  inset: 0;
+  overflow: hidden;
+  position: fixed;
+  touch-action: none;
+  user-select: none;
+  z-index: var(--ui-z-floating);
+}
+
+.readout {
+  left: 0;
+  max-width: calc(100vw - 48px);
+  position: absolute;
+  top: 0;
+  width: max-content;
+  will-change: transform;
+}
+
+.modeLabel {
+  color: inherit;
+  font-family: var(--ui-font-sans);
+  font-size: clamp(0.8rem, 1.5vw, 1.1rem);
+  font-weight: 400;
+  margin-top: var(--ui-space-2);
+  opacity: 0.8;
+  text-align: center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .readout {
+    will-change: auto;
+  }
+}

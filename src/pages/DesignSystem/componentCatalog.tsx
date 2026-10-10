@@ -49,6 +49,7 @@ import {
   Tooltip,
   VisuallyHidden,
   useFeedback,
+  useOverlayStackSnapshot,
   type AppIconName,
   type AppIconSize,
   type ButtonOverlayEmphasis,
@@ -114,6 +115,7 @@ const COLOR_TOKENS = [
   ["--ui-color-success", "成功"],
   ["--ui-color-warning", "警告"],
   ["--ui-color-danger", "危险"],
+  ["--ui-color-static-black", "静态纯黑"],
   ["--ui-color-static-white", "静态白色"],
   ["--ui-chart-surface", "图表表面"],
   ["--ui-chart-grid", "图表网格"],
@@ -403,7 +405,30 @@ function TimeStageExample() {
           <span className={styles.timeStageMeta}>覆盖业务背景但复用同一中央布局</span>
         </TimeStage>
       </section>
+      <section
+        className={styles.timeStageDemo}
+        style={{ background: "#000" }}
+        aria-label="OLED 防护时间舞台"
+      >
+        <TimeStage variant="oled-protection" displayScale={1}>
+          <TimeStageValue>09:42:18</TimeStageValue>
+          <span className={styles.timeStageMeta}>时钟</span>
+        </TimeStage>
+      </section>
     </div>
+  );
+}
+
+function OverlayStackStateExample() {
+  const overlays = useOverlayStackSnapshot();
+  return (
+    <InfoPanel tone={overlays.hasActiveModal ? "warning" : "success"} title="当前浮层状态">
+      {overlays.hasActiveModal
+        ? "弹窗打开时暂停自动屏保。"
+        : overlays.hasActiveFloating
+          ? "菜单打开时暂停自动屏保。"
+          : "没有阻挡操作的弹窗或菜单。"}
+    </InfoPanel>
   );
 }
 
@@ -1661,6 +1686,7 @@ export const COMPONENT_CATALOG: readonly ComponentCatalogEntry[] = [
       "overlay",
       "custom-scale",
       "display-value",
+      "oled-protection",
       "secondary-content",
       "responsive",
     ],
@@ -1674,10 +1700,30 @@ export const COMPONENT_CATALOG: readonly ComponentCatalogEntry[] = [
           "overlay",
           "custom-scale",
           "display-value",
+          "oled-protection",
           "secondary-content",
           "responsive",
         ],
         TimeStageExample
+      ),
+    ],
+  },
+  {
+    id: "overlay-stack-state",
+    title: "useOverlayStackSnapshot",
+    description: "读取当前打开的弹窗和浮层，协调用于保护焦点的临时页面状态。",
+    section: "foundation",
+    kind: "infrastructure",
+    publicExports: ["useOverlayStackSnapshot"],
+    requiredStates: ["no-overlays", "modal-open", "floating-menu-open"],
+    coveredBy: ["modal", "popover-menu-tooltip"],
+    reason: "屏保控制器在弹窗和菜单打开时暂停自动进入屏保，保留可操作的界面。",
+    examples: [
+      makeExample(
+        "overlay-stack-state",
+        "当前弹层状态",
+        ["no-overlays", "modal-open", "floating-menu-open"],
+        OverlayStackStateExample
       ),
     ],
   },

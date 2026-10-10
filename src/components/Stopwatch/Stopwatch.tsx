@@ -3,6 +3,7 @@ import React, { useCallback } from "react";
 import { STOPWATCH_TICK_MS } from "../../constants/timer";
 import { useAppState, useAppDispatch } from "../../contexts/AppContext";
 import { useComponentAppearance } from "../../contexts/AppearanceContext";
+import { useOledScreenReadout } from "../../hooks/useOledScreenReadout";
 import { useAccumulatingTimer } from "../../hooks/useTimer";
 import { formatStopwatch } from "../../utils/formatTime";
 
@@ -32,6 +33,13 @@ export function Stopwatch() {
   useAccumulatingTimer(handleTick, stopwatch.isActive, STOPWATCH_TICK_MS);
 
   const timeString = formatStopwatch(stopwatch.elapsedTime);
+  const placeholderText = "00:00:00";
+  const showPlaceholder = stopwatch.elapsedTime === 0;
+  useOledScreenReadout({
+    mode: "stopwatch",
+    value: showPlaceholder ? placeholderText : timeString,
+    status: stopwatch.elapsedTime === 0 ? "未开始" : stopwatch.isActive ? undefined : "已暂停",
+  });
   const totalSeconds = Math.floor(stopwatch.elapsedTime / 1000);
   const isLongDuration = totalSeconds >= 3600; // 1小时以上
   const appearanceState = stopwatch.isActive ? "running" : "paused";
@@ -48,10 +56,11 @@ export function Stopwatch() {
       displayScale={timeDisplay.centralTimeScale}
       milestoneAttributes={{ style: milestoneAppearance }}
       placeholderAttributes={{ style: timeAppearance }}
+      placeholderText={placeholderText}
       rootAttributes={{ style: containerAppearance }}
       showMilestone={isLongDuration}
       showPausedStatus={stopwatch.elapsedTime > 0 && !stopwatch.isActive}
-      showPlaceholder={stopwatch.elapsedTime === 0}
+      showPlaceholder={showPlaceholder}
       statusAttributes={{ style: statusAppearance }}
       timeAttributes={{ "aria-live": "polite", style: timeAppearance }}
       timeText={timeString}

@@ -6,8 +6,12 @@ import {
 import {
   CURRENT_SETTINGS_VERSION,
   DEFAULT_CENTRAL_TIME_SCALE,
+  DEFAULT_OLED_PROTECTION,
   MAX_CENTRAL_TIME_SCALE,
+  MAX_OLED_PROTECTION_BRIGHTNESS,
+  MIN_OLED_PROTECTION_BRIGHTNESS,
   MIN_CENTRAL_TIME_SCALE,
+  OLED_PROTECTION_IDLE_MINUTES,
 } from "../constants/settings";
 import {
   getDefaultQuoteChannels,
@@ -20,6 +24,7 @@ import {
   CountdownItem,
   AppMode,
   type TimeDisplaySettings,
+  type OledProtectionSettings,
   type StudyInfoCarouselSettings,
   type StudyInfoItemConfig,
   type StudyNextScheduleLeadMinutes,
@@ -80,6 +85,7 @@ export interface AppSettings {
   general: {
     developerModeEnabled: boolean;
     keepAwakeEnabled: boolean;
+    oledProtection: OledProtectionSettings;
     timeDisplay: TimeDisplaySettings;
     startup: {
       initialMode: AppMode;
@@ -852,6 +858,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   general: {
     developerModeEnabled: false,
     keepAwakeEnabled: false,
+    oledProtection: { ...DEFAULT_OLED_PROTECTION },
     timeDisplay: {
       centralTimeScale: DEFAULT_CENTRAL_TIME_SCALE,
       showClockSeconds: true,
@@ -989,6 +996,30 @@ function normalizeTimeDisplaySettings(value: unknown): TimeDisplaySettings {
       typeof source.showStudySeconds === "boolean"
         ? source.showStudySeconds
         : defaults.showStudySeconds,
+  };
+}
+
+function normalizeOledProtectionSettings(value: unknown): OledProtectionSettings {
+  const source = isRecord(value) ? value : {};
+  const idleMinutes = OLED_PROTECTION_IDLE_MINUTES.includes(
+    source.idleMinutes as (typeof OLED_PROTECTION_IDLE_MINUTES)[number]
+  )
+    ? (source.idleMinutes as (typeof OLED_PROTECTION_IDLE_MINUTES)[number])
+    : DEFAULT_OLED_PROTECTION.idleMinutes;
+  const brightnessPercent =
+    typeof source.brightnessPercent === "number" && Number.isFinite(source.brightnessPercent)
+      ? Math.round(
+          Math.max(
+            MIN_OLED_PROTECTION_BRIGHTNESS,
+            Math.min(MAX_OLED_PROTECTION_BRIGHTNESS, source.brightnessPercent)
+          ) / 5
+        ) * 5
+      : DEFAULT_OLED_PROTECTION.brightnessPercent;
+
+  return {
+    enabled: typeof source.enabled === "boolean" ? source.enabled : DEFAULT_OLED_PROTECTION.enabled,
+    idleMinutes,
+    brightnessPercent,
   };
 }
 
@@ -1202,6 +1233,7 @@ export function normalizeAppSettings(value: unknown): AppSettings {
         typeof parsedGeneral.keepAwakeEnabled === "boolean"
           ? parsedGeneral.keepAwakeEnabled
           : DEFAULT_SETTINGS.general.keepAwakeEnabled,
+      oledProtection: normalizeOledProtectionSettings(parsedGeneral.oledProtection),
       timeDisplay: normalizeTimeDisplaySettings(parsedTimeDisplay),
       startup: { ...DEFAULT_SETTINGS.general.startup, ...parsedStartup },
       quote: normalizeQuoteSettings(parsedGeneral.quote, storedVersion),
@@ -1364,6 +1396,12 @@ export function updateAppSettings(
         developerModeEnabled:
           generalUpdates.developerModeEnabled ?? current.general.developerModeEnabled,
         keepAwakeEnabled: generalUpdates.keepAwakeEnabled ?? current.general.keepAwakeEnabled,
+        oledProtection: generalUpdates.oledProtection
+          ? normalizeOledProtectionSettings({
+              ...current.general.oledProtection,
+              ...generalUpdates.oledProtection,
+            })
+          : current.general.oledProtection,
         timeDisplay: generalUpdates.timeDisplay
           ? normalizeTimeDisplaySettings({
               ...current.general.timeDisplay,

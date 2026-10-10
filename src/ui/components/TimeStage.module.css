@@ -13,6 +13,30 @@
   width: 100%;
 }
 
+.stageOledProtection {
+  --time-stage-display-size: clamp(5rem, 15vw, 10rem);
+  --time-stage-offset-y: 0px;
+
+  max-width: calc(100vw - 48px);
+  width: max-content;
+}
+
+.stageOledProtection .content {
+  max-width: 100%;
+  width: max-content;
+}
+
+.stageOledProtection .value {
+  color: rgb(236 239 243 / var(--time-stage-oled-brightness, 0.4));
+  margin-bottom: 0;
+  overflow: hidden;
+  text-overflow: clip;
+}
+
+.stageOledProtection .content > :not(.value) {
+  color: rgb(214 219 226 / var(--time-stage-oled-brightness, 0.4));
+}
+
 .stageFlow {
   height: 100%;
 }
@@ -107,6 +131,30 @@
   container-type: inline-size;
   --time-stage-display-size: min(18cqw, 42vh);
   --time-stage-offset-y: 0px;
+}
+
+@media (max-width: 768px) {
+  .stageOledProtection {
+    --time-stage-display-size: clamp(4rem, 18vw, 8rem);
+  }
+}
+
+@media (max-height: 600px) {
+  .stageOledProtection {
+    --time-stage-display-size: clamp(3rem, 12vh, 5rem);
+  }
+}
+
+@media (max-width: 360px) and (max-height: 600px) and (orientation: portrait) {
+  .stageOledProtection {
+    --time-stage-display-size: 3.5rem;
+  }
+}
+
+@media (orientation: landscape) and (max-height: 600px) {
+  .stageOledProtection {
+    --time-stage-display-size: clamp(4.25rem, min(12vw, 24vh), 7rem);
+  }
 }
 
 .stage.stageViewport .content {

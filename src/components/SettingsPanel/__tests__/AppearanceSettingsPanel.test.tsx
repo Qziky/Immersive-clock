@@ -189,6 +189,40 @@ describe("AppearanceSettingsPanel", () => {
     await waitFor(() => expect(assetMocks.loadAppearanceAssetCatalog).toHaveBeenCalled());
   });
 
+  it("OLED 防烧屏草稿只在保存时写入设置", async () => {
+    assetMocks.loadAppearanceAssetCatalog.mockResolvedValue({ backgrounds: [], fonts: [] });
+    const dispatch = vi.fn();
+    const saveCallbacks: Array<() => void> = [];
+    contextMocks.useAppDispatch.mockReturnValue(dispatch);
+
+    render(
+      <FeedbackProvider>
+        <AppearanceSettingsPanel onRegisterSave={(save) => saveCallbacks.push(save)} />
+      </FeedbackProvider>
+    );
+
+    const enabledSwitch = screen.getByRole("switch", { name: "启用 OLED 防烧屏" });
+    expect(enabledSwitch).toHaveAttribute("aria-checked", "false");
+    fireEvent.click(enabledSwitch);
+    fireEvent.change(screen.getByRole("combobox", { name: "进入屏保前的闲置时间" }), {
+      target: { value: "3" },
+    });
+    fireEvent.change(screen.getByRole("slider", { name: "屏保亮度" }), {
+      target: { value: "55" },
+    });
+
+    expect(dispatch).not.toHaveBeenCalledWith(
+      expect.objectContaining({ type: "SET_OLED_PROTECTION" })
+    );
+    await waitFor(() => expect(saveCallbacks.length).toBeGreaterThan(1));
+    act(() => saveCallbacks[saveCallbacks.length - 1]?.());
+
+    expect(dispatch).toHaveBeenCalledWith({
+      type: "SET_OLED_PROTECTION",
+      payload: { enabled: true, idleMinutes: 3, brightnessPercent: 55 },
+    });
+  });
+
   it("切换静态和动态分组时保留另一组与页面最后选择", async () => {
     const activeAppearance = createDefaultAppearance();
     activeAppearance.global.background = {

@@ -46,6 +46,7 @@
 | 时间同步           | `src/utils/__tests__/timeSync.test.ts`、`src/utils/__tests__/ntpClient.test.ts`                                                                                                                                                     | `src/utils/timeSync.ts`、`electron/ntpService/ntpClient.ts`                                                                                   |
 | 屏幕常亮           | `keepAwakeRuntime*.test.ts`、`keepAwakeController.test.ts`、`BasicSettingsPanel.test.tsx`                                                                                                                                           | `keepAwakeRuntime.ts`、`keepAwakeController.ts`                                                                                               |
 | 模式/计时          | `src/components/Clock/__tests__/Clock.test.tsx`、`src/hooks/__tests__/useTimer.test.ts`、`tests/e2e/countdown.e2e.spec.ts`、`stopwatch.e2e.spec.ts`                                                                                 | `src/components/Clock`、`Countdown`、`Stopwatch`、`src/hooks/useTimer.ts`                                                                     |
+| OLED 防烧屏与字号同步 | `src/hooks/__tests__/useOledScreenProtectionController.test.tsx`、`src/components/OledProtection/__tests__/screenSaverMotion.test.ts`、`src/utils/__tests__/appSettings.test.ts`、`src/ui/components/__tests__/TimeStage.test.tsx`、`tests/e2e/oled-screen-protection.e2e.spec.ts` | `src/hooks/useOledScreenProtectionController.ts`、`src/components/OledProtection`、`src/utils/appSettings.ts`                                 |
 | 自习状态           | `src/components/Study/__tests__/Study.test.tsx`、`StudyStatus/__tests__/StudyStatus.test.tsx`、`studyInfoSignals.test.tsx`                                                                                                          | `src/components/Study`、`StudyStatus`                                                                                                         |
 | 天气适配/流程      | `src/services/__tests__/weatherService*.test.ts`、`xiaomiWeatherClient.test.ts`、`capacitorHttpClient.test.ts`                                                                                                                      | `src/services/weatherService.ts`、`xiaomiWeatherClient.ts`、`capacitorHttpClient.ts`                                                          |
 | 天气运行时         | `weatherRuntime*.test.ts`、`minutelyWeatherRuntime.test.ts`、`weatherAlertRuntime.test.ts`、`weatherNotificationRuntime.test.ts`                                                                                                    | `src/services/weatherRuntime.ts` 等                                                                                                           |
@@ -82,6 +83,7 @@
 | 动态视频闭环      | `tests/e2e/dynamic-background.e2e.spec.ts`（本地导入、静音/原声、备份恢复、离线播放与大视频） |
 | 模式切换          | `tests/e2e/mode-switch.e2e.spec.ts`                                                           |
 | 倒计时/秒表       | `tests/e2e/countdown.e2e.spec.ts`、`stopwatch.e2e.spec.ts`                                    |
+| OLED 防烧屏与字号同步 | `tests/e2e/oled-screen-protection.e2e.spec.ts`（验证屏保与 150% 中央字号及多视口一致） |
 | 自习 smoke        | `tests/e2e/study-smoke.e2e.spec.ts`                                                           |
 | 设置持久化/动效   | `tests/e2e/settings-persistence.e2e.spec.ts`、`settings-motion.e2e.spec.ts`                   |
 | 数据管理          | `tests/e2e/data-management.e2e.spec.ts`                                                       |
@@ -104,7 +106,8 @@
   `appSettings.test.ts` 共同覆盖，并验证自定义课表不会被覆盖。
 - 单休周期（`rest_count: 1`）的校验、YAML 往返、运行时解析和设置页持久化由
   `studyTimetable.test.ts`、`ScheduleSettings.test.tsx` 与 `settings-persistence.e2e.spec.ts` 覆盖。
-- 公共 UI 的 TimeStage 响应式布局与中央时间缩放契约由 `src/ui/components/__tests__/TimeStage.test.tsx` 覆盖。
+- 公共 UI 的 TimeStage 响应式布局、中央时间缩放及 OLED 屏保字号同步由
+  `src/ui/components/__tests__/TimeStage.test.tsx` 与 `tests/e2e/oled-screen-protection.e2e.spec.ts` 覆盖。
 - 公共浮层的进入、退出和交互隔离由 `src/ui/components/__tests__/motion.test.tsx` 覆盖。
 - 倒计时快速设置、自定义时长与持久化由
   `src/components/CountdownModal/__tests__/CountdownModal.test.tsx` 和

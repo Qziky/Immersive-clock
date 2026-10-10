@@ -113,6 +113,12 @@ export interface TimeDisplaySettings {
   showStudySeconds: boolean;
 }
 
+export interface OledProtectionSettings {
+  enabled: boolean;
+  idleMinutes: number;
+  brightnessPercent: number;
+}
+
 /** 自习页顶部可用的进度快照类型。 */
 export type StudyProgressKind = "day" | "schedule";
 
@@ -268,6 +274,8 @@ export interface AppState {
   stopwatch: StopwatchState;
   /** 当前时间显示设置 */
   timeDisplay: TimeDisplaySettings;
+  /** OLED 屏幕保护设置 */
+  oledProtection: OledProtectionSettings;
   /** 自习状态 */
   study: StudyState;
   /** 语录渠道管理状态 */
@@ -299,6 +307,7 @@ export type AppAction =
   | { type: "TICK_STOPWATCH" }
   | { type: "TICK_STOPWATCH_BY"; payload: number }
   | { type: "SET_TIME_DISPLAY"; payload: TimeDisplaySettings }
+  | { type: "SET_OLED_PROTECTION"; payload: OledProtectionSettings }
   | { type: "SET_TARGET_YEAR"; payload: number }
   | { type: "SET_COUNTDOWN_TYPE"; payload: "gaokao" | "custom" }
   | { type: "SET_CUSTOM_COUNTDOWN"; payload: { name: string; date: string } }

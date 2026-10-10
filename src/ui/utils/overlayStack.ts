@@ -18,6 +18,11 @@ interface OverlayLayer {
   type: OverlayLayerType;
 }
 
+export interface OverlayStackSnapshot {
+  hasActiveModal: boolean;
+  hasActiveFloating: boolean;
+}
+
 interface BackgroundState {
   ariaHidden: string | null;
   inert: boolean;
@@ -29,9 +34,17 @@ const backgroundStates = new Map<HTMLElement, BackgroundState>();
 const OverlayParentContext = createContext<string | null>(null);
 let nextLayerOrder = 0;
 let stackVersion = 0;
+let stackSnapshot: OverlayStackSnapshot = {
+  hasActiveModal: false,
+  hasActiveFloating: false,
+};
 
 function emitStackChange() {
   stackVersion += 1;
+  stackSnapshot = {
+    hasActiveModal: layers.some((layer) => layer.type === "modal"),
+    hasActiveFloating: layers.some((layer) => layer.type === "floating"),
+  };
   listeners.forEach((listener) => listener());
 }
 
@@ -42,6 +55,14 @@ function subscribe(listener: () => void) {
 
 function getStackVersion() {
   return stackVersion;
+}
+
+export function getOverlayStackSnapshot(): OverlayStackSnapshot {
+  return stackSnapshot;
+}
+
+export function useOverlayStackSnapshot(): OverlayStackSnapshot {
+  return useSyncExternalStore(subscribe, getOverlayStackSnapshot, getOverlayStackSnapshot);
 }
 
 function isPortalRoot(element: Element) {

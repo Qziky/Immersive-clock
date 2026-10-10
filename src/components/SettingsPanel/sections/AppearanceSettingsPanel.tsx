@@ -2,8 +2,12 @@ import React, { useEffect, useMemo, useRef, useState, useSyncExternalStore } fro
 
 import {
   DEFAULT_CENTRAL_TIME_SCALE,
+  DEFAULT_OLED_PROTECTION,
   MAX_CENTRAL_TIME_SCALE,
   MIN_CENTRAL_TIME_SCALE,
+  MAX_OLED_PROTECTION_BRIGHTNESS,
+  MIN_OLED_PROTECTION_BRIGHTNESS,
+  OLED_PROTECTION_IDLE_MINUTES,
 } from "../../../constants/settings";
 import { useAppDispatch, useAppState } from "../../../contexts/AppContext";
 import { useAppearance } from "../../../contexts/AppearanceContext";
@@ -14,7 +18,7 @@ import {
   stopDynamicAudioCapture,
   subscribeDynamicAudio,
 } from "../../../services/dynamicBackgroundAudio";
-import type { TimeDisplaySettings } from "../../../types";
+import type { OledProtectionSettings, TimeDisplaySettings } from "../../../types";
 import type {
   AppearanceBackground,
   AppearanceComponentId,
@@ -34,6 +38,7 @@ import {
   Inline as FormButtonGroup,
   Input as FormInput,
   RadioGroup as FormSegmented,
+  Select as FormSelect,
   SettingGrid,
   SettingItem,
   Slider as FormSlider,
@@ -732,6 +737,10 @@ export function AppearanceSettingsPanel({
     ...(timeDisplay ?? {}),
     centralTimeScale: timeDisplay?.centralTimeScale ?? DEFAULT_TIME_DISPLAY.centralTimeScale,
   }));
+  const [draftOledProtection, setDraftOledProtection] = useState<OledProtectionSettings>(() => ({
+    ...DEFAULT_OLED_PROTECTION,
+    ...getAppSettings().general.oledProtection,
+  }));
   const [topDockView, setTopDockView] =
     useState<(typeof TOP_DOCK_COMPONENT_OPTIONS)[number]["value"]>("studyTopDock");
   const componentId: AppearanceComponentId = isOverview
@@ -852,9 +861,10 @@ export function AppearanceSettingsPanel({
   useEffect(() => {
     onRegisterSave?.(() => {
       dispatch({ type: "SET_TIME_DISPLAY", payload: draftTimeDisplay });
+      dispatch({ type: "SET_OLED_PROTECTION", payload: draftOledProtection });
       updateAppSettings({ countdown: { customFinalSoundDataUrl } });
     });
-  }, [customFinalSoundDataUrl, dispatch, draftTimeDisplay, onRegisterSave]);
+  }, [customFinalSoundDataUrl, dispatch, draftOledProtection, draftTimeDisplay, onRegisterSave]);
 
   useEffect(() => {
     // Closing animations keep this editor mounted briefly after committing.
@@ -1141,6 +1151,68 @@ export function AppearanceSettingsPanel({
               showClockSeconds={draftTimeDisplay.showClockSeconds}
               showStudySeconds={draftTimeDisplay.showStudySeconds}
             />
+          </FormSection>
+
+          <FormSection
+            title="OLED 防烧屏"
+            description="闲置后自动切换到纯黑、低亮度的移动时间屏保；操作时立即恢复。"
+            variant="plain"
+          >
+            <SettingGrid className={styles.editorGrid} columns={1}>
+              <SettingItem
+                icon="feature.appearance"
+                title="启用屏幕保护"
+                description="适用于时钟、倒计时、秒表和自习页面。"
+                control={
+                  <FormSwitch
+                    checked={draftOledProtection.enabled}
+                    aria-label="启用 OLED 防烧屏"
+                    onCheckedChange={(enabled) =>
+                      setDraftOledProtection((current) => ({ ...current, enabled }))
+                    }
+                  />
+                }
+              />
+              <SettingItem
+                icon="feature.time"
+                title="进入屏保前的闲置时间"
+                description="鼠标、键盘或触屏操作会重新开始倒计时。"
+              >
+                <FormSelect
+                  aria-label="进入屏保前的闲置时间"
+                  value={String(draftOledProtection.idleMinutes)}
+                  options={OLED_PROTECTION_IDLE_MINUTES.map((minutes) => ({
+                    value: String(minutes),
+                    label: `${minutes} 分钟`,
+                  }))}
+                  onChange={(event) =>
+                    setDraftOledProtection((current) => ({
+                      ...current,
+                      idleMinutes: Number(event.target.value),
+                    }))
+                  }
+                />
+              </SettingItem>
+              <SettingItem
+                icon="appearance.preview"
+                title="屏保亮度"
+                description="只调整屏保中文字的明暗，不会修改显示器亮度。"
+              >
+                <FormSlider
+                  aria-label="屏保亮度"
+                  label="屏保亮度"
+                  min={MIN_OLED_PROTECTION_BRIGHTNESS}
+                  max={MAX_OLED_PROTECTION_BRIGHTNESS}
+                  step={5}
+                  value={draftOledProtection.brightnessPercent}
+                  onChange={(brightnessPercent) =>
+                    setDraftOledProtection((current) => ({ ...current, brightnessPercent }))
+                  }
+                  formatValue={(value) => `${value}%`}
+                  rangeLabels={["较暗", "较亮"]}
+                />
+              </SettingItem>
+            </SettingGrid>
           </FormSection>
 
           <FormSection

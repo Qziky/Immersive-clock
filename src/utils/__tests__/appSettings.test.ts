@@ -76,6 +76,11 @@ describe("appSettings", () => {
     expect(s.countdown.customQuickPresetSeconds).toBeNull();
     expect(s.general.developerModeEnabled).toBe(false);
     expect(s.general.keepAwakeEnabled).toBe(false);
+    expect(s.general.oledProtection).toEqual({
+      enabled: false,
+      idleMinutes: 5,
+      brightnessPercent: 40,
+    });
     expect(s.general.analytics.experienceProgramEnabled).toBe(true);
     expect(s.general.timeDisplay).toEqual({
       centralTimeScale: 1,
@@ -135,6 +140,44 @@ describe("appSettings", () => {
         enabled: false,
       }),
     ]);
+  });
+
+  it("补齐并约束 OLED 防烧屏设置", () => {
+    const normalized = normalizeAppSettings({
+      version: 22,
+      general: {
+        oledProtection: { enabled: true, idleMinutes: 2, brightnessPercent: 99 },
+      },
+    });
+
+    expect(normalized.version).toBe(23);
+    expect(normalized.general.oledProtection).toEqual({
+      enabled: true,
+      idleMinutes: 5,
+      brightnessPercent: 80,
+    });
+    expect(
+      normalizeAppSettings({ version: 22, general: { oledProtection: { brightnessPercent: 22 } } })
+        .general.oledProtection
+    ).toEqual({ enabled: false, idleMinutes: 5, brightnessPercent: 20 });
+  });
+
+  it("将旧配置升级到 23 并持久化默认关闭的 OLED 防烧屏设置", () => {
+    localStorage.setItem(APP_SETTINGS_KEY, JSON.stringify({ version: 22, general: {} }));
+
+    const settings = migrateStoredAppSettings();
+    const persisted = JSON.parse(localStorage.getItem(APP_SETTINGS_KEY) ?? "{}") as {
+      general?: { oledProtection?: unknown };
+      version?: number;
+    };
+
+    expect(settings.general.oledProtection).toEqual({
+      enabled: false,
+      idleMinutes: 5,
+      brightnessPercent: 40,
+    });
+    expect(persisted.version).toBe(CURRENT_SETTINGS_VERSION);
+    expect(persisted.general?.oledProtection).toEqual(settings.general.oledProtection);
   });
 
   it("倒计时自定义快速设置会校验范围、支持保存并迁移旧版本", () => {
@@ -853,7 +896,7 @@ describe("appSettings", () => {
 
     const migrated = migrateStoredAppSettings();
 
-    expect(migrated.version).toBe(22);
+    expect(migrated.version).toBe(CURRENT_SETTINGS_VERSION);
     expect(migrated.appearance.global.background).toMatchObject({ type: "green" });
     expect(migrated.appearance.global.background.mode).toBeUndefined();
     expect(migrated.appearance.scenes.clock.background.type).toBe("inherit");

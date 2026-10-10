@@ -34,6 +34,11 @@ describe("appReducer", () => {
         showClockSeconds: true,
         showStudySeconds: true,
       },
+      oledProtection: {
+        enabled: false,
+        idleMinutes: 5,
+        brightnessPercent: 40,
+      },
       study: {
         targetYear: 2026,
         countdownType: "gaokao",
@@ -120,6 +125,22 @@ describe("appReducer", () => {
         JSON.parse(localStorage.getItem(APP_SETTINGS_KEY) ?? "{}").general.timeDisplay
       ).toEqual(timeDisplay);
     });
+  });
+
+  it("SET_OLED_PROTECTION 会同步更新运行状态与 AppSettings", () => {
+    const nextState = appReducer(state, {
+      type: "SET_OLED_PROTECTION",
+      payload: { enabled: true, idleMinutes: 3, brightnessPercent: 55 },
+    });
+
+    expect(nextState.oledProtection).toEqual({
+      enabled: true,
+      idleMinutes: 3,
+      brightnessPercent: 55,
+    });
+    expect(
+      JSON.parse(localStorage.getItem(APP_SETTINGS_KEY) ?? "{}").general.oledProtection
+    ).toEqual(nextState.oledProtection);
   });
 
   describe("HUD 控制", () => {

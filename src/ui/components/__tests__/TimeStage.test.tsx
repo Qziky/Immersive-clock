@@ -59,4 +59,20 @@ describe("TimeStage", () => {
     expect(stage.style.getPropertyValue("--time-stage-display-scale")).toBe("1.2");
     expect(stage).toHaveStyle({ color: "rgb(255, 0, 0)" });
   });
+
+  it("OLED 防护舞台沿用中央时间字号缩放", () => {
+    render(
+      <TimeStage
+        variant="oled-protection"
+        displayScale={1.5}
+        rootAttributes={{ "data-testid": "oled-stage" }}
+      >
+        <TimeStageValue>12:45:09</TimeStageValue>
+      </TimeStage>
+    );
+
+    const stage = screen.getByTestId("oled-stage");
+    expect(stage.className).toContain("stageOledProtection");
+    expect(stage.style.getPropertyValue("--time-stage-display-scale")).toBe("1.5");
+  });
 });

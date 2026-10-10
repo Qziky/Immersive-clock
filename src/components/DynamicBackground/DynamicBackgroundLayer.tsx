@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 
+import { useOledProtectionActive } from "../../contexts/OledProtectionContext";
 import {
   readDynamicAudioFrame,
   subscribeDynamicAudio,
@@ -234,6 +235,7 @@ export function DynamicBackgroundLayer({
       ? window.matchMedia("(prefers-reduced-motion: reduce)").matches
       : false
   );
+  const screenProtectionActive = useOledProtectionActive();
   const dynamic = background.dynamic;
   const videoAssetId = dynamic?.type === "video" ? dynamic.assetId : undefined;
   const videoUrl = dynamic?.type === "video" ? dynamic.url : undefined;
@@ -287,13 +289,24 @@ export function DynamicBackgroundLayer({
     const video = videoRef.current;
     if (!video) return;
     const syncPlayback = () => {
-      if (reducedMotion || document.visibilityState === "hidden") video.pause();
-      else if (videoSource) void video.play().catch(() => undefined);
+      const preserveVideoAudio = Boolean(
+        screenProtectionActive &&
+        dynamic?.type === "video" &&
+        dynamic.soundEnabled &&
+        soundActivated
+      );
+      if (
+        reducedMotion ||
+        document.visibilityState === "hidden" ||
+        (screenProtectionActive && !preserveVideoAudio)
+      ) {
+        video.pause();
+      } else if (videoSource) void video.play().catch(() => undefined);
     };
     syncPlayback();
     document.addEventListener("visibilitychange", syncPlayback);
     return () => document.removeEventListener("visibilitychange", syncPlayback);
-  }, [reducedMotion, videoSource, videoError]);
+  }, [dynamic, reducedMotion, screenProtectionActive, soundActivated, videoSource, videoError]);
 
   useEffect(() => {
     if (!canvasRef.current || background.mode !== "dynamic" || !dynamic) return;
@@ -310,7 +323,7 @@ export function DynamicBackgroundLayer({
         : null;
     const draw = (time: number) => {
       animationId = 0;
-      if (document.visibilityState === "hidden") {
+      if (document.visibilityState === "hidden" || screenProtectionActive) {
         return;
       }
       if (!reducedMotion?.matches && time - lastFrameTime < 1000 / 30) {
@@ -374,7 +387,7 @@ export function DynamicBackgroundLayer({
       resizeObserver?.disconnect();
       unsubscribeAudio();
     };
-  }, [background.mode, dynamic]);
+  }, [background.mode, dynamic, screenProtectionActive]);
 
   useEffect(() => {
     const video = videoRef.current;
