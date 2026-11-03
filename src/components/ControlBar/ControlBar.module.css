@@ -86,3 +86,10 @@
     gap: 0.25rem;
   }
 }
+
+.shortcutHint {
+  font-family: inherit;
+  font-size: 0.75em;
+  opacity: 0.65;
+  white-space: nowrap;
+}

@@ -20,6 +20,7 @@ import { SettingsButton } from "../../components/SettingsButton";
 import { useAppState, useAppDispatch } from "../../contexts/AppContext";
 import { useAppearance } from "../../contexts/AppearanceContext";
 import { OledProtectionProvider } from "../../contexts/OledProtectionContext";
+import { useClockKeyboardShortcuts } from "../../hooks/useClockKeyboardShortcuts";
 import { useOledScreenProtectionController } from "../../hooks/useOledScreenProtectionController";
 import {
   getDynamicAudioSnapshot,
@@ -374,44 +375,15 @@ export function ClockPage() {
     [clearHudHideTimeout, dispatch, isModalOpen, scheduleHudAutoHide]
   );
 
-  /**
-   * 处理键盘事件
-   */
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
-      /**
-       * 如果倒计时模态框或设置面板打开，则不处理页面级键盘事件
-       * 避免拦截输入组件的回车（如 textarea 换行）
-       */
-      // 注意：SettingsPanel 通过 Portal 渲染，事件仍会沿 React 树冒泡到此处
-      if (isModalOpen || showSettings) {
-        return;
-      }
-
-      /**
-       * 在表单输入或可编辑元素中，不拦截回车或空格
-       * 保证输入框/文本域/可编辑区域的默认行为（换行、输入等）
-       */
-      const eventTarget = e.target as HTMLElement | null;
-      if (mode === "exam") return;
-      if (eventTarget && hudContainerRef.current?.contains(eventTarget)) {
-        return;
-      }
-      const tagName = eventTarget?.tagName?.toUpperCase();
-      const isEditingElement =
-        !!eventTarget &&
-        (tagName === "INPUT" || tagName === "TEXTAREA" || eventTarget.isContentEditable === true);
-      if (isEditingElement) {
-        return;
-      }
-
-      // 空格键或回车键显示HUD（仅当不在输入环境中）
-      if (e.code === "Space" || e.code === "Enter") {
-        e.preventDefault();
-        handlePageClick();
-      }
-    },
-    [handlePageClick, isModalOpen, showSettings, mode]
+  useClockKeyboardShortcuts(
+    isModalOpen ||
+      showSettings ||
+      showAnnouncement ||
+      tourActive ||
+      screenSaverVisible ||
+      overlays.hasActiveModal ||
+      overlays.hasActiveFloating,
+    handlePageClick
   );
 
   /**
@@ -518,7 +490,6 @@ export function ClockPage() {
           inert={screenSaverVisible}
           aria-hidden={screenSaverVisible || undefined}
           onClick={handlePageClick}
-          onKeyDown={handleKeyDown}
           style={displayMode === "study" ? undefined : displayBackgroundStyle}
           tabIndex={0}
           aria-label="时钟应用主界面"

@@ -1,9 +1,12 @@
-import React, { useCallback } from "react";
+import React from "react";
 
 import { useAppDispatch, useAppState } from "../../contexts/AppContext";
 import { useFullscreen } from "../../hooks/useFullscreen";
+import { useKeyboardShortcutSettings } from "../../hooks/useKeyboardShortcutSettings";
+import { useTimerControls } from "../../hooks/useTimerControls";
 import type { AppMode } from "../../types";
 import { Button as FormButton, Dropdown } from "../../ui";
+import { formatShortcut } from "../../utils/keyboardShortcuts";
 
 import styles from "./ControlBar.module.css";
 
@@ -18,53 +21,17 @@ interface ControlBarProps {
 export function ControlBar({ onModeChange }: ControlBarProps) {
   const { mode, countdown, stopwatch } = useAppState();
   const dispatch = useAppDispatch();
-  const [isFullscreen, toggleFullscreenOriginal] = useFullscreen();
+  const [isFullscreen, toggleFullscreen] = useFullscreen();
+  const shortcuts = useKeyboardShortcutSettings();
+  const toggleTimer = useTimerControls();
 
-  /**
-   * 包装全屏切换函数
-   */
-  const toggleFullscreen = useCallback(() => {
-    toggleFullscreenOriginal();
-  }, [toggleFullscreenOriginal]);
-
-  /**
-   * 处理倒计时开始/暂停
-   */
-  const handleCountdownToggle = useCallback(() => {
-    if (countdown.currentTime === 0) {
-      // 如果倒计时为0，打开设置模态框
-      dispatch({ type: "OPEN_MODAL" });
-    } else if (countdown.isActive) {
-      dispatch({ type: "PAUSE_COUNTDOWN" });
-    } else {
-      dispatch({ type: "START_COUNTDOWN" });
-    }
-  }, [countdown.currentTime, countdown.isActive, dispatch]);
-
-  /**
-   * 处理倒计时重置
-   */
-  const handleCountdownReset = useCallback(() => {
-    dispatch({ type: "RESET_COUNTDOWN" });
-  }, [dispatch]);
-
-  /**
-   * 处理秒表开始/暂停
-   */
-  const handleStopwatchToggle = useCallback(() => {
-    if (stopwatch.isActive) {
-      dispatch({ type: "PAUSE_STOPWATCH" });
-    } else {
-      dispatch({ type: "START_STOPWATCH" });
-    }
-  }, [stopwatch.isActive, dispatch]);
-
-  /**
-   * 处理秒表重置
-   */
-  const handleStopwatchReset = useCallback(() => {
-    dispatch({ type: "RESET_STOPWATCH" });
-  }, [dispatch]);
+  const shortcutHint = (code: string | null, doublePress = false) =>
+    code ? (
+      <kbd className={styles.shortcutHint}>
+        {formatShortcut(code)}
+        {doublePress ? " × 2" : ""}
+      </kbd>
+    ) : null;
 
   /**
    * 渲染倒计时控制按钮
@@ -77,7 +44,7 @@ export function ControlBar({ onModeChange }: ControlBarProps) {
       <>
         <FormButton
           className={`${styles.controlButton} ${styles.controlButtonPrimary}`}
-          onClick={handleCountdownToggle}
+          onClick={toggleTimer}
           aria-label={canStart ? (isRunning ? "暂停倒计时" : "开始倒计时") : "设置倒计时"}
           title={canStart ? (isRunning ? "暂停倒计时" : "开始倒计时") : "设置倒计时"}
           variant="ghost"
@@ -85,11 +52,12 @@ export function ControlBar({ onModeChange }: ControlBarProps) {
           icon={canStart && isRunning ? "action.pause" : "action.play"}
         >
           {canStart ? (isRunning ? "暂停" : "开始") : "设置"}
+          {shortcutHint(shortcuts.toggleTimer)}
         </FormButton>
 
         <FormButton
           className={styles.controlButton}
-          onClick={handleCountdownReset}
+          onClick={() => dispatch({ type: "RESET_COUNTDOWN" })}
           disabled={countdown.currentTime === countdown.initialTime && !isRunning}
           aria-label="重置倒计时"
           title="重置倒计时"
@@ -98,6 +66,7 @@ export function ControlBar({ onModeChange }: ControlBarProps) {
           icon="action.reset"
         >
           重置
+          {shortcutHint(shortcuts.resetCountdown, true)}
         </FormButton>
       </>
     );
@@ -113,7 +82,7 @@ export function ControlBar({ onModeChange }: ControlBarProps) {
       <>
         <FormButton
           className={`${styles.controlButton} ${styles.controlButtonPrimary}`}
-          onClick={handleStopwatchToggle}
+          onClick={toggleTimer}
           aria-label={isRunning ? "暂停秒表" : "开始秒表"}
           title={isRunning ? "暂停秒表" : "开始秒表"}
           variant="ghost"
@@ -121,11 +90,12 @@ export function ControlBar({ onModeChange }: ControlBarProps) {
           icon={isRunning ? "action.pause" : "action.play"}
         >
           {isRunning ? "暂停" : "开始"}
+          {shortcutHint(shortcuts.toggleTimer)}
         </FormButton>
 
         <FormButton
           className={styles.controlButton}
-          onClick={handleStopwatchReset}
+          onClick={() => dispatch({ type: "RESET_STOPWATCH" })}
           disabled={stopwatch.elapsedTime === 0 && !isRunning}
           aria-label="重置秒表"
           title="重置秒表"
@@ -187,6 +157,7 @@ export function ControlBar({ onModeChange }: ControlBarProps) {
           icon={isFullscreen ? "action.minimize" : "action.maximize"}
         >
           {isFullscreen ? "退出全屏" : "全屏"}
+          {shortcutHint(shortcuts.toggleFullscreen)}
         </FormButton>
       </div>
     </div>
