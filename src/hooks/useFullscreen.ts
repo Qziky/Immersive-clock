@@ -1,5 +1,5 @@
 import { SystemBars, SystemBarsStyle } from "@capacitor/core";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 
 import { logger } from "../utils/logger";
 import { getRuntimePlatform } from "../utils/runtimePlatform";
@@ -19,6 +19,19 @@ interface FullscreenElement extends HTMLElement {
   msRequestFullscreen?: () => Promise<void> | void;
 }
 
+// Android 系统栏属于整个应用，状态必须在按钮、快捷键与页面之间共享。
+let androidIsFullscreen = false;
+const androidFullscreenListeners = new Set<() => void>();
+const getAndroidFullscreen = () => androidIsFullscreen;
+const subscribeAndroidFullscreen = (listener: () => void) => {
+  androidFullscreenListeners.add(listener);
+  return () => androidFullscreenListeners.delete(listener);
+};
+const setAndroidFullscreen = (value: boolean) => {
+  androidIsFullscreen = value;
+  androidFullscreenListeners.forEach((listener) => listener());
+};
+
 /**
  * 全屏API钩子
  * 提供全屏状态检测和切换功能，兼容不同浏览器的前缀
@@ -27,6 +40,8 @@ interface FullscreenElement extends HTMLElement {
 export function useFullscreen(): [boolean, () => void] {
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   const isAndroid = getRuntimePlatform() === "android";
+  const androidFullscreen = useSyncExternalStore(subscribeAndroidFullscreen, getAndroidFullscreen);
+  const currentFullscreen = isAndroid ? androidFullscreen : isFullscreen;
 
   /**
    * 检查当前是否处于全屏状态
@@ -51,7 +66,7 @@ export function useFullscreen(): [boolean, () => void] {
     try {
       if (isAndroid) {
         await SystemBars.hide();
-        setIsFullscreen(true);
+        setAndroidFullscreen(true);
         return;
       }
 
@@ -79,7 +94,7 @@ export function useFullscreen(): [boolean, () => void] {
       if (isAndroid) {
         await SystemBars.setStyle({ style: SystemBarsStyle.Dark });
         await SystemBars.show();
-        setIsFullscreen(false);
+        setAndroidFullscreen(false);
         return;
       }
 
@@ -101,12 +116,12 @@ export function useFullscreen(): [boolean, () => void] {
    * 切换全屏状态
    */
   const toggleFullscreen = useCallback(() => {
-    if (isFullscreen) {
+    if (currentFullscreen) {
       void exitFullscreen();
     } else {
       void enterFullscreen();
     }
-  }, [isFullscreen, enterFullscreen, exitFullscreen]);
+  }, [currentFullscreen, enterFullscreen, exitFullscreen]);
 
   useEffect(() => {
     if (isAndroid) return undefined;
@@ -134,5 +149,5 @@ export function useFullscreen(): [boolean, () => void] {
     };
   }, [checkFullscreen, isAndroid]);
 
-  return [isFullscreen, toggleFullscreen];
+  return [currentFullscreen, toggleFullscreen];
 }

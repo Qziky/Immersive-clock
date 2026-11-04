@@ -68,8 +68,54 @@ describe("useFullscreen", () => {
     });
   });
 
-  afterEach(() => {
+  afterEach(async () => {
+    // 全屏状态在应用级保存；模拟退出，避免测试之间保留系统栏状态。
+    mocks.platform = "android";
+    mocks.setStyle.mockResolvedValue(undefined);
+    mocks.show.mockResolvedValue(undefined);
+    const { result, unmount } = renderHook(() => useFullscreen());
+    if (result.current[0]) {
+      act(() => result.current[1]());
+      await waitFor(() => expect(result.current[0]).toBe(false));
+    }
+    unmount();
     vi.restoreAllMocks();
+  });
+
+  it("Android 的独立入口共享状态，并可互相退出全屏", async () => {
+    mocks.platform = "android";
+    const button = renderHook(() => useFullscreen());
+    const keyboard = renderHook(() => useFullscreen());
+
+    act(() => button.result.current[1]());
+    await waitFor(() => expect(keyboard.result.current[0]).toBe(true));
+    expect(button.result.current[0]).toBe(true);
+
+    act(() => keyboard.result.current[1]());
+    await waitFor(() => expect(button.result.current[0]).toBe(false));
+    expect(keyboard.result.current[0]).toBe(false);
+    expect(mocks.hide).toHaveBeenCalledTimes(1);
+    expect(mocks.show).toHaveBeenCalledTimes(1);
+
+    act(() => keyboard.result.current[1]());
+    await waitFor(() => expect(button.result.current[0]).toBe(true));
+    act(() => button.result.current[1]());
+    await waitFor(() => expect(keyboard.result.current[0]).toBe(false));
+  });
+
+  it("Android 全屏在所有入口卸载后仍保留，并同步给新入口", async () => {
+    mocks.platform = "android";
+    const firstPage = renderHook(() => useFullscreen());
+    act(() => firstPage.result.current[1]());
+    await waitFor(() => expect(firstPage.result.current[0]).toBe(true));
+    firstPage.unmount();
+
+    const nextPage = renderHook(() => useFullscreen());
+    expect(nextPage.result.current[0]).toBe(true);
+    act(() => nextPage.result.current[1]());
+    await waitFor(() => expect(nextPage.result.current[0]).toBe(false));
+    expect(mocks.hide).toHaveBeenCalledTimes(1);
+    expect(mocks.show).toHaveBeenCalledTimes(1);
   });
 
   it("在 Android 中通过系统栏 API 进入和退出全屏", async () => {
