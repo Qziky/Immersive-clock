@@ -61,6 +61,11 @@ import {
   normalizeAppearance,
 } from "./appearanceModel";
 import { DEFAULT_EXAM, normalizeExam, type ExamSettings } from "./exam";
+import {
+  DEFAULT_KEYBOARD_SHORTCUTS,
+  normalizeKeyboardShortcuts,
+  type KeyboardShortcuts,
+} from "./keyboardShortcuts";
 import { logger } from "./logger";
 import { StudyBackgroundType } from "./studyBackgroundStorage";
 import {
@@ -85,6 +90,7 @@ export interface AppSettings {
   general: {
     developerModeEnabled: boolean;
     keepAwakeEnabled: boolean;
+    keyboardShortcuts: KeyboardShortcuts;
     oledProtection: OledProtectionSettings;
     timeDisplay: TimeDisplaySettings;
     startup: {
@@ -858,6 +864,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   general: {
     developerModeEnabled: false,
     keepAwakeEnabled: false,
+    keyboardShortcuts: { ...DEFAULT_KEYBOARD_SHORTCUTS },
     oledProtection: { ...DEFAULT_OLED_PROTECTION },
     timeDisplay: {
       centralTimeScale: DEFAULT_CENTRAL_TIME_SCALE,
@@ -1235,6 +1242,7 @@ export function normalizeAppSettings(value: unknown): AppSettings {
           : DEFAULT_SETTINGS.general.keepAwakeEnabled,
       oledProtection: normalizeOledProtectionSettings(parsedGeneral.oledProtection),
       timeDisplay: normalizeTimeDisplaySettings(parsedTimeDisplay),
+      keyboardShortcuts: normalizeKeyboardShortcuts(parsedGeneral.keyboardShortcuts),
       startup: { ...DEFAULT_SETTINGS.general.startup, ...parsedStartup },
       quote: normalizeQuoteSettings(parsedGeneral.quote, storedVersion),
       announcement: { ...DEFAULT_SETTINGS.general.announcement, ...parsedAnnouncement },
@@ -1408,6 +1416,12 @@ export function updateAppSettings(
               ...generalUpdates.timeDisplay,
             })
           : current.general.timeDisplay,
+        keyboardShortcuts: generalUpdates.keyboardShortcuts
+          ? normalizeKeyboardShortcuts({
+              ...current.general.keyboardShortcuts,
+              ...generalUpdates.keyboardShortcuts,
+            })
+          : current.general.keyboardShortcuts,
         startup: generalUpdates.startup
           ? { ...current.general.startup, ...generalUpdates.startup }
           : current.general.startup,

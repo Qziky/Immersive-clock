@@ -45,6 +45,7 @@ import { resolveStartupMode } from "../../../utils/startupMode";
 import { ScheduleEditor } from "../../ScheduleSettings/ScheduleSettings";
 
 import { CountdownManagerPanel } from "./CountdownManagerPanel";
+import { KeyboardShortcutsPanel } from "./KeyboardShortcutsPanel";
 import { StudyInfoList } from "./StudyInfoList";
 
 /**
@@ -59,7 +60,13 @@ export interface BasicSettingsPanelProps {
   section?: BasicSettingsSection;
 }
 
-export type BasicSettingsSection = "startup" | "display" | "countdown" | "timeSync" | "schedule";
+export type BasicSettingsSection =
+  | "startup"
+  | "display"
+  | "countdown"
+  | "timeSync"
+  | "schedule"
+  | "shortcuts";
 
 /**
  * 基础设置分段组件
@@ -117,6 +124,10 @@ export const BasicSettingsPanel: React.FC<BasicSettingsPanelProps> = ({
   const enabledInfoCount = draftInfoCarousel.items.filter((item) => item.enabled).length;
 
   // 子分区保存注册
+  const shortcutsSaveRef = React.useRef<() => void>(() => {});
+  const registerShortcutsSave = React.useCallback((save: () => void) => {
+    shortcutsSaveRef.current = save;
+  }, []);
   const countdownSaveRef = React.useRef<() => void>(() => {});
   const scheduleSaveRef = React.useRef<() => void>(() => {});
 
@@ -311,6 +322,7 @@ export const BasicSettingsPanel: React.FC<BasicSettingsPanelProps> = ({
         updateStudySettings({ countdownMode });
       } catch {}
 
+      shortcutsSaveRef.current();
       updateGeneralSettings({
         keepAwakeEnabled,
         startup: { initialMode: startupMode },
@@ -445,6 +457,11 @@ export const BasicSettingsPanel: React.FC<BasicSettingsPanelProps> = ({
           )}
         </SettingItem>
       </FormSection>
+
+      <KeyboardShortcutsPanel
+        hidden={isSectionHidden("shortcuts")}
+        onRegisterSave={registerShortcutsSave}
+      />
 
       {/* 倒计时设置 */}
       <FormSection

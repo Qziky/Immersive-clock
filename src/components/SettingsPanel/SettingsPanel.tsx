@@ -29,6 +29,7 @@ import styles from "./SettingsPanel.module.css";
 type SettingsPrimaryGroup = "workspace" | "appearance" | "environment" | "content" | "system";
 
 type SettingsPaneId =
+  | "shortcuts"
   | "startup"
   | "display"
   | "countdown"
@@ -179,6 +180,15 @@ const paneItems: SettingsPane[] = [
     icon: "mode.clock",
     panel: "basic",
     section: "startup",
+  },
+  {
+    value: "shortcuts",
+    group: "workspace",
+    label: "快捷键",
+    description: "设置计时与全屏操作的按键。",
+    icon: "action.play",
+    panel: "basic",
+    section: "shortcuts",
   },
   {
     value: "display",
