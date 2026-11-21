@@ -1,7 +1,15 @@
 export type UpdatePlatform = "web" | "electron" | "android";
 
 export type UpdateStatus =
-  "idle" | "checking" | "current" | "available" | "downloading" | "ready" | "error";
+  | "idle"
+  | "checking"
+  | "current"
+  | "available"
+  | "preparing"
+  | "downloading"
+  | "ready"
+  | "applying"
+  | "error";
 
 export interface WebPlatformRelease {
   version: string;
@@ -55,6 +63,8 @@ export interface UpdateSnapshot {
   source: "auto" | "manual" | "platform";
   action?: UpdateAction;
   minimumVersionWarning?: boolean;
+  webReloadBlocked?: boolean;
+  webDirectReload?: boolean;
 }
 
 export interface UpdateCheckOptions {

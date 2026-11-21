@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { ElectronUpdateState } from "../../../types/update";
+import type { PwaWorkerSnapshot, PwaWorkerStatus } from "../pwaUpdateController";
 
 const mocks = vi.hoisted(() => ({
   autoCheckEnabled: true,
@@ -51,6 +52,30 @@ async function loadRuntime() {
   return import("../updateRuntime");
 }
 
+function mockWorker(initial: PwaWorkerStatus = "idle") {
+  let snapshot: PwaWorkerSnapshot = { status: initial };
+  const listeners = new Set<() => void>();
+  return {
+    check: vi.fn(async () => undefined),
+    activate: vi.fn<() => Promise<void>>().mockResolvedValue(undefined),
+    getSnapshot: () => snapshot,
+    subscribe(listener: () => void) {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+    report(status: PwaWorkerStatus, error?: string) {
+      snapshot = { status, error };
+      listeners.forEach((listener) => listener());
+    },
+  };
+}
+
+function mockPageReload() {
+  const reload = vi.fn();
+  vi.stubGlobal("window", { location: { reload } });
+  return reload;
+}
+
 describe("updateRuntime", () => {
   beforeEach(() => {
     vi.resetModules();
@@ -61,6 +86,7 @@ describe("updateRuntime", () => {
   });
 
   afterEach(() => {
+    vi.unstubAllGlobals();
     Reflect.deleteProperty(window, "electronAPI");
     vi.useRealTimers();
   });
@@ -96,51 +122,103 @@ describe("updateRuntime", () => {
     await expect(second).resolves.toMatchObject({ status: "available" });
   });
 
-  it("Web 清单领先但 Service Worker 未等待时进入资源准备状态", async () => {
+  it("发现清单但尚无新版资源时可以重查，再跟随原生准备状态", async () => {
     const runtime = await loadRuntime();
-    const check = vi.fn().mockResolvedValue(false);
-    runtime.configurePwaUpdateControl({ check, update: vi.fn() });
-    await Promise.resolve();
+    const worker = mockWorker();
+    runtime.configurePwaUpdateControl(worker);
 
     const result = await runtime.checkForUpdates({ manual: true });
-    expect(result).toMatchObject({ status: "available", action: undefined });
+    expect(result).toMatchObject({ status: "available", action: "update", latestVersion: "4.1.0" });
+    await runtime.executeUpdateAction();
+    expect(worker.check).toHaveBeenCalledTimes(3);
+    expect(worker.activate).not.toHaveBeenCalled();
+
+    worker.report("preparing");
+    expect(runtime.getUpdateSnapshot().status).toBe("preparing");
+    worker.report("waiting");
+    expect(runtime.getUpdateSnapshot()).toMatchObject({ status: "ready", action: "update" });
   });
 
-  it("启动时发现等待中的 Service Worker 会直接应用", async () => {
+  it("等待与其他窗口的接管都不会自动刷新，手动应用后才刷新本窗", async () => {
+    const reload = mockPageReload();
     const runtime = await loadRuntime();
-    const update = vi.fn().mockResolvedValue(undefined);
+    const worker = mockWorker("waiting");
+    runtime.configurePwaUpdateControl(worker);
+    expect(runtime.getUpdateSnapshot().status).toBe("ready");
+    expect(worker.activate).not.toHaveBeenCalled();
+    worker.report("controlled");
+    expect(reload).not.toHaveBeenCalled();
+    expect(runtime.getUpdateSnapshot().status).toBe("ready");
 
-    runtime.configurePwaUpdateControl({ check: vi.fn().mockResolvedValue(true), update });
-    await vi.waitFor(() => expect(update).toHaveBeenCalledTimes(1));
+    await runtime.executeUpdateAction();
+    expect(worker.activate).toHaveBeenCalledTimes(1);
+    expect(reload).toHaveBeenCalledTimes(1);
+  });
 
+  it("接管失败时提示并允许重试；并发点击只执行一次", async () => {
+    const reload = mockPageReload();
+    const runtime = await loadRuntime();
+    const worker = mockWorker("waiting");
+    worker.activate.mockRejectedValueOnce(new Error("尚未确认新版接管"));
+    runtime.configurePwaUpdateControl(worker);
+
+    await Promise.all([runtime.executeUpdateAction(), runtime.executeUpdateAction()]);
+    expect(worker.activate).toHaveBeenCalledTimes(1);
+    expect(reload).not.toHaveBeenCalled();
     expect(runtime.getUpdateSnapshot()).toMatchObject({
-      platform: "web",
-      status: "available",
-      action: undefined,
-      source: "platform",
+      status: "error",
+      action: "retry",
+      error: "尚未确认新版接管",
     });
+
+    await runtime.executeUpdateAction();
+    expect(worker.activate).toHaveBeenCalledTimes(2);
+    expect(reload).toHaveBeenCalledTimes(1);
   });
 
-  it("重复的 Web 更新事件会复用同一个激活任务", async () => {
+  it("计时保护既挡住点击，也挡住等待接管期间新出现的计时", async () => {
+    const reload = mockPageReload();
     const runtime = await loadRuntime();
-    let resolveUpdate: (() => void) | undefined;
-    const update = vi.fn(
+    const worker = mockWorker("waiting");
+    runtime.configurePwaUpdateControl(worker);
+    runtime.setWebUpdateReloadBlocked(true);
+    await runtime.executeUpdateAction();
+    expect(worker.activate).not.toHaveBeenCalled();
+    expect(runtime.getUpdateSnapshot().webReloadBlocked).toBe(true);
+
+    runtime.setWebUpdateReloadBlocked(false);
+    let finish: (() => void) | undefined;
+    worker.activate.mockImplementationOnce(
       () =>
         new Promise<void>((resolve) => {
-          resolveUpdate = resolve;
+          finish = resolve;
         })
     );
-    runtime.configurePwaUpdateControl({ check: vi.fn().mockResolvedValue(false), update });
+    const applying = runtime.executeUpdateAction();
+    expect(runtime.getUpdateSnapshot().status).toBe("applying");
     await Promise.resolve();
+    runtime.setWebUpdateReloadBlocked(true);
+    worker.report("controlled");
+    finish?.();
+    await applying;
+    expect(reload).not.toHaveBeenCalled();
+    expect(runtime.getUpdateSnapshot()).toMatchObject({ status: "ready", webReloadBlocked: true });
 
-    runtime.markPwaUpdateAvailable();
-    runtime.markPwaUpdateAvailable();
+    runtime.setWebUpdateReloadBlocked(false);
+    expect(reload).not.toHaveBeenCalled();
+    await runtime.executeUpdateAction();
+    expect(reload).toHaveBeenCalledTimes(1);
+  });
 
-    expect(update).toHaveBeenCalledTimes(1);
-    resolveUpdate?.();
-    await Promise.resolve();
-    runtime.markPwaUpdateAvailable();
-    expect(update).toHaveBeenCalledTimes(1);
+  it("无 SW 支持时仅在发现新版本后提供手动刷新", async () => {
+    const reload = mockPageReload();
+    const runtime = await loadRuntime();
+    runtime.configurePwaUpdateControl(null);
+    const state = await runtime.checkForUpdates({ manual: true });
+    expect(state).toMatchObject({ status: "ready", webDirectReload: true });
+    expect(reload).not.toHaveBeenCalled();
+    await runtime.executeUpdateAction();
+    expect(reload).toHaveBeenCalledTimes(1);
   });
 
   it("Electron 保留主进程提供的下载与安装状态语义", async () => {

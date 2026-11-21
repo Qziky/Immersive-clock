@@ -33,10 +33,11 @@ Service Worker；Android mode 也不加载 PWA 插件，避免 WebView 内的双
 - 导航 fallback 到 `/index.html`，静态扩展名不会被 SPA fallback 截获。
 
 `public/manifest.json` 是 manifest 基础模板，构建时注入当前应用版本。PWA 注册由
-`src/pwa-register.ts` 动态导入，并把等待中的 Worker、`registration.update()` 与 `updateSW(true)`
-交给统一更新运行时。发现新 Worker 或启动时已有 waiting Worker 时，运行时直接执行 skip-waiting
-和页面刷新；同一轮的重复事件复用一个激活任务。清单领先但 Worker 尚未等待时只更新设置页状态，
-不提供手动操作。注册或刷新失败进入更新错误状态，但不阻塞主应用。
+`src/pwa-register.ts` 动态导入，用浏览器原生注册控制器观测 `updatefound`、Worker 状态和
+`controllerchange`。等待中的 Worker 不会被页面自动激活或刷新；在设置中确认后才向它发送
+`SKIP_WAITING`，并等待目标 Worker 确实接管当前窗口。超时或失败可重试，其他窗口只更新状态，
+不刷新文档。页面在请求接管前和刷新前均检查本窗计时或编辑；考试页也保守地禁止刷新。已打开的
+旧版渲染器仍运行该版本逻辑，需在进入新版后才受此保护。
 
 开发服务器将 `/api/xiaomi-weather` 代理到固定的小米天气上游；部署平台需要复制该 rewrite，
 避免把上游地址或签名配置暴露为客户端环境变量。Vercel、EdgeOne、Nginx 配置还负责 SPA fallback、
@@ -44,11 +45,10 @@ Service Worker；Android mode 也不加载 PWA 插件，避免 WebView 内的双
 
 ## 统一更新运行时
 
-`src/services/update/` 定义版本化 `UpdateManifest`、统一快照和平台协调器。状态为 `idle`、
-`checking`、`current`、`available`、`downloading`、`ready`、`error`。应用启动后自动检查；从后台
-恢复且距上次检查超过 6 小时时再查。设置中的“自动检查更新”关闭后停止清单和桌面检查，但保留
-Service Worker 注册；浏览器已经发现的 Worker 仍会自动激活。设置页只展示版本、状态、进度和自动
-检查偏好，不提供手动检查、安装或重试操作。清单请求使用 `cache: "no-store"` 与 10 秒超时。
+`src/services/update/` 管理版本清单、统一快照和平台协调器。Web 区分发现新版本、准备资源、就绪、
+切换和失败；没有候选 Worker 时不能把新版清单视为更新已完成。应用启动后自动检查；从后台恢复
+且距上次检查超过 6 小时时再查。“自动检查更新”关闭后停止清单和桌面主动检查，但保留浏览器的
+Service Worker 注册及资源准备。手动检查始终可用。清单请求使用 `cache: "no-store"` 与 10 秒超时。
 
 Web 默认读取同源 `/update-manifest.json`，避免自托管站点误报官方版本；Electron 和 Android 默认
 读取 GitHub 最新稳定 Release 的同名附件。`VITE_UPDATE_MANIFEST_URL` 可覆盖地址。清单只接受

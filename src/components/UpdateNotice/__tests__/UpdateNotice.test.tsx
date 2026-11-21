@@ -44,7 +44,7 @@ describe("UpdateNotice", () => {
     mocks.suppressed = false;
   });
 
-  it("Web 更新由 Service Worker 直接应用，不展示通知或操作", () => {
+  it("Web 更新操作仅在设置页提供，不展示全局通知", () => {
     mocks.snapshot = {
       platform: "web",
       currentVersion: "4.0.0",

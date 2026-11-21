@@ -146,7 +146,7 @@ This is expected. Core timers and local content can work offline, but new weathe
 
 ### The PWA still shows an old version
 
-Open **System Data → App Updates (`应用更新`)** to view the current status and stay online. Web/PWA activates a newly detected Service Worker and reloads automatically. If the old version remains, close every Immersive Clock tab and PWA window, then reopen. Clear **Temporary Cache (`临时缓存`)** only after that; do not clear all site data until you have created a backup.
+Open **System Data → App Updates (`应用更新`)** while online. Prepare or retry the update, then select **Refresh and update (`刷新并更新`)** when it is ready. Finish or reset any unfinished timer in that window first. If an older app does not show the action, close all tabs and PWA windows for this site once the timers finish, then reopen online. Do not clear your site data to update.
 
 ### A desktop update cannot be downloaded
 
