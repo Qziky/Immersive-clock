@@ -312,6 +312,22 @@ describe("dataManagement", () => {
     expect(backup.manifest.map((entry) => entry.id)).toEqual(["settings", "assets"]);
   });
 
+  it("倒计时常用时长随设置备份往返，恢复默认偏好不删除收藏", async () => {
+    const settings = getDefaultAppSettings();
+    settings.countdown = {
+      ...settings.countdown,
+      customQuickPresetSeconds: 2700,
+      favoritePresetSeconds: [9000, 10800],
+    };
+    localStorage.setItem(APP_SETTINGS_KEY, JSON.stringify(settings));
+    const prepared = await prepareBackup(JSON.stringify(await createBackup("settings-and-assets")));
+    localStorage.removeItem(APP_SETTINGS_KEY);
+    await restoreBackup(prepared);
+    expect(getAppSettings().countdown).toEqual(settings.countdown);
+    await resetPreferences();
+    expect(getAppSettings().countdown.favoritePresetSeconds).toEqual([9000, 10800]);
+  });
+
   it.each([1, 2, 3])("预检拒绝 schema v%s 的旧噪声历史", async (schemaVersion) => {
     const legacy = backupWith(
       settingsWithBackground() as unknown as Record<string, unknown>,

@@ -30,11 +30,11 @@ The Clock page shows the current adjusted time and full date. To hide seconds, o
 
 1. Select Countdown in the HUD.
 2. Click the large time display once, or select **Set (`设置`)** in the HUD.
-3. Adjust hours, minutes, and seconds, or choose a preset.
+3. Type hours, minutes, and seconds, use the +/− controls, or choose a fixed preset. To keep multiple durations, enter each one and select **Add to favorites (`加入常用`)**. Adding and removing favorites is only saved on confirmation; the last custom duration remains a separate shortcut.
 4. Select **Confirm (`确认`)**.
 5. Show the HUD and select **Start (`开始`)**.
 
-Confirming a duration does not start it automatically. You can pause, continue, reset to the selected duration, or click the time display again to replace the current timer. The final five seconds play tick sounds, followed by an end chime.
+Selecting a saved favorite while idle sets the clock face without starting it. If the favorites list has pending edits, confirm to apply them. During a running or partially elapsed paused countdown, selecting a favorite only fills in the editor. Use **Replace current countdown (`替换当前倒计时`)** and confirm to discard progress; cancel leaves the original timer alone. The final five seconds play tick sounds, followed by an end chime.
 
 ### Stopwatch
 

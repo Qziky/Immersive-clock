@@ -30,37 +30,51 @@
   width: 100%;
 }
 
-.timeInput,
 .inputGroup {
   align-items: center;
   display: flex;
   flex-direction: column;
-  min-width: 0;
-}
-
-.inputGroup {
   gap: 8px;
+  min-width: 0;
   width: 100%;
 }
 
 .valueWrapper {
-  align-items: baseline;
-  display: flex;
-  gap: 5px;
-  justify-content: center;
-  min-height: 64px;
-  min-width: 0;
+  align-items: center;
+  display: grid;
+  gap: var(--ui-space-1);
+  grid-template-columns: minmax(0, 1fr) auto;
+  max-width: 128px;
   width: 100%;
 }
 
 .timeValue {
-  color: var(--ui-color-text);
-  font-family: var(--ui-font-number);
-  font-size: 46px;
+  font-size: clamp(1.4rem, 5vw, 2.5rem);
   font-variant-numeric: tabular-nums;
-  font-weight: 650;
-  letter-spacing: 0;
-  line-height: 1;
+  height: 1.5em;
+  min-height: 44px;
+  padding-inline: var(--ui-space-1);
+}
+
+.favorites {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ui-space-2);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.favorite {
+  align-items: center;
+  display: flex;
+  max-width: 100%;
+}
+
+.message {
+  color: var(--ui-color-danger);
+  font-size: var(--ui-font-size-sm);
+  margin: 0;
 }
 
 .unit {
@@ -91,26 +105,6 @@
   .timeInputs {
     gap: 6px;
   }
-
-  .valueWrapper {
-    min-height: 50px;
-  }
-
-  .timeValue {
-    font-size: 34px;
-  }
-
-  .unit {
-    font-size: 11px;
-  }
-
-  .presetsGrid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .presetButton {
-    min-height: 44px;
-  }
 }
 
 @media (max-width: 340px), (max-height: 600px) {
@@ -120,23 +114,5 @@
 
   .timeInputs {
     gap: 4px;
-  }
-
-  .valueWrapper {
-    min-height: 42px;
-  }
-
-  .timeValue {
-    font-size: 28px;
-  }
-
-  .presetsGrid {
-    gap: 6px;
-  }
-}
-
-@media (prefers-reduced-transparency: reduce) {
-  .adjustButton:hover:not(:disabled) {
-    background: var(--ui-color-bg-elevated);
   }
 }
