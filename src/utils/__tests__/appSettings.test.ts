@@ -74,6 +74,7 @@ describe("appSettings", () => {
     const s = getAppSettings();
     expect(s.version).toBe(CURRENT_SETTINGS_VERSION);
     expect(s.countdown.customQuickPresetSeconds).toBeNull();
+    expect(s.countdown.favoritePresetSeconds).toEqual([]);
     expect(s.general.developerModeEnabled).toBe(false);
     expect(s.general.keepAwakeEnabled).toBe(false);
     expect(s.general.oledProtection).toEqual({
@@ -203,8 +204,36 @@ describe("appSettings", () => {
     expect(migrated.countdown.customQuickPresetSeconds).toBeNull();
     expect(JSON.parse(localStorage.getItem(APP_SETTINGS_KEY) ?? "{}").countdown).toEqual({
       customQuickPresetSeconds: null,
+      favoritePresetSeconds: [],
       customFinalSoundDataUrl: null,
     });
+  });
+
+  it("常用时长按有效整秒去重，迁移、更新和最后一次自定义独立", () => {
+    localStorage.setItem(
+      APP_SETTINGS_KEY,
+      JSON.stringify({
+        version: CURRENT_SETTINGS_VERSION,
+        countdown: {
+          customQuickPresetSeconds: 300,
+          favoritePresetSeconds: [9000, 0, 10800, 9000, "30", -1, 0.5, null, 86400, 86399],
+        },
+      })
+    );
+    expect(migrateStoredAppSettings().countdown).toMatchObject({
+      customQuickPresetSeconds: 300,
+      favoritePresetSeconds: [9000, 10800, 86399],
+    });
+    updateAppSettings({ countdown: { favoritePresetSeconds: [10800, 0, 10800, 1] } });
+    updateAppSettings({ countdown: { customQuickPresetSeconds: 123 } });
+    expect(getAppSettings().countdown).toMatchObject({
+      customQuickPresetSeconds: 123,
+      favoritePresetSeconds: [10800, 1],
+    });
+    expect(
+      normalizeAppSettings({ countdown: { favoritePresetSeconds: "9000" } }).countdown
+        .favoritePresetSeconds
+    ).toEqual([]);
   });
 
   it("v14 设置迁移会补齐更新偏好，并保留显式关闭值", () => {
@@ -1546,6 +1575,7 @@ it("铃声设置兼容旧数据、保留其他倒计时设置并拒绝外部地�
   updateAppSettings({ countdown: { customQuickPresetSeconds: 120 } });
   expect(getAppSettings().countdown).toEqual({
     customQuickPresetSeconds: 120,
+    favoritePresetSeconds: [],
     customFinalSoundDataUrl: "data:audio/mpeg;base64,c291bmQ=",
   });
   updateAppSettings({ countdown: { customFinalSoundDataUrl: "https://example.com/audio.mp3" } });

@@ -84,6 +84,7 @@ export interface AppSettings {
 
   countdown: {
     customQuickPresetSeconds: number | null;
+    favoritePresetSeconds: number[];
     customFinalSoundDataUrl: string | null;
   };
 
@@ -218,6 +219,16 @@ export function normalizeCountdownQuickPresetSeconds(value: unknown): number | n
     return null;
   }
   return value;
+}
+
+function normalizeCountdownFavorites(value: unknown): number[] {
+  if (!Array.isArray(value)) return [];
+  const favorites = new Set<number>();
+  for (const candidate of value) {
+    const seconds = normalizeCountdownQuickPresetSeconds(candidate);
+    if (seconds !== null) favorites.add(seconds);
+  }
+  return [...favorites];
 }
 
 export const STUDY_INFO_BUILTIN_IDS = {
@@ -859,6 +870,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   appearance: createDefaultAppearance(),
   countdown: {
     customQuickPresetSeconds: null,
+    favoritePresetSeconds: [],
     customFinalSoundDataUrl: null,
   },
   general: {
@@ -1223,6 +1235,7 @@ export function normalizeAppSettings(value: unknown): AppSettings {
       customQuickPresetSeconds: normalizeCountdownQuickPresetSeconds(
         parsedCountdown.customQuickPresetSeconds
       ),
+      favoritePresetSeconds: normalizeCountdownFavorites(parsedCountdown.favoritePresetSeconds),
       customFinalSoundDataUrl:
         typeof parsedCountdown.customFinalSoundDataUrl === "string" &&
         parsedCountdown.customFinalSoundDataUrl.startsWith("data:audio/")
@@ -1387,6 +1400,10 @@ export function updateAppSettings(
           countdownUpdates.customQuickPresetSeconds === undefined
             ? current.countdown.customQuickPresetSeconds
             : normalizeCountdownQuickPresetSeconds(countdownUpdates.customQuickPresetSeconds),
+        favoritePresetSeconds:
+          countdownUpdates.favoritePresetSeconds === undefined
+            ? current.countdown.favoritePresetSeconds
+            : normalizeCountdownFavorites(countdownUpdates.favoritePresetSeconds),
         customFinalSoundDataUrl:
           countdownUpdates.customFinalSoundDataUrl === undefined
             ? current.countdown.customFinalSoundDataUrl
@@ -1550,6 +1567,10 @@ export function resetAppSettingsPreservingUserContent(): AppSettings {
     .map((item) => ({ ...item, enabled: false }));
   const next: AppSettings = {
     ...defaults,
+    countdown: {
+      ...defaults.countdown,
+      favoritePresetSeconds: current.countdown.favoritePresetSeconds,
+    },
     general: {
       ...defaults.general,
       quote: structuredClone(current.general.quote),

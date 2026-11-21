@@ -113,9 +113,10 @@ Android 全屏回归由 `src/hooks/__tests__/useFullscreen.test.ts` 覆盖：多
 - 公共 UI 的 TimeStage 响应式布局、中央时间缩放及 OLED 屏保字号同步由
   `src/ui/components/__tests__/TimeStage.test.tsx` 与 `tests/e2e/oled-screen-protection.e2e.spec.ts` 覆盖。
 - 公共浮层的进入、退出和交互隔离由 `src/ui/components/__tests__/motion.test.tsx` 覆盖。
-- 倒计时快速设置、自定义时长与持久化由
-  `src/components/CountdownModal/__tests__/CountdownModal.test.tsx` 和
-  `tests/e2e/countdown.e2e.spec.ts` 覆盖。
+- 倒计时直接输入、常用时长增删与取消、运行中/暂停后替换确认由
+  `src/components/CountdownModal/__tests__/CountdownModal.test.tsx` 覆盖；
+  `tests/e2e/countdown.e2e.spec.ts` 验证刷新后复用常用时长和真实计时的保护。
+  `appSettings.test.ts` 和 `dataManagement.test.ts` 覆盖旧数据兼容、去重校验、备份往返与重置保留。
 - 麦克风异常持续 5 分钟后的显示自动隐藏、设置持久化和运行时同步由
   `NoiseMonitor.test.tsx`、`Study.test.tsx`、`StudySettingsPanel.test.tsx`、
   `noiseControlSettings.test.ts`、`appSettings.test.ts` 与 `noiseStreamService.test.ts` 覆盖。

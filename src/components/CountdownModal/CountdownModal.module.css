@@ -12,61 +12,136 @@
   min-width: 0;
 }
 
-.section {
+.content .section {
   border-bottom: 1px solid var(--ui-glass-border);
-  padding: 20px;
+  padding: var(--ui-space-4) calc(var(--ui-space-4) + var(--ui-space-1));
 }
 
-.section:last-child {
+.content .section:last-child {
   border-bottom: 0;
 }
 
-.timeInputs {
+.content .timeSection {
   display: grid;
-  gap: 16px;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  margin: 0 auto;
-  max-width: 430px;
-  width: 100%;
+  gap: var(--ui-space-1);
 }
 
-.timeInput,
+.timeInputs {
+  --countdown-digit-size: clamp(2rem, 10.5vw, 3.625rem);
+  --countdown-digit-height: max(44px, calc(var(--countdown-digit-size) * 1.16));
+
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-inline: auto;
+  width: min(100%, 332px);
+}
+
 .inputGroup {
   align-items: center;
   display: flex;
   flex-direction: column;
   min-width: 0;
-}
-
-.inputGroup {
-  gap: 8px;
-  width: 100%;
+  position: relative;
 }
 
 .valueWrapper {
-  align-items: baseline;
-  display: flex;
-  gap: 5px;
-  justify-content: center;
-  min-height: 64px;
-  min-width: 0;
-  width: 100%;
+  position: relative;
+  width: min(calc(100% - var(--ui-space-2)), calc(var(--countdown-digit-size) * 1.54));
 }
 
-.timeValue {
-  color: var(--ui-color-text);
+.valueWrapper::after {
+  background: var(--ui-color-border-strong);
+  border-radius: var(--ui-radius-round);
+  bottom: 0;
+  content: "";
+  height: 1px;
+  inset-inline: 20%;
+  pointer-events: none;
+  position: absolute;
+}
+
+.valueWrapper:hover::after,
+.valueWrapper:focus-within::after {
+  opacity: 0;
+}
+
+/* Match the clock readout rather than the default form-input typography. */
+.inputGroup .timeValue {
+  background: transparent;
+  border-color: transparent;
+  caret-color: var(--ui-color-accent);
+  cursor: text;
+  display: block;
   font-family: var(--ui-font-number);
-  font-size: 46px;
+  font-size: var(--countdown-digit-size);
   font-variant-numeric: tabular-nums;
   font-weight: 650;
-  letter-spacing: 0;
+  height: var(--countdown-digit-height);
   line-height: 1;
+  padding: 0 var(--ui-space-1);
+}
+
+.inputGroup .timeValue:hover {
+  background: var(--ui-glass-surface-soft);
+  border-color: var(--ui-color-border-strong);
+}
+
+.inputGroup .timeValue:focus {
+  background: var(--ui-color-bg-elevated);
+  border-color: var(--ui-color-accent-border);
+  box-shadow: var(--ui-focus-ring);
+  outline: none;
+}
+
+.separator {
+  color: var(--ui-color-text-subtle);
+  font-family: var(--ui-font-number);
+  font-size: calc(var(--countdown-digit-size) * 0.78);
+  font-weight: 600;
+  inset-block-start: 0;
+  inset-inline-start: 0;
+  line-height: var(--countdown-digit-height);
+  pointer-events: none;
+  position: absolute;
+  transform: translateX(-50%);
 }
 
 .unit {
   color: var(--ui-color-text-muted);
   font-size: var(--ui-font-size-sm);
-  font-weight: 600;
+  line-height: 1.4;
+  margin-top: var(--ui-space-1);
+}
+
+.steps {
+  display: flex;
+  justify-content: center;
+}
+
+.steps .stepControl {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+.favorites {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ui-space-2);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.favorite {
+  align-items: center;
+  display: flex;
+  max-width: 100%;
+}
+
+.message {
+  color: var(--ui-color-danger);
+  font-size: var(--ui-font-size-sm);
+  margin: 0;
 }
 
 .footerActions {
@@ -84,59 +159,19 @@
     width: calc(100vw - 16px) !important;
   }
 
-  .section {
-    padding: 16px 12px;
-  }
-
-  .timeInputs {
-    gap: 6px;
-  }
-
-  .valueWrapper {
-    min-height: 50px;
-  }
-
-  .timeValue {
-    font-size: 34px;
-  }
-
-  .unit {
-    font-size: 11px;
-  }
-
-  .presetsGrid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .presetButton {
-    min-height: 44px;
+  .content .section {
+    padding: var(--ui-space-3);
   }
 }
 
-@media (max-width: 340px), (max-height: 600px) {
-  .section {
-    padding-block: 8px;
-  }
-
-  .timeInputs {
-    gap: 4px;
-  }
-
-  .valueWrapper {
-    min-height: 42px;
-  }
-
-  .timeValue {
-    font-size: 28px;
-  }
-
-  .presetsGrid {
-    gap: 6px;
+@media (max-width: 340px) {
+  .content .section {
+    padding-inline: var(--ui-space-2);
   }
 }
 
-@media (prefers-reduced-transparency: reduce) {
-  .adjustButton:hover:not(:disabled) {
-    background: var(--ui-color-bg-elevated);
+@media (max-height: 600px) {
+  .content .section {
+    padding-block: var(--ui-space-2);
   }
 }

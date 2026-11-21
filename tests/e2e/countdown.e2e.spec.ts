@@ -5,10 +5,13 @@ import { CURRENT_APP_VERSION, showHud } from "./e2eUtils";
 test.beforeEach(async ({ page }) => {
   await page.addInitScript((appVersion) => {
     window.localStorage.setItem("immersive-clock:has-seen-tour", "true");
+    const settings = JSON.parse(window.localStorage.getItem("AppSettings") ?? "{}");
     window.localStorage.setItem(
       "AppSettings",
       JSON.stringify({
+        ...settings,
         general: {
+          ...settings.general,
           announcement: {
             hideUntil: Date.now() + 7 * 24 * 60 * 60 * 1000,
             version: appVersion,
@@ -139,4 +142,66 @@ test("倒计时：保存自定义 45 分钟快速设置并在重新打开后复�
   await customPreset.check();
   await reopenedDialog.getByRole("button", { name: "确认" }).click();
   await expect(timeArea).toContainText("45:00");
+});
+
+test("常用：直接输入、刷新复用和运行/暂停替换保护", async ({ page }) => {
+  await page.goto("/countdown");
+  const time = page.getByRole("button", { name: /单击设置倒计时时间/ });
+  const editor = page.getByRole("dialog", { name: "设置倒计时" });
+  const button = (name: string) => editor.getByRole("button", { name, exact: true });
+  const field = (name: string) => editor.getByRole("textbox", { name });
+  const hud = page.getByRole("toolbar", { name: "时钟控制" });
+  const showControls = () =>
+    page.getByRole("main", { name: "时钟应用主界面" }).click({ position: { x: 20, y: 20 } });
+
+  await time.click();
+  await field("小时").fill("2");
+  await field("分钟").fill("30");
+  await button("加入常用").click();
+  await field("小时").fill("3");
+  await field("分钟").fill("0");
+  await button("加入常用").click();
+  await field("小时").fill("0");
+  await field("分钟").fill("45");
+  await button("确认").click();
+  await expect(time).toHaveText("45:00");
+
+  await page.reload();
+  await time.click();
+  await expect(button("2小时30分")).toBeVisible();
+  await expect(editor.getByRole("radio", { name: "自定义（45分钟）" })).toBeVisible();
+  await button("3小时").click();
+  await expect(editor).toBeHidden();
+  await expect(time).toHaveText("03:00:00");
+  await showControls();
+  await hud.getByRole("button", { name: "开始倒计时" }).click();
+  await expect(time).not.toHaveText("03:00:00");
+  await time.click();
+  await button("2小时30分").click();
+  await expect(field("小时")).toHaveValue("02");
+  // Page-level timer shortcuts must not act on the live timer while editing.
+  await field("分钟").focus();
+  await field("分钟").press("Space");
+  await field("分钟").press("Enter");
+  await button("取消").click();
+  await showControls();
+  await hud.getByRole("button", { name: "暂停倒计时" }).click();
+  await expect(time).toHaveText(/^02:59:/);
+  const pausedTime = await time.textContent();
+
+  await time.click();
+  await button("2小时30分").click();
+  await button("替换当前倒计时").click();
+  const confirmation = page.getByRole("dialog", { name: "替换当前倒计时？" });
+  await confirmation.getByRole("button", { name: "保留当前倒计时" }).click();
+  await button("取消").click();
+  await expect(time).toHaveText(pausedTime!);
+
+  await time.click();
+  await button("2小时30分").click();
+  await button("替换当前倒计时").click();
+  await confirmation.getByRole("button", { name: "确认替换" }).click();
+  await expect(time).toHaveText("02:30:00");
+  await showControls();
+  await expect(hud.getByRole("button", { name: "开始倒计时" })).toBeVisible();
 });
