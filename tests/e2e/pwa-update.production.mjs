@@ -111,6 +111,117 @@ const settings = (page) => page.getByRole("dialog", { name: "设置", exact: tru
 const action = (page) => settings(page).getByRole("button", { name: "刷新并更新", exact: true });
 const doc = (page) => page.evaluate(() => ({ ...window.__pwaSmokeDocument }));
 
+function observeTab(page) {
+  const errors = [];
+  const consoleErrors = [];
+  const failedScripts = [];
+  const record = (items, detail) => {
+    items.push(detail.slice(0, 600));
+    if (items.length > 10) items.shift();
+  };
+  const isScript = (request) =>
+    request.resourceType() === "script" || /\.m?js(?:[?#]|$)/.test(request.url());
+  page.on("pageerror", (error) => record(errors, error.stack ?? error.message));
+  page.on("console", (message) => {
+    if (message.type() === "error") record(consoleErrors, message.text());
+  });
+  page.on("requestfailed", (request) => {
+    if (isScript(request))
+      record(failedScripts, `${request.failure()?.errorText} ${request.url()}`);
+  });
+  page.on("response", (response) => {
+    if (!isScript(response.request())) return;
+    const mime = response.headers()["content-type"];
+    if (response.status() >= 400 || mime?.includes("text/html")) {
+      record(failedScripts, `HTTP ${response.status()} ${mime}: ${response.url()}`);
+    }
+  });
+  return { page, errors, consoleErrors, failedScripts };
+}
+
+async function logTabFailure(label, { page, errors, consoleErrors, failedScripts }) {
+  const [state, pageTree] = await Promise.all([
+    Promise.race([
+      page
+        .evaluate(async () => {
+          function read(key) {
+            try {
+              return JSON.parse(localStorage.getItem(key));
+            } catch {
+              return null;
+            }
+          }
+          const registration = await navigator.serviceWorker.getRegistration("/");
+          const root = document.getElementById("root");
+          const clockMain = document.querySelector('main[aria-label="时钟应用主界面"]');
+          const consent = read("immersive-clock:legal-consent:v1");
+          const announcement = read("AppSettings")?.general?.announcement;
+          return {
+            readyState: document.readyState,
+            title: document.title,
+            worker: {
+              controller: navigator.serviceWorker.controller?.state,
+              active: registration?.active?.state,
+              waiting: registration?.waiting?.state,
+              installing: registration?.installing?.state,
+              swaps: window.__pwaSmokeDocument?.swaps,
+            },
+            root: root && {
+              inert: root.inert,
+              ariaHidden: root.getAttribute("aria-hidden"),
+              children: root.childElementCount,
+            },
+            clockMain: clockMain && {
+              hiddenBy: clockMain.closest('[inert], [hidden], [aria-hidden="true"]')?.id ?? null,
+              display: getComputedStyle(clockMain).display,
+              visibility: getComputedStyle(clockMain).visibility,
+            },
+            overlayRoots: document.querySelectorAll("[data-ui-overlay-root]").length,
+            dialogs: [...document.querySelectorAll('[role="dialog"]')]
+              .slice(0, 6)
+              .map(
+                (dialog) =>
+                  dialog.getAttribute("aria-label") ||
+                  document.getElementById(dialog.getAttribute("aria-labelledby") ?? "")
+                    ?.textContent ||
+                  dialog.querySelector("h1,h2")?.textContent ||
+                  "(unnamed)"
+              ),
+            consent: consent?.documentVersion ?? null,
+            announcement: announcement && {
+              version: announcement.version,
+              suppressed: announcement.hideUntil > Date.now(),
+            },
+            loading: document.getElementById("loading-screen")?.textContent?.trim().slice(0, 220),
+            moduleScripts: [...document.querySelectorAll('script[type="module"][src]')]
+              .slice(0, 5)
+              .map((script) => script.getAttribute("src")),
+          };
+        })
+        .catch(() => null),
+      sleep(1_500, null, { ref: false }),
+    ]),
+    page
+      .locator("body")
+      .ariaSnapshot({ timeout: 1_500 })
+      .catch(() => "(page tree unavailable)"),
+  ]);
+  console.error(
+    `[PWA smoke: ${label}] ${page.url()}\n` +
+      `${JSON.stringify({ state, errors, consoleErrors, failedScripts })}\n${pageTree.slice(0, 3000)}`
+  );
+}
+
+async function logFixtureRoots() {
+  for (const fixture of [before, after]) {
+    for (const route of ["index.html", "countdown/index.html"]) {
+      const html = await readFile(resolve(fixture.root, route), "utf8").catch(() => "");
+      const tag = html.match(/<[^>]+\bid="root"[^>]*>/)?.[0];
+      if (tag) console.error(`[PWA fixture ${fixture.version} ${route}] ${tag.slice(0, 300)}`);
+    }
+  }
+}
+
 async function showControls(page) {
   if (!(await toolbar(page).isVisible())) await main(page).click({ position: { x: 20, y: 20 } });
   await toolbar(page).waitFor();
@@ -290,13 +401,13 @@ async function runBrowserSmoke() {
     );
 
     const idle = await ctx.newPage();
-    tabs.set("applying", idle);
+    tabs.set("applying", observeTab(idle));
     await openControlled(idle);
     const observer = await ctx.newPage();
-    tabs.set("idle observer", observer);
+    tabs.set("idle observer", observeTab(observer));
     await openControlled(observer);
     const busy = await ctx.newPage();
-    tabs.set("countdown observer", busy);
+    tabs.set("countdown observer", observeTab(busy));
     await openControlled(busy);
     await busy.bringToFront();
     await startCountdown(busy);
@@ -376,33 +487,10 @@ async function runBrowserSmoke() {
       `Browser smoke passed: explicit idle update to ${after.version}, saved favorite intact, idle and running sibling tabs not reloaded, paused countdown protected.`
     );
   } catch (error) {
-    await Promise.all(
-      [...tabs].map(async ([label, page]) => {
-        const [worker, drawer] = await Promise.all([
-          Promise.race([
-            page
-              .evaluate(async () => {
-                const registration = await navigator.serviceWorker.getRegistration("/");
-                return {
-                  controller: navigator.serviceWorker.controller?.state,
-                  active: registration?.active?.state,
-                  waiting: registration?.waiting?.state,
-                  installing: registration?.installing?.state,
-                  swaps: window.__pwaSmokeDocument?.swaps,
-                };
-              })
-              .catch(() => null),
-            sleep(1_000, null, { ref: false }),
-          ]),
-          settings(page)
-            .ariaSnapshot({ timeout: 1_000 })
-            .catch(() => "(settings not open)"),
-        ]);
-        console.error(
-          `[PWA smoke: ${label}] ${page.url()} worker=${JSON.stringify(worker)}\n${drawer.slice(0, 2600)}`
-        );
-      })
-    );
+    await Promise.allSettled([
+      logFixtureRoots(),
+      ...[...tabs].map(([label, tab]) => logTabFailure(label, tab)),
+    ]);
     throw error;
   } finally {
     await browser.close();

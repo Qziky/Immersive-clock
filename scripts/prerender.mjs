@@ -1,6 +1,7 @@
 import { createServer } from "node:http";
 import fs from "node:fs";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 
 /**
  * 构建期预渲染脚本（SSG，增强、可降级）
@@ -107,8 +108,9 @@ async function launchBrowser(chromium) {
   return null;
 }
 
-/** 移除快照中的引导层、公告弹窗与加载动画等运行时覆盖层。 */
-function stripRuntimeOverlays() {
+/** Serialize public markup, not ephemeral modality from the capture session. */
+export function serializePrerenderedPage() {
+  const html = document.documentElement.cloneNode(true);
   const selectors = [
     "#loading-screen",
     "#clarity-script",
@@ -116,12 +118,19 @@ function stripRuntimeOverlays() {
     ".driver-overlay",
     ".driver-popover",
     "svg.driver-overlay",
+    "[data-ui-overlay-root]",
     "[data-announcement-modal]",
     "[data-tour='noise-history-modal']",
   ];
   selectors.forEach((selector) => {
-    document.querySelectorAll(selector).forEach((node) => node.remove());
+    html.querySelectorAll(selector).forEach((node) => node.remove());
   });
+  // Modal background isolation mutates the host #root outside React's tree.
+  // createRoot() on the next navigation won't restore these host attributes.
+  const root = html.querySelector("body > #root");
+  root?.removeAttribute("inert");
+  root?.removeAttribute("aria-hidden");
+  return `<!DOCTYPE html>\n${html.outerHTML}`;
 }
 
 async function main() {
@@ -154,23 +163,35 @@ async function main() {
   try {
     const context = await browser.newContext();
     // 预置本地存储，抑制引导与公告弹窗污染快照。
-    await context.addInitScript((legalDocumentVersion) => {
-      try {
-        // 预渲染需要协议内容可见，但绝不能在构建期初始化 Clarity 或把其脚本写入快照。
-        window.__IMMERSIVE_CLOCK_PRERENDER__ = true;
-        localStorage.setItem("immersive-clock:has-seen-tour", "true");
-        localStorage.setItem(
-          "immersive-clock:legal-consent:v1",
-          JSON.stringify({
-            schemaVersion: 1,
-            documentVersion: legalDocumentVersion,
-            acceptedAt: Date.now(),
-          })
-        );
-      } catch {
-        // 忽略无痕环境下的存储异常。
-      }
-    }, LEGAL_DOCUMENT_VERSION);
+    const appVersion =
+      process.env.VITE_APP_VERSION?.trim() ||
+      JSON.parse(fs.readFileSync(path.join(rootDir, "package.json"), "utf8")).version;
+    await context.addInitScript(
+      ({ legalDocumentVersion, appVersion }) => {
+        try {
+          // 预渲染需要协议内容可见，但绝不能在构建期初始化 Clarity 或把其脚本写入快照。
+          window.__IMMERSIVE_CLOCK_PRERENDER__ = true;
+          localStorage.setItem("immersive-clock:has-seen-tour", "true");
+          localStorage.setItem(
+            "AppSettings",
+            JSON.stringify({
+              general: { announcement: { version: appVersion, hideUntil: Date.now() + 60_000 } },
+            })
+          );
+          localStorage.setItem(
+            "immersive-clock:legal-consent:v1",
+            JSON.stringify({
+              schemaVersion: 1,
+              documentVersion: legalDocumentVersion,
+              acceptedAt: Date.now(),
+            })
+          );
+        } catch {
+          // 忽略无痕环境下的存储异常。
+        }
+      },
+      { legalDocumentVersion: LEGAL_DOCUMENT_VERSION, appVersion }
+    );
 
     for (const route of ROUTES) {
       const page = await context.newPage();
@@ -184,8 +205,7 @@ async function main() {
           ? "[data-legal-document]"
           : "[data-seo-content] h1";
         await page.waitForSelector(readySelector, { timeout: 15000 });
-        await page.evaluate(stripRuntimeOverlays);
-        const html = await page.evaluate(() => `<!DOCTYPE html>\n${document.documentElement.outerHTML}`);
+        const html = await page.evaluate(serializePrerenderedPage);
         snapshots.push({ route, html });
         console.log(`[prerender] 已渲染路由 ${route}`);
       } catch (error) {
@@ -212,7 +232,9 @@ async function main() {
   console.log(`[prerender] 预渲染完成，共 ${snapshots.length}/${ROUTES.length} 条路由。`);
 }
 
-main().catch((error) => {
-  // 预渲染是增强步骤，失败不应阻断构建。
-  console.warn(`[prerender] 预渲染出错，已跳过：${error}`);
-});
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main().catch((error) => {
+    // 预渲染是增强步骤，失败不应阻断构建。
+    console.warn(`[prerender] 预渲染出错，已跳过：${error}`);
+  });
+}

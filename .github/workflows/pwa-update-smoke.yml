@@ -14,6 +14,7 @@ on:
       - src/components/SettingsPanel/sections/UpdateSettingsPanel.tsx
       - src/contexts/AppContext.tsx
       - scripts/postbuild.mjs
+      - scripts/prerender.mjs
       - scripts/generate-update-manifest.mjs
       - vite.config.ts
       - vercel.json
