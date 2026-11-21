@@ -235,7 +235,6 @@ function CountdownEditor() {
                 );
               })}
             </div>
-            <p className={styles.editHint}>点击数字直接输入</p>
             {durationError && (
               <p id={errorId} className={styles.message} role="status">
                 {durationError}

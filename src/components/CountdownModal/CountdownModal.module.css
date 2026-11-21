@@ -106,20 +106,11 @@
   transform: translateX(-50%);
 }
 
-.unit,
-.editHint {
+.unit {
   color: var(--ui-color-text-muted);
   font-size: var(--ui-font-size-sm);
   line-height: 1.4;
-}
-
-.unit {
   margin-top: var(--ui-space-1);
-}
-
-.editHint {
-  margin: 0;
-  text-align: center;
 }
 
 .steps {

@@ -41,7 +41,7 @@ describe("CountdownModal", () => {
     const editor = screen.getByRole("region", { name: "时间设置" });
     const hours = within(editor).getByRole("textbox", { name: "小时" });
 
-    expect(within(editor).getByText("点击数字直接输入")).toBeVisible();
+    expect(within(editor).queryByText("点击数字直接输入")).not.toBeInTheDocument();
     await user.tab();
     expect(hours).toHaveFocus();
     expect(hours).toHaveAttribute("inputmode", "numeric");
