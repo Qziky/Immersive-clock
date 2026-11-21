@@ -1,0 +1,66 @@
+name: Production PWA Update
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - .github/workflows/pwa-update-smoke.yml
+      - tests/e2e/pwa-update.production.mjs
+      - src/main.tsx
+      - src/pwa-register.ts
+      - src/hooks/useUpdateRuntime.ts
+      - src/services/update/**
+      - src/components/UpdateNotice/**
+      - src/components/SettingsPanel/sections/UpdateSettingsPanel.tsx
+      - src/contexts/AppContext.tsx
+      - scripts/postbuild.mjs
+      - scripts/generate-update-manifest.mjs
+      - vite.config.ts
+      - vercel.json
+      - package.json
+      - package-lock.json
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-pwa-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  browser-update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+
+      - name: Install dependencies from lockfile
+        run: npm ci --no-audit --no-fund
+
+      - name: Build two production Web fixtures
+        env:
+          NODE_ENV: production
+          VITE_ENABLE_CLARITY: "false"
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/clock-pwa"
+          npm run build
+          mv dist "$RUNNER_TEMP/clock-pwa/after"
+          # Same PR code with an older test package version. postbuild reads package.json.
+          npm pkg set version=0.0.1
+          npm run build
+          mv dist "$RUNNER_TEMP/clock-pwa/before"
+
+      - name: Install Chromium for production PWA smoke
+        run: npx --no-install playwright install --with-deps chromium
+
+      - name: Verify real service worker update and timer isolation
+        run: |
+          node tests/e2e/pwa-update.production.mjs \
+            "$RUNNER_TEMP/clock-pwa/before" "$RUNNER_TEMP/clock-pwa/after"
