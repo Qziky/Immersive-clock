@@ -167,9 +167,9 @@ function CountdownEditor() {
         }
       >
         <div className={styles.content}>
-          <FormSection title="时间设置" variant="plain" className={styles.section}>
+          <section className={`${styles.section} ${styles.timeSection}`} aria-label="时间设置">
             <div className={styles.timeInputs}>
-              {TIME_UNITS.map(({ key, label, unit, max }) => {
+              {TIME_UNITS.map(({ key, label, unit, max }, index) => {
                 const value = parseUnit(draft[key], max);
                 return (
                   <div
@@ -178,13 +178,11 @@ function CountdownEditor() {
                     role="group"
                     aria-label={`${label}设置`}
                   >
-                    <IconButton
-                      size="lg"
-                      onClick={() => editTime(key, String((value ?? 0) + 1).padStart(2, "0"))}
-                      disabled={value === max}
-                      icon="action.increment"
-                      aria-label={`增加${label}`}
-                    />
+                    {index > 0 && (
+                      <span className={styles.separator} aria-hidden="true">
+                        :
+                      </span>
+                    )}
                     <div className={styles.valueWrapper}>
                       <Input
                         type="text"
@@ -207,29 +205,43 @@ function CountdownEditor() {
                           }
                         }}
                       />
-                      <span className={styles.unit} aria-hidden="true">
-                        {unit}
-                      </span>
                     </div>
-                    <IconButton
-                      size="lg"
-                      onClick={() =>
-                        editTime(key, String(Math.max(0, (value ?? 1) - 1)).padStart(2, "0"))
-                      }
-                      disabled={value === 0}
-                      icon="action.decrement"
-                      aria-label={`减少${label}`}
-                    />
+                    <span className={styles.unit} aria-hidden="true">
+                      {unit}
+                    </span>
+                    <div className={styles.steps}>
+                      <IconButton
+                        variant="ghost"
+                        size="sm"
+                        className={styles.stepControl}
+                        onClick={() =>
+                          editTime(key, String(Math.max(0, (value ?? 1) - 1)).padStart(2, "0"))
+                        }
+                        disabled={value === 0}
+                        icon="action.decrement"
+                        aria-label={`减少${label}`}
+                      />
+                      <IconButton
+                        variant="ghost"
+                        size="sm"
+                        className={styles.stepControl}
+                        onClick={() => editTime(key, String((value ?? 0) + 1).padStart(2, "0"))}
+                        disabled={value === max}
+                        icon="action.increment"
+                        aria-label={`增加${label}`}
+                      />
+                    </div>
                   </div>
                 );
               })}
             </div>
+            <p className={styles.editHint}>点击数字直接输入</p>
             {durationError && (
               <p id={errorId} className={styles.message} role="status">
                 {durationError}
               </p>
             )}
-          </FormSection>
+          </section>
 
           <FormSection title="快速设置" variant="plain" className={styles.section}>
             <RadioGroup

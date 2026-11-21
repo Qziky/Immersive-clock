@@ -35,6 +35,24 @@ describe("CountdownModal", () => {
     context.countdown = { initialTime: 0, currentTime: 0, isActive: false };
   });
 
+  it("从键盘聚焦时分秒数字可直接替换，步进仍然可用", async () => {
+    const user = userEvent.setup();
+    render(<CountdownModal />);
+    const editor = screen.getByRole("region", { name: "时间设置" });
+    const hours = within(editor).getByRole("textbox", { name: "小时" });
+
+    expect(within(editor).getByText("点击数字直接输入")).toBeVisible();
+    await user.tab();
+    expect(hours).toHaveFocus();
+    expect(hours).toHaveAttribute("inputmode", "numeric");
+    await user.keyboard("2");
+    await user.tab();
+    expect(hours).toHaveValue("02");
+    await user.click(within(editor).getByRole("button", { name: "增加小时" }));
+    expect(hours).toHaveValue("03");
+    expect(context.dispatch).not.toHaveBeenCalled();
+  });
+
   it("保留三个固定预设和自定义项，旧配置不自动成为常用", async () => {
     const user = userEvent.setup();
     updateAppSettings({ countdown: { customQuickPresetSeconds: 5420 } });

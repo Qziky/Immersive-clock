@@ -12,48 +12,124 @@
   min-width: 0;
 }
 
-.section {
+.content .section {
   border-bottom: 1px solid var(--ui-glass-border);
-  padding: 20px;
+  padding: var(--ui-space-4) calc(var(--ui-space-4) + var(--ui-space-1));
 }
 
-.section:last-child {
+.content .section:last-child {
   border-bottom: 0;
 }
 
-.timeInputs {
+.content .timeSection {
   display: grid;
-  gap: 16px;
+  gap: var(--ui-space-1);
+}
+
+.timeInputs {
+  --countdown-digit-size: clamp(2rem, 10.5vw, 3.625rem);
+  --countdown-digit-height: max(44px, calc(var(--countdown-digit-size) * 1.16));
+
+  display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  margin: 0 auto;
-  max-width: 430px;
-  width: 100%;
+  margin-inline: auto;
+  width: min(100%, 332px);
 }
 
 .inputGroup {
   align-items: center;
   display: flex;
   flex-direction: column;
-  gap: 8px;
   min-width: 0;
-  width: 100%;
+  position: relative;
 }
 
 .valueWrapper {
-  align-items: center;
-  display: grid;
-  gap: var(--ui-space-1);
-  grid-template-columns: minmax(0, 1fr) auto;
-  max-width: 128px;
-  width: 100%;
+  position: relative;
+  width: min(calc(100% - var(--ui-space-2)), calc(var(--countdown-digit-size) * 1.54));
 }
 
-.timeValue {
-  font-size: clamp(1.4rem, 5vw, 2.5rem);
+.valueWrapper::after {
+  background: var(--ui-color-border-strong);
+  border-radius: var(--ui-radius-round);
+  bottom: 0;
+  content: "";
+  height: 1px;
+  inset-inline: 20%;
+  pointer-events: none;
+  position: absolute;
+}
+
+.valueWrapper:hover::after,
+.valueWrapper:focus-within::after {
+  opacity: 0;
+}
+
+/* Match the clock readout rather than the default form-input typography. */
+.inputGroup .timeValue {
+  background: transparent;
+  border-color: transparent;
+  caret-color: var(--ui-color-accent);
+  cursor: text;
+  display: block;
+  font-family: var(--ui-font-number);
+  font-size: var(--countdown-digit-size);
   font-variant-numeric: tabular-nums;
-  height: 1.5em;
+  font-weight: 650;
+  height: var(--countdown-digit-height);
+  line-height: 1;
+  padding: 0 var(--ui-space-1);
+}
+
+.inputGroup .timeValue:hover {
+  background: var(--ui-glass-surface-soft);
+  border-color: var(--ui-color-border-strong);
+}
+
+.inputGroup .timeValue:focus {
+  background: var(--ui-color-bg-elevated);
+  border-color: var(--ui-color-accent-border);
+  box-shadow: var(--ui-focus-ring);
+  outline: none;
+}
+
+.separator {
+  color: var(--ui-color-text-subtle);
+  font-family: var(--ui-font-number);
+  font-size: calc(var(--countdown-digit-size) * 0.78);
+  font-weight: 600;
+  inset-block-start: 0;
+  inset-inline-start: 0;
+  line-height: var(--countdown-digit-height);
+  pointer-events: none;
+  position: absolute;
+  transform: translateX(-50%);
+}
+
+.unit,
+.editHint {
+  color: var(--ui-color-text-muted);
+  font-size: var(--ui-font-size-sm);
+  line-height: 1.4;
+}
+
+.unit {
+  margin-top: var(--ui-space-1);
+}
+
+.editHint {
+  margin: 0;
+  text-align: center;
+}
+
+.steps {
+  display: flex;
+  justify-content: center;
+}
+
+.steps .stepControl {
   min-height: 44px;
-  padding-inline: var(--ui-space-1);
+  min-width: 44px;
 }
 
 .favorites {
@@ -77,12 +153,6 @@
   margin: 0;
 }
 
-.unit {
-  color: var(--ui-color-text-muted);
-  font-size: var(--ui-font-size-sm);
-  font-weight: 600;
-}
-
 .footerActions {
   margin-left: auto;
 }
@@ -98,21 +168,19 @@
     width: calc(100vw - 16px) !important;
   }
 
-  .section {
-    padding: 16px 12px;
-  }
-
-  .timeInputs {
-    gap: 6px;
+  .content .section {
+    padding: var(--ui-space-3);
   }
 }
 
-@media (max-width: 340px), (max-height: 600px) {
-  .section {
-    padding-block: 8px;
+@media (max-width: 340px) {
+  .content .section {
+    padding-inline: var(--ui-space-2);
   }
+}
 
-  .timeInputs {
-    gap: 4px;
+@media (max-height: 600px) {
+  .content .section {
+    padding-block: var(--ui-space-2);
   }
 }
