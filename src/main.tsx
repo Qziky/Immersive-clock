@@ -5,6 +5,7 @@ import { BrowserRouter } from "react-router-dom";
 import { App, KeepAwakeRuntimeNotice } from "./App";
 import { LegalConsentGate } from "./components/Legal/LegalConsentGate";
 import { UpdateNotice } from "./components/UpdateNotice/UpdateNotice";
+import { WebUpdateReloadGuard } from "./components/UpdateNotice/WebUpdateReloadGuard";
 import { AppContextProvider } from "./contexts/AppContext";
 import { AppearanceProvider } from "./contexts/AppearanceContext";
 import { startKeepAwakeRuntime } from "./services/keepAwakeRuntime";
@@ -18,6 +19,9 @@ import { initializeStorage } from "./utils/storageInitializer";
 
 import "./styles/global.css";
 import "./styles/tour.css";
+
+declare const __ENABLE_PWA__: boolean;
+const webBuild = shouldRegisterServiceWorker(__ENABLE_PWA__);
 
 let deferredResourcesInitialized = false;
 
@@ -58,6 +62,7 @@ function AppRuntime(): React.ReactElement {
         <FeedbackProvider>
           <KeepAwakeRuntimeNotice />
           <UpdateNotice />
+          {webBuild && <WebUpdateReloadGuard />}
           <App />
         </FeedbackProvider>
       </AppearanceProvider>
@@ -97,8 +102,7 @@ try {
 }
 
 // 注册 Service Worker（仅在 Web 模式下）
-// @ts-ignore
-if (shouldRegisterServiceWorker(__ENABLE_PWA__)) {
+if (webBuild) {
   import("./pwa-register").then(({ initPWA }) => {
     initPWA();
   });

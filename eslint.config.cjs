@@ -77,7 +77,7 @@ module.exports = [
       "@typescript-eslint/ban-ts-comment": "off",
       "no-empty": ["warn", { allowEmptyCatch: true }],
       "import/no-named-as-default": "off",
-      "import/no-unresolved": ["error", { ignore: ["virtual:pwa-register"] }],
+      "import/no-unresolved": "error",
       "no-case-declarations": "off",
       "import/order": [
         "error",

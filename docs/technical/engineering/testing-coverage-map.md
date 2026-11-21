@@ -70,8 +70,9 @@ Android 全屏回归由 `src/hooks/__tests__/useFullscreen.test.ts` 覆盖：多
 | 运行平台/PWA       | `src/utils/__tests__/runtimePlatform.test.ts`、`src/components/SettingsPanel/__tests__/AboutSettingsPanel.test.tsx`、`src/components/AuthorInfo/__tests__/AuthorInfo.test.tsx`                                                      | `src/utils/runtimePlatform.ts`、`src/main.tsx`、`AboutSettingsPanel.tsx`、`AuthorInfo.tsx`                                                    |
 | SEO/GEO            | `src/utils/seo/__tests__/routeSeo.test.ts`、`src/components/Seo/__tests__/RouteSeo.test.tsx`                                                                                                                                        | `src/utils/seo/routeSeo.ts`、`src/components/Seo/RouteSeo.tsx`、`SeoContent.tsx`                                                              |
 
-应用更新由 `src/__tests__/pwa-register.test.ts`、`src/services/update/__tests__/updateManifest.test.ts`、`updateManifestGeneration.test.ts`、`updateRuntime.test.ts`、
-`src/components/UpdateNotice/__tests__/UpdateNotice.test.tsx`、`UpdateSettingsPanel.test.tsx`（含手动检查入口）、
+应用更新由 `src/__tests__/pwa-register.test.ts`、`src/services/update/__tests__/updateManifest.test.ts`、`updateManifestGeneration.test.ts`、`pwaUpdateController.test.ts`（晚到、接管、超时与重试）、
+`updateRuntime.test.ts`、`WebUpdateReloadGuard.test.tsx`（跨模式计时、编辑和刷新保护）、
+`src/components/UpdateNotice/__tests__/UpdateNotice.test.tsx`、`UpdateSettingsPanel.test.tsx`（发现、准备、就绪、失败与手动操作）、
 `src/utils/__tests__/electronUpdateManager.test.ts` 和 `appSettings.test.ts` 覆盖；实现入口为
 `src/services/update`、`src/components/UpdateNotice`、`UpdateSettingsPanel.tsx`、
 `electron/updateManager.ts` 与 `src/utils/appSettings.ts`。

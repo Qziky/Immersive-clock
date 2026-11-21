@@ -15,6 +15,7 @@ const mocks = vi.hoisted(() => ({
     source: "auto",
   } as UpdateSnapshot,
   checkForUpdates: vi.fn(),
+  executeUpdateAction: vi.fn(),
   updateGeneralSettings: vi.fn(),
 }));
 
@@ -24,6 +25,7 @@ vi.mock("../../../../hooks/useUpdateRuntime", () => ({
 
 vi.mock("../../../../services/update/updateRuntime", () => ({
   checkForUpdates: mocks.checkForUpdates,
+  executeUpdateAction: mocks.executeUpdateAction,
   startUpdateRuntime: () => vi.fn(),
 }));
 
@@ -55,6 +57,7 @@ describe("UpdateSettingsPanel", () => {
     };
     mocks.checkForUpdates.mockReset().mockResolvedValue(mocks.snapshot);
     mocks.updateGeneralSettings.mockReset();
+    mocks.executeUpdateAction.mockReset().mockResolvedValue(undefined);
   });
 
   it("展示版本与平台，并提供手动检查入口", () => {
@@ -64,7 +67,38 @@ describe("UpdateSettingsPanel", () => {
     expect(screen.getByText("v4.1.0")).toBeInTheDocument();
     expect(screen.getByText("Web / PWA")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "检查更新" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /立即更新|重启并安装/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "准备更新" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "刷新并更新" })).not.toBeInTheDocument();
+  });
+
+  it.each([
+    ["available", "准备更新"],
+    ["ready", "刷新并更新"],
+    ["error", "重试更新"],
+  ] as const)("Web 阶段 %s 提供可执行入口", async (status, label) => {
+    mocks.snapshot = { ...mocks.snapshot, status };
+    renderPanel();
+
+    await userEvent.click(screen.getByRole("button", { name: label }));
+    expect(mocks.executeUpdateAction).toHaveBeenCalledTimes(1);
+  });
+
+  it("准备中说明可以继续使用，不显示刷新操作", () => {
+    mocks.snapshot = { ...mocks.snapshot, status: "preparing" };
+    renderPanel();
+
+    expect(screen.getByText("正在准备新版资源")).toBeVisible();
+    expect(screen.queryByRole("button", { name: "刷新并更新" })).not.toBeInTheDocument();
+  });
+
+  it("本窗计时未结束时保留就绪状态，但阻止手动刷新", async () => {
+    mocks.snapshot = { ...mocks.snapshot, status: "ready", webReloadBlocked: true };
+    renderPanel();
+    const apply = screen.getByRole("button", { name: "刷新并更新" });
+    expect(apply).toBeDisabled();
+    expect(screen.getByText(/当前窗口有计时或编辑未结束/)).toBeInTheDocument();
+    await userEvent.click(apply);
+    expect(mocks.executeUpdateAction).not.toHaveBeenCalled();
   });
 
   it("点击手动检查会以 manual 标记发起更新检查", async () => {

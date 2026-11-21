@@ -240,7 +240,7 @@ Windows and Linux desktop packages and a release-signed Android sideload APK are
 
 After the first successful online load, the PWA normally keeps the core clock interface and local content available offline. New weather, city search, online quotes, network time sources, and external feedback still require a connection.
 
-Web/PWA checks the stable channel at startup and again after returning to the foreground when the last check is more than six hours old. When the browser finds a waiting Service Worker, the app activates it and reloads automatically without showing an update button. Use **System Data → App Updates (`应用更新`)** to view status or save the automatic-check preference; the page no longer provides manual check or install actions.
+Web/PWA checks the stable channel at startup and on returning to the foreground after six hours. Open **System Data → App Updates (`应用更新`)** to check manually, prepare or retry an update, and select **Refresh and update (`刷新并更新`)** once it is ready. Finding a newer version does not mean its offline resources are ready. Only the window where you select the action reloads, and running or partially elapsed timers and open countdown edits block that refresh. Checking and updating do not clear local data. Turning automatic checks off does not disable manual checks or browser resource preparation.
 
 Windows NSIS and Linux AppImage builds silently download a verified stable update. When it is ready, a persistent message asks you to restart the app, without an action button; the downloaded update installs on normal exit. Windows Portable and Linux deb/rpm notices retain the matching download or Release-page action. Android retains its APK download action and still asks for installation confirmation.
 

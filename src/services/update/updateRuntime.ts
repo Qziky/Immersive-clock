@@ -5,21 +5,18 @@ import type {
   UpdateManifest,
   UpdatePlatform,
   UpdateSnapshot,
+  UpdateStatus,
 } from "../../types/update";
 import { getAppSettings } from "../../utils/appSettings";
 import { getRuntimePlatform } from "../../utils/runtimePlatform";
 
+import type { PwaUpdateControl } from "./pwaUpdateController";
 import {
   compareVersions,
   fetchUpdateManifest,
   getCurrentVersion,
   getPlatformRelease,
 } from "./updateManifest";
-
-export interface PwaUpdateControl {
-  check: () => Promise<boolean>;
-  update: () => Promise<void>;
-}
 
 const UPDATE_NOTICE_ID = "app-update-notice";
 const FOREGROUND_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
@@ -35,8 +32,14 @@ let electronBridge: ElectronUpdateBridge | null = null;
 let started = false;
 let runtimeConsumers = 0;
 let checkPromise: Promise<UpdateSnapshot> | null = null;
-let pwaUpdatePromise: Promise<void> | null = null;
-let pwaUpdateRequested = false;
+let pwaUnsubscribe: (() => void) | undefined;
+let webSupportsWorker: boolean | undefined;
+let webManifest: UpdateManifest | undefined;
+let webManifestChecking = false;
+let webManifestError: string | undefined;
+let webActivationError: string | undefined;
+let webReloadBlocked = false;
+let webApplyPromise: Promise<void> | undefined;
 let lastCheckAt = 0;
 let foregroundHandler: (() => void) | null = null;
 let visibilityHandler: (() => void) | null = null;
@@ -125,22 +128,106 @@ function getElectronBridge(): ElectronUpdateBridge | null {
   return candidate;
 }
 
-function applyWaitingPwaUpdate(): Promise<void> {
-  if (!pwaControl) return Promise.resolve();
-  if (pwaUpdatePromise) return pwaUpdatePromise;
-  if (pwaUpdateRequested) return Promise.resolve();
+function publishWebState(source: UpdateSnapshot["source"] = snapshot.source): UpdateSnapshot {
+  const worker = pwaControl?.getSnapshot();
+  const latestVersion = webManifest
+    ? (webManifest.platforms.web?.version ?? webManifest.version)
+    : undefined;
+  const newer = Boolean(
+    latestVersion && compareVersions(latestVersion, snapshot.currentVersion) > 0
+  );
+  const webDirectReload = webSupportsWorker === false && newer;
+  const workerReady = worker?.status === "waiting" || worker?.status === "controlled";
+  const error = webActivationError ?? worker?.error ?? webManifestError;
+  let status: UpdateStatus = "idle";
+  if (webApplyPromise) status = "applying";
+  else if (webActivationError) status = "error";
+  else if (workerReady || webDirectReload) status = "ready";
+  else if (worker?.status === "preparing") status = "preparing";
+  else if (webManifestChecking) status = "checking";
+  else if (error) status = "error";
+  else if (newer) status = "available";
+  else if (webManifest) status = "current";
+  return emit({
+    platform: "web",
+    currentVersion: snapshot.currentVersion,
+    status,
+    latestVersion,
+    manifest: webManifest,
+    checkedAt: lastCheckAt || undefined,
+    source,
+    error: status === "error" ? error : undefined,
+    action:
+      status === "ready" || status === "available"
+        ? "update"
+        : status === "error"
+          ? "retry"
+          : undefined,
+    minimumVersionWarning: Boolean(
+      webManifest?.minimumSupportedVersion &&
+      compareVersions(snapshot.currentVersion, webManifest.minimumSupportedVersion) < 0
+    ),
+    webReloadBlocked: Boolean(workerReady || webDirectReload) && webReloadBlocked,
+    webDirectReload,
+  });
+}
 
-  pwaUpdateRequested = true;
-  pwaUpdatePromise = pwaControl
-    .update()
+function checkWeb(source: "auto" | "manual"): Promise<UpdateSnapshot> {
+  webManifestChecking = true;
+  webManifestError = undefined;
+  if (source === "manual") webActivationError = undefined;
+  publishWebState(source);
+  // The manifest and worker may arrive in either order. A slow/failed
+  // precache check must not hide a successfully discovered newer version.
+  void pwaControl?.check();
+  checkPromise = fetchUpdateManifest("web")
+    .then((manifest) => {
+      webManifest = manifest;
+      lastCheckAt = Date.now();
+    })
     .catch((error) => {
-      pwaUpdateRequested = false;
-      setError(error, "auto");
+      webManifestError = error instanceof Error ? error.message : "更新检查失败，请稍后重试。";
+    })
+    .then(() => {
+      webManifestChecking = false;
+      return publishWebState(source);
     })
     .finally(() => {
-      pwaUpdatePromise = null;
+      checkPromise = null;
     });
-  return pwaUpdatePromise;
+  return checkPromise;
+}
+
+async function executeWebUpdate(): Promise<void> {
+  if (webApplyPromise) return webApplyPromise;
+  const worker = pwaControl?.getSnapshot();
+  const workerReady = worker?.status === "waiting" || worker?.status === "controlled";
+  if (!workerReady && !snapshot.webDirectReload) {
+    await checkForUpdates({ manual: true });
+    return;
+  }
+  if (webReloadBlocked) return;
+
+  webActivationError = undefined;
+  // Capture the selected registration for this action.
+  const control = pwaControl;
+  webApplyPromise = Promise.resolve()
+    .then(async () => {
+      if (webReloadBlocked) return;
+      // For an actual SW update activate() resolves only when it is the
+      // page's controller. Other tabs never reload on this signal alone.
+      await control?.activate();
+      if (!webReloadBlocked) window.location.reload();
+    })
+    .catch((error) => {
+      webActivationError = error instanceof Error ? error.message : "更新失败，请稍后重试。";
+    })
+    .finally(() => {
+      webApplyPromise = undefined;
+      publishWebState("manual");
+    });
+  publishWebState("manual");
+  return webApplyPromise;
 }
 
 export function getUpdateSnapshot(): UpdateSnapshot {
@@ -153,38 +240,22 @@ export function subscribeUpdateRuntime(listener: () => void): () => void {
 }
 
 export function configurePwaUpdateControl(control: PwaUpdateControl | null): void {
-  if (pwaControl !== control) pwaUpdateRequested = false;
+  if (snapshot.platform !== "web") return;
+  pwaUnsubscribe?.();
   pwaControl = control;
-  if (control && snapshot.platform === "web") {
-    void control
-      .check()
-      .then((waiting) => {
-        if (!waiting) return;
-        emit({
-          ...snapshot,
-          status: "available",
-          latestVersion: snapshot.latestVersion ?? snapshot.currentVersion,
-          action: undefined,
-          source: "platform",
-        });
-        return applyWaitingPwaUpdate();
-      })
-      .catch((error) => {
-        setError(error, "auto");
-      });
-  }
+  webSupportsWorker = Boolean(control);
+  pwaUnsubscribe = control?.subscribe(() => {
+    if (control.getSnapshot().status === "controlled") webActivationError = undefined;
+    publishWebState("platform");
+  });
+  publishWebState();
+  void control?.check();
 }
 
-export function markPwaUpdateAvailable(): void {
-  if (snapshot.platform !== "web") return;
-  emit({
-    ...snapshot,
-    status: "available",
-    latestVersion: snapshot.latestVersion ?? snapshot.currentVersion,
-    action: undefined,
-    source: "platform",
-  });
-  void applyWaitingPwaUpdate();
+export function setWebUpdateReloadBlocked(blocked: boolean): void {
+  if (snapshot.platform !== "web" || webReloadBlocked === blocked) return;
+  webReloadBlocked = blocked;
+  publishWebState();
 }
 
 export async function checkForUpdates(options: UpdateCheckOptions = {}): Promise<UpdateSnapshot> {
@@ -193,6 +264,7 @@ export async function checkForUpdates(options: UpdateCheckOptions = {}): Promise
   if (!manual && !canAutoCheck()) return snapshot;
   if (!manual && import.meta.env.DEV && import.meta.env.MODE !== "test") return snapshot;
   if (checkPromise) return checkPromise;
+  if (snapshot.platform === "web") return checkWeb(source);
 
   const bridge = getElectronBridge();
   if (snapshot.platform === "electron" && bridge) {
@@ -219,28 +291,20 @@ export async function checkForUpdates(options: UpdateCheckOptions = {}): Promise
         manifest.minimumSupportedVersion &&
         compareVersions(snapshot.currentVersion, manifest.minimumSupportedVersion) < 0
       );
-      const waiting = snapshot.platform === "web" && pwaControl ? await pwaControl.check() : false;
       lastCheckAt = Date.now();
       const newerVersion = compareVersions(latestVersion, snapshot.currentVersion) > 0;
-      if (waiting || newerVersion) {
-        const next = emit({
+      if (newerVersion) {
+        return emit({
           ...snapshot,
           status: "available",
           latestVersion,
           manifest,
           checkedAt: lastCheckAt,
           source,
-          action:
-            snapshot.platform === "web"
-              ? undefined
-              : snapshot.platform === "android"
-                ? "download"
-                : "open",
+          action: snapshot.platform === "android" ? "download" : "open",
           minimumVersionWarning,
           error: undefined,
         });
-        if (waiting) void applyWaitingPwaUpdate();
-        return next;
       }
       return emit({
         ...snapshot,
@@ -263,21 +327,12 @@ export async function checkForUpdates(options: UpdateCheckOptions = {}): Promise
 
 export async function executeUpdateAction(): Promise<void> {
   const current = snapshot;
-  if (current.status === "error" || current.action === "retry") {
-    await checkForUpdates({ manual: true });
+  if (current.platform === "web") {
+    await executeWebUpdate();
     return;
   }
-  if (current.platform === "web") {
-    if (pwaControl) {
-      try {
-        await pwaControl.update();
-        return;
-      } catch (error) {
-        setError(error, current.source === "manual" ? "manual" : "auto");
-        throw error;
-      }
-    }
-    window.location.reload();
+  if (current.status === "error" || current.action === "retry") {
+    await checkForUpdates({ manual: true });
     return;
   }
   const bridge = getElectronBridge();

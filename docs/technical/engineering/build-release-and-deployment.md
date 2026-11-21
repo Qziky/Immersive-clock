@@ -9,8 +9,9 @@ Actions 共同定义，要求 Node.js 22 或更高版本。
 `npm run build` 执行 Vite 生产构建、统一清单生成、postbuild、预渲染和合规检查，输出 `dist/`。
 `VITE_APP_VERSION` 优先于 `package.json.version`，该值会注入应用、manifest、公告偏好和缓存键。
 
-Web mode 启用 `vite-plugin-pwa`，发现 waiting Service Worker 后直接激活并刷新；Electron 和 Android
-不注册 Service Worker。发布前验证首次在线加载、离线重开、Web 自动切换资源、桌面端重启提醒、
+Web mode 启用 `vite-plugin-pwa`，后台准备新版 Service Worker，就绪后由用户在空闲窗口内手动切换；
+Electron 和 Android 不注册 Service Worker。发布前验证首次在线加载、离线重开、Web 接管后只刷新
+发起更新的空闲窗口、桌面端重启提醒、
 `/docs/*.md` NetworkFirst 行为，以及 IndexedDB 中的自定义字体和背景不会因缓存清理丢失。
 
 `scripts/generate-update-manifest.mjs` 从包版本、Android `versionCode` 与 Release Tag 生成

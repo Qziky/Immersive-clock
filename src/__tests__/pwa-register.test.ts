@@ -1,82 +1,44 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
+  createPwaUpdateControl: vi.fn(),
   configurePwaUpdateControl: vi.fn(),
-  markPwaUpdateAvailable: vi.fn(),
-  registerSW: vi.fn(),
-  updateSW: vi.fn().mockResolvedValue(undefined),
-  warn: vi.fn(),
 }));
 
-vi.mock("virtual:pwa-register", () => ({
-  registerSW: mocks.registerSW,
+vi.mock("../services/update/pwaUpdateController", () => ({
+  createPwaUpdateControl: mocks.createPwaUpdateControl,
 }));
 
 vi.mock("../services/update/updateRuntime", () => ({
   configurePwaUpdateControl: mocks.configurePwaUpdateControl,
-  markPwaUpdateAvailable: mocks.markPwaUpdateAvailable,
-}));
-
-vi.mock("../utils/logger", () => ({
-  logger: { warn: mocks.warn },
 }));
 
 describe("initPWA", () => {
-  let callbacks: {
-    onNeedRefresh?: () => void;
-    onRegisterError?: (error: unknown) => void;
-  };
-  const registrationUpdate = vi.fn().mockResolvedValue(undefined);
-  const getRegistration = vi.fn();
-
   beforeEach(() => {
-    callbacks = {};
-    mocks.configurePwaUpdateControl.mockReset();
-    mocks.markPwaUpdateAvailable.mockReset();
-    mocks.registerSW.mockReset().mockImplementation((options) => {
-      callbacks = options;
-      return mocks.updateSW;
-    });
-    mocks.updateSW.mockReset().mockResolvedValue(undefined);
-    mocks.warn.mockReset();
-    registrationUpdate.mockReset().mockResolvedValue(undefined);
-    getRegistration.mockReset().mockResolvedValue({
-      update: registrationUpdate,
-      waiting: {},
-    });
-    Object.defineProperty(navigator, "serviceWorker", {
-      configurable: true,
-      value: { getRegistration },
-    });
+    vi.resetModules();
+    mocks.configurePwaUpdateControl.mockClear();
+    mocks.createPwaUpdateControl.mockReset().mockReturnValue({});
   });
 
-  afterEach(() => {
-    Reflect.deleteProperty(navigator, "serviceWorker");
-  });
+  afterEach(() => Reflect.deleteProperty(navigator, "serviceWorker"));
 
-  it("把新 Worker 事件交给自动更新运行时，并提供直接激活能力", async () => {
+  it("原生 Service Worker 控制只初始化一次", async () => {
+    const serviceWorker = {};
+    Object.defineProperty(navigator, "serviceWorker", { configurable: true, value: serviceWorker });
     const { initPWA } = await import("../pwa-register");
     initPWA();
-
-    callbacks.onNeedRefresh?.();
-    expect(mocks.markPwaUpdateAvailable).toHaveBeenCalledTimes(1);
-
-    const control = mocks.configurePwaUpdateControl.mock.calls[0]?.[0];
-    await expect(control.check()).resolves.toBe(true);
-    expect(registrationUpdate).toHaveBeenCalledTimes(1);
-
-    await control.update();
-    expect(mocks.updateSW).toHaveBeenCalledWith(true);
+    initPWA();
+    expect(mocks.createPwaUpdateControl).toHaveBeenCalledExactlyOnceWith(
+      serviceWorker,
+      import.meta.env.DEV ? "/dev-sw.js?dev-sw" : "/sw.js"
+    );
+    expect(mocks.configurePwaUpdateControl).toHaveBeenCalledTimes(1);
   });
 
-  it("注册失败时移除更新控制并记录警告", async () => {
+  it("没有 SW API 时明确报告，允许用户选择网页刷新", async () => {
     const { initPWA } = await import("../pwa-register");
     initPWA();
-    const error = new Error("注册失败");
-
-    callbacks.onRegisterError?.(error);
-
-    expect(mocks.configurePwaUpdateControl).toHaveBeenLastCalledWith(null);
-    expect(mocks.warn).toHaveBeenCalledWith("PWA Service Worker 注册失败", error);
+    expect(mocks.createPwaUpdateControl).not.toHaveBeenCalled();
+    expect(mocks.configurePwaUpdateControl).toHaveBeenCalledExactlyOnceWith(null);
   });
 });

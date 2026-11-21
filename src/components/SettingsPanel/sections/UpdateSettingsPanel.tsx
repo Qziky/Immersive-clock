@@ -1,8 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { useUpdateSnapshot } from "../../../hooks/useUpdateRuntime";
-import { checkForUpdates, startUpdateRuntime } from "../../../services/update/updateRuntime";
-import type { UpdateStatus } from "../../../types/update";
+import {
+  checkForUpdates,
+  executeUpdateAction,
+  startUpdateRuntime,
+} from "../../../services/update/updateRuntime";
+import type { UpdateSnapshot, UpdateStatus } from "../../../types/update";
 import {
   Button,
   FormSection,
@@ -27,6 +31,8 @@ const STATUS_LABELS: Record<UpdateStatus, string> = {
   checking: "检查中",
   current: "已是最新",
   available: "有新版本",
+  preparing: "准备中",
+  applying: "切换中",
   downloading: "下载中",
   ready: "已就绪",
   error: "检查失败",
@@ -38,6 +44,8 @@ const STATUS_TONES: Record<UpdateStatus, "neutral" | "accent" | "success" | "war
     checking: "accent",
     current: "success",
     available: "warning",
+    preparing: "accent",
+    applying: "accent",
     downloading: "accent",
     ready: "success",
     error: "danger",
@@ -51,6 +59,62 @@ function getPlatformLabel(platform: ReturnType<typeof getRuntimePlatform>): stri
 
 function formatCheckedAt(timestamp?: number): string {
   return timestamp ? new Date(timestamp).toLocaleString() : "尚未检查";
+}
+
+const WEB_UPDATE_MESSAGES = {
+  available: {
+    title: "发现新版本",
+    description:
+      "新版网页资源尚未就绪，可以重新检查。若一直未就绪，结束计时后关闭本站所有窗口并重新打开。",
+    button: "准备更新",
+  },
+  preparing: {
+    title: "正在准备新版资源",
+    description: "可以继续使用时钟，资源就绪后可手动刷新。",
+  },
+  ready: {
+    title: "新版已准备好",
+    description: "只刷新当前窗口，已保存的设置和历史数据会保留。请先保存未提交的更改。",
+    button: "刷新并更新",
+  },
+  applying: {
+    title: "正在切换新版资源",
+    description: "确认新版资源接管此窗口后才会刷新。",
+  },
+  error: {
+    title: "网页更新未完成",
+    description: "请检查网络后重试。若仍未更新，可关闭本站所有窗口并重新打开。",
+    button: "重试更新",
+  },
+} as const;
+
+function WebUpdateStatus({ snapshot }: { snapshot: UpdateSnapshot }) {
+  if (snapshot.platform !== "web" || !(snapshot.status in WEB_UPDATE_MESSAGES)) return null;
+  const status = snapshot.status as keyof typeof WEB_UPDATE_MESSAGES;
+  const message = WEB_UPDATE_MESSAGES[status];
+  const requiresIdle = (status === "ready" || status === "error") && snapshot.webReloadBlocked;
+  return (
+    <SettingItem
+      icon="feature.sync"
+      title={snapshot.webDirectReload && status === "ready" ? "可以重新加载网页" : message.title}
+      description={
+        requiresIdle
+          ? "当前窗口有计时或编辑未结束。结束或重置计时并关闭编辑后再刷新。"
+          : message.description
+      }
+      control={
+        "button" in message ? (
+          <Button
+            variant={status === "ready" ? "primary" : "secondary"}
+            disabled={requiresIdle}
+            onClick={() => void executeUpdateAction()}
+          >
+            {message.button}
+          </Button>
+        ) : undefined
+      }
+    />
+  );
 }
 
 export default function UpdateSettingsPanel({ onRegisterSave }: UpdateSettingsPanelProps) {
@@ -74,6 +138,7 @@ export default function UpdateSettingsPanel({ onRegisterSave }: UpdateSettingsPa
     void checkForUpdates({ manual: true });
   }, []);
   const isChecking = snapshot.status === "checking";
+  const isApplying = snapshot.status === "applying";
 
   return (
     <Stack gap="lg">
@@ -114,7 +179,12 @@ export default function UpdateSettingsPanel({ onRegisterSave }: UpdateSettingsPa
             title="手动检查更新"
             description="立即连接更新服务，检查当前平台的稳定版更新。"
             control={
-              <Button icon="feature.sync" loading={isChecking} onClick={handleManualCheck}>
+              <Button
+                icon="feature.sync"
+                loading={isChecking}
+                disabled={isApplying}
+                onClick={handleManualCheck}
+              >
                 检查更新
               </Button>
             }
@@ -132,6 +202,8 @@ export default function UpdateSettingsPanel({ onRegisterSave }: UpdateSettingsPa
             }
           />
         </SettingGrid>
+
+        <WebUpdateStatus snapshot={snapshot} />
 
         {snapshot.minimumVersionWarning ? (
           <InfoPanel tone="warning" title="建议尽快升级">
