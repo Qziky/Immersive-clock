@@ -121,11 +121,20 @@ async function openUpdates(page) {
   await page.getByRole("button", { name: "打开设置", exact: true }).click();
   const panel = settings(page);
   await panel.waitFor();
-  const updates = panel.getByRole("button", { name: "应用更新", exact: true });
-  if (!(await updates.isVisible())) {
-    await panel.getByRole("button", { name: "系统数据", exact: true }).click();
+  const nav = panel.getByRole("navigation", { name: "设置分组", exact: true });
+  // On desktop the group button's accessible name includes its description.
+  const system = nav.getByRole("button", { name: /^系统数据/ });
+  if ((await system.getAttribute("aria-expanded")) !== "true") {
+    await system.click();
+    await waitUntil(
+      "System data group did not expand",
+      async () => (await system.getAttribute("aria-expanded")) === "true"
+    );
   }
-  await updates.click();
+  await nav
+    .getByRole("group", { name: "系统数据", exact: true })
+    .getByRole("button", { name: "应用更新", exact: true })
+    .click();
   await panel.getByRole("button", { name: "检查更新", exact: true }).waitFor();
 }
 
@@ -239,8 +248,13 @@ async function runBrowserSmoke() {
     headless: true,
     ...(process.env.PWA_CHROMIUM_PATH && { executablePath: process.env.PWA_CHROMIUM_PATH }),
   });
+  const tabs = new Map();
   try {
-    const ctx = await browser.newContext({ serviceWorkers: "allow" });
+    const ctx = await browser.newContext({
+      serviceWorkers: "allow",
+      viewport: { width: 1440, height: 900 },
+      reducedMotion: "reduce",
+    });
     ctx.setDefaultTimeout(apiTimeout);
     await ctx.addInitScript(
       ({ testOrigin, legalVersion, oldVersion }) => {
@@ -276,10 +290,13 @@ async function runBrowserSmoke() {
     );
 
     const idle = await ctx.newPage();
+    tabs.set("applying", idle);
     await openControlled(idle);
     const observer = await ctx.newPage();
+    tabs.set("idle observer", observer);
     await openControlled(observer);
     const busy = await ctx.newPage();
+    tabs.set("countdown observer", busy);
     await openControlled(busy);
     await busy.bringToFront();
     await startCountdown(busy);
@@ -303,6 +320,7 @@ async function runBrowserSmoke() {
       null,
       { polling: 100, timeout: apiTimeout }
     );
+    console.log(`The real ${after.version} worker is installed and waiting.`);
     await busy.bringToFront();
     await assertBlocked(busy, "Running countdown");
     assert.equal((await doc(idle)).nonce, idleOriginal.nonce, "Idle tab refreshed without a click");
@@ -357,6 +375,35 @@ async function runBrowserSmoke() {
     console.log(
       `Browser smoke passed: explicit idle update to ${after.version}, saved favorite intact, idle and running sibling tabs not reloaded, paused countdown protected.`
     );
+  } catch (error) {
+    await Promise.all(
+      [...tabs].map(async ([label, page]) => {
+        const [worker, drawer] = await Promise.all([
+          Promise.race([
+            page
+              .evaluate(async () => {
+                const registration = await navigator.serviceWorker.getRegistration("/");
+                return {
+                  controller: navigator.serviceWorker.controller?.state,
+                  active: registration?.active?.state,
+                  waiting: registration?.waiting?.state,
+                  installing: registration?.installing?.state,
+                  swaps: window.__pwaSmokeDocument?.swaps,
+                };
+              })
+              .catch(() => null),
+            sleep(1_000, null, { ref: false }),
+          ]),
+          settings(page)
+            .ariaSnapshot({ timeout: 1_000 })
+            .catch(() => "(settings not open)"),
+        ]);
+        console.error(
+          `[PWA smoke: ${label}] ${page.url()} worker=${JSON.stringify(worker)}\n${drawer.slice(0, 2600)}`
+        );
+      })
+    );
+    throw error;
   } finally {
     await browser.close();
   }
